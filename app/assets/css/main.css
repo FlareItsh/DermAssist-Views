@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-background: oklch(0.9663 0.016 250.831);
@@ -46,8 +46,8 @@
   --radius: 0.625rem;
 
   --font-primary: Poppins;
-  --font-sans: "DM Sans", sans-serif;
-  --font-serif: "Playfair Display", serif;
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'Playfair Display', serif;
 
   --color-primary-light: oklch(0.88 0.06 257);
   --color-primary-dark: oklch(0.79 0.106 255);
