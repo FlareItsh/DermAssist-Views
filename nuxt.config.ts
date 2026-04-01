@@ -8,5 +8,11 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()]
   },
+  runtimeConfig: {
+    public: {
+      apiBase: '' // Overridden by NUXT_PUBLIC_API_BASE environment variable
+    }
+  },
   modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon']
+
 })
