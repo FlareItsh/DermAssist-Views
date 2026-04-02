@@ -45,6 +45,7 @@
   --color-sidebar-ring: oklch(0.54 0.229 264);
   --radius: 0.625rem;
 
+  --font-barlow: 'Barlow Condensed', sans-serif;
   --font-primary: Poppins;
   --font-sans: 'DM Sans', sans-serif;
   --font-serif: 'Playfair Display', serif;
