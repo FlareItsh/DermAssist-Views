@@ -7,10 +7,12 @@
 <template>
   <nav class="flex items-center justify-between p-4">
     <div class="flex items-center gap-10">
-      <NuxtImg
-        src="/DA_Logo.png"
-        class="h-20"
-      />
+      <NuxtLink to="/">
+        <NuxtImg
+          src="/DA_Logo.png"
+          class="h-20"
+        />
+      </NuxtLink>
 
       <h2 class="text-3xl font-semibold">{{ title }}</h2>
     </div>
