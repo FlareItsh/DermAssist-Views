@@ -35,7 +35,7 @@
   --color-chart-4: oklch(0.621 0.250758 23.28 / 1);
   --color-chart-5: oklch(0.685 0.14386 76.03 / 0.615);
 
-  --color-sidebar: oklch(0.9581 0 0);
+  --color-sidebar: oklch(1 0 0);
   --color-sidebar-foreground: oklch(0 0 0);
   --color-sidebar-primary: oklch(0.5888 0.215 258.275);
   --color-sidebar-primary-foreground: oklch(0 0 0 / 0.85);
