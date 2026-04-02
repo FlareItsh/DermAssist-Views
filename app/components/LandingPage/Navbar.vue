@@ -6,7 +6,7 @@
       <a href="#" class="cursor-pointer">Contact Us</a>
     </div>
     <div class="flex space-x-2 mr-3">
-      <NuxtImg src="/DA_Icon.png" class="h-15 w-auto mb-2 mx-auto" alt="Logo" />
+      <NuxtImg src="/images/DA_Icon.png" class="h-15 w-auto mb-2 mx-auto" alt="Logo" />
       <h1 class="font-barlow font-light mt-2 text-5xl">DermAssist</h1>
     </div>
 

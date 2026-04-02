@@ -13,7 +13,7 @@
     </div>
 
     <div class="flex space-x-20 justify-center items-center">
-      <NuxtImg src="/accuracy-test.png" class="h-100 w-auto" alt="CTA" />
+      <NuxtImg src="/images/accuracy-test.png" class="h-100 w-auto" alt="CTA" />
       <div class="flex flex-col space-y-3">
         <p class="text-2xl font-semibold w-185">With DermAssist, you benefit from AI-powered</p>
         <p class="text-2xl font-semibold w-185">analysis backed by real doctors. Our system helps </p>
@@ -32,7 +32,7 @@
       </div>
       <div>
         <h1 class="-mb-25 font-semibold tracking-[10px] leading-25 text-foreground text-[82px]">Smarter Skin Care, Made <br> Accessible</h1>
-        <NuxtImg src="/about-us-img.png" class="h-auto w-screen" alt="CTA" />
+        <NuxtImg src="/images/about-us-img.png" class="h-auto w-screen" alt="CTA" />
       </div>
     </div>  
 
@@ -75,7 +75,7 @@
         <h1 class="font-semibold text-secondary text-5xl">Contact for Reports & Feedback</h1>
       </div>
       <div class="flex gap-10">
-        <NuxtImg src="/contact-us-img.png" class="h-auto w-1/2 object-cover rounded-[25px]" alt="contact" />
+        <NuxtImg src="/images/contact-us-img.png" class="h-auto w-1/2 object-cover rounded-[25px]" alt="contact" />
         
         <div class="flex flex-col w-1/2 bg-card p-15 px-25 rounded-[25px]">
           <h1 class="text-3xl font-semibold mb-2">Get in Touch</h1>

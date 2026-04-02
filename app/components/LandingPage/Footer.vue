@@ -19,7 +19,7 @@
         </div>
       </div>
       <div class="flex -ml-3.5 mt-5 justify-start items-center space-x-5">
-        <NuxtImg src="/DA_Icon.png" class="h-25 w-auto" alt="Logo" />
+        <NuxtImg src="/images/DA_Icon.png" class="h-25 w-auto" alt="Logo" />
         <p class="text-card text-8xl font-barlow tracking-[90px]">DERMASSIST</p>
       </div>
       <div class="flex">

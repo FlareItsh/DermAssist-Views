@@ -3,7 +3,6 @@
 @theme {
   --color-background: oklch(0.9663 0.016 250.831);
   --color-foreground: oklch(0 0 0);
-  --color-light-gray: oklch(0.94 0 0);
 
   --color-card: oklch(1 0 0);
   --color-card-foreground: oklch(0 0 0);
