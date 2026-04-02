@@ -11,7 +11,11 @@
           <p class="text-card text-2xl">dermassist@gmail.com</p>
         </div>
         <div>
-          <p class="text-card text-2xl font-barlow">Home | About | Features | Contact Us</p>
+          <div class="text-card font-barlow text-2xl hidden md:flex space-x-4">
+            <a href="#" class="cursor-pointer">About</a> <span>|</span>
+            <a href="#" class="cursor-pointer">Features</a> <span>|</span>
+            <a href="#" class="cursor-pointer">Contact Us</a>
+          </div>
         </div>
       </div>
       <div class="flex -ml-3.5 mt-5 justify-start items-center space-x-5">
