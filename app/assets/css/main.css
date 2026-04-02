@@ -54,3 +54,11 @@
   --color-primary-dark: oklch(0.79 0.106 255);
   --color-primary-ring: oklch(0.7 0.153 257);
 }
+
+* {
+  @apply font-primary;
+}
+
+body {
+  @apply bg-background;
+}
