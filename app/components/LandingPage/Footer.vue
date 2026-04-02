@@ -1,13 +1,25 @@
 <template>
   <div class="bg-secondary">
     <div class="flex items-center">
-      <h1 class="ml-12 pt-15 text-card text-2xl font-semibold">DermAssist – AI-Powered Skin Detection & Doctor Consultation</h1>
-      <div class="h-[5px] rounded-full mt-7 bg-card w-188"></div>
+      <h1 class="ml-12 pt-15 font-barlow text-card text-3xl font-semibold">DermAssist – AI-Powered Skin Detection & Doctor Consultation</h1>
+      <div class="h-[5px] rounded-full mt-7 bg-card w-208"></div>
     </div>
-    <div class="m-12 space-y--2">
-      <div class="font-barlow">
-        <p class="text-primary-light">Contact DermAssist at:</p>
-        <p class="text-card font-semibold text-2xl">dermassist@gmail.com</p>
+    <div class="m-12 mt-30">
+      <div class=" flex justify-between">
+        <div class="font-barlow leading-1">
+          <p class="text-primary-light">Contact DermAssist at:</p>
+          <p class="text-card text-2xl">dermassist@gmail.com</p>
+        </div>
+        <div>
+          <p class="text-card text-2xl font-barlow">Home | About | Features | Contact Us</p>
+        </div>
+      </div>
+      <div class="flex -ml-3.5 mt-5 justify-start items-center space-x-5">
+        <NuxtImg src="/DA_Icon.png" class="h-25 w-auto" alt="Logo" />
+        <p class="text-card text-8xl font-barlow tracking-[90px]">DERMASSIST</p>
+      </div>
+      <div class="flex">
+        <p class="text-primary-light text-sm font-barlow">© 2026 DermAssist. All rights reserved. Privacy Policy | Terms of Service</p>
       </div>
     </div>
   </div>
