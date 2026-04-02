@@ -15,4 +15,3 @@ export const $api = <T>(url: string, options: any = {}) => {
     baseURL: config.public.apiBase
   })
 }
-
