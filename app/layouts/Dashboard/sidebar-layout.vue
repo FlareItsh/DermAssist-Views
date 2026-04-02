@@ -1,6 +1,6 @@
 <template>
   <div class="bg-background flex h-screen flex-col overflow-hidden">
-    <AppNavbar title="Admin Dashboard"> </AppNavbar>
+    <AppNavbar :title="currentPageTitle" />
 
     <div class="flex flex-1 overflow-hidden">
       <AppSidebar :items="adminNavItems" />
@@ -15,14 +15,19 @@
 </template>
 
 <script setup>
+  const route = useRoute()
+
   const adminNavItems = [
     { icon: 'mi:home', label: 'Dashboard', to: '/admin' },
     {
-      icon: 'material-symbols-light:camera-rounded',
-      label: 'Scan',
-      to: '/admin/scan'
-    },
-    { icon: 'mynaui:envelope', label: 'Messages', to: '/admin/messages' },
-    { icon: 'ic:round-settings', label: 'Settings', to: '/admin/settings' }
+      icon: 'mage:user-circle',
+      label: 'Users',
+      to: '/admin/users'
+    }
   ]
+
+  const currentPageTitle = computed(() => {
+    const activeItem = adminNavItems.find(item => item.to === route.path)
+    return activeItem?.navbarTitle || activeItem?.label || 'Title'
+  })
 </script>

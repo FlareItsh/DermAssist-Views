@@ -29,10 +29,10 @@
         :id="id"
         :value="modelValue"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
-        class="peer border-input focus:ring-primary focus:border-primary bg-primary/5 block w-full rounded-2xl border pb-3.5 pt-6 text-sm shadow-sm transition-all duration-200 focus:ring-2 focus:outline-none placeholder-transparent"
+        class="peer border-input focus:ring-primary focus:border-primary bg-primary/5 block w-full rounded-2xl border pt-6 pb-3.5 text-sm placeholder-transparent shadow-sm transition-all duration-200 focus:ring-2 focus:outline-none"
         :class="[
           error ? 'border-destructive focus:ring-destructive' : '',
-          type === 'password' ? 'pl-4 pr-12' : 'px-4',
+          type === 'password' ? 'pr-12 pl-4' : 'px-4'
         ]"
         :placeholder="placeholder || ' '"
         :aria-describedby="error ? `${id}-error` : undefined"
@@ -42,14 +42,17 @@
         v-if="type === 'password'"
         type="button"
         @click="togglePassword"
-        class="text-foreground/40 hover:text-primary absolute right-4 focus:outline-none transition-colors z-20"
+        class="text-foreground/40 hover:text-primary absolute right-4 z-20 transition-colors focus:outline-none"
       >
-        <Icon :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'" class="h-5 w-5" />
+        <Icon
+          :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'"
+          class="h-5 w-5"
+        />
       </button>
 
       <label
         :for="id"
-        class="pointer-events-none absolute left-4 top-4 z-10 origin-left -translate-y-3 scale-75 transform text-sm text-foreground/50 duration-200 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:left-4 peer-focus:-translate-y-3 peer-focus:scale-75 peer-focus:text-primary"
+        class="text-foreground/50 peer-focus:text-primary pointer-events-none absolute top-4 left-4 z-10 origin-left -translate-y-3 scale-75 transform text-sm duration-200 peer-placeholder-shown:translate-y-0 peer-placeholder-shown:scale-100 peer-focus:left-4 peer-focus:-translate-y-3 peer-focus:scale-75"
       >
         {{ label }}
       </label>
@@ -62,7 +65,11 @@
       leave-from-class="transform translate-y-0 opacity-100"
       leave-to-class="transform -translate-y-2 opacity-0"
     >
-      <p v-if="error" :id="`${id}-error`" class="text-destructive ml-1 text-xs font-medium">
+      <p
+        v-if="error"
+        :id="`${id}-error`"
+        class="text-destructive ml-1 text-xs font-medium"
+      >
         {{ error }}
       </p>
     </transition>
