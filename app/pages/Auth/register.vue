@@ -15,10 +15,12 @@
 <template>
   <div class="flex h-full flex-col items-center justify-center px-12 py-8">
     <div class="mb-8 flex flex-col items-center text-center">
-      <NuxtImg
-        src="/DA_Logo.png"
-        class="h-25"
-      />
+      <NuxtLink to="/">
+        <NuxtImg
+          src="/DA_Logo.png"
+          class="h-25"
+        />
+      </NuxtLink>
       <h1 class="text-foreground text-4xl font-bold tracking-tight">Create an account</h1>
       <p class="text-foreground/80 mt-2">Welcome to DermAssist start by creating your account.</p>
     </div>
