@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-card m-7 py-3 rounded-full flex px-7 justify-between items-center text-center text-2xl">
+  <div class="bg-card m-5 py-2 rounded-full flex px-7 justify-between items-center text-center text-2xl">
     <div class="hidden md:flex text-[18px] font-semibold space-x-6">
       <a href="#" class="cursor-pointer">About</a>
       <a href="#" class="cursor-pointer">Features</a>
