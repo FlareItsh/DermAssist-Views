@@ -21,7 +21,7 @@
     </div>
     <div class="mr-3 flex space-x-2">
       <NuxtImg
-        src="/DA_Icon.png"
+        src="/images/DA_Icon.png"
         class="mx-auto mb-2 h-15 w-auto"
         alt="Logo"
       />
