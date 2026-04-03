@@ -8,7 +8,37 @@
     password: ''
   })
 
+  const errors = reactive({
+    email: '',
+    password: '',
+    general: ''
+  })
+
+  const validate = () => {
+    let isValid = true
+    errors.email = ''
+    errors.password = ''
+    errors.general = ''
+
+    if (!form.email) {
+      errors.email = 'Email address is required'
+      isValid = false
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errors.email = 'Please enter a valid email address'
+      isValid = false
+    }
+
+    if (!form.password) {
+      errors.password = 'Password is required'
+      isValid = false
+    }
+
+    return isValid
+  }
+
   const submitForm = async () => {
+    if (!validate()) return
+
     try {
       const response = await $api<any>('login', {
         method: 'POST',
@@ -27,7 +57,16 @@
         // Redirect based on role: /admin, /patient, or /doctor
         await navigateTo(`/${response.user.role}`)
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.response?.status === 422) {
+        const validationErrors = error.response._data.errors
+        if (validationErrors.email) errors.email = validationErrors.email[0]
+        if (validationErrors.password) errors.password = validationErrors.password[0]
+      } else if (error.response?.status === 401) {
+        errors.general = error.response._data.message || 'Invalid credentials'
+      } else {
+        errors.general = 'An unexpected error occurred. Please try again.'
+      }
       console.error('Login failed:', error)
     }
   }
@@ -50,17 +89,26 @@
       @submit.prevent="submitForm"
       class="flex w-full max-w-sm flex-col gap-6"
     >
+      <div
+        v-if="errors.general"
+        class="bg-destructive/10 text-destructive rounded-xl p-4 text-center text-sm font-medium"
+      >
+        {{ errors.general }}
+      </div>
+
       <AuthInput
         id="email"
         v-model="form.email"
         label="Email Address"
         type="email"
+        :error="errors.email"
       />
       <AuthInput
         id="password"
         v-model="form.password"
         label="Password"
         type="password"
+        :error="errors.password"
       />
 
       <div class="flex items-center justify-between px-1">
