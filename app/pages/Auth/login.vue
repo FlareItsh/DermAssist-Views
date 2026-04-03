@@ -14,6 +14,9 @@ const errors = reactive({
   general: ''
 })
 
+const isLoading = ref(false)
+
+
 const validate = () => {
   let isValid = true
   errors.email = ''
@@ -38,6 +41,7 @@ const validate = () => {
 
 const submitForm = async () => {
   if (!validate()) return
+  isLoading.value = true
 
   try {
     const response = await $api<any>('login', {
@@ -90,6 +94,8 @@ const submitForm = async () => {
       errors.general = 'An unexpected error occurred. Please try again.'
     }
     console.error('Login failed:', error)
+  } finally {
+    isLoading.value = false
   }
 }
 </script>
@@ -123,9 +129,11 @@ const submitForm = async () => {
         </button>
       </div>
 
-      <button type="submit"
-        class="bg-primary text-primary-foreground shadow-primary/20 mt-4 w-full rounded-2xl py-4 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95">
-        Sign In
+      <button type="submit" :disabled="isLoading"
+        class="bg-primary text-primary-foreground shadow-primary/20 mt-4 w-full rounded-2xl py-4 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+        <Icon v-if="isLoading" name="line-md:loading-twotone-loop" class="text-2xl" />
+        <span v-if="!isLoading">Sign In</span>
+        <span v-else>Signing in...</span>
       </button>
     </form>
 
