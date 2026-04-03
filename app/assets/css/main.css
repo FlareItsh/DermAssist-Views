@@ -78,3 +78,13 @@ body {
     border-radius: 100px;
   }
 }
+
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}

@@ -1,17 +1,14 @@
 <script setup lang="ts">
-  const props = defineProps({
-    title: String
-  })
+const props = defineProps({
+  title: String
+})
 </script>
 
 <template>
-  <nav class="flex items-center justify-between p-4">
+  <nav class="flex items-center justify-between bg-transparent px-4 py-2">
     <div class="flex items-center gap-10">
       <NuxtLink to="/">
-        <NuxtImg
-          src="/DA_Logo.png"
-          class="h-20"
-        />
+        <NuxtImg src="/DA_Logo.png" class="h-20" />
       </NuxtLink>
 
       <h2 class="text-3xl font-semibold">{{ title }}</h2>

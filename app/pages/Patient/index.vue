@@ -49,7 +49,7 @@ definePageMeta({
       <AppUsers title="Doctors" />
     </div>
     <!-- h-[calc(100vh-3rem)] ensures it is exactly the height of your visible viewport minus some padding -->
-    <div class="sticky top-0 flex h-[calc(87vh-3rem)] flex-col gap-4">
+    <div class="sticky top-0 flex h-[calc(91vh-3rem)] flex-col gap-4">
       <PatientSideComponentsCalendar />
       <PatientSideComponentsSaaSPromotion class="flex-1" />
     </div>
