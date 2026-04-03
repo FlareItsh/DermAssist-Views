@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import Button from '~/components/App/Button.vue'
+
   definePageMeta({
     layout: 'auth-split-layout'
   })
@@ -36,9 +38,12 @@
     return isValid
   }
 
+  const isLoading = ref(false)
+
   const submitForm = async () => {
     if (!validate()) return
 
+    isLoading.value = true
     try {
       const response = await $api<any>('login', {
         method: 'POST',
@@ -75,6 +80,8 @@
         errors.general = 'An unexpected error occurred. Please try again.'
       }
       console.error('Login failed:', error)
+    } finally {
+      isLoading.value = false
     }
   }
 </script>
@@ -134,12 +141,13 @@
         </button>
       </div>
 
-      <button
+      <AppButton
         type="submit"
-        class="bg-primary text-primary-foreground shadow-primary/20 mt-4 w-full rounded-2xl py-4 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95"
+        block
+        :loading="isLoading"
       >
         Sign In
-      </button>
+      </AppButton>
     </form>
 
     <div class="mt-10 text-center text-sm">
