@@ -4,4 +4,6 @@
   })
 </script>
 
-<template>Patient Side</template>
+<template>
+  <div>Scan</div>
+</template>

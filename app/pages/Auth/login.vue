@@ -7,6 +7,17 @@
     email: '',
     password: ''
   })
+
+  const submitForm = async () => {
+    try {
+      const response = await $api('login', {
+        method: 'POST',
+        body: form
+      })
+    } catch (error) {
+      console.log('Failed: ', error)
+    }
+  }
 </script>
 
 <template>
