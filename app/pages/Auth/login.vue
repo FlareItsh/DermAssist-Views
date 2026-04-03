@@ -51,6 +51,13 @@
           path: '/'
         })
         token.value = response.token
+
+        // Store user role
+        const role = useCookie('user_role', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        role.value = response.user.role
       }
 
       if (response.user && response.user.role) {
