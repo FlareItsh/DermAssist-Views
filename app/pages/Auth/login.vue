@@ -10,12 +10,25 @@
 
   const submitForm = async () => {
     try {
-      const response = await $api('login', {
+      const response = await $api<any>('login', {
         method: 'POST',
         body: form
       })
+
+      if (response.token) {
+        const token = useCookie('auth_token', {
+          maxAge: 60 * 60 * 24 * 7, // 1 week
+          path: '/'
+        })
+        token.value = response.token
+      }
+
+      if (response.user && response.user.role) {
+        // Redirect based on role: /admin, /patient, or /doctor
+        await navigateTo(`/${response.user.role}`)
+      }
     } catch (error) {
-      console.log('Failed: ', error)
+      console.error('Login failed:', error)
     }
   }
 </script>
@@ -34,7 +47,7 @@
     </div>
 
     <form
-      @submit.prevent
+      @submit.prevent="submitForm"
       class="flex w-full max-w-sm flex-col gap-6"
     >
       <AuthInput

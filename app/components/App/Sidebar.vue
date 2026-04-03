@@ -9,6 +9,20 @@
 
   const isCollapsed = ref(true)
   const route = useRoute()
+
+  const logout = async () => {
+    try {
+      await $api('logout', {
+        method: 'POST'
+      })
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      const token = useCookie('auth_token')
+      token.value = null
+      await navigateTo('/auth/login')
+    }
+  }
 </script>
 
 <template>
@@ -71,6 +85,7 @@
       :class="isCollapsed ? 'pb-10' : 'pb-6'"
     >
       <button
+        @click="logout"
         class="group hover:bg-destructive/10 flex items-center gap-0 rounded-full p-2 transition-all duration-300 active:scale-95"
       >
         <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
