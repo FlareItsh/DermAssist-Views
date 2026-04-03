@@ -22,7 +22,6 @@
       class="flex flex-col gap-6 px-4 transition-all duration-500 ease-in-out"
       :class="isCollapsed ? 'pt-6' : 'pt-6'"
     >
-      <!--Dynamic Items-->
       <NuxtLink
         v-for="item in props.items"
         :key="item.to"
