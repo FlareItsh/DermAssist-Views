@@ -16,6 +16,8 @@
     general: ''
   })
 
+  const isLoading = ref(false)
+
   const validate = () => {
     let isValid = true
     errors.email = ''
@@ -38,10 +40,9 @@
     return isValid
   }
 
-  const isLoading = ref(false)
-
   const submitForm = async () => {
     if (!validate()) return
+    isLoading.value = true
 
     isLoading.value = true
     try {
@@ -57,17 +58,32 @@
         })
         token.value = response.token
 
+        // Extract the role, e.g. "admin/dashboard" -> "admin"
+        const baseRole = response.user.role?.split('/')[0] || 'patient'
+
         // Store user role
         const role = useCookie('user_role', {
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        role.value = response.user.role
+        role.value = baseRole
+
+        const userName = useCookie('user_name', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        const authName = useCookie('auth_user_name', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        userName.value = response.user?.name || 'Patient'
+        authName.value = response.user?.name || 'Patient'
       }
 
       if (response.user && response.user.role) {
+        const baseRole = response.user.role?.split('/')[0] || 'patient'
         // Redirect based on role: /admin, /patient, or /doctor
-        await navigateTo(`/${response.user.role}`)
+        await navigateTo(`/${baseRole}`)
       }
     } catch (error: any) {
       if (error.response?.status === 422) {

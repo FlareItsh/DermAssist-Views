@@ -40,7 +40,7 @@
           class="h-25 w-auto"
           alt="Logo"
         />
-        <p class="text-card font-barlow text-8xl tracking-[90px]">DERMASSIST</p>
+        <p class="text-card font-barlow text-8xl tracking-[75px]">DERMASSIST</p>
       </div>
       <div class="flex">
         <p class="text-primary-light font-barlow text-sm">

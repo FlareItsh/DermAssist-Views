@@ -1,11 +1,11 @@
 <template>
-  <div class="bg-background flex h-screen flex-col overflow-hidden">
+  <div class="flex h-screen flex-col overflow-hidden">
     <AppNavbar :title="currentPageTitle" />
 
     <div class="flex flex-1 overflow-hidden">
       <AppSidebar :items="navItems" />
 
-      <main class="flex-1 overflow-y-auto p-5">
+      <main class="-mt-4 flex-1 overflow-y-auto p-5">
         <div class="mx-auto">
           <slot />
         </div>
@@ -28,20 +28,30 @@
   ]
 
   const patientNavItems = [
-    { icon: 'mi:home', label: 'Dashboard', to: '/patient' },
+    { icon: 'material-symbols-light:dashboard-2-outline', label: 'Dashboard', to: '/patient' },
     {
       icon: 'material-symbols-light:camera-outline-rounded',
       label: 'Scan',
       to: '/patient/scan'
+    },
+    {
+      icon: 'lets-icons:message-light',
+      label: 'Message',
+      to: '/patient/message'
+    },
+    {
+      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      label: 'Records',
+      to: '/patient/records'
     }
   ]
 
   const doctorNavItems = [
-    { icon: 'mi:home', label: 'Dashboard', to: '/admin' },
+    { icon: 'mi:home', label: 'Dashboard', to: '/doctor' },
     {
       icon: 'mage:user-circle',
       label: 'Users',
-      to: '/admin/users'
+      to: '/doctor/users'
     }
   ]
 

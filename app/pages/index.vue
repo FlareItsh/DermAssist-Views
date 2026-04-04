@@ -1,7 +1,7 @@
 <template>
   <div class="mb-12 flex flex-col justify-center gap-20 px-12">
     <div>
-      <h1 class="font-barlow mt-12 text-center text-6xl tracking-[10px]">
+      <h1 class="font-barlow mt-12 text-center text-5xl tracking-[5px]">
         AI-Powered Skin Condition Recognition System
       </h1>
       <NuxtImg
