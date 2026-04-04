@@ -5,5 +5,5 @@
 </script>
 
 <template>
-  <div>Message</div>
+  <AppChatUI />
 </template>
