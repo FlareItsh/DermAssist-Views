@@ -14,33 +14,17 @@
         </div>
         <div>
           <div class="text-card font-barlow hidden space-x-4 text-2xl md:flex">
-            <a
-              href="#"
-              class="cursor-pointer"
-              >About</a
-            >
+            <a href="#" class="cursor-pointer">About</a>
             <span>|</span>
-            <a
-              href="#"
-              class="cursor-pointer"
-              >Features</a
-            >
+            <a href="#" class="cursor-pointer">Features</a>
             <span>|</span>
-            <a
-              href="#"
-              class="cursor-pointer"
-              >Contact Us</a
-            >
+            <a href="#" class="cursor-pointer">Contact Us</a>
           </div>
         </div>
       </div>
       <div class="mt-5 -ml-3.5 flex items-center justify-start space-x-5">
-        <NuxtImg
-          src="/images/DA_Icon.png"
-          class="h-25 w-auto"
-          alt="Logo"
-        />
-        <p class="text-card font-barlow text-8xl tracking-[90px]">DERMASSIST</p>
+        <NuxtImg src="/images/DA_Icon.png" class="h-25 w-auto" alt="Logo" />
+        <p class="text-card font-barlow text-8xl tracking-[75px]">DERMASSIST</p>
       </div>
       <div class="flex">
         <p class="text-primary-light font-barlow text-sm">
