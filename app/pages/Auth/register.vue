@@ -22,10 +22,25 @@
     lastName: '',
     email: '',
     password: '',
-    confirmPassword: '',
+    password_confirmation: '',
     prcNumber: '',
     idPhoto: null as string | null // Base64 encoded captured photo
   })
+
+  const errors = reactive({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    role: '',
+    prcNumber: '',
+    idPhoto: '',
+    general: ''
+  })
+
+  const isLoading = ref(false)
 
   // Methods
   const nextStep = () => {
@@ -46,10 +61,55 @@
     }
   }
 
-  const handleRegister = () => {
-    console.log('Registration Submitted:', { role: role.value, ...form })
-    // In a real app, this would call an API
-    navigateTo('/dashboard')
+  const handleRegister = async () => {
+    // Reset errors
+    Object.keys(errors).forEach(key => (errors[key as keyof typeof errors] = ''))
+    isLoading.value = true
+
+    try {
+      const response = await $api<{ user: any; token: string }>('/register', {
+        method: 'POST',
+        body: {
+          role: role.value,
+          ...form
+        }
+      })
+
+      if (response.token) {
+        // Set the auth token cookie
+        const tokenCookie = useCookie('auth_token')
+        tokenCookie.value = response.token
+
+        // Set the user role cookie for middleware
+        const roleCookie = useCookie('user_role')
+        roleCookie.value = response.user.role
+
+        // Redirect based on role
+        navigateTo(`/${response.user.role}`)
+      }
+    } catch (err: any) {
+      console.error('Registration Error:', err)
+
+      if (err.response?.status === 422) {
+        const validationErrors = err.response._data.errors
+        // Map backend snake_case errors to frontend camelCase keys
+        Object.keys(validationErrors).forEach(key => {
+          if (key === 'first_name') errors.firstName = validationErrors[key][0]
+          else if (key === 'middle_name') errors.middleName = validationErrors[key][0]
+          else if (key === 'last_name') errors.lastName = validationErrors[key][0]
+          else if (key === 'firstName') errors.firstName = validationErrors[key][0]
+          else if (key === 'middleName') errors.middleName = validationErrors[key][0]
+          else if (key === 'lastName') errors.lastName = validationErrors[key][0]
+          else if (key === 'password_confirmation')
+            errors.password_confirmation = validationErrors[key][0]
+          else if (key in errors) (errors as any)[key] = validationErrors[key][0]
+        })
+      } else {
+        errors.general = err.data?.message || 'Registration failed. Please try again.'
+      }
+    } finally {
+      isLoading.value = false
+    }
   }
 
   // Camera Methods
@@ -180,6 +240,14 @@
             </p>
           </div>
 
+          <!-- General Error -->
+          <div
+            v-if="errors.general"
+            class="bg-destructive/10 text-destructive rounded-xl p-3 text-center text-xs font-medium"
+          >
+            {{ errors.general }}
+          </div>
+
           <!-- Role Selection -->
           <div class="mb-2 grid grid-cols-2 gap-3">
             <button
@@ -247,16 +315,19 @@
               id="first-name"
               v-model="form.firstName"
               label="First Name"
+              :error="errors.firstName"
             />
             <AuthInput
               id="middle-name"
               v-model="form.middleName"
-              label="Middle Name (Optional)"
+              label="Middle Name"
+              :error="errors.middleName"
             />
             <AuthInput
               id="last-name"
               v-model="form.lastName"
               label="Last Name"
+              :error="errors.lastName"
             />
           </div>
 
@@ -265,6 +336,7 @@
             v-model="form.email"
             label="Email Address"
             type="email"
+            :error="errors.email"
           />
 
           <div class="grid grid-cols-2 gap-3">
@@ -273,12 +345,14 @@
               v-model="form.password"
               label="Password"
               type="password"
+              :error="errors.password"
             />
             <AuthInput
               id="confirm-password"
-              v-model="form.confirmPassword"
+              v-model="form.password_confirmation"
               label="Confirm"
               type="password"
+              :error="errors.password_confirmation"
             />
           </div>
 
@@ -340,6 +414,7 @@
             v-model="form.prcNumber"
             label="PRC Registration Number"
             placeholder="e.g. 1234567"
+            :error="errors.prcNumber"
           />
 
           <!-- Photo Capture Section -->
@@ -449,23 +524,29 @@
             />
           </div>
 
-          <div class="mt-2 flex flex-col gap-2">
+          <div class="mt-4 flex gap-3">
             <AppButton
-              @click="handleRegister"
-              block
+              variant="outline"
+              class="w-full"
+              @click="currentStep = 1"
             >
-              Complete Registration
+              Back
             </AppButton>
-
             <AppButton
+              class="w-full"
+              :loading="isLoading"
               @click="handleRegister"
-              variant="ghost"
-              size="sm"
-              class="text-foreground/60"
             >
-              Skip for now
+              Complete
             </AppButton>
           </div>
+
+          <button
+            class="text-primary/60 hover:text-primary mt-4 w-full text-center text-xs font-medium transition-colors"
+            @click="handleRegister"
+          >
+            Skip verification for now & register
+          </button>
 
           <div class="mt-2 text-center">
             <AppButton
