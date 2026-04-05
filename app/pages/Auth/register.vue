@@ -14,6 +14,8 @@
   const canvas = ref<HTMLCanvasElement | null>(null)
   const stream = ref<MediaStream | null>(null)
 
+  const fileInput = ref<HTMLInputElement | null>(null)
+
   const form = reactive({
     firstName: '',
     middleName: '', // Added elective middle name
@@ -244,17 +246,17 @@
             <AuthInput
               id="first-name"
               v-model="form.firstName"
-              label="First"
+              label="First Name"
             />
             <AuthInput
               id="middle-name"
               v-model="form.middleName"
-              label="Middle (Opt)"
+              label="M.I (Optional)"
             />
             <AuthInput
               id="last-name"
               v-model="form.lastName"
-              label="Last"
+              label="Last Name"
             />
           </div>
 
@@ -417,17 +419,17 @@
 
             <!-- Upload Fallback -->
             <div class="flex items-center gap-3">
-              <div class="bg-foreground/5 h-[1px] flex-1"></div>
+              <div class="bg-foreground/5 h-px flex-1"></div>
               <span class="text-foreground/30 text-[10px] font-bold tracking-widest uppercase"
                 >Or upload</span
               >
-              <div class="bg-foreground/5 h-[1px] flex-1"></div>
+              <div class="bg-foreground/5 h-px flex-1"></div>
             </div>
 
             <AppButton
               variant="outline"
               block
-              @click="$refs.fileInput.click()"
+              @click="fileInput?.click()"
             >
               <template #leading>
                 <Icon
