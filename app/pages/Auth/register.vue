@@ -251,7 +251,7 @@
             <AuthInput
               id="middle-name"
               v-model="form.middleName"
-              label="M.I (Optional)"
+              label="Middle Name (Optional)"
             />
             <AuthInput
               id="last-name"
