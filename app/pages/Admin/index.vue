@@ -4,4 +4,6 @@
   })
 </script>
 
-<template>Admin Here HAHA</template>
+<template>
+  <div>Dashboard Here</div>
+</template>
