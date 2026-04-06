@@ -19,11 +19,15 @@
   const userRole = useCookie('user_role')
 
   const adminNavItems = [
-    { icon: 'mi:home', label: 'Dashboard', to: '/admin' },
+    { icon: 'boxicons:dashboard', label: 'Dashboard', to: '/admin' },
     {
-      icon: 'mage:user-circle',
-      label: 'Users',
-      to: '/admin/users'
+      icon: 'lucide:shield-check',
+      label: 'Moderation',
+      children: [
+        { icon: 'heroicons:users', label: 'All Users', to: '/admin/users' },
+        { icon: 'heroicons:shield-check', label: 'Roles & Permissions', to: '/admin/roles' },
+        { icon: 'tabler:id', label: 'Verification', to: '/admin/verify' }
+      ]
     }
   ]
 
@@ -50,8 +54,11 @@
     { icon: 'mi:home', label: 'Dashboard', to: '/doctor' },
     {
       icon: 'mage:user-circle',
-      label: 'Users',
-      to: '/doctor/users'
+      label: 'Consultations',
+      children: [
+        { icon: 'heroicons:user-group', label: 'Patients', to: '/doctor/users' },
+        { icon: 'heroicons:calendar', label: 'Appointments', to: '/doctor/appointments' }
+      ]
     }
   ]
 
