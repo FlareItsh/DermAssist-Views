@@ -2,7 +2,7 @@ export const useApi = <T>(url: string | (() => string), options: any = {}) => {
   const config = useRuntimeConfig()
   const token = useCookie('auth_token')
 
-  return useFetch(url, {
+  return useFetch<T>(url, {
     ...options,
     baseURL: config.public.apiBase,
     headers: {
