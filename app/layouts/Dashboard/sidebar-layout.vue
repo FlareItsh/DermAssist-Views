@@ -26,7 +26,7 @@
       children: [
         { icon: 'heroicons:users', label: 'All Users', to: '/admin/users' },
         { icon: 'heroicons:shield-check', label: 'Roles & Permissions', to: '/admin/roles' },
-        { icon: 'tabler:id', label: 'Verification', to: '/admin/verify' }
+        { icon: 'tabler:id', label: 'Verification', to: '/admin/verification' }
       ]
     }
   ]
