@@ -1,6 +1,9 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <AppNavbar :title="currentPageTitle" />
+    <AppNavbar
+      :title="currentPageTitle"
+      :breadcrumbs="breadcrumbs"
+    />
 
     <div class="flex flex-1 overflow-hidden">
       <AppSidebar :items="navItems" />
@@ -14,7 +17,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   const route = useRoute()
   const userRole = useCookie('user_role')
 
@@ -24,9 +27,13 @@
       icon: 'lucide:shield-check',
       label: 'Moderation',
       children: [
-        { icon: 'heroicons:users', label: 'All Users', to: '/admin/users' },
-        { icon: 'heroicons:shield-check', label: 'Roles & Permissions', to: '/admin/roles' },
-        { icon: 'tabler:id', label: 'Verification', to: '/admin/verification' }
+        { icon: 'heroicons:users', label: 'All Users', to: '/admin/moderation/users' },
+        {
+          icon: 'heroicons:shield-check',
+          label: 'Roles & Permissions',
+          to: '/admin/moderation/roles'
+        },
+        { icon: 'tabler:id', label: 'Verification', to: '/admin/moderation/verification' }
       ]
     }
   ]
@@ -78,8 +85,27 @@
     }
   })
 
-  const currentPageTitle = computed(() => {
-    const activeItem = navItems.value.find(item => item.to === route.path)
-    return activeItem?.navbarTitle || activeItem?.label || 'Title'
+  const activeItemInfo = computed(() => {
+    const findActive = (items: any[], path: string, trail: any[] = []): any => {
+      for (const item of items) {
+        const currentTrail = [...trail, { label: item.label, to: item.to }]
+        if (item.to === path) {
+          return {
+            title: item.navbarTitle || item.label,
+            breadcrumbs: currentTrail
+          }
+        }
+        if (item.children) {
+          const found = findActive(item.children, path, currentTrail)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    return findActive(navItems.value, route.path) || { title: 'Title', breadcrumbs: [] }
   })
+
+  const currentPageTitle = computed(() => activeItemInfo.value.title)
+  const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 </script>
