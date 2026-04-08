@@ -24,22 +24,22 @@
     </div>
 
     <div class="text-secondary mt-8 flex w-full justify-end gap-3">
-      <button
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px] transition-all active:scale-90"
       >
         <Icon
           name="famicons:call"
           size="22"
         />
-      </button>
-      <button
+      </AppButton>
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px] transition-all active:scale-90"
       >
         <Icon
           name="mingcute:message-4-line"
           size="22"
         />
-      </button>
+      </AppButton>
     </div>
   </div>
 </template>

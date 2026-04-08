@@ -86,7 +86,7 @@
               <div
                 class="flex h-15 w-55 items-end justify-end gap-2 backdrop-blur-md transition-all"
               >
-                <button
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                   @click="triggerFileInput"
                   class="flex h-14 w-14 cursor-pointer items-center justify-center rounded-l-full bg-white shadow-lg transition-all hover:bg-gray-100 active:scale-95"
                 >
@@ -94,9 +94,9 @@
                     name="famicons:folder-outline"
                     class="text-3xl"
                   />
-                </button>
+                </AppButton>
 
-                <button
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                   class="flex h-14 w-fit cursor-pointer items-center justify-center rounded-r-full bg-white px-5 text-2xl font-bold shadow-lg transition-all hover:bg-gray-100 active:scale-95"
                 >
                   Scan
@@ -104,7 +104,7 @@
                     name="material-symbols-light:camera-outline-rounded"
                     class="ml-2 text-4xl"
                   />
-                </button>
+                </AppButton>
               </div>
             </div>
           </div>

@@ -60,12 +60,27 @@
   const doctorNavItems = [
     { icon: 'mi:home', label: 'Dashboard', to: '/doctor' },
     {
+      icon: 'material-symbols-light:camera-outline-rounded',
+      label: 'Scan',
+      to: '/doctor/scan'
+    },
+    {
       icon: 'mage:user-circle',
       label: 'Consultations',
       children: [
         { icon: 'heroicons:user-group', label: 'Patients', to: '/doctor/users' },
         { icon: 'heroicons:calendar', label: 'Appointments', to: '/doctor/appointments' }
       ]
+    },
+    {
+      icon: 'lets-icons:message-light',
+      label: 'Message',
+      to: '/doctor/message'
+    },
+    {
+      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      label: 'Records',
+      to: '/doctor/records'
     }
   ]
 

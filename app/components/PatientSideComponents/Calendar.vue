@@ -56,7 +56,7 @@
       </div>
 
       <div class="flex gap-2">
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="prevMonth"
           class="hover:bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95"
         >
@@ -64,8 +64,8 @@
             name="material-symbols:chevron-left-rounded"
             class="text-2xl"
           />
-        </button>
-        <button
+        </AppButton>
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="nextMonth"
           class="hover:bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95"
         >
@@ -73,7 +73,7 @@
             name="material-symbols:chevron-right-rounded"
             class="text-2xl"
           />
-        </button>
+        </AppButton>
       </div>
     </div>
 

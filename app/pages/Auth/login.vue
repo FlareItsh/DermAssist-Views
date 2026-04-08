@@ -149,12 +149,12 @@
           />
           Remember me
         </label>
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           type="button"
           class="text-primary text-sm font-medium hover:underline"
         >
           Forgot password?
-        </button>
+        </AppButton>
       </div>
 
       <AppButton

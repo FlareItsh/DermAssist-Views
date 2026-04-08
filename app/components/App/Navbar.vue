@@ -37,7 +37,7 @@
           <!-- Breadcrumbs -->
           <nav
             v-if="breadcrumbs && breadcrumbs.length > 1"
-            class="flex items-center gap-2 text-sm text-foreground/50"
+            class="text-foreground/50 flex items-center gap-2 text-sm"
             aria-label="Breadcrumb"
           >
             <template
@@ -53,7 +53,7 @@
                   {{ breadcrumb.label }}
                 </NuxtLink>
                 <span v-else>{{ breadcrumb.label }}</span>
-                
+
                 <Icon
                   v-if="index < breadcrumbs.length - 1"
                   name="heroicons:chevron-right-20-solid"
@@ -70,7 +70,6 @@
       </div>
     </div>
 
-    <!-- if you want to add more items in the navbar aside from the title use the slot here-->
     <div class="flex items-center gap-5">
       <slot />
     </div>

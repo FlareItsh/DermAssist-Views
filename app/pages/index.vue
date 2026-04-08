@@ -37,9 +37,9 @@
         </p>
         <p class="w-185 text-2xl font-semibold">proper guidance.</p>
         <div class="bg-secondary my-7 h-[5px] w-130 rounded-full"></div>
-        <button class="bg-foreground text-card w-50 cursor-pointer rounded-full px-5 py-2 text-lg">
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled" class="bg-foreground text-card w-50 cursor-pointer rounded-full px-5 py-2 text-lg">
           Know More
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -141,11 +141,11 @@
             <p class="text-sm text-gray-500">I agree to the terms and conditions</p>
           </div>
 
-          <button
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             class="bg-secondary hover:bg-opacity-90 mt-20 rounded-xl py-3 font-semibold text-white transition-all"
           >
             Send Message
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>

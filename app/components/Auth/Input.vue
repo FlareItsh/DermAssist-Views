@@ -38,7 +38,7 @@
         :aria-describedby="error ? `${id}-error` : undefined"
       />
 
-      <button
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         v-if="type === 'password'"
         type="button"
         @click="togglePassword"
@@ -48,7 +48,7 @@
           :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'"
           class="h-5 w-5"
         />
-      </button>
+      </AppButton>
 
       <label
         :for="id"

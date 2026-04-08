@@ -86,9 +86,16 @@
   const route = useRoute()
   const { searchQuery } = useSearch()
 
-  const isSearchVisible = computed(
-    () => route.path === '/patient/records' || route.path === '/patient'
-  )
+  const isSearchVisible = computed(() => {
+    const visibleRoutes = [
+      '/patient/records',
+      '/patient',
+      '/doctor',
+      '/doctor/records',
+      '/doctor/appointments'
+    ]
+    return visibleRoutes.includes(route.path)
+  })
 </script>
 
 <template>
@@ -107,7 +114,7 @@
         class="relative"
         ref="messageRef"
       >
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="toggleMessages"
           class="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full p-1 transition-all active:scale-95"
           :class="isMessagesOpen ? 'bg-secondary text-white shadow-lg' : 'bg-card hover:bg-primary'"
@@ -128,7 +135,7 @@
               class="bg-primary relative inline-flex h-3 w-3 rounded-full border-2 border-white"
             ></span>
           </span>
-        </button>
+        </AppButton>
 
         <Transition
           enter-active-class="transition duration-200 ease-out"
@@ -176,11 +183,11 @@
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
-              <button
+              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                 class="text-card hover:text-foreground/40 w-full cursor-pointer py-2 text-sm font-bold transition-colors"
               >
                 Go to Inbox
-              </button>
+              </AppButton>
             </div>
           </div>
         </Transition>
@@ -190,7 +197,7 @@
         class="relative"
         ref="notificationRef"
       >
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="toggleNotifications"
           class="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full p-1 transition-all active:scale-95"
           :class="
@@ -213,7 +220,7 @@
               class="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-red-500"
             ></span>
           </span>
-        </button>
+        </AppButton>
 
         <Transition
           enter-active-class="transition duration-200 ease-out"
@@ -255,11 +262,11 @@
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
-              <button
+              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                 class="text-card hover:text-foreground/40 w-full cursor-pointer py-2 text-sm font-bold transition-colors"
               >
                 View all activity
-              </button>
+              </AppButton>
             </div>
           </div>
         </Transition>

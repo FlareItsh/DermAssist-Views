@@ -2,6 +2,7 @@
   const props = defineProps<{
     time: string
     title: string
+    isUrgent?: boolean
   }>()
 
   defineEmits(['click'])
@@ -17,10 +18,18 @@
       <div
         class="bg-primary flex h-full w-[520px] flex-col justify-center rounded-t-3xl border-x border-t border-white/10 px-8"
       >
-        <span class="block font-mono text-[10px] tracking-tighter text-white/50 uppercase">{{
-          time
-        }}</span>
-        <h3 class="mt-1 truncate text-lg leading-tight font-bold text-white">{{ title }}</h3>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex flex-col min-w-0">
+            <span 
+              class="block text-[13px] uppercase truncate"
+              :class="isUrgent ? 'text-red-500 font-medium' : 'text-white/50 font-bold'"
+            >
+              {{ time }}
+            </span>
+            <h3 class="mt-1 truncate text-lg font-bold text-white">{{ title }}</h3>
+          </div>
+          <slot name="actions" />
+        </div>
       </div>
 
       <div class="-ml-px h-16 w-16">
@@ -40,7 +49,7 @@
     >
       <!-- Subtle Paper Inside look -->
       <div
-        class="bg-background/50 group-hover:bg-primary/30 pointer-events-none absolute inset-x-5 top-7 bottom-12 rounded-2xl transition-colors"
+        class="bg-background/50 group-hover:bg-primary/30 pointer-events-none absolute inset-x-5 top-7 bottom-7 rounded-2xl transition-colors"
       ></div>
 
       <!-- Texture/Reflection -->
