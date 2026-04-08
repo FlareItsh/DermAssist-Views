@@ -24,27 +24,39 @@
     uuid: string
     prc_number: string
     id_photo_path: string
-    status: 'pending' | 'approved' | 'rejected'
+    status: 'pending' | 'verified' | 'declined'
+    rejection_reason?: string
     user: User
     created_at: string
     updated_at: string
   }
 
-  const { data: response, refresh, pending } = await useApi<{ data: Verification }>(
-    `verifications/${route.params.uuid}`
-  )
+  const {
+    data: response,
+    refresh,
+    pending
+  } = await useApi<{ data: Verification }>(`verifications/${route.params.uuid}`)
 
   const verification = computed(() => response.value?.data)
 
   const isUpdating = ref(false)
+  const isApproveModalOpen = ref(false)
+  const isRejectModalOpen = ref(false)
+  const declinedReason = ref('')
 
-  const updateStatus = async (status: 'approved' | 'rejected') => {
+  const updateStatus = async (status: 'verified' | 'declined', reason?: string) => {
     try {
       isUpdating.value = true
       await useApi(`verifications/${route.params.uuid}`, {
         method: 'PUT',
-        body: { status }
+        body: {
+          status,
+          rejection_reason: reason
+        }
       })
+      isApproveModalOpen.value = false
+      isRejectModalOpen.value = false
+      declinedReason.value = ''
       await refresh()
     } catch (error) {
       console.error('Failed to update status:', error)
@@ -57,9 +69,9 @@
     switch (status) {
       case 'pending':
         return 'warning'
-      case 'approved':
+      case 'verified':
         return 'success'
-      case 'rejected':
+      case 'declined':
         return 'danger'
       default:
         return 'gray'
@@ -120,15 +132,13 @@
       >
         <AppButton
           variant="destructive"
-          :loading="isUpdating"
-          @click="updateStatus('rejected')"
+          @click="isRejectModalOpen = true"
         >
           Reject Application
         </AppButton>
         <AppButton
           variant="solid"
-          :loading="isUpdating"
-          @click="updateStatus('approved')"
+          @click="isApproveModalOpen = true"
         >
           Approve Doctor
         </AppButton>
@@ -140,7 +150,9 @@
       v-if="pending"
       class="flex h-[60vh] flex-col items-center justify-center space-y-4"
     >
-      <div class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+      <div
+        class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"
+      ></div>
       <p class="font-medium text-gray-500">Loading verification details...</p>
     </div>
 
@@ -162,28 +174,55 @@
               </span>
             </div>
             <h2 class="text-2xl font-bold text-gray-900">{{ fullName }}</h2>
-            <p class="text-indigo-600 font-medium uppercase text-xs tracking-widest">{{ verification.user.role }}</p>
+            <p class="text-xs font-medium tracking-widest text-indigo-600 uppercase">
+              {{ verification.user.role }}
+            </p>
           </div>
 
           <div class="space-y-4 border-t border-gray-100 pt-6">
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Email Address</span>
-              <span class="text-gray-900 font-medium">{{ verification.user.email }}</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >Email Address</span
+              >
+              <span class="font-medium text-gray-900">{{ verification.user.email }}</span>
             </div>
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Application Date</span>
-              <span class="text-gray-900 font-medium">{{ formatDate(verification.created_at) }}</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >Application Date</span
+              >
+              <span class="font-medium text-gray-900">{{
+                formatDate(verification.created_at)
+              }}</span>
             </div>
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Current Status</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >Current Status</span
+              >
               <div class="mt-1">
                 <AppBadge
                   :color="getStatusColor(verification.status)"
                   size="sm"
                 >
-                  {{ verification.status }}
+                  {{
+                    verification.status === 'verified'
+                      ? 'Approved'
+                      : verification.status === 'declined'
+                        ? 'Rejected'
+                        : verification.status
+                  }}
                 </AppBadge>
               </div>
+            </div>
+            <div
+              v-if="verification.rejection_reason"
+              class="flex flex-col"
+            >
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >Rejection Reason</span
+              >
+              <p class="mt-1 text-sm font-medium text-rose-600">
+                {{ verification.rejection_reason }}
+              </p>
             </div>
           </div>
         </div>
@@ -193,8 +232,12 @@
           <h3 class="mb-4 text-lg font-bold text-gray-900">Professional Credentials</h3>
           <div class="space-y-4">
             <div class="flex flex-col rounded-2xl bg-gray-50 p-4">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">PRC License Number</span>
-              <span class="mt-1 font-mono text-lg font-bold text-indigo-700">{{ verification.prc_number }}</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >PRC License Number</span
+              >
+              <span class="mt-1 font-mono text-lg font-bold text-indigo-700">{{
+                verification.prc_number
+              }}</span>
             </div>
           </div>
         </div>
@@ -202,7 +245,9 @@
 
       <!-- Right Column: Document Preview -->
       <div class="lg:col-span-2">
-        <div class="flex h-full flex-col rounded-3xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div
+          class="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
+        >
           <div class="flex items-center justify-between border-b border-gray-100 px-8 py-4">
             <h3 class="text-lg font-bold text-gray-900">ID Verification Photo</h3>
             <a
@@ -213,8 +258,10 @@
               Open in new tab
             </a>
           </div>
-          <div class="flex-1 bg-gray-900/5 p-8 flex items-center justify-center">
-            <div class="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 shadow-2xl bg-white">
+          <div class="flex flex-1 items-center justify-center bg-gray-900/5 p-8">
+            <div
+              class="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+            >
               <NuxtImg
                 :src="getStorageUrl(verification.id_photo_path)"
                 class="w-full object-contain"
@@ -222,9 +269,10 @@
               />
             </div>
           </div>
-          <div class="px-8 py-6 bg-gray-50 border-t border-gray-100 text-center">
+          <div class="border-t border-gray-100 bg-gray-50 px-8 py-6 text-center">
             <p class="text-sm text-gray-500">
-              Ensure the name on the ID matches the user's profile and the PRC License Number is legible.
+              Ensure the name on the ID matches the user's profile and the PRC License Number is
+              legible.
             </p>
           </div>
         </div>
@@ -237,7 +285,9 @@
       class="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 py-32 text-center"
     >
       <h3 class="text-xl font-bold text-gray-900">Verification record not found</h3>
-      <p class="mt-2 text-gray-500">The verification request you're looking for might have been deleted or moved.</p>
+      <p class="mt-2 text-gray-500">
+        The verification request you're looking for might have been deleted or moved.
+      </p>
       <AppButton
         variant="outline"
         class="mt-6"
@@ -246,5 +296,86 @@
         Back to Verifications
       </AppButton>
     </div>
+
+    <!-- Modal Section -->
+    <AppModal
+      v-model="isApproveModalOpen"
+      title="Approve Doctor"
+      description="Are you sure you want to approve this doctor? This will grant them access to the platform."
+      size="md"
+    >
+      <div class="flex flex-col items-center py-4 text-center">
+        <div
+          class="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
+        >
+          <Icon
+            name="material-symbols:check-circle-outline-rounded"
+            class="text-4xl"
+          />
+        </div>
+        <p class="text-gray-600">
+          You are about to verify <strong>{{ fullName }}</strong
+          >. They will be notified via email/sms.
+        </p>
+      </div>
+      <template #footer>
+        <AppButton
+          variant="ghost"
+          @click="isApproveModalOpen = false"
+          >Cancel</AppButton
+        >
+        <AppButton
+          variant="solid"
+          :loading="isUpdating"
+          @click="updateStatus('verified')"
+          >Confirm Approval</AppButton
+        >
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model="isRejectModalOpen"
+      title="Reject Application"
+      description="Please provide a reason for rejecting this doctor's verification request."
+      size="lg"
+    >
+      <div class="space-y-4 py-4">
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-bold tracking-wider text-gray-700 uppercase"
+            >Reason for Rejection</label
+          >
+          <textarea
+            v-model="declinedReason"
+            placeholder="e.g. PRC License is expired or photo is blurred..."
+            class="h-32 w-full rounded-3xl border border-gray-200 bg-gray-50 p-4 font-medium text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+          ></textarea>
+        </div>
+        <div class="flex gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-rose-700">
+          <Icon
+            name="material-symbols:info-outline-rounded"
+            class="mt-0.5 shrink-0 text-xl"
+          />
+          <p class="text-sm">
+            This reason will be shared with the applicant to help them understand why their request
+            was declined.
+          </p>
+        </div>
+      </div>
+      <template #footer>
+        <AppButton
+          variant="ghost"
+          @click="isRejectModalOpen = false"
+          >Cancel</AppButton
+        >
+        <AppButton
+          variant="destructive"
+          :loading="isUpdating"
+          :disabled="!declinedReason.trim()"
+          @click="updateStatus('declined', declinedReason)"
+        >
+          Confirm Rejection
+        </AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>

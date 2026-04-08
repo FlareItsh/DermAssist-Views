@@ -98,7 +98,7 @@
 </script>
 
 <template>
-  <div class="flex h-[100vh] overflow-hidden rounded-3xl">
+  <div class="flex h-screen overflow-hidden rounded-3xl">
     <!-- Left Column -->
     <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-8 pr-6">
       <h1 class="text-foreground mb-6 text-4xl font-black">{{ activeDisease }}</h1>
@@ -158,7 +158,10 @@
 
       <!-- Disease switcher pills -->
       <div class="mt-auto flex gap-3 pt-4">
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
           v-for="(entry, i) in displayChartData"
           :key="i"
           @click="activeDisease = entry.label as DiseaseName"
@@ -217,7 +220,10 @@
                   {{ entry.value }}% {{ entry.label }}
                 </span>
               </div>
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+              <AppButton
+                variant="unstyled"
+                size="unstyled"
+                rounded="unstyled"
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
                 :class="
                   activeDisease === entry.label
@@ -257,7 +263,10 @@
             </p>
             <p class="text-md text-foreground leading-4">{{ doctor?.location || 'Blacktor' }}</p>
             <div class="mt-7 flex justify-end gap-3">
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+              <AppButton
+                variant="unstyled"
+                size="unstyled"
+                rounded="unstyled"
                 class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50"
               >
                 <Icon
@@ -265,7 +274,10 @@
                   class="text-secondary text-lg"
                 />
               </AppButton>
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+              <AppButton
+                variant="unstyled"
+                size="unstyled"
+                rounded="unstyled"
                 class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50"
               >
                 <Icon
@@ -289,12 +301,18 @@
         </div>
 
         <div class="mt-1 flex gap-3">
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             class="bg-primary-light flex-1 rounded-full py-2.5 text-sm font-semibold text-gray-600 transition-all hover:opacity-90 active:scale-95"
           >
             Select a Doctor
           </AppButton>
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             class="bg-primary text-card flex-1 rounded-full py-2.5 text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
           >
             Send Diagnosis
