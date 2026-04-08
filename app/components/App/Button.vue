@@ -57,7 +57,7 @@
     soft: 'bg-primary/10 text-primary hover:bg-primary/20 focus:ring-primary',
     link: 'text-primary hover:underline focus:ring-primary !p-0 !min-h-0 !h-auto',
     destructive:
-      'bg-destructive text-destructive-foreground hover:opacity-90 shadow-lg shadow-destructive/20 focus:ring-destructive',
+      'bg-destructive text-white hover:opacity-90 shadow-lg shadow-destructive/20 focus:ring-destructive',
     unstyled: ''
   }
 

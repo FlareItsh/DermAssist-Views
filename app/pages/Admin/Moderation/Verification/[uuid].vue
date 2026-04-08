@@ -53,16 +53,16 @@
     }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gray' => {
     switch (status) {
       case 'pending':
-        return 'bg-amber-100 text-amber-700 border-amber-200'
+        return 'warning'
       case 'approved':
-        return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+        return 'success'
       case 'rejected':
-        return 'bg-rose-100 text-rose-700 border-rose-200'
+        return 'danger'
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200'
+        return 'gray'
     }
   }
 
@@ -177,14 +177,12 @@
             <div class="flex flex-col">
               <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Current Status</span>
               <div class="mt-1">
-                <span
-                  :class="[
-                    'rounded-full border px-3 py-1 text-xs font-bold tracking-wide uppercase',
-                    getStatusColor(verification.status)
-                  ]"
+                <AppBadge
+                  :color="getStatusColor(verification.status)"
+                  size="sm"
                 >
                   {{ verification.status }}
-                </span>
+                </AppBadge>
               </div>
             </div>
           </div>
