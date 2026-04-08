@@ -24,6 +24,13 @@ export const useAppointments = () => {
     },
     {
       id: 3,
+      date: '2026-04-10', // Same day as id:1
+      time: '11:30 AM',
+      doctor: 'Dr. Sarah Johnson',
+      info: 'Follow-up'
+    },
+    {
+      id: 4,
       date: '2026-04-22',
       time: '11:15 AM',
       doctor: 'Dr. Aisha Khan',

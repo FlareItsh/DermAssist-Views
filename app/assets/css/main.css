@@ -53,6 +53,8 @@
   --color-primary-light: oklch(0.88 0.06 257);
   --color-primary-dark: oklch(0.79 0.106 255);
   --color-primary-ring: oklch(0.7 0.153 257);
+
+  --color-navy: oklch(0.14 0.08 245);
 }
 
 * {

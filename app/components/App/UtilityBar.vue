@@ -86,9 +86,16 @@
   const route = useRoute()
   const { searchQuery } = useSearch()
 
-  const isSearchVisible = computed(
-    () => route.path === '/patient/records' || route.path === '/patient'
-  )
+  const isSearchVisible = computed(() => {
+    const visibleRoutes = [
+      '/patient/records',
+      '/patient',
+      '/doctor',
+      '/doctor/records',
+      '/doctor/appointments'
+    ]
+    return visibleRoutes.includes(route.path)
+  })
 </script>
 
 <template>
