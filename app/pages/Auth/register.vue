@@ -250,7 +250,7 @@
 
           <!-- Role Selection -->
           <div class="mb-2 grid grid-cols-2 gap-3">
-            <button
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
               @click="role = 'patient'"
               type="button"
               class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
@@ -277,9 +277,9 @@
                 <p class="text-sm font-bold">Patient</p>
                 <p class="text-foreground/50 text-[9px]">Seeking consultation</p>
               </div>
-            </button>
+            </AppButton>
 
-            <button
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
               @click="role = 'doctor'"
               type="button"
               class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
@@ -306,7 +306,7 @@
                 <p class="text-sm font-bold">Doctor</p>
                 <p class="text-foreground/50 text-[9px]">Medical Professional</p>
               </div>
-            </button>
+            </AppButton>
           </div>
 
           <!-- Name Grid -->
@@ -455,7 +455,7 @@
 
               <!-- Controls Overlay -->
               <div class="absolute inset-x-0 bottom-4 flex justify-center gap-3">
-                <button
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                   v-if="!isCapturing"
                   @click="startCamera"
                   type="button"
@@ -466,16 +466,16 @@
                     class="h-3 w-3"
                   />
                   <span>{{ form.idPhoto ? 'Retake Photo' : 'Capture ID' }}</span>
-                </button>
+                </AppButton>
 
-                <button
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                   v-if="isCapturing"
                   @click="capturePhoto"
                   type="button"
                   class="bg-primary flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-90"
                 >
                   <div class="h-8 w-8 rounded-full border-4 border-white"></div>
-                </button>
+                </AppButton>
 
                 <AppButton
                   v-if="isCapturing"
@@ -541,12 +541,12 @@
             </AppButton>
           </div>
 
-          <button
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             class="text-primary/60 hover:text-primary mt-4 w-full text-center text-xs font-medium transition-colors"
             @click="handleRegister"
           >
             Skip verification for now & register
-          </button>
+          </AppButton>
 
           <div class="mt-2 text-center">
             <AppButton

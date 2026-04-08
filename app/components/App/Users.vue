@@ -109,12 +109,12 @@
         class="text-foreground/20 mb-3 text-4xl"
       />
       <p class="text-foreground/60 font-medium">No results match your search</p>
-      <button
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         @click="searchQuery = ''"
         class="text-primary mt-2 text-xs font-bold hover:underline"
       >
         Clear search
-      </button>
+      </AppButton>
     </div>
   </div>
 </template>

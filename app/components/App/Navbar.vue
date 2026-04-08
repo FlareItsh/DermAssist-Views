@@ -29,12 +29,11 @@
         />
       </div>
       <div class="flex w-full items-center justify-between">
-        <h2 class="text-3xl font-semibold">{{ title }}</h2>
+        <h2 class="text-3xl font-bold">{{ title }}</h2>
         <AppUtilityBar />
       </div>
     </div>
 
-    <!-- if you want to add more items in the navbar aside from the title use the slot here-->
     <div class="flex items-center gap-5">
       <slot />
     </div>

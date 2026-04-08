@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, computed } from 'vue'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -101,6 +101,7 @@
             <AppModalRecord
               v-if="selectedRecord"
               :record="selectedRecord"
+              role="doctor"
             />
           </div>
         </div>

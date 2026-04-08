@@ -52,12 +52,12 @@
   >
     <div class="border-border flex items-center justify-between border-b px-8 py-6">
       <h2 class="text-foreground text-3xl font-bold">{{ conversation.name }}</h2>
-      <button class="text-foreground/40 hover:text-primary cursor-pointer transition-colors">
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled" class="text-foreground/40 hover:text-primary cursor-pointer transition-colors">
         <Icon
           name="solar:menu-dots-vertical-bold"
           class="text-3xl"
         />
-      </button>
+      </AppButton>
     </div>
 
     <!-- Messages Area -->
@@ -99,18 +99,18 @@
         ></textarea>
 
         <div class="absolute top-1/2 left-6 -translate-y-1/2">
-          <button
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             class="text-foreground/30 hover:text-primary flex cursor-pointer items-center justify-center transition-colors"
           >
             <Icon
               name="material-symbols:link-rounded"
               class="text-foreground/60 text-3xl"
             />
-          </button>
+          </AppButton>
         </div>
 
         <div class="absolute top-1/2 right-6 -translate-y-1/2">
-          <button
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             @click="sendMessage"
             class="text-foreground/40 hover:text-primary group-focus-within:text-primary flex cursor-pointer items-center justify-center p-2 transition-colors"
           >
@@ -118,7 +118,7 @@
               name="tabler:send"
               class="text-secondary text-3xl"
             />
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>

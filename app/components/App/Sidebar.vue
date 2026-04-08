@@ -106,7 +106,7 @@
 
           <!-- Parent Item (Has Children) -->
           <div v-else class="flex flex-col gap-1">
-            <button
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
               @click="toggleSubmenu(item.label)"
               class="group hover:bg-sidebar-accent flex items-center rounded-full p-2 transition-all duration-300 active:scale-95 cursor-pointer"
               :class="[
@@ -152,7 +152,7 @@
                   :class="{ 'rotate-90': isSubmenuOpen(item.label) }"
                 />
               </div>
-            </button>
+            </AppButton>
 
             <!-- Submenu Items -->
             <div
@@ -191,7 +191,7 @@
         class="flex flex-col gap-6 px-3 transition-all duration-500 ease-in-out"
         :class="isCollapsed ? 'pb-10' : 'pb-6'"
       >
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="logout"
           class="group hover:bg-destructive/10 flex items-center gap-0 rounded-full p-2 transition-all duration-300 active:scale-95"
         >
@@ -213,7 +213,7 @@
               Logout
             </span>
           </div>
-        </button>
+        </AppButton>
       </div>
     </aside>
   </div>

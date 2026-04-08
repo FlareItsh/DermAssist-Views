@@ -53,12 +53,27 @@
   const doctorNavItems = [
     { icon: 'mi:home', label: 'Dashboard', to: '/doctor' },
     {
+      icon: 'material-symbols-light:camera-outline-rounded',
+      label: 'Scan',
+      to: '/doctor/scan'
+    },
+    {
       icon: 'mage:user-circle',
       label: 'Consultations',
       children: [
         { icon: 'heroicons:user-group', label: 'Patients', to: '/doctor/users' },
         { icon: 'heroicons:calendar', label: 'Appointments', to: '/doctor/appointments' }
       ]
+    },
+    {
+      icon: 'lets-icons:message-light',
+      label: 'Message',
+      to: '/doctor/message'
+    },
+    {
+      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      label: 'Records',
+      to: '/doctor/records'
     }
   ]
 
@@ -79,7 +94,8 @@
   })
 
   const currentPageTitle = computed(() => {
-    const activeItem = navItems.value.find(item => item.to === route.path)
+    const allItems = navItems.value.flatMap(item => item.children ? [item, ...item.children] : [item])
+    const activeItem = allItems.find(item => item.to === route.path)
     return activeItem?.navbarTitle || activeItem?.label || 'Title'
   })
 </script>

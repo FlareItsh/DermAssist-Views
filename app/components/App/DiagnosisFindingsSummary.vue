@@ -114,7 +114,7 @@
                 />
               </datalist>
             </p>
-            <button
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
               @click="toggleEditName"
               class="ml-1 opacity-0 transition-opacity group-hover:opacity-100"
             >
@@ -126,7 +126,7 @@
                 "
                 class="text-primary text-lg"
               />
-            </button>
+            </AppButton>
           </div>
 
           <p class="text-md text-foreground font-semibold">
@@ -163,20 +163,20 @@
     </div>
 
     <div class="mt-2 flex justify-between">
-      <button
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         class="bg-primary text-card flex w-fit items-center justify-center rounded-full p-3 font-bold transition-all hover:scale-[1.02] hover:opacity-90 active:scale-95"
       >
         <Icon
           name="iconamoon:trash-light"
           class="text-4xl"
         />
-      </button>
-      <button
+      </AppButton>
+      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
         @click="isDetailedModalOpen = true"
         class="bg-primary text-card h-14 w-fit rounded-full px-10 py-3 text-2xl font-bold transition-all hover:scale-[1.02] hover:opacity-90 active:scale-95"
       >
         Proceed
-      </button>
+      </AppButton>
     </div>
     <Teleport to="body">
       <Transition name="modal">
@@ -189,7 +189,7 @@
           <div
             class="modal-container bg-card relative max-h-[90vh] w-[90vw] overflow-hidden rounded-4xl shadow-2xl"
           >
-            <button
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
               @click="isDetailedModalOpen = false"
               class="absolute top-4 right-4 z-10 rounded-full p-2 transition-colors hover:bg-gray-100"
             >
@@ -197,7 +197,7 @@
                 name="material-symbols:close-rounded"
                 class="text-2xl text-gray-400"
               />
-            </button>
+            </AppButton>
             <AppModalDiagnosisFindingsDetailed @close="isDetailedModalOpen = false" />
           </div>
         </div>

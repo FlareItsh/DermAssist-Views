@@ -158,7 +158,7 @@
 
       <!-- Disease switcher pills -->
       <div class="mt-auto flex gap-3 pt-4">
-        <button
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           v-for="(entry, i) in displayChartData"
           :key="i"
           @click="activeDisease = entry.label as DiseaseName"
@@ -182,7 +182,7 @@
             class="text-base"
             :class="activeDisease === entry.label ? 'text-white' : 'text-gray-500'"
           />
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -217,7 +217,7 @@
                   {{ entry.value }}% {{ entry.label }}
                 </span>
               </div>
-              <button
+              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                 class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
                 :class="
                   activeDisease === entry.label
@@ -233,7 +233,7 @@
                   "
                   class="text-lg"
                 />
-              </button>
+              </AppButton>
             </div>
           </div>
         </div>
@@ -257,22 +257,22 @@
             </p>
             <p class="text-md text-foreground leading-4">{{ doctor?.location || 'Blacktor' }}</p>
             <div class="mt-7 flex justify-end gap-3">
-              <button
+              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                 class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50"
               >
                 <Icon
                   name="material-symbols:call-outline"
                   class="text-secondary text-lg"
                 />
-              </button>
-              <button
+              </AppButton>
+              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
                 class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50"
               >
                 <Icon
                   name="material-symbols:chat-outline"
                   class="text-secondary text-lg"
                 />
-              </button>
+              </AppButton>
             </div>
           </div>
           <div class="flex-1">
@@ -289,16 +289,16 @@
         </div>
 
         <div class="mt-1 flex gap-3">
-          <button
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             class="bg-primary-light flex-1 rounded-full py-2.5 text-sm font-semibold text-gray-600 transition-all hover:opacity-90 active:scale-95"
           >
             Select a Doctor
-          </button>
-          <button
+          </AppButton>
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
             class="bg-primary text-card flex-1 rounded-full py-2.5 text-sm font-semibold transition-all hover:opacity-90 active:scale-95"
           >
             Send Diagnosis
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>
