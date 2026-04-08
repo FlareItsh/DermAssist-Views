@@ -71,13 +71,14 @@
       v-if="verifications?.data?.length"
       class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
     >
-      <div
+      <NuxtLink
         v-for="verification in verifications.data"
         :key="verification.id"
-        class="group relative overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+        :to="`/Admin/Moderation/Verification/${verification.uuid}`"
+        class="group relative block overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
       >
         <!-- Status Badge -->
-        <div class="absolute top-5 right-5">
+        <div class="absolute top-5 right-5 z-10">
           <span
             :class="[
               'rounded-full border px-3 py-1 text-[10px] font-bold tracking-wider uppercase',
@@ -97,12 +98,12 @@
             </span>
           </div>
 
-          <h2 class="text-xl font-bold text-gray-900">
+          <h2 class="text-xl font-bold text-gray-900 transition-colors group-hover:text-indigo-600">
             {{ verification.user.first_name }} {{ verification.user.last_name }}
           </h2>
           <p class="text-sm font-medium text-gray-500">{{ verification.user.email }}</p>
 
-          <div class="my-6 w-full space-y-4 rounded-2xl bg-gray-50 p-4">
+          <div class="my-6 w-full space-y-4 rounded-2xl bg-gray-50 p-4 transition-colors group-hover:bg-indigo-50/30">
             <div class="flex flex-col items-start gap-1">
               <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >PRC License Number</span
@@ -118,18 +119,18 @@
                 >ID Verification Photo</span
               >
               <div
-                class="group/img relative mt-2 w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-200 transition-colors hover:border-indigo-400"
+                class="group/img relative mt-2 w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-200 transition-colors group-hover:border-indigo-400"
               >
                 <NuxtImg
                   :src="getStorageUrl(verification.id_photo_path)"
-                  class="aspect-video w-full cursor-zoom-in object-cover transition-transform duration-500 group-hover/img:scale-105"
+                  class="aspect-video w-full object-cover transition-transform duration-500 group-hover/img:scale-105"
                   placeholder
                 />
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </NuxtLink>
     </div>
 
     <!-- Empty State -->
