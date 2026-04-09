@@ -42,6 +42,127 @@
 
   const isLoading = ref(false)
 
+  const touched = reactive({
+    firstName: false,
+    middleName: false,
+    lastName: false,
+    email: false,
+    password: false,
+    password_confirmation: false,
+    role: false,
+    prcNumber: false,
+    idPhoto: false
+  })
+
+  const markTouched = (field: keyof typeof touched) => {
+    touched[field] = true
+  }
+
+  let debounceTimeout: any = null
+
+  const validateField = (field: string, immediate = false) => {
+    if (!touched[field as keyof typeof touched]) return
+
+    const runValidation = () => {
+      switch (field) {
+        case 'firstName':
+          if (!form.firstName) errors.firstName = 'First name is required'
+          else if (form.firstName.length > 255) errors.firstName = 'Max 255 characters'
+          else errors.firstName = ''
+          break
+        case 'lastName':
+          if (!form.lastName) errors.lastName = 'Last name is required'
+          else if (form.lastName.length > 255) errors.lastName = 'Max 255 characters'
+          else errors.lastName = ''
+          break
+        case 'middleName':
+          if (form.middleName && form.middleName.length > 255) errors.middleName = 'Max 255 characters'
+          else errors.middleName = ''
+          break
+        case 'email':
+          if (!form.email) errors.email = 'Email address is required'
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Invalid email format'
+          else if (form.email.length > 255) errors.email = 'Max 255 characters'
+          else errors.email = ''
+          break
+        case 'password':
+          if (!form.password) errors.password = 'Password is required'
+          else if (form.password.length < 8) errors.password = 'Minimum 8 characters'
+          else errors.password = ''
+          if (touched.password_confirmation) validateField('password_confirmation', true)
+          break
+        case 'password_confirmation':
+          if (!form.password_confirmation) errors.password_confirmation = 'Please confirm your password'
+          else if (form.password_confirmation !== form.password) errors.password_confirmation = 'Passwords do not match'
+          else errors.password_confirmation = ''
+          break
+        case 'prcNumber':
+          if (role.value === 'doctor') {
+            if (!form.prcNumber) errors.prcNumber = 'PRC Number is required'
+            else if (form.prcNumber.length < 7) errors.prcNumber = 'Minimum 7 characters'
+            else errors.prcNumber = ''
+          } else {
+            errors.prcNumber = ''
+          }
+          break
+        case 'idPhoto':
+          if (role.value === 'doctor' && !form.idPhoto) errors.idPhoto = 'ID Photo is required'
+          else errors.idPhoto = ''
+          break
+      }
+    }
+
+    if (immediate) {
+      runValidation()
+    } else {
+      if (debounceTimeout) clearTimeout(debounceTimeout)
+      debounceTimeout = setTimeout(runValidation, 500)
+    }
+  }
+
+  // Watchers for Live Validation
+  watch(() => form.firstName, () => {
+    errors.firstName = ''
+    validateField('firstName')
+  })
+  watch(() => form.lastName, () => {
+    errors.lastName = ''
+    validateField('lastName')
+  })
+  watch(() => form.middleName, () => {
+    errors.middleName = ''
+    validateField('middleName')
+  })
+  watch(() => form.email, () => {
+    errors.email = ''
+    validateField('email')
+  })
+  watch(() => form.password, () => {
+    errors.password = ''
+    validateField('password')
+  })
+  watch(() => form.password_confirmation, () => {
+    errors.password_confirmation = ''
+    validateField('password_confirmation')
+  })
+  watch(() => form.prcNumber, () => {
+    errors.prcNumber = ''
+    validateField('prcNumber')
+  })
+  watch(() => form.idPhoto, () => {
+    errors.idPhoto = ''
+    validateField('idPhoto')
+  })
+  watch(role, () => {
+    if (role.value === 'doctor') {
+      validateField('prcNumber', true)
+      validateField('idPhoto', true)
+    } else {
+      errors.prcNumber = ''
+      errors.idPhoto = ''
+    }
+  })
+
   // Validation
   const isStep1Valid = computed(() => {
     return (
@@ -50,21 +171,35 @@
       form.email &&
       form.password &&
       form.password === form.password_confirmation &&
-      form.password.length >= 8
+      form.password.length >= 8 &&
+      !errors.firstName &&
+      !errors.lastName &&
+      !errors.email &&
+      !errors.password &&
+      !errors.password_confirmation
     )
   })
 
   const isStep2Valid = computed(() => {
-    return form.prcNumber.length >= 7 && form.idPhoto !== null
+    return form.prcNumber.length >= 7 && form.idPhoto !== null && !errors.prcNumber && !errors.idPhoto
   })
 
   // Methods
   const nextStep = () => {
     if (currentStep.value === 1) {
+      // Force immediate validation for all Step 1 fields
+      Object.keys(touched).forEach(key => {
+        if (['firstName', 'middleName', 'lastName', 'email', 'password', 'password_confirmation'].includes(key)) {
+          touched[key as keyof typeof touched] = true
+          validateField(key, true)
+        }
+      })
+
+      if (!isStep1Valid.value) return
+
       if (role.value === 'doctor') {
         currentStep.value = 2
       } else {
-        // Submit for Patient
         handleRegister()
       }
     }
@@ -78,8 +213,19 @@
   }
 
   const handleRegister = async () => {
-    // Reset errors
-    Object.keys(errors).forEach(key => (errors[key as keyof typeof errors] = ''))
+    if (debounceTimeout) clearTimeout(debounceTimeout)
+
+    // Final Validation check
+    Object.keys(touched).forEach(key => {
+      touched[key as keyof typeof touched] = true
+      validateField(key, true)
+    })
+
+    if (currentStep.value === 2 && !isStep2Valid.value) return
+    if (currentStep.value === 1 && !isStep1Valid.value) return
+
+    // Reset errors from previous attempt
+    errors.general = ''
     isLoading.value = true
 
     try {
@@ -162,6 +308,7 @@
         canvas.value.height = video.value.videoHeight
         context.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height)
         form.idPhoto = canvas.value.toDataURL('image/png')
+        markTouched('idPhoto')
         stopCamera()
       }
     }
@@ -173,6 +320,7 @@
       const reader = new FileReader()
       reader.onload = e => {
         form.idPhoto = e.target?.result as string
+        markTouched('idPhoto')
       }
       reader.readAsDataURL(file)
     }
@@ -186,11 +334,11 @@
 <template>
   <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-6 py-4">
     <!-- Header/Logo Area -->
-    <div class="mb-1 flex flex-col items-center text-center">
+    <div class="mb-8 flex flex-col items-center text-center">
       <NuxtLink to="/">
         <NuxtImg
           src="/DA_Logo.png"
-          class="h-14"
+          class="h-16"
         />
       </NuxtLink>
     </div>
@@ -249,9 +397,9 @@
           key="step1"
           class="flex w-full flex-col gap-2"
         >
-          <div class="mb-1 text-center">
-            <h1 class="text-foreground text-2xl font-bold tracking-tight">Create your account</h1>
-            <p class="text-foreground/60 mt-1 text-sm">
+          <div class="mb-4 text-center">
+            <h1 class="text-foreground text-3xl font-bold tracking-tight">Create your account</h1>
+            <p class="text-foreground/60 mt-2 text-sm">
               Choose your role and fill in your details.
             </p>
           </div>
@@ -338,18 +486,24 @@
               v-model="form.firstName"
               label="First Name"
               :error="errors.firstName"
+              @blur="markTouched('firstName')"
+              @input="markTouched('firstName')"
             />
             <AuthInput
               id="middle-name"
               v-model="form.middleName"
               label="Middle Name"
               :error="errors.middleName"
+              @blur="markTouched('middleName')"
+              @input="markTouched('middleName')"
             />
             <AuthInput
               id="last-name"
               v-model="form.lastName"
               label="Last Name"
               :error="errors.lastName"
+              @blur="markTouched('lastName')"
+              @input="markTouched('lastName')"
             />
           </div>
 
@@ -359,6 +513,8 @@
             label="Email Address"
             type="email"
             :error="errors.email"
+            @blur="markTouched('email')"
+            @input="markTouched('email')"
           />
 
           <div class="grid grid-cols-2 gap-3">
@@ -368,6 +524,8 @@
               label="Password"
               type="password"
               :error="errors.password"
+              @blur="markTouched('password')"
+              @input="markTouched('password')"
             />
             <AuthInput
               id="confirm-password"
@@ -375,6 +533,8 @@
               label="Confirm"
               type="password"
               :error="errors.password_confirmation"
+              @blur="markTouched('password_confirmation')"
+              @input="markTouched('password_confirmation')"
             />
           </div>
 
@@ -384,7 +544,7 @@
             class="mt-2"
             :disabled="!isStep1Valid"
           >
-            <span>{{ role === 'doctor' ? 'Next: Verification' : 'Create Account' }}</span>
+            <span>{{ role === 'doctor' ? 'Next' : 'Create Account' }}</span>
             <template #trailing>
               <Icon
                 :name="role === 'doctor' ? 'lucide:chevron-right' : 'lucide:arrow-right'"
@@ -438,6 +598,8 @@
             label="PRC Registration Number"
             placeholder="e.g. 1234567"
             :error="errors.prcNumber"
+            @blur="markTouched('prcNumber')"
+            @input="markTouched('prcNumber')"
           />
 
           <!-- Photo Capture Section -->

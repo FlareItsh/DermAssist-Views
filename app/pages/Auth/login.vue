@@ -18,26 +18,63 @@
 
   const isLoading = ref(false)
 
-  const validate = () => {
-    let isValid = true
+  const touched = reactive({
+    email: false,
+    password: false
+  })
+
+  const markTouched = (field: keyof typeof touched) => {
+    touched[field] = true
+  }
+
+  let debounceTimeout: any = null
+
+  const validateField = (field: string) => {
+    if (!touched[field as keyof typeof touched]) return
+
+    if (debounceTimeout) clearTimeout(debounceTimeout)
+
+    debounceTimeout = setTimeout(() => {
+      switch (field) {
+        case 'email':
+          if (!form.email) errors.email = 'Email address is required'
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Please enter a valid email address'
+          else errors.email = ''
+          break
+        case 'password':
+          if (!form.password) errors.password = 'Password is required'
+          else errors.password = ''
+          break
+      }
+    }, 500) // 500ms delay
+  }
+
+  watch(() => form.email, () => {
     errors.email = ''
+    validateField('email')
+  })
+  watch(() => form.password, () => {
     errors.password = ''
-    errors.general = ''
+    validateField('password')
+  })
 
-    if (!form.email) {
-      errors.email = 'Email address is required'
-      isValid = false
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errors.email = 'Please enter a valid email address'
-      isValid = false
-    }
+  const validate = () => {
+    // Clear any pending debounce
+    if (debounceTimeout) clearTimeout(debounceTimeout)
 
-    if (!form.password) {
-      errors.password = 'Password is required'
-      isValid = false
-    }
+    // Mark all as touched on submit to show errors immediately
+    touched.email = true
+    touched.password = true
 
-    return isValid
+    // Immediate validation for submission
+    if (!form.email) errors.email = 'Email address is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Please enter a valid email address'
+    else errors.email = ''
+
+    if (!form.password) errors.password = 'Password is required'
+    else errors.password = ''
+
+    return !errors.email && !errors.password
   }
 
   const submitForm = async () => {
@@ -103,77 +140,93 @@
 </script>
 
 <template>
-  <div class="flex h-full flex-col items-center justify-center px-12 py-8">
-    <div class="mb-10 flex flex-col items-center text-center">
-      <NuxtLink to="/">
-        <NuxtImg
-          src="/DA_Logo.png"
-          class="h-25"
-        />
-      </NuxtLink>
-      <h1 class="text-foreground text-4xl font-bold tracking-tight">Welcome back!</h1>
-      <p class="text-foreground/80 mt-2">Let’s get you sign in.</p>
-    </div>
-
-    <form
-      @submit.prevent="submitForm"
-      class="flex w-full max-w-sm flex-col gap-6"
-    >
-      <div
-        v-if="errors.general"
-        class="bg-destructive/10 text-destructive rounded-xl p-4 text-center text-sm font-medium"
-      >
-        {{ errors.general }}
-      </div>
-
-      <AuthInput
-        id="email"
-        v-model="form.email"
-        label="Email Address"
-        type="email"
-        :error="errors.email"
-      />
-      <AuthInput
-        id="password"
-        v-model="form.password"
-        label="Password"
-        type="password"
-        :error="errors.password"
-      />
-
-      <div class="flex items-center justify-between px-1">
-        <label class="text-foreground/60 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            class="accent-primary border-input h-4 w-4 rounded"
+  <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-6 py-8">
+    <div class="my-auto flex flex-col items-center">
+      <div class="mb-8 flex flex-col items-center text-center">
+        <NuxtLink to="/">
+          <NuxtImg
+            src="/DA_Logo.png"
+            class="h-16"
           />
-          Remember me
-        </label>
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-          type="button"
-          class="text-primary text-sm font-medium hover:underline"
-        >
-          Forgot password?
-        </AppButton>
+        </NuxtLink>
+        <h1 class="text-foreground mt-4 text-3xl font-bold tracking-tight">Welcome back!</h1>
+        <p class="text-foreground/60 mt-2 text-sm">Let’s get you signed in.</p>
       </div>
 
-      <AppButton
-        type="submit"
-        block
-        :loading="isLoading"
+      <form
+        @submit.prevent="submitForm"
+        class="flex w-full max-w-sm flex-col gap-6"
       >
-        Sign In
-      </AppButton>
-    </form>
+        <div
+          v-if="errors.general"
+          class="bg-destructive/10 text-destructive rounded-xl p-4 text-center text-sm font-medium"
+        >
+          {{ errors.general }}
+        </div>
 
-    <div class="mt-10 text-center text-sm">
-      <span class="text-foreground/60">Don't have an account?</span>
-      <NuxtLink
-        to="/auth/register"
-        class="text-primary ml-1 font-semibold hover:underline"
-      >
-        Create one
-      </NuxtLink>
+        <AuthInput
+          id="email"
+          v-model="form.email"
+          label="Email Address"
+          type="email"
+          :error="errors.email"
+          @blur="markTouched('email')"
+          @input="markTouched('email')"
+        />
+        <AuthInput
+          id="password"
+          v-model="form.password"
+          label="Password"
+          type="password"
+          :error="errors.password"
+          @blur="markTouched('password')"
+          @input="markTouched('password')"
+        />
+
+        <div class="flex items-center justify-between px-1">
+          <label class="text-foreground/60 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              class="accent-primary border-input h-4 w-4 rounded"
+            />
+            Remember me
+          </label>
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            type="button"
+            class="text-primary text-sm font-medium hover:underline"
+          >
+            Forgot password?
+          </AppButton>
+        </div>
+
+        <AppButton
+          type="submit"
+          block
+          :loading="isLoading"
+        >
+          Sign In
+        </AppButton>
+      </form>
+
+      <div class="mt-8 text-center text-sm">
+        <span class="text-foreground/60">Don't have an account?</span>
+        <NuxtLink
+          to="/auth/register"
+          class="text-primary ml-1 font-semibold hover:underline"
+        >
+          Create one
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(var(--foreground), 0.1);
+    border-radius: 10px;
+  }
+</style>
