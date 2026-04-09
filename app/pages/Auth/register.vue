@@ -266,7 +266,10 @@
 
           <!-- Role Selection -->
           <div class="mb-2 grid grid-cols-2 gap-3">
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
               @click="role = 'patient'"
               type="button"
               class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
@@ -295,7 +298,10 @@
               </div>
             </AppButton>
 
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
               @click="role = 'doctor'"
               type="button"
               class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
@@ -472,7 +478,10 @@
 
               <!-- Controls Overlay -->
               <div class="absolute inset-x-0 bottom-4 flex justify-center gap-3">
-                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
                   v-if="!isCapturing"
                   @click="startCamera"
                   type="button"
@@ -485,7 +494,10 @@
                   <span>{{ form.idPhoto ? 'Retake Photo' : 'Capture ID' }}</span>
                 </AppButton>
 
-                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
                   v-if="isCapturing"
                   @click="capturePhoto"
                   type="button"
@@ -559,22 +571,24 @@
             </AppButton>
           </div>
 
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-            class="text-primary/60 hover:text-primary mt-4 w-full text-center text-xs font-medium transition-colors"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
+            class="text-secondary hover:text-primary-foreground mt-4 w-full text-center font-medium transition-colors"
             @click="handleRegister"
           >
-            Skip verification for now & register
+            Skip For Now >
           </AppButton>
 
           <div class="mt-2 text-center">
-            <AppButton
-              variant="link"
-              size="sm"
+            <span class="text-foreground/60">Already have an account?</span>
+            <NuxtLink
               to="/auth/login"
+              class="text-primary ml-1 font-semibold hover:underline"
             >
-              <span class="text-foreground/60 mr-1 font-normal">Already have an account?</span>
               Login
-            </AppButton>
+            </NuxtLink>
           </div>
 
           <!-- Hidden Canvas for capturing -->
