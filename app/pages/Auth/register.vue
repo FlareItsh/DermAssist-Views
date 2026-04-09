@@ -42,6 +42,22 @@
 
   const isLoading = ref(false)
 
+  // Validation
+  const isStep1Valid = computed(() => {
+    return (
+      form.firstName &&
+      form.lastName &&
+      form.email &&
+      form.password &&
+      form.password === form.password_confirmation &&
+      form.password.length >= 8
+    )
+  })
+
+  const isStep2Valid = computed(() => {
+    return form.prcNumber.length >= 7 && form.idPhoto !== null
+  })
+
   // Methods
   const nextStep = () => {
     if (currentStep.value === 1) {
@@ -360,6 +376,7 @@
             @click="nextStep"
             block
             class="mt-2"
+            :disabled="!isStep1Valid"
           >
             <span>{{ role === 'doctor' ? 'Next: Verification' : 'Create Account' }}</span>
             <template #trailing>
@@ -535,6 +552,7 @@
             <AppButton
               class="w-full"
               :loading="isLoading"
+              :disabled="!isStep2Valid"
               @click="handleRegister"
             >
               Complete
