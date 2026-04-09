@@ -3,6 +3,7 @@
     icon: string
     label: string
     to?: string
+    showBadge?: boolean
     children?: NavItem[]
   }
 
@@ -85,6 +86,13 @@
               />
             </div>
 
+            <!-- Notification Dot -->
+            <div
+              v-if="item.showBadge"
+              class="absolute top-2 right-2 h-3 w-3 rounded-full bg-red-500 border-2 border-sidebar"
+              :class="isCollapsed ? 'right-4' : 'right-auto left-8'"
+            ></div>
+
             <div
               class="grid transition-all duration-500"
               :class="
@@ -128,6 +136,13 @@
                   "
                 />
               </div>
+
+              <!-- Notification Dot for parents -->
+              <div
+                v-if="item.showBadge"
+                class="absolute top-2 right-2 h-3 w-3 rounded-full bg-red-500 border-2 border-sidebar"
+                :class="isCollapsed ? 'right-4' : 'right-auto left-8'"
+              ></div>
 
               <div
                 class="flex flex-1 items-center justify-between transition-all duration-500"
@@ -175,6 +190,11 @@
                     class="transition-colors duration-300 group-hover:text-sidebar-accent-foreground"
                     :class="route.path === child.to ? 'text-sidebar-accent-foreground' : 'text-foreground/40'"
                   />
+                  <!-- Notification Dot for children -->
+                  <div
+                    v-if="child.showBadge"
+                    class="h-2 w-2 rounded-full bg-red-500 shrink-0"
+                  ></div>
                   <span class="text-[15px] whitespace-nowrap transition-colors duration-300 group-hover:text-sidebar-accent-foreground">
                     {{ child.label }}
                   </span>

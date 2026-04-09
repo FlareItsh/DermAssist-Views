@@ -1,47 +1,62 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted } from 'vue'
 
-  const isNotificationsOpen = ref(false)
-  const isMessagesOpen = ref(false)
-  const notificationRef = ref<HTMLElement | null>(null)
-  const messageRef = ref<HTMLElement | null>(null)
+   const isNotificationsOpen = ref(false)
+   const isMessagesOpen = ref(false)
+   const isProfileOpen = ref(false)
+   const notificationRef = ref<HTMLElement | null>(null)
+   const messageRef = ref<HTMLElement | null>(null)
+   const profileRef = ref<HTMLElement | null>(null)
+ 
+   const toggleNotifications = () => {
+     isNotificationsOpen.value = !isNotificationsOpen.value
+     if (isNotificationsOpen.value) {
+       isMessagesOpen.value = false
+       isProfileOpen.value = false
+     }
+   }
+ 
+   const toggleMessages = () => {
+     isMessagesOpen.value = !isMessagesOpen.value
+     if (isMessagesOpen.value) {
+       isNotificationsOpen.value = false
+       isProfileOpen.value = false
+     }
+   }
 
-  const toggleNotifications = () => {
-    isNotificationsOpen.value = !isNotificationsOpen.value
-    if (isNotificationsOpen.value) isMessagesOpen.value = false
+   const toggleProfile = () => {
+     isProfileOpen.value = !isProfileOpen.value
+     if (isProfileOpen.value) {
+       isNotificationsOpen.value = false
+       isMessagesOpen.value = false
+     }
+   }
+
+  interface AppNotification {
+    id: number
+    title: string
+    description: string
+    time: string
+    icon: string
+    color: string
+    to?: string
   }
 
-  const toggleMessages = () => {
-    isMessagesOpen.value = !isMessagesOpen.value
-    if (isMessagesOpen.value) isNotificationsOpen.value = false
-  }
-
-  const notifications = [
-    {
-      id: 1,
-      title: 'New Scan Result',
-      description: 'A new scan result for patient Jane Doe is ready to review.',
-      time: '2 hours ago',
-      icon: 'solar:scanner-2-linear',
-      color: 'text-blue-500'
-    },
-    {
-      id: 2,
-      title: 'Appointment Reminder',
-      description: 'Follow-up appointment with Dr. Smith tomorrow at 10 AM.',
-      time: '5 hours ago',
-      icon: 'solar:calendar-date-linear',
-      color: 'text-green-500'
-    },
-    {
-      id: 3,
-      title: 'System Update',
-      description: 'The platform will undergo scheduled maintenance at midnight.',
-      time: '1 day ago',
-      icon: 'solar:settings-linear',
-      color: 'text-amber-500'
+  const notifications = computed<AppNotification[]>(() => {
+    const list: AppNotification[] = []
+    if (isProfileIncomplete.value) {
+      list.push({
+        id: 0,
+        title: 'Complete Account Setup',
+        description: 'Please provide your location, age and gender to complete your account setup.',
+        time: 'Now',
+        icon: 'solar:user-id-linear',
+        color: 'text-red-500',
+        to: profileRoute.value
+      })
     }
-  ]
+    return list
+  })
 
   const messages = [
     {
@@ -77,6 +92,9 @@
     if (messageRef.value && !messageRef.value.contains(event.target as Node)) {
       isMessagesOpen.value = false
     }
+    if (profileRef.value && !profileRef.value.contains(event.target as Node)) {
+      isProfileOpen.value = false
+    }
   }
 
   onMounted(() => {
@@ -85,6 +103,24 @@
 
   const route = useRoute()
   const { searchQuery } = useSearch()
+  const userRole = useCookie('user_role')
+  const userUuid = useCookie('user_uuid')
+
+  const { data: userProfile } = await useApi<any>(() => `users/${userUuid.value}`, {
+    key: `userProfile-${userUuid.value}`
+  })
+
+  const isProfileIncomplete = computed(() => {
+    if (!userProfile.value?.data) return false
+    const userData = userProfile.value.data
+    return !userData.city || !userData.province || !userData.age || userData.age == 0 || !userData.gender || userData.gender === ''
+  })
+
+  const profileRoute = computed(() => {
+    if (userRole.value === 'doctor') return '/doctor/profile'
+    if (userRole.value === 'patient') return '/patient/profile'
+    return '#'
+  })
 
   const isSearchVisible = computed(() => {
     const visibleRoutes = [
@@ -96,6 +132,24 @@
     ]
     return visibleRoutes.includes(route.path)
   })
+
+  const handleNotificationClick = (notif: AppNotification) => {
+    isNotificationsOpen.value = false
+    if (notif.to) {
+      navigateTo(notif.to)
+    }
+  }
+
+  const logout = () => {
+    // Clear all auth cookies
+    useCookie('auth_token').value = null
+    useCookie('user_role').value = null
+    useCookie('user_uuid').value = null
+    useCookie('user_name').value = null
+    useCookie('auth_user_name').value = null
+    
+    navigateTo('/auth/login')
+  }
 </script>
 
 <template>
@@ -257,6 +311,7 @@
                   v-for="notif in notifications"
                   :key="notif.id"
                   v-bind="notif"
+                  @click="handleNotificationClick(notif)"
                 />
               </div>
             </div>
@@ -272,13 +327,70 @@
         </Transition>
       </div>
 
-      <li>
-        <a href="/profile"
-          ><img
+      <li class="relative" ref="profileRef">
+        <button 
+          @click="toggleProfile"
+          class="block h-14 w-14 overflow-hidden rounded-full border-2 transition-all shadow-md active:scale-95 cursor-pointer"
+          :class="isProfileOpen ? 'border-primary ring-4 ring-primary/10' : 'border-transparent hover:border-primary/30 hover:scale-105'"
+        >
+          <img
             src="/images/lp-img.png"
-            class="hover:border-primary/30 h-14 w-14 rounded-full border-2 border-transparent shadow-md transition-all"
+            class="h-full w-full object-cover"
             alt="Profile"
-        /></a>
+          />
+        </button>
+        <!-- Profile incomplete dot -->
+        <span
+          v-if="isProfileIncomplete"
+          class="pointer-events-none absolute top-0 right-0 flex h-4 w-4"
+        >
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
+          <span class="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-red-500"></span>
+        </span>
+
+        <!-- Profile Dropdown -->
+        <Transition
+          enter-active-class="transition duration-200 ease-out"
+          enter-from-class="transform scale-95 opacity-0 -translate-y-2"
+          enter-to-class="transform scale-100 opacity-100 translate-y-0"
+          leave-active-class="transition duration-150 ease-in"
+          leave-from-class="transform scale-100 opacity-100 translate-y-0"
+          leave-to-class="transform scale-95 opacity-0 -translate-y-2"
+        >
+          <div
+            v-if="isProfileOpen"
+            class="bg-card/95 absolute right-0 z-50 mt-4 w-64 overflow-hidden rounded-3xl border border-white/20 shadow-2xl backdrop-blur-xl"
+          >
+            <div class="border-border/10 border-b p-4 pb-3">
+              <p class="text-foreground/40 text-[10px] font-bold uppercase">Logged in as</p>
+              <p class="text-sm font-bold truncate">{{ userProfile?.data?.first_name }} {{ userProfile?.data?.last_name }}</p>
+              <p class="text-muted-foreground text-xs truncate">{{ userProfile?.data?.email }}</p>
+            </div>
+
+            <div class="p-2">
+              <NuxtLink 
+                :to="profileRoute" 
+                @click="isProfileOpen = false"
+                class="hover:bg-primary/10 group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
+              >
+                <div class="text-primary rounded-xl p-2 transition-colors group-hover:secondary">
+                  <Icon name="material-symbols:settings-outline" size="20" />
+                </div>
+                Profile Settings
+              </NuxtLink>
+
+              <button 
+                @click="logout"
+                class="hover:bg-destructive/5 group flex w-full items-center gap-3 rounded-2xl group-hover:text-destructive/50 px-4 py-3 text-sm font-medium transition-colors text-destructive"
+              >
+                <div class="text-destructive rounded-xl p-2 transition-colors">
+                  <Icon name="ic:round-log-out" size="20" />
+                </div>
+                Log Out
+              </button>
+            </div>
+          </div>
+        </Transition>
       </li>
     </ul>
   </nav>

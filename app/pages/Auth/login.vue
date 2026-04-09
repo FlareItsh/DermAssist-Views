@@ -58,8 +58,8 @@
         })
         token.value = response.token
 
-        // Extract the role, e.g. "admin/dashboard" -> "admin"
-        const baseRole = response.user.role?.split('/')[0] || 'patient'
+        const userData = response.user.data || response.user
+        const baseRole = userData?.role?.split('/')[0] || 'patient'
 
         // Store user role
         const role = useCookie('user_role', {
@@ -76,8 +76,14 @@
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        userName.value = response.user?.name || 'Patient'
-        authName.value = response.user?.name || 'Patient'
+        userName.value = `${userData.first_name} ${userData.last_name}`
+        authName.value = `${userData.first_name} ${userData.last_name}`
+
+        const userUuid = useCookie('user_uuid', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        userUuid.value = userData.uuid
       }
 
       if (response.user && response.user.role) {
