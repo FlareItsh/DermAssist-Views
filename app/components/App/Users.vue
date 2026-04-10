@@ -3,70 +3,56 @@
 
   const props = defineProps<{
     title: string
+    role?: 'doctor' | 'patient'
+    status?: string
   }>()
 
   const { searchQuery } = useSearch()
+  const { getStorageUrl } = useStorage()
 
-  const mockDoctors = [
-    {
-      id: 1,
-      name: 'Dr. Sarah Johnson',
-      workplace: 'City Medical Center',
-      image: '/images/lp-img.png',
-      specialty: 'Dermatologist'
-    },
-    {
-      id: 2,
-      name: 'Dr. Michael Chen',
-      workplace: 'Metro Skin Clinic',
-      image: '/images/lp-img.png',
-      specialty: 'Cosmetic Specialist'
-    },
-    {
-      id: 3,
-      name: 'Dr. Elena Rodriguez',
-      workplace: 'Sunshine Health',
-      image: '/images/lp-img.png',
-      specialty: 'Pediatric Dermatology'
-    },
-    {
-      id: 4,
-      name: 'Dr. James Wilson',
-      workplace: 'Westside General',
-      image: '/images/lp-img.png',
-      specialty: 'Dermato-pathologist'
-    },
-    {
-      id: 5,
-      name: 'Dr. Aisha Khan',
-      workplace: 'Global Skin Institute',
-      image: '/images/lp-img.png',
-      specialty: 'Medical Laser Specialist'
-    },
-    {
-      id: 6,
-      name: 'Dr. Robert Brown',
-      workplace: 'Central Hospital',
-      image: '/images/lp-img.png',
-      specialty: 'Surgical Dermatology'
-    }
-  ]
+  const queryUrl = computed(() => {
+    let url = 'users?'
+    if (props.role) url += `role=${props.role}&`
+    if (props.status) url += `status=${props.status}&`
+    return url.slice(0, -1) 
+  })
 
-  const filteredDoctors = computed(() => {
+  const { data: response, pending } = await useApi<any>(() => queryUrl.value, {
+    key: `users-list-${props.role}-${props.status}`,
+    watch: [() => props.role, () => props.status]
+  })
+
+  const users = computed(() => response.value?.data || [])
+
+  const filteredUsers = computed(() => {
     const query = searchQuery.value.trim()
-    if (!query) return mockDoctors
+    if (!query) return users.value
 
-    // If the query is a number, don't "touch" (filter) the doctors
-    if (/^\d+$/.test(query)) return mockDoctors
+    if (/^\d+$/.test(query)) return users.value
 
     const lowerQuery = query.toLowerCase()
-    return mockDoctors.filter(
-      doctor =>
-        doctor.name.toLowerCase().includes(lowerQuery) ||
-        doctor.workplace.toLowerCase().includes(lowerQuery) ||
-        doctor.specialty.toLowerCase().includes(lowerQuery)
+    return users.value.filter(
+      (user: any) =>
+        user.first_name?.toLowerCase().includes(lowerQuery) ||
+        user.last_name?.toLowerCase().includes(lowerQuery) ||
+        user.city?.toLowerCase().includes(lowerQuery) ||
+        user.province?.toLowerCase().includes(lowerQuery)
     )
   })
+
+  const getDisplayName = (user: any) => {
+    if (user.role === 'doctor') {
+      return `Dr. ${user.first_name} ${user.last_name}`
+    }
+    return `${user.first_name} ${user.last_name}`
+  }
+
+  const getWorkplaceOrLocation = (user: any) => {
+    if (user.city && user.province) {
+      return `${user.city}, ${user.province}`
+    }
+    return user.city || user.province || 'Location unlisted'
+  }
 </script>
 
 <template>
@@ -87,16 +73,23 @@
     </div>
 
     <div
-      v-if="filteredDoctors.length > 0"
+      v-if="pending"
+      class="flex min-h-[220px] items-center justify-center p-10"
+    >
+      <div class="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+    </div>
+    
+    <div
+      v-else-if="filteredUsers.length > 0"
       class="custom-scrollbar flex min-h-[220px] flex-row gap-4 overflow-x-auto px-2 pb-6"
     >
       <PatientSideComponentsDoctorsCard
-        v-for="doc in filteredDoctors"
-        :key="doc.id"
+        v-for="userItem in filteredUsers"
+        :key="userItem.id"
         class="shrink-0 cursor-pointer transition-all hover:scale-105 active:scale-95"
-        :doctorName="doc.name"
-        :doctorWorkplace="doc.workplace"
-        :doctorImage="doc.image"
+        :doctorName="getDisplayName(userItem)"
+        :doctorWorkplace="getWorkplaceOrLocation(userItem)"
+        :doctorImage="userItem.avatar_path ? getStorageUrl(userItem.avatar_path) : (userItem.doctor_verification?.id_photo_path ? getStorageUrl(userItem.doctor_verification.id_photo_path) : '/images/lp-img.png')"
       />
     </div>
 

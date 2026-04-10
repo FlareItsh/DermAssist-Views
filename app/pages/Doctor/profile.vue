@@ -249,7 +249,8 @@ const logout = () => {
               <span class="text-foreground/50">Profile Setup</span>
               <AppProfileStatusBadge
                 :is-complete="user?.data?.doctor_verification?.status === 'verified'"
-                :is-pending="!!(user?.data?.city && user?.data?.province && user?.data?.age && user?.data?.gender && user?.data?.doctor_verification?.status !== 'verified')" />
+                :is-declined="user?.data?.doctor_verification?.status === 'declined'"
+                :is-pending="user?.data?.doctor_verification?.status === 'pending'" />
             </div>
             <div v-if="user?.data?.prcNumber || user?.data?.doctor_verification" class="bg-foreground/5 rounded-xl p-3 text-left">
               <span class="text-foreground/40 text-[10px] font-bold uppercase block mb-1">PRC License No.</span>

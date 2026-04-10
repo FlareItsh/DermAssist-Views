@@ -7,8 +7,8 @@
 </script>
 
 <template>
-  <div class="bg-card flex w-fit flex-col justify-between rounded-3xl border-3 border-gray-100 p-3">
-    <NuxtImg
+  <div class="bg-card flex w-55 flex-col justify-between rounded-3xl border-3 border-gray-100 p-3">
+    <img
       :src="doctorImage"
       alt="Doctor"
       class="h-30 w-50 rounded-2xl object-cover shadow-sm"
@@ -25,7 +25,7 @@
 
     <div class="text-secondary mt-8 flex w-full justify-end gap-3">
       <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px] transition-all active:scale-90"
+        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px]"
       >
         <Icon
           name="famicons:call"
@@ -33,7 +33,7 @@
         />
       </AppButton>
       <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px] transition-all active:scale-90"
+        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px]"
       >
         <Icon
           name="mingcute:message-4-line"

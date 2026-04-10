@@ -34,7 +34,7 @@
    }
 
   interface AppNotification {
-    id: number
+    id: string | number
     title: string
     description: string
     time: string
@@ -114,7 +114,7 @@
     return '#'
   })
 
-  const dismissedNotifs = useCookie<number[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
+  const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
 
   const notifications = computed<AppNotification[]>(() => {
     const list: AppNotification[] = []
@@ -132,13 +132,28 @@
     }
     
     if (userRole.value === 'doctor' && userProfile.value?.data?.doctor_verification?.status === 'verified') {
+      const verif = userProfile.value.data.doctor_verification
       list.push({
-        id: 999,
+        id: `approved-${verif.uuid}-${verif.updated_at}`,
         title: 'Verification Approved',
         description: 'Your doctor profile has been officially verified!',
         time: 'Just now',
         icon: 'heroicons:shield-check-solid',
         color: 'text-green-500',
+        to: profileRoute.value
+      })
+    }
+
+    if (userRole.value === 'doctor' && userProfile.value?.data?.doctor_verification?.status === 'declined') {
+      const verif = userProfile.value.data.doctor_verification
+      const reason = verif.rejection_reason
+      list.push({
+        id: `declined-${verif.uuid}-${verif.updated_at}`,
+        title: 'Verification Declined',
+        description: reason ? `Reason: ${reason}` : 'Your doctor profile verification was declined. Please review your submisson.',
+        time: 'Just now',
+        icon: 'heroicons:x-circle-solid',
+        color: 'text-red-500',
         to: profileRoute.value
       })
     }
@@ -160,10 +175,11 @@
   const handleNotificationClick = (notif: AppNotification) => {
     isNotificationsOpen.value = false
     
-    if (notif.id === 999) {
+    if (typeof notif.id === 'string' && (notif.id.startsWith('approved-') || notif.id.startsWith('declined-'))) {
       const arr = dismissedNotifs.value || []
-      if (!arr.includes(999)) {
-        arr.push(999)
+      const idToDismiss = notif.id
+      if (!arr.includes(idToDismiss)) {
+        arr.push(idToDismiss)
         dismissedNotifs.value = arr
       }
     }
@@ -173,7 +189,7 @@
     }
   }
 
-  const handleNotificationDelete = (id: number) => {
+  const handleNotificationDelete = (id: string | number) => {
     const arr = dismissedNotifs.value || []
     if (!arr.includes(id)) {
       arr.push(id)
