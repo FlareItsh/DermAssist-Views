@@ -1,16 +1,21 @@
 <script setup lang="ts">
-  defineProps<{
+  const props = defineProps<{
     title: string
     description: string
     time: string
     icon: string
     color: string
+    to?: string
   }>()
+
+  const componentType = computed(() => props.to ? 'NuxtLink' : 'div')
 </script>
 
 <template>
-  <div
-    class="hover:bg-secondary/50 border-border/30 group cursor-pointer border-b p-4 transition-colors last:border-0"
+  <component
+    :is="componentType"
+    :to="to"
+    class="hover:bg-secondary/50 border-border/30 group block cursor-pointer border-b p-4 transition-colors last:border-0"
   >
     <div class="flex gap-4">
       <div
@@ -35,5 +40,5 @@
         </p>
       </div>
     </div>
-  </div>
+  </component>
 </template>

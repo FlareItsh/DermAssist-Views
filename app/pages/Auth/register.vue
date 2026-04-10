@@ -242,12 +242,20 @@
         const tokenCookie = useCookie('auth_token')
         tokenCookie.value = response.token
 
+        const userData = response.user.data || response.user
+
         // Set the user role cookie for middleware
         const roleCookie = useCookie('user_role')
-        roleCookie.value = response.user.role
+        roleCookie.value = userData.role
+
+        const userUuid = useCookie('user_uuid', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        userUuid.value = userData.uuid
 
         // Redirect based on role
-        navigateTo(`/${response.user.role}`)
+        navigateTo(`/${userData.role}`)
       }
     } catch (err: any) {
       console.error('Registration Error:', err)
