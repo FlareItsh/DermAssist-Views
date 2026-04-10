@@ -102,6 +102,7 @@
   })
 
   const route = useRoute()
+  const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
@@ -333,10 +334,11 @@
           class="block h-14 w-14 overflow-hidden rounded-full border-2 transition-all shadow-md active:scale-95 cursor-pointer"
           :class="isProfileOpen ? 'border-primary ring-4 ring-primary/10' : 'border-transparent hover:border-primary/30 hover:scale-105'"
         >
-          <img
-            src="/images/lp-img.png"
+          <NuxtImg
+            :src="getStorageUrl(userProfile?.data?.avatar_path) || '/images/lp-img.png'"
             class="h-full w-full object-cover"
             alt="Profile"
+            placeholder
           />
         </button>
         <!-- Profile incomplete dot -->

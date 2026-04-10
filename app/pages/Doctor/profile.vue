@@ -14,6 +14,8 @@ const {
   findProvinceByName, findCityByName, findBarangayByName
 } = usePhLocations()
 
+const { getStorageUrl } = useStorage()
+
 const codes = reactive({
   region: '',
   province: '',
@@ -221,12 +223,15 @@ const submitProfile = async () => {
         <div class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm">
           <div
             class="relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-gradient-to-br from-primary/20 to-primary/5 p-1 border-2 border-primary/20 text-sidebar">
-            <div
+            <template v-if="user?.data?.avatar_path">
+              <NuxtImg :src="getStorageUrl(user.data.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
+            </template>
+            <div v-else
               class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-4xl font-bold text-primary">
               Dr. {{ form.last_name?.charAt(0) }}
             </div>
             <button
-              class="absolute bottom-0 right-0 bg-primary p-2 rounded-full text-white shadow-lg hover:bg-primary-hover transition-colors">
+              class="absolute bottom-0 right-0 z-10 bg-primary p-2 rounded-full text-white shadow-lg hover:bg-primary-hover transition-colors">
               <Icon name="heroicons:camera-20-solid" size="16" />
             </button>
           </div>
