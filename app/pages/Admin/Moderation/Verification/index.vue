@@ -34,12 +34,41 @@
   const searchQuery = ref('')
   const debouncedSearch = ref('')
   let searchTimeout: any = null
+  let pollingInterval: any = null
 
   watch(searchQuery, (val) => {
     if (searchTimeout) clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => {
       debouncedSearch.value = val
+      searchTimeout = null
     }, 500)
+  })
+
+  const startPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+    }
+
+    pollingInterval = setInterval(async () => {
+      if (!pending.value && !searchTimeout) {
+        await refresh()
+      }
+    }, 3000)
+  }
+
+  const stopPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      pollingInterval = null
+    }
+  }
+
+  onMounted(() => {
+    startPolling()
+  })
+
+  onUnmounted(() => {
+    stopPolling()
   })
 
   const { data: verifications, refresh, pending } =
