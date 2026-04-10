@@ -9,6 +9,8 @@
   }>()
 
   const componentType = computed(() => props.to ? 'NuxtLink' : 'div')
+  
+  defineEmits(['delete'])
 </script>
 
 <template>
@@ -29,11 +31,16 @@
       </div>
       <div class="min-w-0 flex-1">
         <div class="mb-0.5 flex items-start justify-between">
-          <h4 class="text-foreground truncate text-sm font-bold">{{ title }}</h4>
-          <span
-            class="text-muted-foreground shrink-0 text-[10px] font-semibold tracking-wider uppercase"
-            >{{ time }}</span
-          >
+          <h4 class="text-foreground truncate text-sm font-bold pr-2">{{ title }}</h4>
+          <div class="flex items-center gap-2">
+            <span
+              class="text-muted-foreground shrink-0 text-[10px] font-semibold tracking-wider uppercase"
+              >{{ time }}</span
+            >
+            <button @click.prevent.stop="$emit('delete')" class="text-foreground/30 hover:text-red-500 transition-colors cursor-pointer rounded-full p-0.5 hover:bg-red-500/10">
+              <Icon name="heroicons:x-mark-20-solid" size="14" />
+            </button>
+          </div>
         </div>
         <p class="text-muted-foreground line-clamp-2 text-xs leading-relaxed">
           {{ description }}

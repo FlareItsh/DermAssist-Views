@@ -4,6 +4,7 @@
    const isNotificationsOpen = ref(false)
    const isMessagesOpen = ref(false)
    const isProfileOpen = ref(false)
+   const isLogoutModalOpen = ref(false)
    const notificationRef = ref<HTMLElement | null>(null)
    const messageRef = ref<HTMLElement | null>(null)
    const profileRef = ref<HTMLElement | null>(null)
@@ -42,21 +43,7 @@
     to?: string
   }
 
-  const notifications = computed<AppNotification[]>(() => {
-    const list: AppNotification[] = []
-    if (isProfileIncomplete.value) {
-      list.push({
-        id: 0,
-        title: 'Complete Account Setup',
-        description: 'Please provide your location, age and gender to complete your account setup.',
-        time: 'Now',
-        icon: 'solar:user-id-linear',
-        color: 'text-red-500',
-        to: profileRoute.value
-      })
-    }
-    return list
-  })
+
 
   const messages = [
     {
@@ -107,8 +94,12 @@
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
 
-  const { data: userProfile } = await useApi<any>(() => `users/${userUuid.value}`, {
+  const { data: userProfile, refresh } = await useApi<any>(() => `users/${userUuid.value}`, {
     key: `userProfile-${userUuid.value}`
+  })
+
+  watch(() => route.fullPath, () => {
+    refresh()
   })
 
   const isProfileIncomplete = computed(() => {
@@ -121,6 +112,38 @@
     if (userRole.value === 'doctor') return '/doctor/profile'
     if (userRole.value === 'patient') return '/patient/profile'
     return '#'
+  })
+
+  const dismissedNotifs = useCookie<number[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
+
+  const notifications = computed<AppNotification[]>(() => {
+    const list: AppNotification[] = []
+    
+    if (isProfileIncomplete.value) {
+      list.push({
+        id: 0,
+        title: 'Complete Account Setup',
+        description: 'Please provide your location, age and gender to complete your account setup.',
+        time: 'Now',
+        icon: 'solar:user-id-linear',
+        color: 'text-red-500',
+        to: profileRoute.value
+      })
+    }
+    
+    if (userRole.value === 'doctor' && userProfile.value?.data?.doctor_verification?.status === 'verified') {
+      list.push({
+        id: 999,
+        title: 'Verification Approved',
+        description: 'Your doctor profile has been officially verified!',
+        time: 'Just now',
+        icon: 'heroicons:shield-check-solid',
+        color: 'text-green-500',
+        to: profileRoute.value
+      })
+    }
+
+    return list.filter(n => !(dismissedNotifs.value || []).includes(n.id))
   })
 
   const isSearchVisible = computed(() => {
@@ -136,12 +159,35 @@
 
   const handleNotificationClick = (notif: AppNotification) => {
     isNotificationsOpen.value = false
+    
+    if (notif.id === 999) {
+      const arr = dismissedNotifs.value || []
+      if (!arr.includes(999)) {
+        arr.push(999)
+        dismissedNotifs.value = arr
+      }
+    }
+    
     if (notif.to) {
       navigateTo(notif.to)
     }
   }
 
+  const handleNotificationDelete = (id: number) => {
+    const arr = dismissedNotifs.value || []
+    if (!arr.includes(id)) {
+      arr.push(id)
+      dismissedNotifs.value = arr
+    }
+  }
+
+  const triggerLogout = () => {
+    isProfileOpen.value = false
+    isLogoutModalOpen.value = true
+  }
+
   const logout = () => {
+    isLogoutModalOpen.value = false
     // Clear all auth cookies
     useCookie('auth_token').value = null
     useCookie('user_role').value = null
@@ -313,6 +359,7 @@
                   :key="notif.id"
                   v-bind="notif"
                   @click="handleNotificationClick(notif)"
+                  @delete="handleNotificationDelete(notif.id)"
                 />
               </div>
             </div>
@@ -382,7 +429,7 @@
               </NuxtLink>
 
               <button 
-                @click="logout"
+                @click="triggerLogout"
                 class="hover:bg-destructive/5 group flex w-full items-center gap-3 rounded-2xl group-hover:text-destructive/50 px-4 py-3 text-sm font-medium transition-colors text-destructive"
               >
                 <div class="text-destructive rounded-xl p-2 transition-colors">
@@ -395,6 +442,21 @@
         </Transition>
       </li>
     </ul>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="isLogoutModalOpen"
+          class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-foreground/40"
+          @click.self="isLogoutModalOpen = false"
+        >
+          <AppModalLogoutConfirmation 
+            @close="isLogoutModalOpen = false" 
+            @confirm="logout" 
+          />
+        </div>
+      </Transition>
+    </Teleport>
   </nav>
 </template>
 

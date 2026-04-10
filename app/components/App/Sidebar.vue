@@ -14,6 +14,7 @@
   const isCollapsed = ref(true)
   const route = useRoute()
   const expandedMenus = ref<Set<string>>(new Set())
+  const isLogoutModalOpen = ref(false)
 
   const toggleSubmenu = (label: string) => {
     if (expandedMenus.value.has(label)) {
@@ -33,7 +34,12 @@
     return false
   }
 
+  const triggerLogout = () => {
+    isLogoutModalOpen.value = true
+  }
+
   const logout = async () => {
+    isLogoutModalOpen.value = false
     try {
       await $api('logout', {
         method: 'POST'
@@ -212,7 +218,7 @@
         :class="isCollapsed ? 'pb-10' : 'pb-6'"
       >
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-          @click="logout"
+          @click="triggerLogout"
           class="group hover:bg-destructive/10 flex items-center gap-0 rounded-full p-2 transition-all duration-300 active:scale-95"
         >
           <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
@@ -236,6 +242,21 @@
         </AppButton>
       </div>
     </aside>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="isLogoutModalOpen"
+          class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-foreground/40"
+          @click.self="isLogoutModalOpen = false"
+        >
+          <AppModalLogoutConfirmation 
+            @close="isLogoutModalOpen = false" 
+            @confirm="logout" 
+          />
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
