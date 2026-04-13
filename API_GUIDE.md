@@ -19,12 +19,14 @@ Our API helpers automatically handle authentication. When a user logs in, an `au
 We use two primary wrappers located in `app/composables/useApi.ts`. Both use the `NUXT_PUBLIC_API_BASE` from your `.env`.
 
 ### 1. `useApi(url, options)`
+
 A wrapper around Nuxt's `useFetch`. Best for **SSR-friendly data fetching** on page load.
 
 > [!TIP]
 > Use a **getter function** for the URL to make the fetch reactive to state changes.
 
 **Static Example:**
+
 ```vue
 <script setup lang="ts">
   // Fetches once on mount
@@ -33,19 +35,22 @@ A wrapper around Nuxt's `useFetch`. Best for **SSR-friendly data fetching** on p
 ```
 
 **Reactive Example:**
+
 ```vue
 <script setup lang="ts">
   const page = ref(1)
-  
+
   // Re-fetches automatically whenever 'page' changes
   const { data } = await useApi(() => `appointments?page=${page.value}`)
 </script>
 ```
 
 ### 2. `$api(url, options)`
+
 A wrapper around Nuxt's `$fetch`. Use this for **imperative actions** like form submissions or manual refreshes.
 
 **Example (POST Action):**
+
 ```vue
 <script setup lang="ts">
   const submitData = async () => {
@@ -74,6 +79,7 @@ To display images stored on the backend, use the `useStorage` composable. It res
 - **Output**: Full absolute URL or empty string if path is null.
 
 **Example:**
+
 ```vue
 <script setup lang="ts">
   const { getStorageUrl } = useStorage()
@@ -81,15 +87,75 @@ To display images stored on the backend, use the `useStorage` composable. It res
 </script>
 
 <template>
-  <img :src="getStorageUrl(avatarPath)" alt="Profile" />
+  <img
+    :src="getStorageUrl(avatarPath)"
+    alt="Profile"
+  />
 </template>
 ```
 
 ---
 
-## 🛠️ Common Patterns
+## 🛠️ RESTful Actions
+
+Here is how to perform standard CRUD operations using our helpers.
+
+### GET (Read)
+
+Use `useApi` for data that should be available on page load, or `$api` for on-demand fetching.
+
+```typescript
+// On page load
+const { data: users } = await useApi('users')
+
+// On demand
+const fetchUser = async id => {
+  const user = await $api(`users/${id}`)
+}
+```
+
+### POST (Create)
+
+Always use `$api` for actions that mutate data.
+
+```typescript
+const createUser = async userData => {
+  await $api('users', {
+    method: 'POST',
+    body: userData
+  })
+}
+```
+
+### PUT / PATCH (Update)
+
+Use `PUT` for full updates or `PATCH` for partial updates.
+
+```typescript
+const updateUser = async (id, updates) => {
+  await $api(`users/${id}`, {
+    method: 'PUT',
+    body: updates
+  })
+}
+```
+
+### DELETE (Destroy)
+
+```typescript
+const deleteUser = async id => {
+  await $api(`users/${id}`, {
+    method: 'DELETE'
+  })
+}
+```
+
+---
+
+## 🔧 Common Patterns
 
 ### Query Parameters
+
 Pass parameters using the `query` option to ensure proper encoding.
 
 ```typescript
@@ -99,6 +165,7 @@ const { data } = await useApi('search', {
 ```
 
 ### Error Handling
+
 Our helpers throw standard Nuxt fetch errors. You can catch them or use the `error` ref from `useApi`.
 
 ```typescript
