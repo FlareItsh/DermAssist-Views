@@ -30,6 +30,7 @@
         :conversation-uuid="uuid"
         :other-person-name="otherPerson?.name || 'Unknown'"
         :other-person-avatar="otherPerson?.avatar"
+        @conversation-deleted="navigateTo('/Patient/Messages')"
       />
     </div>
   </div>
