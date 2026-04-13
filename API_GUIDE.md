@@ -1,94 +1,119 @@
-# API Usage Guide
+# API & Assets Guide
 
-This project uses custom helpers to simplify fetching data from the Laravel backend.
+This guide covers how to interact with the DermAssist API and handle media assets using our custom Nuxt composables.
 
-## Configuration
+---
 
-The API base URL is managed via the `.env` file:
+## 🔐 Authentication
 
-```env
-NUXT_PUBLIC_API_BASE=http://localhost:8000/api
-```
+Our API helpers automatically handle authentication. When a user logs in, an `auth_token` cookie is stored. This token is then automatically injected into every request.
 
-## Available Helpers
+- **Storage**: `auth_token` cookie.
+- **Header**: `Authorization: Bearer <token>`
+- **Behavior**: If the cookie is missing, the header is omitted.
 
-We have two main helpers located in `app/composables/useApi.ts`:
+---
+
+## 🚀 API Helpers
+
+We use two primary wrappers located in `app/composables/useApi.ts`. Both use the `NUXT_PUBLIC_API_BASE` from your `.env`.
 
 ### 1. `useApi(url, options)`
+A wrapper around Nuxt's `useFetch`. Best for **SSR-friendly data fetching** on page load.
 
-A wrapper around Nuxt's `useFetch`. Use this for **SSR-friendly data fetching** on page load.
+> [!TIP]
+> Use a **getter function** for the URL to make the fetch reactive to state changes.
 
-- Returns reactive `data`, `pending`, `error`, and `refresh`.
-- **Auto-imports**: You don't need to import it.
-
-**Example (GET on page load):**
-
+**Static Example:**
 ```vue
 <script setup lang="ts">
-  const { data, pending, error } = await useApi('users')
+  // Fetches once on mount
+  const { data, pending } = await useApi('appointments')
+</script>
+```
+
+**Reactive Example:**
+```vue
+<script setup lang="ts">
+  const page = ref(1)
+  
+  // Re-fetches automatically whenever 'page' changes
+  const { data } = await useApi(() => `appointments?page=${page.value}`)
 </script>
 ```
 
 ### 2. `$api(url, options)`
+A wrapper around Nuxt's `$fetch`. Use this for **imperative actions** like form submissions or manual refreshes.
 
-A wrapper around Nuxt's `$fetch`. Use this for **imperative/client-side actions** (e.g., button clicks, form submissions).
-
-- Returns a Promise that resolves to the data.
-- **Auto-imports**: You don't need to import it.
-
-**Example (POST on button click):**
-
+**Example (POST Action):**
 ```vue
 <script setup lang="ts">
-  const submitForm = async () => {
+  const submitData = async () => {
     try {
-      const result = await $api('users', {
+      const result = await $api('verify', {
         method: 'POST',
-        body: { name: 'John Doe' }
+        body: { status: 'approved' }
       })
-      console.log('Success:', result)
+      // Handle success
     } catch (err) {
-      console.error('Failed:', err)
+      // Handle error
     }
   }
 </script>
 ```
 
-## HTTP Methods Examples
+---
 
-### GET
+## 🖼️ Handling Assets
 
-```typescript
-const { data } = await useApi('posts')
+To display images stored on the backend, use the `useStorage` composable. It resolves the full URL using `NUXT_PUBLIC_STORAGE_BASE`.
+
+### `getStorageUrl(path)`
+
+- **Input**: Relative path from the backend (e.g., `avatars/user_1.jpg`)
+- **Output**: Full absolute URL or empty string if path is null.
+
+**Example:**
+```vue
+<script setup lang="ts">
+  const { getStorageUrl } = useStorage()
+  const avatarPath = 'profiles/image.jpg'
+</script>
+
+<template>
+  <img :src="getStorageUrl(avatarPath)" alt="Profile" />
+</template>
 ```
 
-### POST
+---
+
+## 🛠️ Common Patterns
+
+### Query Parameters
+Pass parameters using the `query` option to ensure proper encoding.
 
 ```typescript
-await $api('posts', {
-  method: 'POST',
-  body: { title: 'New Post', content: '...' }
+const { data } = await useApi('search', {
+  query: { q: 'eczema', limit: 10 }
 })
 ```
 
-### PUT / PATCH
+### Error Handling
+Our helpers throw standard Nuxt fetch errors. You can catch them or use the `error` ref from `useApi`.
 
 ```typescript
-await $api('posts/1', {
-  method: 'PUT',
-  body: { title: 'Updated Title' }
-})
+const { data, error } = await useApi('profile')
+
+if (error.value) {
+  console.error('Status:', error.value.statusCode)
+  console.error('Message:', error.value.data?.message)
+}
 ```
 
-### DELETE
+---
 
-```typescript
-await $api('posts/1', {
-  method: 'DELETE'
-})
-```
+## 💡 Best Practices
 
-## Tips
-
-- **No leading slash**: You don't need a leading slash in the URL if it's relative to the base URL (e.g., use `users` instead of `/users`).
-- **Options**: You can pass any `useFetch` or `$fetch` options to these helpers.
+1. **No Leading Slashes**: Use `users` instead of `/users`.
+2. **Type Safety**: Provide types for better DX: `useApi<User[]>('users')`.
+3. **Environment**: Ensure `NUXT_PUBLIC_API_BASE` is correctly set in `.env`.
