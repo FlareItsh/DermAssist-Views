@@ -133,7 +133,7 @@
           </p>
         </PatientSideComponentsSkinConditionsInfo>
       </div>
-      <AppUsers title="Doctors" />
+      <AppUsers title="Doctors" role="doctor" status="verified" />
     </div>
     <div class="sticky top-0 flex h-[calc(91vh-3rem)] flex-col gap-4">
       <PatientSideComponentsCalendar />

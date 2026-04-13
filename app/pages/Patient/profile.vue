@@ -131,6 +131,7 @@
   const isLoading = ref(false)
   const isGeoLoading = ref(false)
   const isSuccess = ref(false)
+  const isLogoutModalOpen = ref(false)
 
   const geocodeAddress = async () => {
     if (!form.city || !form.province) return
@@ -195,10 +196,20 @@
       isLoading.value = false
     }
   }
+
+  const logout = () => {
+    isLogoutModalOpen.value = false
+    useCookie('auth_token').value = null
+    useCookie('user_role').value = null
+    useCookie('user_uuid').value = null
+    useCookie('user_name').value = null
+    useCookie('auth_user_name').value = null
+    navigateTo('/auth/login')
+  }
 </script>
 
 <template>
-  <div class="max-w-4xl">
+  <div class="max-w-5xl">
     <div class="mb-8">
       <h1 class="text-3xl font-bold">Account Settings</h1>
       <p class="text-foreground/60 mt-2">Manage your personal information and profile settings.</p>
@@ -227,10 +238,11 @@
               <span class="text-foreground/50">Account Status</span>
               <AppProfileStatusBadge :is-complete="!!(user?.data?.city && user?.data?.province && user?.data?.age && user?.data?.gender)" />
             </div>
+
           </div>
         </div>
       </div>
-
+      
       <!-- Right: Form -->
       <div class="lg:col-span-2">
         <div class="bg-sidebar border-sidebar-border rounded-3xl border p-8 shadow-sm">

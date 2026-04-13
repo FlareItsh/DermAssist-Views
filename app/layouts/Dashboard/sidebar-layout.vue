@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
     <AppNavbar :title="currentPageTitle" :breadcrumbs="breadcrumbs">
-      <AppUtilityBar />
+      <AppUtilityBar v-if="userRole !== 'admin'" />
     </AppNavbar>
     <div class="flex flex-1 overflow-hidden">
       <AppSidebar :items="navItems" />
@@ -117,7 +117,13 @@ const activeItemInfo = computed(() => {
     return null
   }
 
-  return findActive(navItems.value, route.path) || { title: 'Title', breadcrumbs: [] }
+  const active = findActive(navItems.value, route.path)
+  
+  if (route.path.endsWith('/profile')) {
+    return { title: '', breadcrumbs: [] }
+  }
+  
+  return active || { title: '', breadcrumbs: [] }
 })
 
 const currentPageTitle = computed(() => activeItemInfo.value.title)

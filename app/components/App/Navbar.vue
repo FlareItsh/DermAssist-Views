@@ -64,7 +64,7 @@
             </template>
           </nav>
 
-          <h2 class="text-3xl font-semibold">{{ title }}</h2>
+          <h2 v-if="title" class="text-3xl font-semibold">{{ title }}</h2>
         </div>
         
       </div>
