@@ -18,6 +18,10 @@
 
   interface PaginatedResponse<T> {
     data: T[]
+    meta: {
+      current_page: number
+      last_page: number
+    }
   }
 
   const props = defineProps<{
@@ -33,35 +37,107 @@
   const userUuid = useCookie('user_uuid')
   const messageTerm = ref('')
   const messagesContainer = ref<HTMLElement | null>(null)
+  
+  // State for messages
+  const allMessages = ref<Message[]>([])
+  const currentPage = ref(1)
+  const lastPage = ref(1)
+  const isFetchingOlder = ref(false)
+  const pending = ref(false)
+  
   let pollingInterval: any = null
   let isUserNearBottom = true
+  const cacheKey = computed(() => `chat_history_${props.conversationUuid}`)
 
-  // Context menu state
+  // Context menu & modal states
   const contextMenu = ref<{ visible: boolean; x: number; y: number; message: Message | null }>({
-    visible: false,
-    x: 0,
-    y: 0,
-    message: null
+    visible: false, x: 0, y: 0, message: null
   })
-
-  // Edit state
   const editingMessageId = ref<string | null>(null)
   const editingMessageText = ref('')
-
-  // Delete confirmation modal
   const showDeleteMessageModal = ref(false)
   const messageToDelete = ref<Message | null>(null)
-
-  // Delete conversation modal
   const showDeleteConversationModal = ref(false)
 
-  const { data: messagesData, refresh, pending } =
-    await useApi<PaginatedResponse<Message>>(() => `conversations/${props.conversationUuid}/messages`)
+  // --- Caching ---
+  const saveToCache = () => {
+    if (typeof window !== 'undefined' && allMessages.value.length > 0) {
+      // Limit cache to last 30 messages for performance
+      localStorage.setItem(cacheKey.value, JSON.stringify(allMessages.value.slice(-30)))
+    }
+  }
 
-  const sortedMessages = computed(() => {
-    if (!messagesData.value?.data) return []
-    return [...messagesData.value.data].reverse()
-  })
+  const loadFromCache = () => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(cacheKey.value)
+      if (cached) {
+        try {
+          allMessages.value = JSON.parse(cached)
+          return true
+        } catch (e) {
+          return false
+        }
+      }
+    }
+    return false
+  }
+
+  // --- Fetching Logic ---
+  const fetchMessages = async (page = 1, prepend = false) => {
+    if (page > 1) isFetchingOlder.value = true
+    else if (allMessages.value.length === 0) pending.value = true
+
+    try {
+      const response = await $api<PaginatedResponse<Message>>(
+        `conversations/${props.conversationUuid}/messages`, 
+        { query: { page } }
+      )
+      
+      const newMessages = [...response.data].reverse()
+      
+      if (prepend) {
+        // Store previous scroll height to maintain position
+        const container = messagesContainer.value
+        const oldHeight = container?.scrollHeight || 0
+        
+        allMessages.value = [...newMessages, ...allMessages.value]
+        
+        // Restore scroll position after DOM update
+        nextTick(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight - oldHeight
+          }
+        })
+      } else {
+        // If it's the first page, we might be polling or initial load
+        if (page === 1) {
+          const freshMessages = newMessages.filter(
+            nm => !allMessages.value.find(am => am.id === nm.id)
+          )
+          if (freshMessages.length > 0) {
+            allMessages.value = [...allMessages.value, ...freshMessages]
+            if (isUserNearBottom) scrollToBottom()
+          }
+          lastPage.value = response.meta.last_page
+        } else {
+          allMessages.value = [...newMessages, ...allMessages.value]
+        }
+      }
+      
+      currentPage.value = response.meta.current_page
+      saveToCache()
+    } catch (e) {
+      console.error('Failed to fetch messages:', e)
+    } finally {
+      isFetchingOlder.value = false
+      pending.value = false
+    }
+  }
+
+  const loadOlderMessages = async () => {
+    if (isFetchingOlder.value || currentPage.value >= lastPage.value) return
+    await fetchMessages(currentPage.value + 1, true)
+  }
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
     nextTick(() => {
@@ -74,40 +150,37 @@
     })
   }
 
-  const checkScrollPosition = () => {
+  const handleScroll = () => {
     if (!messagesContainer.value) return
     const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value
+    
+    // Near bottom check
     isUserNearBottom = scrollHeight - scrollTop - clientHeight < 100
+    
+    // Near top check (Infinite scroll)
+    if (scrollTop < 10 && !isFetchingOlder.value) {
+      loadOlderMessages()
+    }
   }
 
   const markUnreadMessages = async () => {
-    if (!messagesData.value?.data) return
-    const unread = messagesData.value.data.filter(
+    const unread = allMessages.value.filter(
       (m) => !m.is_read && m.sender?.id !== userUuid.value
     )
     for (const msg of unread) {
       try {
         await $api(`messages/${msg.id}`, { method: 'PUT' })
-      } catch (e) {
-        // silently fail
-      }
+        msg.is_read = true // Update locally
+      } catch (e) {}
     }
   }
 
   const startPolling = () => {
     if (pollingInterval) clearInterval(pollingInterval)
     pollingInterval = setInterval(async () => {
-      if (!pending.value) {
-        const prevCount = messagesData.value?.data?.length || 0
-        await refresh()
-        const newCount = messagesData.value?.data?.length || 0
-        if (newCount > prevCount) {
-          if (isUserNearBottom) {
-            scrollToBottom()
-          }
-          await markUnreadMessages()
-        }
-      }
+      // Only poll the first page for new messages
+      await fetchMessages(1)
+      await markUnreadMessages()
     }, 3000)
   }
 
@@ -119,8 +192,16 @@
   }
 
   onMounted(() => {
-    scrollToBottom('instant')
-    markUnreadMessages()
+    const hasCache = loadFromCache()
+    if (hasCache) {
+      scrollToBottom('instant')
+    }
+    
+    fetchMessages(1).then(() => {
+      if (!hasCache) scrollToBottom('instant')
+      markUnreadMessages()
+    })
+    
     startPolling()
     document.addEventListener('click', closeContextMenu)
   })
@@ -137,12 +218,14 @@
 
     messageTerm.value = ''
     try {
-      await $api(`conversations/${props.conversationUuid}/messages`, {
+      const response = await $api<any>(`conversations/${props.conversationUuid}/messages`, {
         method: 'POST',
         body: { message: text }
       })
-      await refresh()
+      // Add immediately to UI for snappiness
+      allMessages.value.push(response.data)
       scrollToBottom()
+      saveToCache()
     } catch (e) {
       messageTerm.value = text
     }
@@ -155,23 +238,15 @@
     }
   }
 
-  // --- Context Menu ---
+  // --- Context Menu & Actions ---
   const openContextMenu = (event: MouseEvent, msg: Message) => {
     if (msg.sender?.id !== userUuid.value) return
     event.preventDefault()
-    contextMenu.value = {
-      visible: true,
-      x: event.clientX,
-      y: event.clientY,
-      message: msg
-    }
+    contextMenu.value = { visible: true, x: event.clientX, y: event.clientY, message: msg }
   }
 
-  const closeContextMenu = () => {
-    contextMenu.value.visible = false
-  }
+  const closeContextMenu = () => { contextMenu.value.visible = false }
 
-  // --- Edit Message ---
   const startEditing = (msg: Message) => {
     editingMessageId.value = msg.id
     editingMessageText.value = msg.message
@@ -189,28 +264,23 @@
     if (!trimmed) return
 
     try {
-      await $api(`messages/${editingMessageId.value}`, {
+      const response = await $api<any>(`messages/${editingMessageId.value}`, {
         method: 'PUT',
         body: { message: trimmed }
       })
-      await refresh()
+      // Update locally
+      const idx = allMessages.value.findIndex(m => m.id === editingMessageId.value)
+      if (idx !== -1) allMessages.value[idx] = response.data
       cancelEditing()
-    } catch (e) {
-      // keep editing state on error
-    }
+      saveToCache()
+    } catch (e) {}
   }
 
   const handleEditKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      saveEdit()
-    }
-    if (e.key === 'Escape') {
-      cancelEditing()
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit() }
+    if (e.key === 'Escape') cancelEditing()
   }
 
-  // --- Delete Message ---
   const confirmDeleteMessage = (msg: Message) => {
     messageToDelete.value = msg
     showDeleteMessageModal.value = true
@@ -221,24 +291,21 @@
     if (!messageToDelete.value) return
     try {
       await $api(`messages/${messageToDelete.value.id}`, { method: 'DELETE' })
-      await refresh()
+      allMessages.value = allMessages.value.filter(m => m.id !== messageToDelete.value!.id)
+      saveToCache()
     } catch (e) {
-      // silently fail
     } finally {
       showDeleteMessageModal.value = false
       messageToDelete.value = null
     }
   }
 
-  // --- Delete Conversation ---
   const deleteConversation = async () => {
     try {
       await $api(`conversations/${props.conversationUuid}`, { method: 'DELETE' })
       showDeleteConversationModal.value = false
       emit('conversationDeleted')
-    } catch (e) {
-      // silently fail
-    }
+    } catch (e) {}
   }
 
   const formatTime = (dateString: string) => {
@@ -247,6 +314,7 @@
   }
 
   const isEdited = (msg: Message) => {
+    // Standard comparison to check if message was updated after creation
     return msg.created_at !== msg.updated_at
   }
 </script>
@@ -294,11 +362,16 @@
     <!-- Messages Area -->
     <div
       ref="messagesContainer"
-      @scroll="checkScrollPosition"
+      @scroll="handleScroll"
       class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto p-8"
     >
-      <!-- Loading skeleton -->
-      <div v-if="pending && !messagesData?.data?.length" class="flex flex-1 items-center justify-center">
+      <!-- Loading older messages indicator -->
+      <div v-if="isFetchingOlder" class="flex justify-center py-2">
+        <Icon name="svg-spinners:ring-resize" class="text-primary text-2xl" />
+      </div>
+
+      <!-- Loading skeleton (Initial) -->
+      <div v-if="pending && allMessages.length === 0" class="flex flex-1 items-center justify-center">
         <div class="text-foreground/20 text-center">
           <Icon name="svg-spinners:ring-resize" class="mx-auto mb-4 text-5xl" />
           <p class="text-lg font-medium">Loading messages...</p>
@@ -307,7 +380,7 @@
 
       <!-- Empty state -->
       <div
-        v-else-if="sortedMessages.length === 0"
+        v-else-if="allMessages.length === 0"
         class="flex flex-1 items-center justify-center"
       >
         <div class="text-foreground/20 text-center">
@@ -318,9 +391,9 @@
       </div>
 
       <!-- Message bubbles -->
-      <TransitionGroup name="message" tag="div" class="flex flex-col gap-4">
+      <div class="flex flex-col gap-4">
         <div
-          v-for="msg in sortedMessages"
+          v-for="msg in allMessages"
           :key="msg.id"
           class="group flex items-end gap-3"
           :class="msg.sender?.id === userUuid ? 'flex-row-reverse' : 'flex-row'"
@@ -399,7 +472,7 @@
             </span>
           </div>
         </div>
-      </TransitionGroup>
+      </div>
     </div>
 
     <!-- Input Area -->
