@@ -1,12 +1,15 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <AppNavbar :title="currentPageTitle" :breadcrumbs="breadcrumbs">
-      <AppUtilityBar v-if="userRole !== 'admin'" />
-    </AppNavbar>
+    <header class="shrink-0">
+      <AppNavbar :title="currentPageTitle" :breadcrumbs="breadcrumbs">
+        <AppUtilityBar />
+      </AppNavbar>
+    </header>
+    
     <div class="flex flex-1 overflow-hidden">
       <AppSidebar :items="navItems" />
 
-      <main class="-mt-4 flex-1 overflow-y-auto p-5">
+      <main class="-mt-4 flex-1 overflow-y-auto p-5" id="main-content">
         <div class="mx-auto">
           <slot />
         </div>
