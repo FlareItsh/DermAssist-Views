@@ -100,6 +100,13 @@
 
   watch(() => route.fullPath, () => {
     refresh()
+    if (userRole.value === 'admin') refreshAppeals()
+  })
+
+ 
+  const { data: appealsData, refresh: refreshAppeals } = await useApi<any>('appeals', {
+    immediate: userRole.value === 'admin',
+    key: 'admin-appeals'
   })
 
   const isProfileIncomplete = computed(() => {
@@ -111,6 +118,7 @@
   const profileRoute = computed(() => {
     if (userRole.value === 'doctor') return '/doctor/profile'
     if (userRole.value === 'patient') return '/patient/profile'
+    if (userRole.value === 'admin') return '/admin'
     return '#'
   })
 
@@ -158,10 +166,25 @@
       })
     }
 
+    if (userRole.value === 'admin' && appealsData.value?.data) {
+      appealsData.value.data.forEach((appeal: any) => {
+        list.push({
+          id: `appeal-${appeal.uuid}`,
+          title: 'New Medical Appeal',
+          description: `Dr. ${appeal.user.last_name} suggested "${appeal.suggested_label}" instead of "${appeal.diagnosis_label}". Reason: ${appeal.description}`,
+          time: 'New',
+          icon: 'material-symbols:report-outline',
+          color: 'text-red-500',
+          to: '/admin/moderation/verification' // Adjust destination as needed
+        })
+      })
+    }
+
     return list.filter(n => !(dismissedNotifs.value || []).includes(n.id))
   })
 
   const isSearchVisible = computed(() => {
+    if (userRole.value === 'admin') return false
     const visibleRoutes = [
       '/patient/records',
       '/patient',
@@ -216,18 +239,19 @@
 </script>
 
 <template>
-  <nav>
-    <ul class="flex items-center gap-5">
-      <AppSearch
-        v-if="isSearchVisible"
-        v-model="searchQuery"
-        class="w-70"
-        size="text-3xl"
-        text="text-foreground/50"
-        width="w-9"
-      />
+  <nav aria-label="Quick Actions">
+    <ul class="flex items-center gap-5 list-none m-0 p-0">
+      <li v-if="isSearchVisible">
+        <AppSearch
+          v-model="searchQuery"
+          class="w-70"
+          size="text-3xl"
+          text="text-foreground/50"
+          width="w-9"
+        />
+      </li>
 
-      <div
+      <li
         class="relative"
         ref="messageRef"
       >
@@ -290,13 +314,11 @@
                 />
                 <p>No messages yet</p>
               </div>
-              <div v-else>
-                <AppMessagePreview
-                  v-for="msg in messages"
-                  :key="msg.id"
-                  v-bind="msg"
-                />
-              </div>
+              <ul v-else class="list-none m-0 p-0">
+                <li v-for="msg in messages" :key="msg.id">
+                  <AppMessagePreview v-bind="msg" />
+                </li>
+              </ul>
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
@@ -308,9 +330,9 @@
             </div>
           </div>
         </Transition>
-      </div>
+      </li>
 
-      <div
+      <li
         class="relative"
         ref="notificationRef"
       >
@@ -369,15 +391,15 @@
                 />
                 <p>No new notifications</p>
               </div>
-              <div v-else>
-                <AppNotificationPreview
-                  v-for="notif in notifications"
-                  :key="notif.id"
-                  v-bind="notif"
-                  @click="handleNotificationClick(notif)"
-                  @delete="handleNotificationDelete(notif.id)"
-                />
-              </div>
+              <ul v-else class="list-none m-0 p-0">
+                <li v-for="notif in notifications" :key="notif.id">
+                  <AppNotificationPreview
+                    v-bind="notif"
+                    @click="handleNotificationClick(notif)"
+                    @delete="handleNotificationDelete(notif.id)"
+                  />
+                </li>
+              </ul>
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
@@ -389,9 +411,9 @@
             </div>
           </div>
         </Transition>
-      </div>
+      </li>
 
-      <li class="relative" ref="profileRef">
+      <li v-if="userRole !== 'admin'" class="relative" ref="profileRef">
         <button 
           @click="toggleProfile"
           class="block h-14 w-14 overflow-hidden rounded-full border-2 transition-all shadow-md active:scale-95 cursor-pointer"
