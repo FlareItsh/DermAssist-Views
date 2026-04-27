@@ -168,10 +168,8 @@
   const submitProfile = async () => {
     isLoading.value = true
     try {
-      // Auto-geocode before saving if coordinates are empty
-      if (!form.latitude || !form.longitude) {
-        await geocodeAddress()
-      }
+      // Always re-geocode before saving to ensure coordinates match the current address
+      await geocodeAddress()
 
       await $api('users/' + useCookie('user_uuid').value, {
         method: 'PUT',
