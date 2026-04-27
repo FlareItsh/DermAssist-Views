@@ -198,6 +198,7 @@ const filterPills = computed(() =>
 const nearestDoctor = ref<any | null>(null)
 const isDoctorLoading = ref(false)
 const doctorDistance = ref<number | null>(null)
+const isProfileIncomplete = ref(false)
 
 /**
  * Haversine formula: calculates distance in km between two lat/lng pairs.
@@ -221,11 +222,20 @@ const haversineDistance = (
 const fetchNearestDoctor = async () => {
   if (!userUuid.value) return
   isDoctorLoading.value = true
+  isProfileIncomplete.value = false
 
   try {
-    // 1. Get the user's coordinates
-    const patientRes = await $api<any>(`users/${userUuid.value}`)
+    // 1. Get the user's latest data (bypassing cache with a timestamp)
+    const patientRes = await $api<any>(`users/${userUuid.value}?t=${Date.now()}`)
     const patient = patientRes?.data
+    
+    // Check if location or coordinates are missing
+    if (!patient?.city || !patient?.province || !patient?.latitude || !patient?.longitude) {
+      isProfileIncomplete.value = true
+      isDoctorLoading.value = false
+      return
+    }
+
     const patLat = parseFloat(patient?.latitude)
     const patLng = parseFloat(patient?.longitude)
 
@@ -442,40 +452,79 @@ onMounted(() => {
           </div>
         </div>
 
-        <div v-else-if="!nearestDoctor" class="flex flex-col items-center gap-2 py-4 text-center text-gray-400">
-          <Icon name="material-symbols:person-search-outline" class="text-4xl" />
-          <p class="text-sm">No verified doctors with location data found nearby.</p>
+        <div v-else-if="isProfileIncomplete" class="bg-primary/5 border-primary/20 flex flex-col items-center gap-4 rounded-2xl border p-6 text-center shadow-sm transition-all animate-in zoom-in-95 duration-500">
+          <div class="bg-primary/10 flex h-16 w-16 items-center justify-center rounded-full">
+            <Icon name="material-symbols:location-on-outline-rounded" class="text-primary text-3xl" />
+          </div>
+          <div>
+            <h4 class="text-base font-bold text-foreground">Set Your Location</h4>
+            <p class="mt-1 text-sm leading-relaxed text-gray-500">
+              Please complete your profile so we can refer you to the nearest verified doctors in your area.
+            </p>
+          </div>
+          <AppButton 
+            variant="unstyled" 
+            size="unstyled" 
+            rounded="unstyled" 
+            @click="navigateTo('/Patient/profile')"
+            class="bg-primary text-card w-full rounded-full py-3 text-sm font-bold shadow-md transition-all hover:opacity-90 active:scale-95"
+          >
+            Complete Profile
+          </AppButton>
         </div>
 
-        <div v-else class="flex gap-4">
-          <div class="shrink-0 rounded-2xl w-50 border-2 border-gray-200 p-3">
-            <img :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
-              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-              class="h-28 w-full rounded-xl object-cover" alt="Doctor photo" />
-            <p class="mt-1 text-xs text-gray-500">{{ nearestDoctor.city }}</p>
-            <p class="text-md text-foreground leading-4">{{ nearestDoctor.province }}</p>
-            <div class="mt-4 flex justify-end gap-3">
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-                class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50">
-                <Icon name="material-symbols:call-outline" class="text-secondary text-lg" />
-              </AppButton>
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-                class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50">
-                <Icon name="material-symbols:chat-outline" class="text-secondary text-lg" />
-              </AppButton>
+        <div v-else-if="!nearestDoctor" class="flex flex-col items-center gap-2 py-8 text-center text-gray-400">
+          <Icon name="material-symbols:person-search-outline" class="text-4xl" />
+          <p class="text-sm">No verified doctors found nearby.</p>
+        </div>
+
+        <div v-else class="flex flex-col gap-4">
+          <!-- Distance Warning Badge -->
+          <div v-if="doctorDistance && doctorDistance > 50" class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-3 transition-all animate-in slide-in-from-top-2">
+            <Icon name="material-symbols:distance-outline-rounded" class="text-amber-500 text-xl mt-0.5 shrink-0" />
+            <div class="flex flex-col gap-0.5">
+              <p class="text-xs font-bold text-amber-700 uppercase">Note: Limited Doctor Coverage</p>
+              <p class="text-[11px] leading-relaxed text-amber-600/80">
+                This is the nearest verified doctor available on our platform, but they are currently <strong>{{ doctorDistance }}km</strong> away from your location.
+              </p>
             </div>
           </div>
-          <div class="flex flex-1 flex-col gap-1">
-            <p class="text-base font-bold">Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}</p>
-            <p class="text-xs text-gray-500">PRC #{{ nearestDoctor.prc_number || 'N/A' }}</p>
-            <p class="text-xs text-gray-500">Location: {{ nearestDoctor.city }}, {{ nearestDoctor.barangay }}</p>
-            <div class="mt-1">
-              <p class="mb-1 text-sm font-bold">Professional Summary</p>
-              <p class="text-xs leading-relaxed text-gray-600">
-                A verified dermatologist with expertise in skin conditions, dedicated to providing
-                personalized care and evidence-based treatments for patients in the {{ nearestDoctor.city || 'local' }}
-                area.
-              </p>
+
+          <div class="flex gap-4">
+            <div class="shrink-0 rounded-2xl w-50 border-2 border-gray-200 p-3 relative">
+              <!-- Far Badge on Image -->
+              <div v-if="doctorDistance && doctorDistance > 50" class="absolute top-4 left-4 z-10 bg-amber-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full shadow-sm">
+                FAR
+              </div>
+              
+              <img :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
+                :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
+                class="h-28 w-full rounded-xl object-cover" alt="Doctor photo" />
+              <p class="mt-1 text-xs text-gray-500">{{ nearestDoctor.city }}</p>
+              <p class="text-md text-foreground leading-4">{{ nearestDoctor.province }}</p>
+              <div class="mt-4 flex justify-end gap-3">
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+                  class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50">
+                  <Icon name="material-symbols:call-outline" class="text-secondary text-lg" />
+                </AppButton>
+                <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+                  class="border-primary flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-gray-50">
+                  <Icon name="material-symbols:chat-outline" class="text-secondary text-lg" />
+                </AppButton>
+              </div>
+            </div>
+            <div class="flex flex-1 flex-col gap-1">
+              <p class="text-base font-bold">Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}</p>
+              <p class="text-xs text-gray-500">PRC #{{ nearestDoctor.prc_number || 'N/A' }}</p>
+              <p class="text-xs text-gray-500">Location: {{ nearestDoctor.city }}, {{ nearestDoctor.barangay }}</p>
+              <div class="mt-1">
+                <p class="mb-1 text-sm font-bold">Professional Summary</p>
+                <p class="text-xs leading-relaxed text-gray-600">
+                  A verified dermatologist with expertise in skin conditions, dedicated to providing
+                  personalized care and evidence-based treatments for patients in the {{ nearestDoctor.city || 'local' }}
+                  area.
+                </p>
+              </div>
             </div>
           </div>
         </div>
