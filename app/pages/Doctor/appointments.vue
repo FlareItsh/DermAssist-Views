@@ -3,51 +3,38 @@ definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
-const appointments = [
-  {
-    id: 1,
-    patientName: 'John Cena',
-    condition: 'Herpes',
-    time: '09:00 AM',
-    date: 'Wednesday, April 15',
-    type: 'Follow-up',
-    avatar: 'https://i.pravatar.cc/150?u=john'
-  },
-  {
-    id: 2,
-    patientName: 'Wally',
-    condition: 'Acne',
-    time: '11:30 AM',
-    date: 'Wednesday, April 15',
-    type: 'Consultation',
-    avatar: 'https://i.pravatar.cc/150?u=wally'
-  },
-  {
-    id: 3,
-    patientName: 'Elena Vance',
-    condition: 'Eczema',
-    time: '02:00 PM',
-    date: 'Thursday, April 16',
-    type: 'New Case',
-    avatar: 'https://i.pravatar.cc/150?u=elena'
-  }
-]
+const { appointments } = useAppointments()
+const { getStorageUrl } = useStorage()
 
 const { searchQuery } = useSearch()
 const filteredAppointments = computed(() => {
-  if (!searchQuery.value) return appointments
+  const list = appointments.value.map(a => ({
+    id: a.id,
+    patientName: a.doctor, // other person's name
+    condition: a.info,
+    time: a.time || 'TBD',
+    date: a.date ? new Date(a.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'TBD',
+    type: 'Consultation',
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
+    conversation_uuid: a.conversation_uuid
+  }))
+
+  if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  const filtered = appointments.filter(appt => 
+  return list.filter(appt => 
     appt.patientName.toLowerCase().includes(query) || 
     appt.condition.toLowerCase().includes(query)
   )
-  return filtered.length > 0 ? filtered : appointments
 })
+
+const goToChat = (uuid: string) => {
+  if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
+}
 </script>
 
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
-    <div class="rounded-3xl border flex justify-end border-gray-100 items-center">
+    <div class="rounded-3xl flex justify-end items-center">
       <AppButton variant="soft" rounded="both">
         <Icon name="lucide:plus" class="mr-2" />
         New Schedule
@@ -55,7 +42,10 @@ const filteredAppointments = computed(() => {
     </div>
 
     <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
-      <div class="flex flex-col gap-4">
+      <div v-if="filteredAppointments.length === 0" class="text-center py-20 text-muted-foreground italic">
+        No appointments found.
+      </div>
+      <div v-else class="flex flex-col gap-4">
         <div 
           v-for="appt in filteredAppointments" 
           :key="appt.id"
@@ -69,7 +59,7 @@ const filteredAppointments = computed(() => {
             </div>
 
             <div class="flex items-center gap-4">
-              <div class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20">
+              <div class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50">
                 <img :src="appt.avatar" class="h-full w-full object-cover" />
               </div>
               <div class="flex flex-col">
@@ -92,6 +82,7 @@ const filteredAppointments = computed(() => {
             </AppButton>
             <AppButton 
               variant="unstyled" size="unstyled" rounded="unstyled"
+              @click="goToChat(appt.conversation_uuid)"
               class="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary hover:bg-primary/80 transition-colors text-white"
             >
               <Icon name="lets-icons:message-light" class="text-2xl" />

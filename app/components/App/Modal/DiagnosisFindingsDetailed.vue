@@ -6,6 +6,20 @@ const userUuid = useCookie('user_uuid')
 const userName = useCookie('user_name')
 const patientAge = ref<string | number | null>(null)
 const { getStorageUrl } = useStorage()
+const { appointments, pendingAppointments } = useAppointments()
+
+const hasActiveAppointment = computed(() => {
+  if (!nearestDoctor.value) return false
+  const active = [...appointments.value, ...pendingAppointments.value]
+    .filter(a => ['scheduled', 'pending'].includes(a.status))
+  return active.some(a => a.doctor_id === nearestDoctor.value.id)
+})
+
+const messageText = computed(() => {
+  return hasActiveAppointment.value
+    ? ''
+    : 'I would like to schedule an appointment regarding my recent skin scan.'
+})
 
 const props = defineProps<{
   role?: 'patient' | 'doctor'
@@ -24,6 +38,7 @@ const props = defineProps<{
     location?: string
     summary?: string
   }
+  diagnosisUuid?: string
 }>()
 
 defineEmits(['close'])
@@ -189,7 +204,10 @@ const currentDisease = computed(() => diseases[activeDisease.value])
 
 const displaySymptoms = computed(() => props.symptoms ?? currentDisease.value.symptoms)
 const displayCauses = computed(() => props.causes ?? currentDisease.value.causes)
-const displayChartData = computed(() => props.diagnosisData ?? defaultChartData)
+const displayChartData = computed(() => {
+  return props.diagnosisData ?? defaultChartData
+})
+
 const filterPills = computed(() =>
   displayChartData.value.filter(e => e.label !== activeDisease.value)
 )
@@ -228,6 +246,23 @@ const fetchNearestDoctor = async () => {
     // 1. Get the user's latest data (bypassing cache with a timestamp)
     const patientRes = await $api<any>(`users/${userUuid.value}?t=${Date.now()}`)
     const patient = patientRes?.data
+
+    // NEW: Check if there's an active appointment already.
+    // If so, we prioritize that doctor instead of searching for the nearest.
+    const activeAppt = [...appointments.value, ...pendingAppointments.value]
+      .find(a => a.status === 'scheduled' || a.status === 'pending')
+
+    if (activeAppt) {
+      try {
+        const docRes = await $api<any>(`users/${activeAppt.doctor_id}`)
+        nearestDoctor.value = docRes?.data || docRes
+        doctorDistance.value = null
+        isDoctorLoading.value = false
+        return
+      } catch (docErr) {
+        console.error('Failed to fetch existing doctor:', docErr)
+      }
+    }
     
     // Check if location or coordinates are missing
     if (!patient?.city || !patient?.province || !patient?.latitude || !patient?.longitude) {
@@ -274,6 +309,33 @@ const fetchUserAge = async () => {
     patientAge.value = res?.data?.age ?? null
   } catch (e) {
     console.error('Failed to fetch user age:', e)
+  }
+}
+
+const isSending = ref(false)
+
+const sendDiagnosis = async () => {
+  if (!nearestDoctor.value || !props.diagnosisUuid) return
+  isSending.value = true
+  
+  try {
+    const res = await $api<any>('appointments', {
+      method: 'POST',
+      body: {
+        doctor_id: nearestDoctor.value.id,
+        diagnosis_uuid: props.diagnosisUuid,
+        message: messageText.value
+      }
+    })
+    
+    if (res?.conversation_uuid) {
+      await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
+      emit('close')
+    }
+  } catch (e) {
+    console.error('Failed to send diagnosis:', e)
+  } finally {
+    isSending.value = false
   }
 }
 
@@ -439,7 +501,7 @@ onMounted(() => {
       <div v-if="props.role !== 'doctor'"
         class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <h3 class="text-xl font-bold">Referred Doctor</h3>
+          <h3 class="text-xl font-bold">{{ hasActiveAppointment ? 'Send to Referred Doctor' : 'Referred Doctor' }}</h3>
         </div>
 
         <div v-if="isDoctorLoading" class="flex gap-4 animate-pulse">
@@ -530,13 +592,15 @@ onMounted(() => {
         </div>
 
         <div class="mt-1 flex gap-3">
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton v-if="!hasActiveAppointment" variant="unstyled" size="unstyled" rounded="unstyled"
             class="bg-primary-light flex-1 rounded-full py-2.5 text-sm font-semibold text-gray-600 transition-all hover:opacity-90 active:scale-95">
             Select a Doctor
           </AppButton>
           <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-            class="bg-primary text-card flex-1 rounded-full py-2.5 text-sm font-semibold transition-all hover:opacity-90 active:scale-95">
-            Send Diagnosis
+            @click="sendDiagnosis"
+            :disabled="isSending || !nearestDoctor"
+            class="bg-primary text-card flex-1 rounded-full py-2.5 text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50">
+            {{ isSending ? 'Sending...' : (hasActiveAppointment ? 'Send to Referred Doctor' : 'Send Diagnosis') }}
           </AppButton>
         </div>
       </div>

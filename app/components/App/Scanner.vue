@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
-  const { isScanning, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile } = useDiagnosis()
+  const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
   const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -23,6 +23,7 @@
       const file = target.files[0]
       // Explicitly cast to File to resolve the "redline" type issue
       selectedFile.value = file as File
+      isScanned.value = false
       const reader = new FileReader()
       reader.onload = (e) => {
         previewImage.value = e.target?.result as string
@@ -36,6 +37,7 @@
   const resetToCamera = async () => {
     previewImage.value = null
     selectedFile.value = null
+    isScanned.value = false
     await startCamera()
   }
 
