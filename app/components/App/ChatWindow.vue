@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, watch } from 'vue'
+  import { ref, watch, computed, onMounted } from 'vue'
 
   const props = defineProps<{
     conversation: any
@@ -43,6 +43,46 @@
       sendMessage()
     }
   }
+  const userRole = useCookie('user_role')
+  const { appointments, fetchAppointments } = useAppointments()
+  
+  const activeAppointment = computed(() => {
+    if (!props.conversation) return null
+    return appointments.value.find(a => 
+      a.conversation_uuid === props.conversation.uuid || 
+      a.id === props.conversation.id ||
+      a.id === props.conversation.uuid
+    )
+  })
+
+  const isToday = (dateStr: string) => {
+    const today = new Date().toISOString().split('T')[0]
+    return dateStr === today
+  }
+
+  const showCompleteConfirm = ref(false)
+  const isCompleting = ref(false)
+
+  onMounted(() => {
+    fetchAppointments()
+  })
+
+  const completeAppointment = async () => {
+    if (!activeAppointment.value) return
+    isCompleting.value = true
+    try {
+      await $api(`appointments/${activeAppointment.value.id}`, {
+        method: 'PUT',
+        body: { status: 'completed' }
+      })
+      showCompleteConfirm.value = false
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      isCompleting.value = false
+    }
+  }
 </script>
 
 <template>
@@ -58,6 +98,41 @@
           class="text-3xl"
         />
       </AppButton>
+    </div>
+
+    <!-- Active Appointment Bar -->
+    <div v-if="activeAppointment && activeAppointment.status === 'scheduled'" 
+      class="border-b p-4 flex items-center justify-between transition-all"
+      :class="[
+        isToday(activeAppointment.date) 
+          ? 'bg-amber-50 border-amber-100' 
+          : 'bg-indigo-50 border-indigo-100'
+      ]"
+    >
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
+          <Icon 
+            :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
+            class="text-xl"
+            :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
+          />
+        </div>
+        <div>
+          <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
+            {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
+          </p>
+          <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
+            {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
+          </p>
+        </div>
+      </div>
+      
+      <div v-if="userRole?.toLowerCase() === 'doctor'">
+        <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+          <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+          Mark as Accomplished
+        </AppButton>
+      </div>
     </div>
 
     <!-- Messages Area -->
@@ -135,6 +210,47 @@
       <p class="text-2xl font-bold">Select a conversation to start chatting</p>
     </div>
   </div>
+
+  <!-- Complete Appointment Confirmation Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showCompleteConfirm"
+        class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+        @click.self="showCompleteConfirm = false"
+      >
+        <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+          <div class="mb-6 flex flex-col items-center text-center">
+            <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+              <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+            </div>
+            <h3 class="text-2xl font-bold">Complete Appointment?</h3>
+            <p class="text-foreground/60 mt-2">
+              Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-3">
+            <AppButton
+              variant="solid"
+              class="bg-indigo-600 text-white hover:bg-indigo-700"
+              :disabled="isCompleting"
+              @click="completeAppointment"
+            >
+              {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
+            </AppButton>
+            <AppButton
+              variant="unstyled"
+              class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+              @click="showCompleteConfirm = false"
+            >
+              Cancel
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>

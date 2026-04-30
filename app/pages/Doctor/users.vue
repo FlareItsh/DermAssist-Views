@@ -1,39 +1,41 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
+const { appointments } = useAppointments()
+const { priorityIds, addToPriority } = usePriorityList()
+const { getStorageUrl } = useStorage()
 const searchValue = ref('')
 
+const allPatients = computed(() => {
+  return appointments.value.map(a => ({
+    id: a.id,
+    name: a.doctor, // other person's name
+    age: 30, // Mocked
+    gender: 'N/A', // Mocked
+    condition: a.info,
+    priority: priorityIds.value.includes(a.id) ? 'High' : 'Low',
+    lastVisit: a.date ? new Date(a.date).toLocaleDateString() : 'TBD',
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
+    raw: a
+  }))
+})
+
 const filteredPatients = computed(() => {
-  let list = patients.value
+  let list = allPatients.value
   if (searchValue.value) {
     const query = searchValue.value.toLowerCase()
-    list = list.filter(p => p.name.toLowerCase().includes(query))
+    list = list.filter(p => p.name.toLowerCase().includes(query) || p.condition.toLowerCase().includes(query))
   }
   return [...list].sort((a, b) => a.name.localeCompare(b.name))
 })
 
+const priorityPatients = computed(() => allPatients.value.filter(p => p.priority === 'High'))
+
 const togglePriority = (patient: any) => {
-  patient.priority = patient.priority === 'High' ? 'Medium' : 'High'
+  addToPriority(patient.id)
 }
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
-
-const patients = ref([
-  { id: 1, name: 'Eleanor Pena', age: 29, gender: 'Female', condition: 'Eczema', priority: 'High', lastVisit: '2 hours ago', avatar: 'https://i.pravatar.cc/150?u=1' },
-  { id: 2, name: 'Wade Warren', age: 42, gender: 'Male', condition: 'Herpes', priority: 'High', lastVisit: 'Yesterday', avatar: 'https://i.pravatar.cc/150?u=2' },
-  { id: 3, name: 'Esther Howard', age: 34, gender: 'Female', condition: 'Acne', priority: 'Medium', lastVisit: '1 week ago', avatar: 'https://i.pravatar.cc/150?u=3' },
-  { id: 4, name: 'Cameron Williamson', age: 55, gender: 'Male', condition: 'Eczema', priority: 'Medium', lastVisit: '2 weeks ago', avatar: 'https://i.pravatar.cc/150?u=4' },
-  { id: 5, name: 'Brooklyn Simmons', age: 24, gender: 'Female', condition: 'Acne', priority: 'Low', lastVisit: '1 month ago', avatar: 'https://i.pravatar.cc/150?u=5' },
-  { id: 6, name: 'Guy Hawkins', age: 31, gender: 'Male', condition: 'Herpes', priority: 'Low', lastVisit: '2 months ago', avatar: 'https://i.pravatar.cc/150?u=6' },
-  { id: 7, name: 'Jenny Wilson', age: 26, gender: 'Female', condition: 'Eczema', priority: 'Medium', lastVisit: '3 months ago', avatar: 'https://i.pravatar.cc/150?u=7' },
-  { id: 8, name: 'Robert Fox', age: 49, gender: 'Male', condition: 'Acne', priority: 'Medium', lastVisit: '3 weeks ago', avatar: 'https://i.pravatar.cc/150?u=8' },
-  { id: 9, name: 'Jacob Jones', age: 38, gender: 'Male', condition: 'Herpes', priority: 'Low', lastVisit: '4 months ago', avatar: 'https://i.pravatar.cc/150?u=9' }
-])
-
-const priorityPatients = computed(() => patients.value.filter(p => p.priority === 'High'))
-
 </script>
 
 <template>

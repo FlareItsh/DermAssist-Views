@@ -98,6 +98,10 @@
     key: `userProfile-${userUuid.value}`
   })
 
+  // Appointments (patient-side notifications)
+  const { appointments, declinedAppointments, fetchAppointments } = useAppointments()
+  watch(() => route.fullPath, () => { if (userRole.value === 'patient') fetchAppointments() })
+
   watch(() => route.fullPath, () => {
     refresh()
     if (userRole.value === 'admin') refreshAppeals()
@@ -175,7 +179,37 @@
           time: 'New',
           icon: 'material-symbols:report-outline',
           color: 'text-red-500',
-          to: '/admin/moderation/verification' // Adjust destination as needed
+          to: '/admin/moderation/verification'
+        })
+      })
+    }
+
+    // Patient: scheduled appointment notifications
+    if (userRole.value === 'patient' && appointments.value.length > 0) {
+      appointments.value.forEach((appt) => {
+        list.push({
+          id: `appt-scheduled-${appt.id}`,
+          title: 'Appointment Scheduled!',
+          description: `${appt.doctor} scheduled your appointment on ${appt.date} at ${appt.time}${appt.location ? ' — ' + appt.location : ''}.`,
+          time: appt.date || 'Upcoming',
+          icon: 'material-symbols:calendar-month-rounded',
+          color: 'text-indigo-500',
+          to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+        })
+      })
+    }
+
+    // Patient: declined appointment notifications
+    if (userRole.value === 'patient' && declinedAppointments.value.length > 0) {
+      declinedAppointments.value.forEach((appt) => {
+        list.push({
+          id: `appt-declined-${appt.id}`,
+          title: 'Appointment Declined',
+          description: `Your ${appt.info} appointment request was declined. You can send a new referral or message the doctor.`,
+          time: 'Recently',
+          icon: 'material-symbols:cancel-rounded',
+          color: 'text-red-500',
+          to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
         })
       })
     }
@@ -198,7 +232,7 @@
   const handleNotificationClick = (notif: AppNotification) => {
     isNotificationsOpen.value = false
     
-    if (typeof notif.id === 'string' && (notif.id.startsWith('approved-') || notif.id.startsWith('declined-'))) {
+    if (typeof notif.id === 'string' && (notif.id.startsWith('approved-') || notif.id.startsWith('declined-') || notif.id.startsWith('appt-'))) {
       const arr = dismissedNotifs.value || []
       const idToDismiss = notif.id
       if (!arr.includes(idToDismiss)) {
@@ -225,16 +259,23 @@
     isLogoutModalOpen.value = true
   }
 
-  const logout = () => {
+  const logout = async () => {
     isLogoutModalOpen.value = false
-    // Clear all auth cookies
-    useCookie('auth_token').value = null
-    useCookie('user_role').value = null
-    useCookie('user_uuid').value = null
-    useCookie('user_name').value = null
-    useCookie('auth_user_name').value = null
-    
-    navigateTo('/auth/login')
+    try {
+      // Call backend logout to invalidate session/token
+      await $api('logout', { method: 'POST' })
+    } catch (e) {
+      console.error('Backend logout failed:', e)
+    } finally {
+      // Clear all auth cookies regardless of backend success
+      useCookie('auth_token').value = null
+      useCookie('user_role').value = null
+      useCookie('user_uuid').value = null
+      useCookie('user_name').value = null
+      useCookie('auth_user_name').value = null
+      
+      navigateTo('/auth/login')
+    }
   }
 </script>
 

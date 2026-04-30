@@ -45,6 +45,15 @@
     const dayStr = String(day).padStart(2, '0')
     return appointmentsMap.value.includes(`${year}-${month}-${dayStr}`)
   }
+
+  const emit = defineEmits(['dateSelected'])
+
+  const selectDate = (day: number) => {
+    const year = currentDate.value.getFullYear()
+    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0')
+    const dayStr = String(day).padStart(2, '0')
+    emit('dateSelected', `${year}-${month}-${dayStr}`)
+  }
 </script>
 
 <template>
@@ -96,13 +105,14 @@
       <div
         v-for="date in daysInMonth"
         :key="date"
-        class="text-foreground relative flex items-center justify-center text-[15px] font-semibold"
+        @click="selectDate(date)"
+        class="text-foreground hover:bg-primary/10 relative flex h-8 w-8 cursor-pointer items-center justify-center place-self-center rounded-full text-[15px] font-semibold transition-colors"
       >
         {{ date }}
 
         <div
           v-if="hasAppointment(date)"
-          class="bg-secondary absolute -bottom-2.5 h-1.5 w-1.5 rounded-full"
+          class="bg-secondary absolute -bottom-1 h-1 w-1 rounded-full"
         ></div>
       </div>
     </div>

@@ -14,6 +14,17 @@
     read_at: string | null
     created_at: string
     updated_at: string
+    appointment_data?: {
+      status: string
+      diagnosis: {
+        label: string
+        confidence: number
+        image_path: string
+        patient_name: string
+        patient_age: number | string
+        date: string
+      }
+    }
   }
 
   interface PaginatedResponse<T> {
@@ -58,6 +69,86 @@
   const showDeleteMessageModal = ref(false)
   const messageToDelete = ref<Message | null>(null)
   const showDeleteConversationModal = ref(false)
+
+  const userRole = useCookie('user_role')
+  const { getStorageUrl } = useStorage()
+
+  // --- Scheduling ---
+  const showScheduleModal = ref(false)
+  const schedulingAppointmentUuid = ref('')
+
+  /** Extract the UUID embedded in appointment system messages */
+  const extractAppointmentUuid = (message: string, type: 'REQUEST' | 'SCHEDULED' | 'DECLINED' = 'REQUEST'): string => {
+    // Handle both old [TAG:UUID] and new [TAG:UUID:DIAG_UUID] formats
+    const regex = new RegExp(`\\[(APPOINTMENT_${type}|DIAGNOSIS_ONLY):([a-f0-9-]+)(?::[a-f0-9-]+)?\\]`)
+    const match = message.match(regex)
+    return match ? match[2] : ''
+  }
+
+  const openScheduleModal = (message: string) => {
+    const uuid = extractAppointmentUuid(message, 'REQUEST')
+    if (!uuid) return
+    schedulingAppointmentUuid.value = uuid
+    showScheduleModal.value = true
+  }
+
+  const declineAppointment = async (message: string) => {
+    const uuid = extractAppointmentUuid(message, 'REQUEST')
+    if (!uuid) return
+    try {
+      await $api(`appointments/${uuid}`, {
+        method: 'PUT',
+        body: { status: 'declined' }
+      })
+      fetchMessages(1)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const isAppointmentHandled = (message: string) => {
+    const uuid = extractAppointmentUuid(message, 'REQUEST')
+    if (!uuid) return true
+    return allMessages.value.some(m => 
+      m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) || 
+      m.message.includes(`[APPOINTMENT_DECLINED:${uuid}]`)
+    )
+  }
+
+  // --- Active Appointment (Top Bar) ---
+  const { appointments, fetchAppointments } = useAppointments()
+  const activeAppointment = computed(() => {
+    return appointments.value.find(a => a.conversation_uuid === props.conversationUuid && a.status === 'scheduled')
+  })
+  
+  const showCompleteConfirm = ref(false)
+  const isCompleting = ref(false)
+
+  const isToday = (dateStr: string) => {
+    const today = new Date().toISOString().split('T')[0]
+    return dateStr === today
+  }
+
+  onMounted(() => {
+    fetchAppointments()
+  })
+
+  const completeAppointment = async () => {
+    if (!activeAppointment.value) return
+    isCompleting.value = true
+    try {
+      await $api(`appointments/${activeAppointment.value.id}`, {
+        method: 'PUT',
+        body: { status: 'completed' }
+      })
+      showCompleteConfirm.value = false
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    } finally {
+      isCompleting.value = false
+    }
+  }
 
   // --- Caching ---
   const saveToCache = () => {
@@ -359,6 +450,41 @@
       </AppButton>
     </div>
 
+    <!-- Active Appointment Bar -->
+    <div v-if="activeAppointment" 
+      class="border-b p-4 flex items-center justify-between transition-all"
+      :class="[
+        isToday(activeAppointment.date) 
+          ? 'bg-amber-50 border-amber-100' 
+          : 'bg-indigo-50 border-indigo-100'
+      ]"
+    >
+      <div class="flex items-center gap-3">
+        <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
+          <Icon 
+            :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
+            class="text-xl"
+            :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
+          />
+        </div>
+        <div>
+          <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
+            {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
+          </p>
+          <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
+            {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
+          </p>
+        </div>
+      </div>
+      
+      <div v-if="userRole?.toLowerCase() === 'doctor'">
+        <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+          <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+          Mark as Accomplished
+        </AppButton>
+      </div>
+    </div>
+
     <!-- Messages Area -->
     <div
       ref="messagesContainer"
@@ -449,7 +575,74 @@
                   : 'bg-foreground/5 text-foreground rounded-t-2xl rounded-br-2xl'
               ]"
             >
-              <p class="text-base leading-relaxed whitespace-pre-wrap">{{ msg.message }}</p>
+              <div v-if="msg.message.includes('[APPOINTMENT_REQUEST:') || msg.message.includes('[DIAGNOSIS_ONLY:')">
+                <div class="mb-2">
+                  <Icon 
+                    :name="msg.message.includes('[APPOINTMENT_REQUEST:') ? 'material-symbols:calendar-month-rounded' : 'material-symbols:diagnosis-outline-rounded'" 
+                    class="text-3xl text-indigo-500 mb-2" 
+                  />
+                  <p class="font-bold text-lg">
+                    {{ msg.message.includes('[APPOINTMENT_REQUEST:') ? 'Appointment Request' : 'Clinical Findings' }}
+                  </p>
+                  <p class="text-sm opacity-80">{{ msg.message.replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '').trim() || (msg.message.includes('[APPOINTMENT_REQUEST:') ? 'A diagnosis was shared.' : 'Additional findings shared.') }}</p>
+                </div>
+
+                <!-- Diagnosis Details -->
+                <div v-if="msg.appointment_data" class="bg-card/50 mt-3 rounded-2xl border border-border/50 p-4 shadow-sm backdrop-blur-sm">
+                  <div class="flex gap-4">
+                    <img 
+                      :src="getStorageUrl(msg.appointment_data.diagnosis.image_path)" 
+                      class="h-24 w-24 rounded-xl object-cover border border-border shadow-sm"
+                      alt="Diagnosis scan"
+                    />
+                    <div class="flex flex-col justify-center gap-0.5">
+                      <p class="text-[10px] font-black uppercase tracking-widest text-indigo-500">Clinical Findings</p>
+                      <h4 class="text-lg font-black leading-tight text-foreground">{{ msg.appointment_data.diagnosis.label }}</h4>
+                      <div class="flex flex-col gap-0.5 mt-1">
+                        <p class="text-xs font-bold text-foreground/70">
+                          {{ msg.appointment_data.diagnosis.patient_name }}
+                        </p>
+                        <p class="text-[11px] font-medium text-foreground/50">
+                          {{ msg.appointment_data.diagnosis.patient_age }} years old • {{ msg.appointment_data.diagnosis.date }}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
+                <div v-if="userRole?.toLowerCase() === 'doctor' && msg.message.includes('[APPOINTMENT_REQUEST:') && !isAppointmentHandled(msg.message) && !activeAppointment" class="flex gap-2 mt-4">
+                  <button @click.prevent="openScheduleModal(msg.message)" class="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95">
+                    Accept & Schedule
+                  </button>
+                  <button @click.prevent="declineAppointment(msg.message)" class="bg-foreground/10 px-5 py-2 rounded-xl text-sm font-bold hover:bg-foreground/20 transition-all active:scale-95">
+                    Decline
+                  </button>
+                </div>
+              </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="bg-green-100 p-2 rounded-full">
+                      <Icon name="material-symbols:check-circle-rounded" class="text-xl text-green-600" />
+                    </div>
+                    <span class="font-bold text-green-700">Appointment Confirmed</span>
+                  </div>
+                  <p class="text-sm opacity-90" v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"></p>
+                </div>
+              </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="bg-red-100 p-2 rounded-full">
+                      <Icon name="material-symbols:cancel-rounded" class="text-xl text-red-500" />
+                    </div>
+                    <span class="font-bold text-red-600">Appointment Declined</span>
+                  </div>
+                  <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}</p>
+                </div>
+              </div>
+              <p v-else class="text-base leading-relaxed whitespace-pre-wrap">{{ msg.message }}</p>
 
               <!-- Own message action dots (visible on hover) -->
               <button
@@ -595,6 +788,52 @@
                 variant="unstyled"
                 class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
                 @click="showDeleteConversationModal = false"
+              >
+                Cancel
+              </AppButton>
+            </div>
+          </div>
+        </div>
+      </Transition>
+      <!-- Schedule Appointment Modal -->
+      <AppModalAppointmentSchedule
+        v-if="showScheduleModal"
+        :appointment-uuid="schedulingAppointmentUuid"
+        @close="showScheduleModal = false"
+        @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
+      />
+
+      <!-- Complete Appointment Confirmation Modal -->
+      <Transition name="modal">
+        <div
+          v-if="showCompleteConfirm"
+          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          @click.self="showCompleteConfirm = false"
+        >
+          <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+            <div class="mb-6 flex flex-col items-center text-center">
+              <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+              </div>
+              <h3 class="text-2xl font-bold">Complete Appointment?</h3>
+              <p class="text-foreground/60 mt-2">
+                Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <AppButton
+                variant="solid"
+                class="bg-indigo-600 text-white hover:bg-indigo-700"
+                :disabled="isCompleting"
+                @click="completeAppointment"
+              >
+                {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
+              </AppButton>
+              <AppButton
+                variant="unstyled"
+                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                @click="showCompleteConfirm = false"
               >
                 Cancel
               </AppButton>
