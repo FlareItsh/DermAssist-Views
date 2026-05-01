@@ -204,7 +204,7 @@
         formData.append('user_uuid', userUuid.value)
       }
 
-      const response = await $api<any>('/diagnose', {
+      const response = await $api<any>('/diagnoses', {
         method: 'POST',
         headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {},
         body: formData
