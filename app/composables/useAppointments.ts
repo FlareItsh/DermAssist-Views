@@ -4,6 +4,7 @@ export interface Appointment {
   time: string
   doctor: string
   doctor_id: number
+  doctor_uuid?: string
   patient_id: number
   info: string
   diagnosis_image?: string
@@ -59,6 +60,7 @@ export const useAppointments = () => {
             time,
             doctor: mapPerson(appt),
             doctor_id: appt.doctor_id,
+            doctor_uuid: appt.doctor?.uuid,
             patient_id: appt.patient_id,
             info: appt.diagnosis?.label || 'General Appointment',
             diagnosis_image: appt.diagnosis?.image_path,

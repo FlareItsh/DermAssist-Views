@@ -35,9 +35,9 @@
     data: response,
     refresh,
     pending
-  } = await useApi<{ data: Verification }>(`verifications/${route.params.uuid}`)
+  } = await useApi<Verification>(`verifications/${route.params.uuid}`)
 
-  const verification = computed(() => response.value?.data)
+  const verification = computed(() => response.value)
 
   const isUpdating = ref(false)
   const isApproveModalOpen = ref(false)

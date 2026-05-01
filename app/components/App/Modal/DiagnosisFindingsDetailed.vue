@@ -245,17 +245,17 @@ const fetchNearestDoctor = async () => {
   try {
     // 1. Get the user's latest data (bypassing cache with a timestamp)
     const patientRes = await $api<any>(`users/${userUuid.value}?t=${Date.now()}`)
-    const patient = patientRes?.data
+    const patient = patientRes
 
     // NEW: Check if there's an active appointment already.
     // If so, we prioritize that doctor instead of searching for the nearest.
     const activeAppt = [...appointments.value, ...pendingAppointments.value]
       .find(a => a.status === 'scheduled' || a.status === 'pending')
 
-    if (activeAppt) {
+    if (activeAppt && activeAppt.doctor_uuid) {
       try {
-        const docRes = await $api<any>(`users/${activeAppt.doctor_id}`)
-        nearestDoctor.value = docRes?.data || docRes
+        const docRes = await $api<any>(`users/${activeAppt.doctor_uuid}`)
+        nearestDoctor.value = docRes
         doctorDistance.value = null
         isDoctorLoading.value = false
         return
@@ -271,8 +271,8 @@ const fetchNearestDoctor = async () => {
       return
     }
 
-    const patLat = parseFloat(patient?.latitude)
-    const patLng = parseFloat(patient?.longitude)
+    const patLat = parseFloat(patient?.latitude || '0')
+    const patLng = parseFloat(patient?.longitude || '0')
 
     // 2. Fetch all verified doctors
     const doctorsRes = await $api<any>('users', {
@@ -282,7 +282,7 @@ const fetchNearestDoctor = async () => {
 
     // 3. Filter to those with coordinates, compute distance, sort
     const withDistance = doctors
-      .filter(d => d.latitude && d.longitude)
+      .filter(d => d.latitude != null && d.longitude != null && d.uuid !== patient?.uuid)
       .map(d => ({
         ...d,
         distance: (patLat && patLng)
@@ -306,7 +306,7 @@ const fetchUserAge = async () => {
   if (!userUuid.value) return
   try {
     const res = await $api<any>(`users/${userUuid.value}`)
-    patientAge.value = res?.data?.age ?? null
+    patientAge.value = res?.age ?? null
   } catch (e) {
     console.error('Failed to fetch user age:', e)
   }
