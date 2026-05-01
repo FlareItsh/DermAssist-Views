@@ -118,32 +118,6 @@ const isEditingName = ref(false)
 const tempUserName = ref(userName.value || 'Guest User')
 const nameInput = ref<HTMLInputElement | null>(null)
 
-const isContributing = ref(false)
-const showContributionSuccess = ref(false)
-const { selectedFile } = useDiagnosis()
-
-const contributeToDataset = async () => {
-  if (!currentDiagnosis.value || !selectedFile.value) return
-
-  isContributing.value = true
-  const formData = new FormData()
-  formData.append('image', selectedFile.value)
-  formData.append('label', currentDiagnosis.value.label)
-
-  try {
-    await $api('/collect', {
-      method: 'POST',
-      body: formData
-    })
-    showContributionSuccess.value = true
-    setTimeout(() => { showContributionSuccess.value = false }, 5000)
-  } catch (err) {
-    console.error('Contribution failed:', err)
-  } finally {
-    isContributing.value = false
-  }
-}
-
 const toggleEditName = () => {
   if (isEditingName.value) {
     const newName = tempUserName.value.trim()
@@ -211,33 +185,8 @@ const toggleEditName = () => {
           </ul>
         </div>
 
-        <!-- Dataset Contribution Section -->
-        <div v-if="currentDiagnosis?.flagged_for_collection || showContributionSuccess"
-          class="bg-primary/5 border-primary/20 mt-2 rounded-2xl border p-4 transition-all animate-in fade-in slide-in-from-bottom-4">
-          <div v-if="!showContributionSuccess">
-            <div class="flex items-center gap-2 mb-2">
-              <Icon name="material-symbols:science-outline-rounded" class="text-primary text-xl" />
-              <p class="text-sm font-bold text-primary">Contribute to Research</p>
-            </div>
-            <p class="text-xs text-foreground/70 mb-3 leading-relaxed">
-              Our AI is slightly unsure about this scan. Would you like to contribute this image to our dataset to
-              improve future accuracy for this condition?
-            </p>
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="contributeToDataset"
-              :disabled="isContributing"
-              class="bg-primary text-white text-xs px-4 py-2 rounded-full font-bold w-full hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2">
-              <Icon v-if="isContributing" name="line-md:loading-twotone-loop" class="text-lg" />
-              {{ isContributing ? 'Uploading...' : 'Add to Dataset' }}
-            </AppButton>
-          </div>
-          <div v-else class="flex flex-col items-center py-2 text-center">
-            <Icon name="material-symbols:check-circle-rounded" class="text-green-500 text-3xl mb-2" />
-            <p class="text-xs font-bold text-green-600 uppercase tracking-widest">Contribution Saved</p>
-            <p class="text-[10px] text-green-600/70">Thank you for helping improve our AI!</p>
-          </div>
         </div>
       </div>
-    </div>
 
     <div class="mt-2 flex flex-col items-end gap-1">
       <div class="h-6">

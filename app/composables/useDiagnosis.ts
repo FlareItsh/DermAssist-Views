@@ -5,7 +5,6 @@ export interface DiagnosisResult {
   label: string
   confidence: number
   all_probabilities: Record<string, number>
-  flagged_for_collection?: boolean
 }
 
 const currentDiagnosis = ref<DiagnosisResult | null>(null)
