@@ -110,8 +110,8 @@ const initDropdowns = async () => {
 
 const loaded = ref(false)
 watch(user, (newVal) => {
-  if (newVal?.data && !loaded.value) {
-    const userData = newVal.data
+  if (newVal && !loaded.value) {
+    const userData = newVal
     form.first_name = userData.first_name || ''
     form.last_name = userData.last_name || ''
     form.email = userData.email || ''
@@ -219,7 +219,7 @@ const logout = () => {
         <h1 class="text-3xl font-bold">Doctor Profile</h1>
         <p class="text-foreground/60 mt-2">Manage your professional and personal information.</p>
       </div>
-      <div v-if="user?.data?.doctor_verification?.status === 'verified'"
+      <div v-if="user?.doctor_verification?.status === 'verified'"
         class="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-2xl border border-primary/20">
         <Icon name="heroicons:shield-check-20-solid" size="20" />
         <span class="text-sm font-bold uppercase tracking-wider">Verified Professional</span>
@@ -231,8 +231,8 @@ const logout = () => {
       <div class="lg:col-span-1">
         <div class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm">
           <div class="relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-1 border-2 border-primary/20">
-            <template v-if="user?.data?.avatar_path">
-              <NuxtImg :src="getStorageUrl(user.data.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
+            <template v-if="user?.avatar_path">
+              <NuxtImg :src="getStorageUrl(user.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
             </template>
             <div v-else class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-4xl font-bold text-primary">
               Dr. {{ form.last_name?.charAt(0) }}
@@ -248,13 +248,13 @@ const logout = () => {
             <div class="flex items-center justify-between text-sm">
               <span class="text-foreground/50">Profile Setup</span>
               <AppProfileStatusBadge
-                :is-complete="user?.data?.doctor_verification?.status === 'verified'"
-                :is-declined="user?.data?.doctor_verification?.status === 'declined'"
-                :is-pending="user?.data?.doctor_verification?.status === 'pending'" />
+                :is-complete="user?.doctor_verification?.status === 'verified'"
+                :is-declined="user?.doctor_verification?.status === 'declined'"
+                :is-pending="user?.doctor_verification?.status === 'pending'" />
             </div>
-            <div v-if="user?.data?.prcNumber || user?.data?.doctor_verification" class="bg-foreground/5 rounded-xl p-3 text-left">
+            <div v-if="user?.prcNumber || user?.doctor_verification" class="bg-foreground/5 rounded-xl p-3 text-left">
               <span class="text-foreground/40 text-[10px] font-bold uppercase block mb-1">PRC License No.</span>
-              <span class="text-sm font-mono">{{ user?.data?.prcNumber || user?.data?.doctor_verification?.prcNumber }}</span>
+              <span class="text-sm font-mono">{{ user?.prcNumber || user?.doctor_verification?.prcNumber }}</span>
             </div>
 
 

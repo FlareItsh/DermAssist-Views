@@ -108,8 +108,8 @@
 
   const loaded = ref(false)
   watch(user, (newVal) => {
-    if (newVal?.data && !loaded.value) {
-      const userData = newVal.data
+    if (newVal && !loaded.value) {
+      const userData = newVal
       form.first_name = userData.first_name || ''
       form.last_name = userData.last_name || ''
       form.email = userData.email || ''
@@ -218,8 +218,8 @@
       <div class="lg:col-span-1">
         <div class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm">
           <div class="relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-1 border-2 border-primary/20">
-            <template v-if="user?.data?.avatar_path">
-              <NuxtImg :src="getStorageUrl(user.data.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
+            <template v-if="user?.avatar_path">
+              <NuxtImg :src="getStorageUrl(user.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
             </template>
             <div v-else class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-4xl font-bold text-primary">
               {{ form.first_name?.charAt(0) }}{{ form.last_name?.charAt(0) }}
@@ -234,7 +234,7 @@
           <div class="mt-6 flex flex-col gap-2">
             <div class="flex items-center justify-between text-sm">
               <span class="text-foreground/50">Account Status</span>
-              <AppProfileStatusBadge :is-complete="!!(user?.data?.city && user?.data?.province && user?.data?.age && user?.data?.gender)" />
+              <AppProfileStatusBadge :is-complete="!!(user?.city && user?.province && user?.age && user?.gender)" />
             </div>
 
           </div>

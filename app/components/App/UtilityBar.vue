@@ -114,8 +114,8 @@
   })
 
   const isProfileIncomplete = computed(() => {
-    if (!userProfile.value?.data) return false
-    const userData = userProfile.value.data
+    if (!userProfile.value) return false
+    const userData = userProfile.value
     return !userData.city || !userData.province || !userData.age || userData.age == 0 || !userData.gender || userData.gender === ''
   })
 
@@ -143,8 +143,8 @@
       })
     }
     
-    if (userRole.value === 'doctor' && userProfile.value?.data?.doctor_verification?.status === 'verified') {
-      const verif = userProfile.value.data.doctor_verification
+    if (userRole.value === 'doctor' && userProfile.value?.doctor_verification?.status === 'verified') {
+      const verif = userProfile.value.doctor_verification
       list.push({
         id: `approved-${verif.uuid}-${verif.updated_at}`,
         title: 'Verification Approved',
@@ -156,8 +156,8 @@
       })
     }
 
-    if (userRole.value === 'doctor' && userProfile.value?.data?.doctor_verification?.status === 'declined') {
-      const verif = userProfile.value.data.doctor_verification
+    if (userRole.value === 'doctor' && userProfile.value?.doctor_verification?.status === 'declined') {
+      const verif = userProfile.value.doctor_verification
       const reason = verif.rejection_reason
       list.push({
         id: `declined-${verif.uuid}-${verif.updated_at}`,
@@ -461,7 +461,7 @@
           :class="isProfileOpen ? 'border-primary ring-4 ring-primary/10' : 'border-transparent hover:border-primary/30 hover:scale-105'"
         >
           <NuxtImg
-            :src="getStorageUrl(userProfile?.data?.avatar_path) || '/images/lp-img.png'"
+            :src="getStorageUrl(userProfile?.avatar_path) || '/images/lp-img.png'"
             class="h-full w-full object-cover"
             alt="Profile"
             placeholder
@@ -491,8 +491,8 @@
           >
             <div class="border-border/10 border-b p-4 pb-3">
               <p class="text-foreground/40 text-[10px] font-bold uppercase">Logged in as</p>
-              <p class="text-sm font-bold truncate">{{ userProfile?.data?.first_name }} {{ userProfile?.data?.last_name }}</p>
-              <p class="text-muted-foreground text-xs truncate">{{ userProfile?.data?.email }}</p>
+              <p class="text-sm font-bold truncate">{{ userProfile?.first_name }} {{ userProfile?.last_name }}</p>
+              <p class="text-muted-foreground text-xs truncate">{{ userProfile?.email }}</p>
             </div>
 
             <div class="p-2">
