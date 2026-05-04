@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { appointmentService } from '~/api/appointment/AppointmentService'
 const { appointments, fetchAppointments } = useAppointments()
 const { getStorageUrl } = useStorage()
 const { priorityIds, removeFromPriority } = usePriorityList()
@@ -28,10 +29,7 @@ const isCompleting = ref<string | null>(null)
 const accomplish = async (apptId: string) => {
   isCompleting.value = apptId
   try {
-    await $api(`appointments/${apptId}`, {
-      method: 'PUT',
-      body: { status: 'completed' }
-    })
+    await appointmentService.update(apptId, { status: 'completed' })
     removeFromPriority(apptId)
     await fetchAppointments()
   } catch (e) {

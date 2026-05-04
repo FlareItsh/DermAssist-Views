@@ -1,3 +1,5 @@
+import { appointmentService } from '~/api/appointment/AppointmentService'
+
 export interface Appointment {
   id: string
   date: string // YYYY-MM-DD
@@ -36,7 +38,7 @@ export const useAppointments = () => {
     if (pending.value) return
     pending.value = true
     try {
-      const res = await $api<any[]>('appointments')
+      const res = await appointmentService.list()
       if (res) {
         const role = useCookie('user_role').value
 

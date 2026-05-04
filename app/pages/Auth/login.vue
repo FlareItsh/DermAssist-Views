@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { authService } from '~/api/auth/AuthService'
   import Button from '~/components/App/Button.vue'
 
   definePageMeta({
@@ -83,10 +84,7 @@
 
     isLoading.value = true
     try {
-      const response = await $api<any>('login', {
-        method: 'POST',
-        body: form
-      })
+      const response = await authService.login(form.email, form.password)
 
       if (response.token) {
         const token = useCookie('auth_token', {

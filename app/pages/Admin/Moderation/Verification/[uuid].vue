@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { verificationService } from '~/api/verification/VerificationService'
+
   const route = useRoute()
   const router = useRouter()
   const { getStorageUrl } = useStorage()
@@ -31,11 +33,23 @@
     updated_at: string
   }
 
-  const {
-    data: response,
-    refresh,
-    pending
-  } = await useApi<Verification>(`verifications/${route.params.uuid}`)
+  const response = ref<Verification | null>(null)
+  const pending = ref(true)
+
+  const fetchVerification = async () => {
+    try {
+      pending.value = true
+      response.value = await verificationService.show(route.params.uuid as string)
+    } catch (error) {
+      console.error('Failed to fetch verification:', error)
+    } finally {
+      pending.value = false
+    }
+  }
+
+  onMounted(() => {
+    fetchVerification()
+  })
 
   const verification = computed(() => response.value)
 
@@ -47,17 +61,14 @@
   const updateStatus = async (status: 'verified' | 'declined', reason?: string) => {
     try {
       isUpdating.value = true
-      await useApi(`verifications/${route.params.uuid}`, {
-        method: 'PUT',
-        body: {
-          status,
-          rejection_reason: reason
-        }
+      await verificationService.update(route.params.uuid as string, {
+        status,
+        rejection_reason: reason
       })
       isApproveModalOpen.value = false
       isRejectModalOpen.value = false
       declinedReason.value = ''
-      await refresh()
+      await fetchVerification()
     } catch (error) {
       console.error('Failed to update status:', error)
     } finally {

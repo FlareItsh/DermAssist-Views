@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { conversationService } from '~/api/conversation/ConversationService'
+
   interface ConversationPerson {
     id: string
     name: string
@@ -32,13 +34,14 @@
   const userRole = useCookie('user_role')
 
   const { data: conversations, refresh, pending } =
-    await useApi<PaginatedResponse<Conversation>>('conversations')
+    await conversationService.useList()
 
   const filteredConversations = computed(() => {
     if (!conversations.value?.data) return []
-    if (!searchValue.value) return conversations.value.data
+    const list = (conversations.value.data as any[]).filter(c => c && typeof c === 'object')
+    if (!searchValue.value) return list
     const query = searchValue.value.toLowerCase()
-    return conversations.value.data.filter((c) => {
+    return list.filter((c) => {
       const otherPerson = userRole.value === 'doctor' ? c.patient : c.doctor
       return otherPerson?.name?.toLowerCase().includes(query)
     })

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { verificationService } from '~/api/verification/VerificationService'
+
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
@@ -26,10 +28,6 @@
     updated_at: string
   }
 
-  interface PaginatedResponse<T> {
-    data: T[]
-  }
-
   const selectedStatus = ref('')
   const searchQuery = ref('')
   const debouncedSearch = ref('')
@@ -44,6 +42,27 @@
     }, 500)
   })
 
+  const verifications = ref<{ data: Verification[] } | null>(null)
+  const pending = ref(true)
+
+  const fetchVerifications = async () => {
+    try {
+      pending.value = true
+      const params: any = {}
+      if (selectedStatus.value) params.status = selectedStatus.value
+      if (debouncedSearch.value) params.search = debouncedSearch.value
+      verifications.value = await verificationService.list(params)
+    } catch (error) {
+      console.error('Failed to fetch verifications:', error)
+    } finally {
+      pending.value = false
+    }
+  }
+
+  watch([selectedStatus, debouncedSearch], () => {
+    fetchVerifications()
+  })
+
   const startPolling = () => {
     if (pollingInterval) {
       clearInterval(pollingInterval)
@@ -51,7 +70,10 @@
 
     pollingInterval = setInterval(async () => {
       if (!pending.value && !searchTimeout) {
-        await refresh()
+        const params: any = {}
+        if (selectedStatus.value) params.status = selectedStatus.value
+        if (debouncedSearch.value) params.search = debouncedSearch.value
+        verifications.value = await verificationService.list(params)
       }
     }, 3000)
   }
@@ -64,6 +86,7 @@
   }
 
   onMounted(() => {
+    fetchVerifications()
     startPolling()
   })
 
@@ -71,18 +94,7 @@
     stopPolling()
   })
 
-  const { data: verifications, refresh, pending } =
-    await useApi<PaginatedResponse<Verification>>(() => {
-      const params = new URLSearchParams()
-      if (selectedStatus.value) {
-        params.append('status', selectedStatus.value)
-      }
-      if (debouncedSearch.value) {
-        params.append('search', debouncedSearch.value)
-      }
-      const qs = params.toString()
-      return `verifications${qs ? `?${qs}` : ''}`
-    })
+  const refresh = fetchVerifications
 
   const statuses = [
     { label: 'All', value: '' },

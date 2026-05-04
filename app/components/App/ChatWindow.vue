@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { ref, watch, computed, onMounted } from 'vue'
+  import { appointmentService } from '~/api/appointment/AppointmentService'
 
   const props = defineProps<{
     conversation: any
@@ -71,10 +72,7 @@
     if (!activeAppointment.value) return
     isCompleting.value = true
     try {
-      await $api(`appointments/${activeAppointment.value.id}`, {
-        method: 'PUT',
-        body: { status: 'completed' }
-      })
+      await appointmentService.update(activeAppointment.value.id, { status: 'completed' })
       showCompleteConfirm.value = false
       fetchAppointments()
     } catch (e) {

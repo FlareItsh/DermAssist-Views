@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { authService } from '~/api/auth/AuthService'
   interface NavItem {
     icon: string
     label: string
@@ -41,14 +42,15 @@
   const logout = async () => {
     isLogoutModalOpen.value = false
     try {
-      await $api('logout', {
-        method: 'POST'
-      })
+      await authService.logout()
     } catch (error) {
       console.error('Logout failed:', error)
     } finally {
-      const token = useCookie('auth_token')
-      token.value = null
+      useCookie('auth_token').value = null
+      useCookie('user_role').value = null
+      useCookie('user_uuid').value = null
+      useCookie('user_name').value = null
+      useCookie('auth_user_name').value = null
       await navigateTo('/auth/login')
     }
   }

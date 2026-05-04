@@ -9,7 +9,8 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "format": "prettier . --write",
-    "format:check": "prettier . --check"
+    "format:check": "prettier . --check",
+    "make:service": "node scripts/make-service.js"
   },
   "dependencies": {
     "@nuxt/eslint": "1.15.2",

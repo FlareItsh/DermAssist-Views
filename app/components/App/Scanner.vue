@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
   const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile } = useDiagnosis()
@@ -204,12 +205,10 @@
         formData.append('user_uuid', userUuid.value)
       }
 
-      const response = await $api<any>('/diagnoses', {
-        method: 'POST',
-        headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {},
-        body: formData
+      const response = await diagnosisService.create(formData, {
+        headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {}
       })
-      if (response) setDiagnosis(response)
+      if (response) setDiagnosis(response as any)
     } catch (err: any) {
       errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
     } finally {

@@ -3,17 +3,20 @@
     layout: 'dashboard-sidebar-layout'
   })
 
+  import { conversationService } from '~/api/conversation/ConversationService'
+
   const route = useRoute()
   const uuid = route.params.uuid as string
   const userRole = useCookie('user_role')
 
-  const { data: conversation } = await useApi<any>(() => `conversations/${uuid}`)
+  const { data: response } = await conversationService.useShow(uuid)
+  const conversation = computed(() => response.value)
 
   const otherPerson = computed(() => {
-    if (!conversation.value?.data) return { name: 'Unknown', avatar: null }
+    if (!conversation.value) return { name: 'Unknown', avatar: null }
     return userRole.value === 'doctor'
-      ? conversation.value.data.patient
-      : conversation.value.data.doctor
+      ? conversation.value.patient
+      : conversation.value.doctor
   })
 </script>
 

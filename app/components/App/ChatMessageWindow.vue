@@ -1,4 +1,7 @@
 <script setup lang="ts">
+  import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { conversationService } from '~/api/conversation/ConversationService'
+  import { messageService } from '~/api/message/MessageService'
   interface MessageSender {
     id: string
     name: string
@@ -96,10 +99,7 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return
     try {
-      await $api(`appointments/${uuid}`, {
-        method: 'PUT',
-        body: { status: 'declined' }
-      })
+      await appointmentService.update(uuid, { status: 'declined' })
       fetchMessages(1)
     } catch (e) {
       console.error(e)
@@ -137,10 +137,7 @@
     if (!activeAppointment.value) return
     isCompleting.value = true
     try {
-      await $api(`appointments/${activeAppointment.value.id}`, {
-        method: 'PUT',
-        body: { status: 'completed' }
-      })
+      await appointmentService.update(activeAppointment.value.id, { status: 'completed' })
       showCompleteConfirm.value = false
       fetchAppointments()
     } catch (e) {
@@ -163,9 +160,15 @@
       const cached = localStorage.getItem(cacheKey.value)
       if (cached) {
         try {
-          allMessages.value = JSON.parse(cached)
-          return true
+          const parsed = JSON.parse(cached)
+          if (Array.isArray(parsed)) {
+            // Filter out any potential null/undefined entries from previous corrupt sessions
+            allMessages.value = parsed.filter(m => m && typeof m === 'object' && m.id)
+            return allMessages.value.length > 0
+          }
+          return false
         } catch (e) {
+          localStorage.removeItem(cacheKey.value)
           return false
         }
       }
@@ -179,10 +182,7 @@
     else if (allMessages.value.length === 0) pending.value = true
 
     try {
-      const response = await $api<PaginatedResponse<Message>>(
-        `conversations/${props.conversationUuid}/messages`, 
-        { query: { page } }
-      )
+      const response = await conversationService.getMessages(props.conversationUuid, { page })
       
       const newMessages = [...response.data].reverse()
       
@@ -203,15 +203,15 @@
         // If it's the first page, we might be polling or initial load
         if (page === 1) {
           const freshMessages = newMessages.filter(
-            nm => !allMessages.value.find(am => am.id === nm.id)
+            nm => nm && typeof nm === 'object' && nm.id && !allMessages.value.find(am => am && am.id === nm.id)
           )
           if (freshMessages.length > 0) {
-            allMessages.value = [...allMessages.value, ...freshMessages]
+            allMessages.value = [...allMessages.value, ...freshMessages].filter(m => m && m.id)
             if (isUserNearBottom) scrollToBottom()
           }
           lastPage.value = response.meta.last_page
         } else {
-          allMessages.value = [...newMessages, ...allMessages.value]
+          allMessages.value = [...newMessages, ...allMessages.value].filter(m => m && m.id)
         }
       }
       
@@ -256,11 +256,11 @@
 
   const markUnreadMessages = async () => {
     const unread = allMessages.value.filter(
-      (m) => !m.is_read && m.sender?.id !== userUuid.value
+      (m) => m && !m.is_read && m.sender?.id !== userUuid.value
     )
     for (const msg of unread) {
       try {
-        await $api(`messages/${msg.id}`, { method: 'PUT' })
+        await messageService.update(msg.id, { is_read: true })
         msg.is_read = true // Update locally
       } catch (e) {}
     }
@@ -309,14 +309,13 @@
 
     messageTerm.value = ''
     try {
-      const response = await $api<any>(`conversations/${props.conversationUuid}/messages`, {
-        method: 'POST',
-        body: { message: text }
-      })
+      const response = await conversationService.sendMessage(props.conversationUuid, text)
       // Add immediately to UI for snappiness
-      allMessages.value.push(response.data)
-      scrollToBottom()
-      saveToCache()
+      if (response) {
+        allMessages.value.push(response)
+        scrollToBottom()
+        saveToCache()
+      }
     } catch (e) {
       messageTerm.value = text
     }
@@ -355,13 +354,10 @@
     if (!trimmed) return
 
     try {
-      const response = await $api<any>(`messages/${editingMessageId.value}`, {
-        method: 'PUT',
-        body: { message: trimmed }
-      })
+      const response = await messageService.update(editingMessageId.value, { message: trimmed })
       // Update locally
-      const idx = allMessages.value.findIndex(m => m.id === editingMessageId.value)
-      if (idx !== -1) allMessages.value[idx] = response.data
+      const idx = allMessages.value.findIndex(m => m && m.id === editingMessageId.value)
+      if (idx !== -1 && response) allMessages.value[idx] = response
       cancelEditing()
       saveToCache()
     } catch (e) {}
@@ -381,8 +377,8 @@
   const deleteMessage = async () => {
     if (!messageToDelete.value) return
     try {
-      await $api(`messages/${messageToDelete.value.id}`, { method: 'DELETE' })
-      allMessages.value = allMessages.value.filter(m => m.id !== messageToDelete.value!.id)
+      await messageService.delete(messageToDelete.value.id)
+      allMessages.value = allMessages.value.filter(m => m && m.id !== messageToDelete.value!.id)
       saveToCache()
     } catch (e) {
     } finally {
@@ -393,7 +389,7 @@
 
   const deleteConversation = async () => {
     try {
-      await $api(`conversations/${props.conversationUuid}`, { method: 'DELETE' })
+      await conversationService.delete(props.conversationUuid)
       showDeleteConversationModal.value = false
       emit('conversationDeleted')
     } catch (e) {}
@@ -519,7 +515,7 @@
       <!-- Message bubbles -->
       <div class="flex flex-col gap-4">
         <div
-          v-for="msg in allMessages"
+          v-for="msg in allMessages.filter(m => m && m.id)"
           :key="msg.id"
           class="group flex items-end gap-3"
           :class="msg.sender?.id === userUuid ? 'flex-row-reverse' : 'flex-row'"
@@ -684,9 +680,9 @@
             size="unstyled"
             rounded="unstyled"
             @click="sendMessage"
-            class="text-foreground/40 hover:text-primary group-focus-within:text-primary flex cursor-pointer items-center justify-center p-2 transition-colors"
+            class="text-primary hover:text-primary-hover flex cursor-pointer items-center justify-center p-2 transition-colors"
           >
-            <Icon name="tabler:send" class="text-2xl" />
+            <Icon name="material-symbols:send-rounded" class="text-2xl" />
           </AppButton>
         </div>
       </div>

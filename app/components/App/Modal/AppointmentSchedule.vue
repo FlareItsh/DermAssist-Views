@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { appointmentService } from '~/api/appointment/AppointmentService'
 
 const props = defineProps<{
   appointmentUuid: string
@@ -24,13 +25,10 @@ const confirmSchedule = async () => {
   isScheduling.value = true
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
-    await $api(`appointments/${props.appointmentUuid}`, {
-      method: 'PUT',
-      body: {
-        status: 'scheduled',
-        scheduled_at: dateTime,
-        location: scheduleLocation.value
-      }
+    await appointmentService.update(props.appointmentUuid, {
+      status: 'scheduled',
+      scheduled_at: dateTime,
+      location: scheduleLocation.value
     })
     emit('scheduled')
     emit('close')

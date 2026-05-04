@@ -10,16 +10,15 @@
   const { searchQuery } = useSearch()
   const { getStorageUrl } = useStorage()
 
-  const queryUrl = computed(() => {
-    let url = 'users?'
-    if (props.role) url += `role=${props.role}&`
-    if (props.status) url += `status=${props.status}&`
-    return url.slice(0, -1) 
-  })
+  import { userService } from '~/api/user/UserService'
 
-  const { data: response, pending } = await useApi<any>(() => queryUrl.value, {
-    key: `users-list-${props.role}-${props.status}`,
-    watch: [() => props.role, () => props.status]
+  const params = computed(() => ({
+    role: props.role,
+    status: props.status
+  }))
+
+  const { data: response, pending } = await userService.useList(params, {
+    key: `users-list-${props.role}-${props.status}`
   })
 
   const users = computed(() => response.value?.data || [])

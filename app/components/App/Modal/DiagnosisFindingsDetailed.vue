@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch, onMounted } from 'vue'
+import { appealService } from '~/api/appeal/AppealService'
+import { userService } from '~/api/user/UserService'
+import { appointmentService } from '~/api/appointment/AppointmentService'
 import type { DonutEntry } from '../DonutChart.vue'
 
 const userUuid = useCookie('user_uuid')
@@ -71,14 +74,11 @@ const submitAppeal = async () => {
   appealSuccess.value = false
 
   try {
-    await $api('/appeals', {
-      method: 'POST',
-      body: {
-        user_uuid: userUuid.value,
-        diagnosis_label: activeDisease.value,
-        suggested_label: suggestedLabel.value,
-        description: appealDescription.value
-      }
+    await appealService.create({
+      user_uuid: userUuid.value,
+      diagnosis_label: activeDisease.value,
+      suggested_label: suggestedLabel.value,
+      description: appealDescription.value
     })
     appealSuccess.value = true
     setTimeout(() => {
@@ -244,7 +244,7 @@ const fetchNearestDoctor = async () => {
 
   try {
     // 1. Get the user's latest data (bypassing cache with a timestamp)
-    const patientRes = await $api<any>(`users/${userUuid.value}?t=${Date.now()}`)
+    const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
     const patient = patientRes
 
     // NEW: Check if there's an active appointment already.
@@ -254,7 +254,7 @@ const fetchNearestDoctor = async () => {
 
     if (activeAppt && activeAppt.doctor_uuid) {
       try {
-        const docRes = await $api<any>(`users/${activeAppt.doctor_uuid}`)
+        const docRes = await userService.show(activeAppt.doctor_uuid)
         nearestDoctor.value = docRes
         doctorDistance.value = null
         isDoctorLoading.value = false
@@ -275,9 +275,7 @@ const fetchNearestDoctor = async () => {
     const patLng = parseFloat(patient?.longitude || '0')
 
     // 2. Fetch all verified doctors
-    const doctorsRes = await $api<any>('users', {
-      params: { role: 'doctor', status: 'verified', per_page: 100 }
-    })
+    const doctorsRes = await userService.list({ role: 'doctor', status: 'verified', per_page: 100 })
     const doctors: any[] = doctorsRes?.data ?? []
 
     // 3. Filter to those with coordinates, compute distance, sort
@@ -305,7 +303,7 @@ const fetchNearestDoctor = async () => {
 const fetchUserAge = async () => {
   if (!userUuid.value) return
   try {
-    const res = await $api<any>(`users/${userUuid.value}`)
+    const res = await userService.show(userUuid.value as string)
     patientAge.value = res?.age ?? null
   } catch (e) {
     console.error('Failed to fetch user age:', e)
@@ -319,13 +317,10 @@ const sendDiagnosis = async () => {
   isSending.value = true
   
   try {
-    const res = await $api<any>('appointments', {
-      method: 'POST',
-      body: {
-        doctor_id: nearestDoctor.value.id,
-        diagnosis_uuid: props.diagnosisUuid,
-        message: messageText.value
-      }
+    const res = await appointmentService.create({
+      doctor_id: nearestDoctor.value.id,
+      diagnosis_uuid: props.diagnosisUuid,
+      message: messageText.value
     })
     
     if (res?.conversation_uuid) {

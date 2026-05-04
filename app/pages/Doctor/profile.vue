@@ -1,12 +1,14 @@
 <script setup lang="ts">
+  import { userService } from '~/api/user/UserService'
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
 // Doctors might have verification data
-const { data: user, refresh } = await useApi<any>(`users/${useCookie('user_uuid').value}`, {
+const { data: response, refresh } = await userService.useShow(useCookie('user_uuid').value as string, {
   key: `userProfile-${useCookie('user_uuid').value}`
 })
+const user = computed(() => response.value)
 
 const {
   regions, provinces, cities, barangays,
@@ -177,10 +179,7 @@ const submitProfile = async () => {
       await geocodeAddress()
     }
 
-    await $api('users/' + useCookie('user_uuid').value, {
-      method: 'PUT',
-      body: form
-    })
+    await userService.update(useCookie('user_uuid').value as string, form)
     isSuccess.value = true
     await refresh()
 

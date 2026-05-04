@@ -1,4 +1,5 @@
 <script setup lang="ts">
+  import { authService } from '~/api/auth/AuthService'
   definePageMeta({
     layout: 'auth-split-layout'
   })
@@ -229,12 +230,9 @@
     isLoading.value = true
 
     try {
-      const response = await $api<{ user: any; token: string }>('/register', {
-        method: 'POST',
-        body: {
-          role: role.value,
-          ...form
-        }
+      const response = await authService.register({
+        role: role.value,
+        ...form
       })
 
       if (response.token) {

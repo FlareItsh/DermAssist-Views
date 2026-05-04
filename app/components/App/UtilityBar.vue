@@ -1,5 +1,8 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted } from 'vue'
+  import { authService } from '~/api/auth/AuthService'
+  import { userService } from '~/api/user/UserService'
+  import { appealService } from '~/api/appeal/AppealService'
 
    const isNotificationsOpen = ref(false)
    const isMessagesOpen = ref(false)
@@ -94,7 +97,7 @@
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
 
-  const { data: userProfile, refresh } = await useApi<any>(() => `users/${userUuid.value}`, {
+  const { data: userProfile, refresh } = await userService.useShow(() => userUuid.value as string, {
     key: `userProfile-${userUuid.value}`
   })
 
@@ -108,7 +111,7 @@
   })
 
  
-  const { data: appealsData, refresh: refreshAppeals } = await useApi<any>('appeals', {
+  const { data: appealsData, refresh: refreshAppeals } = await appealService.useList({}, {
     immediate: userRole.value === 'admin',
     key: 'admin-appeals'
   })
@@ -263,7 +266,7 @@
     isLogoutModalOpen.value = false
     try {
       // Call backend logout to invalidate session/token
-      await $api('logout', { method: 'POST' })
+      await authService.logout()
     } catch (e) {
       console.error('Backend logout failed:', e)
     } finally {
