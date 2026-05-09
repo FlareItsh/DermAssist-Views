@@ -31,7 +31,15 @@ export class ConversationService extends BaseService {
     return await this.request(`${this.resource}/${uuid}/messages`, 'GET', params)
   }
 
-  async sendMessage(uuid: string, message: string): Promise<any> {
+  async sendMessage(uuid: string, message: string, files: File[] = []): Promise<any> {
+    if (files.length > 0) {
+      const formData = new FormData()
+      formData.append('message', message)
+      files.forEach((file, index) => {
+        formData.append(`attachments[${index}]`, file)
+      })
+      return await this.request(`${this.resource}/${uuid}/messages`, 'POST', formData)
+    }
     return await this.request(`${this.resource}/${uuid}/messages`, 'POST', { message })
   }
 }

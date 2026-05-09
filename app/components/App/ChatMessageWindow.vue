@@ -8,6 +8,15 @@
     avatar: string | null
   }
 
+  interface Attachment {
+    id: string
+    name: string
+    url: string
+    type: string
+    size: number
+    created_at: string
+  }
+
   interface Message {
     id: string
     conversation_id: string | null
@@ -17,6 +26,7 @@
     read_at: string | null
     created_at: string
     updated_at: string
+    attachments?: Attachment[]
     appointment_data?: {
       status: string
       diagnosis: {
@@ -75,6 +85,50 @@
 
   const userRole = useCookie('user_role')
   const { getStorageUrl } = useStorage()
+
+  // --- Attachments ---
+  const fileInput = ref<HTMLInputElement | null>(null)
+  const selectedFiles = ref<File[]>([])
+  const isDragging = ref(false)
+
+  const triggerFileInput = () => {
+    fileInput.value?.click()
+  }
+
+  const handleFileChange = (e: Event) => {
+    const files = (e.target as HTMLInputElement).files
+    if (files) {
+      addFiles(Array.from(files))
+    }
+    // Reset input
+    if (fileInput.value) fileInput.value.value = ''
+  }
+
+  const addFiles = (files: File[]) => {
+    const validFiles = files.filter(file => {
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`${file.name} is too large. Maximum size is 15MB.`)
+        return false
+      }
+      return true
+    })
+    selectedFiles.value = [...selectedFiles.value, ...validFiles]
+  }
+
+  const removeFile = (index: number) => {
+    selectedFiles.value.splice(index, 1)
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const isImage = (type: string) => type.startsWith('image/')
+  const isPdf = (type: string) => type === 'application/pdf'
 
   // --- Scheduling ---
   const showScheduleModal = ref(false)
@@ -305,11 +359,14 @@
   // --- Send Message ---
   const sendMessage = async () => {
     const text = messageTerm.value.trim()
-    if (!text) return
+    if (!text && selectedFiles.value.length === 0) return
 
+    const filesToSend = [...selectedFiles.value]
     messageTerm.value = ''
+    selectedFiles.value = []
+
     try {
-      const response = await conversationService.sendMessage(props.conversationUuid, text)
+      const response = await conversationService.sendMessage(props.conversationUuid, text, filesToSend)
       // Add immediately to UI for snappiness
       if (response) {
         allMessages.value.push(response)
@@ -318,6 +375,7 @@
       }
     } catch (e) {
       messageTerm.value = text
+      selectedFiles.value = filesToSend
     }
   }
 
@@ -638,7 +696,53 @@
                   <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}</p>
                 </div>
               </div>
-              <p v-else class="text-base leading-relaxed whitespace-pre-wrap">{{ msg.message }}</p>
+              <p v-if="msg.message" class="text-base leading-relaxed whitespace-pre-wrap">{{ msg.message }}</p>
+
+              <!-- Attachments Display -->
+              <div v-if="msg.attachments && msg.attachments.length > 0" class="mt-3 flex flex-col gap-2">
+                <div 
+                  v-for="attachment in msg.attachments" 
+                  :key="attachment.id"
+                  class="group/attachment relative overflow-hidden rounded-xl border border-white/10"
+                  :class="msg.sender?.id === userUuid ? 'bg-white/10' : 'bg-black/5'"
+                >
+                  <!-- Image Preview -->
+                  <div v-if="isImage(attachment.type)" class="max-w-xs">
+                    <a :href="attachment.url" target="_blank">
+                      <img 
+                        :src="attachment.url" 
+                        :alt="attachment.name"
+                        class="h-auto w-full object-cover transition-transform group-hover/attachment:scale-105"
+                      />
+                    </a>
+                  </div>
+                  
+                  <!-- File Link -->
+                  <a 
+                    v-else 
+                    :href="attachment.url" 
+                    target="_blank"
+                    class="flex items-center gap-3 p-3 transition-colors hover:bg-white/5"
+                  >
+                    <div class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-lg">
+                      <Icon 
+                        :name="isPdf(attachment.type) ? 'solar:file-text-bold' : 'solar:document-bold'" 
+                        class="text-xl"
+                        :class="msg.sender?.id === userUuid ? 'text-white' : 'text-primary'"
+                      />
+                    </div>
+                    <div class="flex-1 overflow-hidden">
+                      <p class="truncate text-xs font-bold" :class="msg.sender?.id === userUuid ? 'text-white' : 'text-foreground'">
+                        {{ attachment.name }}
+                      </p>
+                      <p class="text-[10px] opacity-60" :class="msg.sender?.id === userUuid ? 'text-white' : 'text-foreground'">
+                        {{ formatFileSize(attachment.size) }}
+                      </p>
+                    </div>
+                    <Icon name="solar:download-minimalistic-linear" class="text-lg opacity-40" />
+                  </a>
+                </div>
+              </div>
 
               <!-- Own message action dots (visible on hover) -->
               <button
@@ -666,24 +770,71 @@
 
     <!-- Input Area -->
     <div class="p-8 pt-0">
-      <div class="group relative flex items-end">
-        <textarea
-          v-model="messageTerm"
-          placeholder="Type a message..."
-          @keydown="handleKeydown"
-          class="bg-foreground/5 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-14 w-full resize-none rounded-2xl border border-transparent px-6 pr-16 py-4 text-base transition-all outline-none focus:ring-4"
-        ></textarea>
-
-        <div class="absolute top-1/2 right-4 -translate-y-1/2">
-          <AppButton
-            variant="unstyled"
-            size="unstyled"
-            rounded="unstyled"
-            @click="sendMessage"
-            class="text-primary hover:text-primary-hover flex cursor-pointer items-center justify-center p-2 transition-colors"
+      <!-- File Preview Area -->
+      <div v-if="selectedFiles.length > 0" class="mb-4 flex flex-wrap gap-3">
+        <div 
+          v-for="(file, index) in selectedFiles" 
+          :key="index"
+          class="bg-card border-border/50 relative flex items-center gap-3 rounded-2xl border p-3 pr-10 shadow-sm"
+        >
+          <div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-xl">
+            <Icon 
+              :name="isImage(file.type) ? 'solar:gallery-bold' : 'solar:document-bold'" 
+              class="text-primary text-xl" 
+            />
+          </div>
+          <div class="max-w-[150px] overflow-hidden">
+            <p class="truncate text-xs font-bold text-foreground">{{ file.name }}</p>
+            <p class="text-[10px] text-foreground/50">{{ formatFileSize(file.size) }}</p>
+          </div>
+          <button 
+            @click="removeFile(index)"
+            class="absolute top-2 right-2 text-foreground/30 hover:text-destructive transition-colors"
           >
-            <Icon name="material-symbols:send-rounded" class="text-2xl" />
-          </AppButton>
+            <Icon name="solar:close-circle-bold" class="text-lg" />
+          </button>
+        </div>
+      </div>
+
+      <div class="group relative flex items-end gap-3">
+        <!-- Hidden File Input -->
+        <input 
+          type="file" 
+          ref="fileInput" 
+          multiple 
+          class="hidden" 
+          @change="handleFileChange"
+        />
+
+        <div class="flex-1 relative flex items-end">
+          <textarea
+            v-model="messageTerm"
+            placeholder="Type a message..."
+            @keydown="handleKeydown"
+            class="bg-foreground/5 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-14 w-full resize-none rounded-2xl border border-transparent px-6 pr-24 py-4 text-base transition-all outline-none focus:ring-4"
+          ></textarea>
+
+          <div class="absolute top-1/2 right-4 -translate-y-1/2 flex items-center gap-2">
+            <!-- Attachment Button -->
+            <button
+              @click="triggerFileInput"
+              class="text-foreground/30 hover:text-primary flex cursor-pointer items-center justify-center p-2 transition-colors"
+              title="Attach files (max 15MB)"
+            >
+              <Icon name="solar:paperclip-linear" class="text-2xl" />
+            </button>
+
+            <!-- Send Button -->
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
+              @click="sendMessage"
+              class="text-primary hover:text-primary-hover flex cursor-pointer items-center justify-center p-2 transition-colors"
+            >
+              <Icon name="material-symbols:send-rounded" class="text-2xl" />
+            </AppButton>
+          </div>
         </div>
       </div>
     </div>
