@@ -138,9 +138,17 @@
 
   // ── Nearest doctor by proximity ───────────────────────────────────
   const nearestDoctor = ref<any | null>(null)
+  const allNearbyDoctors = ref<any[]>([])
+  const isDoctorModalOpen = ref(false)
   const isDoctorLoading = ref(false)
   const doctorDistance = ref<number | null>(null)
   const isProfileIncomplete = ref(false)
+
+  const selectDoctor = (doctor: any) => {
+    nearestDoctor.value = doctor
+    doctorDistance.value = doctor.distance ? Math.round(doctor.distance * 10) / 10 : null
+    isDoctorModalOpen.value = false
+  }
 
   /**
    * Haversine formula: calculates distance in km between two lat/lng pairs.
@@ -164,27 +172,8 @@
     isProfileIncomplete.value = false
 
     try {
-      // 1. Get the user's latest data (bypassing cache with a timestamp)
-      const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
-      const patient = patientRes
-
-      // NEW: Check if there's an active appointment already.
-      // If so, we prioritize that doctor instead of searching for the nearest.
-      const activeAppt = [...appointments.value, ...pendingAppointments.value].find(
-        a => a.status === 'scheduled' || a.status === 'pending'
-      )
-
-      if (activeAppt && activeAppt.doctor_uuid) {
-        try {
-          const docRes = await userService.show(activeAppt.doctor_uuid)
-          nearestDoctor.value = docRes
-          doctorDistance.value = null
-          isDoctorLoading.value = false
-          return
-        } catch (docErr) {
-          console.error('Failed to fetch existing doctor:', docErr)
-        }
-      }
+      // 1. Get the user's latest data
+      const patient = await userService.show(userUuid.value as string, { t: Date.now() })
 
       // Check if location or coordinates are missing
       if (!patient?.city || !patient?.province || !patient?.latitude || !patient?.longitude) {
@@ -204,24 +193,39 @@
       })
       const doctors: any[] = doctorsRes?.data ?? []
 
-      // 3. Filter to those with coordinates, compute distance, sort
+      // 3. Filter and compute distances
       const withDistance = doctors
         .filter(d => d.latitude != null && d.longitude != null && d.uuid !== patient?.uuid)
         .map(d => ({
           ...d,
-          distance:
-            patLat && patLng
-              ? haversineDistance(patLat, patLng, parseFloat(d.latitude), parseFloat(d.longitude))
-              : Infinity
+          distance: haversineDistance(
+            patLat,
+            patLng,
+            parseFloat(d.latitude),
+            parseFloat(d.longitude)
+          )
         }))
         .sort((a, b) => a.distance - b.distance)
 
-      if (withDistance.length > 0) {
+      allNearbyDoctors.value = withDistance
+
+      // 4. Check for active appointment to set the default "nearest" doctor
+      const activeAppt = [...appointments.value, ...pendingAppointments.value].find(a =>
+        ['scheduled', 'pending'].includes(a.status)
+      )
+
+      if (activeAppt && activeAppt.doctor_uuid) {
+        const docRes = await userService.show(activeAppt.doctor_uuid)
+        nearestDoctor.value = docRes
+        // Set distance if available in our withDistance list
+        const match = withDistance.find(d => d.uuid === docRes.uuid)
+        doctorDistance.value = match ? Math.round(match.distance * 10) / 10 : null
+      } else if (withDistance.length > 0) {
         nearestDoctor.value = withDistance[0]
         doctorDistance.value = Math.round(withDistance[0].distance * 10) / 10
       }
     } catch (e) {
-      console.error('Failed to fetch nearest doctor:', e)
+      console.error('Failed to fetch doctors:', e)
     } finally {
       isDoctorLoading.value = false
     }
@@ -271,43 +275,54 @@
   <div class="flex h-full min-h-0">
     <!-- Left Column: Knowledge Base -->
     <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-10 pr-8">
-      <div class="mb-10 flex items-center gap-6">
-        <div class="bg-primary/10 flex h-20 w-20 items-center justify-center rounded-3xl">
+      <div class="mb-12 flex items-center gap-8">
+        <div
+          class="bg-primary/10 flex h-24 w-24 shrink-0 items-center justify-center rounded-[2.5rem] shadow-inner"
+        >
           <Icon
             name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-4xl"
+            class="text-primary text-5xl"
           />
         </div>
         <div>
-          <h1 class="text-foreground text-5xl font-black tracking-tight">{{ activeDisease }}</h1>
-          <p class="mt-1 text-lg font-medium text-gray-500">Clinical Analysis & Guidance</p>
+          <h1 class="text-foreground text-6xl font-black tracking-tighter">{{ activeDisease }}</h1>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
+            <p class="text-xl font-bold tracking-tight text-gray-500">
+              Clinical Analysis & Guidance
+            </p>
+          </div>
         </div>
       </div>
 
       <div
-        class="mb-10 grid grid-cols-3 gap-6 rounded-[2rem] border border-gray-100 bg-gray-50/50 p-8"
+        class="mb-12 grid grid-cols-3 gap-8 rounded-[2.5rem] border border-gray-100 bg-gray-50/40 p-10 shadow-sm"
       >
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-bold tracking-wider text-gray-400 uppercase">Patient Name</span>
+        <div class="flex flex-col gap-2">
+          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+            >Patient Name</span
+          >
           <div
             v-if="props.role === 'doctor'"
             class="flex items-center gap-2"
           >
             <input
               v-model="editablePatientName"
-              class="focus:border-primary w-full border-b border-gray-300 bg-transparent py-1 text-lg font-bold transition-colors outline-none"
+              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
               placeholder="Enter patient name"
             />
           </div>
           <span
             v-else
-            class="text-lg font-bold"
+            class="text-xl font-black text-gray-900"
             >{{ patientName || (props.role === 'patient' ? userName : '') || 'Guest User' }}</span
           >
         </div>
 
-        <div class="flex flex-col gap-1 border-x border-gray-200 px-6">
-          <span class="text-xs font-bold tracking-wider text-gray-400 uppercase">Age</span>
+        <div class="flex flex-col gap-2 border-x border-gray-200 px-8">
+          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+            >Clinical Age</span
+          >
           <div
             v-if="props.role === 'doctor'"
             class="flex items-center gap-2"
@@ -316,20 +331,22 @@
               v-model="editablePatientAge"
               type="number"
               min="0"
-              class="focus:border-primary w-full border-b border-gray-300 bg-transparent py-1 text-lg font-bold transition-colors outline-none"
+              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
               placeholder="Age"
             />
           </div>
           <span
             v-else
-            class="text-lg font-bold"
+            class="text-xl font-black text-gray-900"
             >{{ patientAge || '--' }} years old</span
           >
         </div>
 
-        <div class="flex flex-col gap-1 pl-6">
-          <span class="text-xs font-bold tracking-wider text-gray-400 uppercase">Report Date</span>
-          <span class="text-lg font-bold">{{
+        <div class="flex flex-col gap-2 pl-8">
+          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+            >Assessment Date</span
+          >
+          <span class="text-xl font-black text-gray-900">{{
             date ||
             new Date().toLocaleDateString('en-US', {
               month: 'long',
@@ -340,13 +357,13 @@
         </div>
       </div>
 
-      <div class="space-y-12">
-        <section>
-          <div class="mb-4 flex items-center gap-3">
-            <div class="bg-primary h-2 w-2 rounded-full"></div>
-            <h3 class="text-xl font-bold">Understanding {{ activeDisease }}</h3>
+      <div class="flex flex-col gap-12">
+        <section class="rounded-[2.5rem] border border-gray-100 bg-white p-10 shadow-sm">
+          <div class="mb-6 flex items-center gap-4">
+            <div class="bg-primary h-3 w-1.5 rounded-full"></div>
+            <h3 class="text-2xl font-black tracking-tight">Clinical Understanding</h3>
           </div>
-          <p class="text-xl leading-relaxed font-medium text-gray-600">
+          <p class="text-2xl leading-relaxed font-bold tracking-tight text-gray-600/90">
             {{ description || currentDisease.description }}
           </p>
         </section>
@@ -476,7 +493,7 @@
       >
         <div class="flex items-center justify-between">
           <h3 class="text-2xl font-bold">
-            {{ hasActiveAppointment ? 'Your Assigned Doctor' : 'Nearest Specialist' }}
+            {{ hasActiveAppointment ? 'Your Preferred Doctor' : 'Nearest Specialist' }}
           </h3>
         </div>
 
@@ -583,6 +600,7 @@
             <AppButton
               variant="outline"
               size="lg"
+              @click="isDoctorModalOpen = true"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
@@ -612,5 +630,115 @@
         </div>
       </div>
     </div>
+
+    <!-- Other Doctors Modal -->
+    <AppModal
+      v-model="isDoctorModalOpen"
+      title="Select Your Specialist"
+      description="Connect with verified dermatologists near your location for a professional clinical review."
+      size="xl"
+    >
+      <div class="flex flex-col gap-5 py-2">
+        <div
+          v-for="(doc, index) in allNearbyDoctors"
+          :key="doc.uuid"
+          @click="selectDoctor(doc)"
+          class="group hover:border-primary/30 hover:bg-primary/[0.02] hover:shadow-primary/5 relative flex cursor-pointer items-center gap-6 rounded-[2.5rem] border border-gray-100 bg-white p-6 transition-all duration-300 hover:shadow-2xl active:scale-[0.99]"
+          :class="{
+            'border-primary/40 bg-primary/[0.03] ring-primary/20 ring-1':
+              nearestDoctor?.uuid === doc.uuid
+          }"
+        >
+          <!-- Ranking Badge -->
+          <div
+            v-if="index === 0"
+            class="bg-primary shadow-primary/30 absolute -top-3 left-8 rounded-full px-4 py-1 text-[10px] font-black tracking-widest text-white shadow-lg"
+          >
+            NEAREST MATCH
+          </div>
+
+          <!-- Doctor Avatar -->
+          <div
+            class="relative shrink-0 rounded-[2rem] border-2 border-gray-100 bg-white p-2 transition-transform duration-300 group-hover:scale-105"
+          >
+            <img
+              :src="doc.avatar_path ? getStorageUrl(doc.avatar_path) : ''"
+              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((doc.first_name || 'D') + '+' + (doc.last_name || 'r'))}&background=7B5EF5&color=fff&size=256'`"
+              class="h-20 w-20 rounded-2xl object-cover"
+              alt="Doctor photo"
+            />
+            <div
+              v-if="nearestDoctor?.uuid === doc.uuid"
+              class="bg-primary absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-lg ring-4 ring-white"
+            >
+              <Icon
+                name="material-symbols:check-rounded"
+                class="text-xl"
+              />
+            </div>
+          </div>
+
+          <!-- Doctor Info -->
+          <div class="flex-1">
+            <div class="flex items-center gap-2">
+              <h4
+                class="group-hover:text-primary text-xl font-black text-gray-900 transition-colors"
+              >
+                Dr. {{ doc.first_name }} {{ doc.last_name }}
+              </h4>
+              <div
+                class="flex h-5 items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-black text-green-600 ring-1 ring-green-100"
+              >
+                <Icon name="material-symbols:verified-rounded" />
+                <span>VERIFIED</span>
+              </div>
+            </div>
+
+            <div
+              class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-gray-400"
+            >
+              <div class="flex items-center gap-2">
+                <div
+                  class="text-primary flex h-6 w-6 items-center justify-center rounded-full bg-gray-50"
+                >
+                  <Icon name="material-symbols:location-on-rounded" />
+                </div>
+                <span>{{ doc.city }}, {{ doc.province }}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-50 text-amber-500"
+                >
+                  <Icon name="material-symbols:distance-rounded" />
+                </div>
+                <span class="text-primary font-black"
+                  >{{ Math.round(doc.distance * 10) / 10 }}km away</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Indicator -->
+          <div
+            class="group-hover:bg-primary flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 transition-all duration-300 group-hover:text-white"
+          >
+            <Icon
+              name="material-symbols:arrow-forward-ios-rounded"
+              class="text-lg text-gray-300 transition-colors group-hover:text-white"
+            />
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <AppButton
+          variant="unstyled"
+          @click="isDoctorModalOpen = false"
+          class="text-sm font-bold text-gray-400 transition-colors hover:text-gray-600"
+        >
+          Dismiss
+        </AppButton>
+      </template>
+    </AppModal>
   </div>
 </template>
