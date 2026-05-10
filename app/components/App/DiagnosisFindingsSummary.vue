@@ -78,7 +78,7 @@ const toggleEditName = () => {
 </script>
 
 <template>
-  <div class="bg-card flex h-[calc(100vh-8rem)] flex-col rounded-3xl border-gray-100 p-6">
+  <div class="bg-card flex h-full flex-col rounded-3xl border-gray-100 p-6">
     <h1 class="text-foreground text-2xl font-bold">Clinical Findings</h1>
 
     <div class="custom-scrollbar flex-1 overflow-y-auto pr-2">

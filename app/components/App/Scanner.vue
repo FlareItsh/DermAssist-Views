@@ -258,10 +258,10 @@
 <template>
   <section class="relative w-full h-full" aria-labelledby="scanner-heading">
     <div class="bg-primary flex h-full flex-col overflow-hidden rounded-3xl transition-colors duration-500">
-      <div class="sm:mx-10 mb-4 sm:mb-5 flex flex-1 flex-col items-center">
+      <div class="sm:mx-10 mb-1 flex flex-1 flex-col items-center min-h-0">
         <h1
           id="scanner-heading"
-          class="bg-foreground mt-3.5 w-full max-w-[500px] min-h-[4rem] rounded-t-3xl px-4 sm:px-10 py-3 text-center text-3xl font-bold transition-all flex items-center justify-center"
+          class="bg-foreground mt-1 w-full max-w-[500px] min-h-[3.5rem] rounded-t-3xl px-4 sm:px-10 py-2 text-center text-2xl font-bold transition-all flex items-center justify-center"
           :class="[qualityError || errorMessage || (!isCameraOn && !previewImage) ? 'text-destructive' : 'text-green-500']"
         >
           <span v-if="isScanning" class="text-destructive uppercase tracking-widest animate-pulse">Analyzing Image...</span>
@@ -276,8 +276,8 @@
         <canvas ref="canvasRef" class="hidden"></canvas>
 
         <div class="relative flex w-full flex-1 min-h-0 flex-col overflow-hidden rounded-3xl rounded-br-none bg-black">
-          <img v-if="previewImage" :src="previewImage" class="absolute inset-0 h-full w-full rounded-4xl object-contain p-2 sm:p-4 bg-black transition-opacity duration-500" :class="{ 'opacity-50': isScanning }" />
-          <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline class="h-full w-full rounded-4xl object-cover p-3 sm:p-5 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
+          <img v-if="previewImage" :src="previewImage" class="absolute inset-0 h-full w-full rounded-4xl object-contain p-2 bg-black transition-opacity duration-500" :class="{ 'opacity-50': isScanning }" />
+          <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline class="h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
           <div v-if="!isCameraOn && !previewImage" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 gap-4 p-4 text-center">
              <Icon name="material-symbols:videocam-off-outline-rounded" class="text-6xl sm:text-8xl opacity-20" />
              <p class="text-lg sm:text-xl font-normal opacity-50">Camera access is paused</p>
