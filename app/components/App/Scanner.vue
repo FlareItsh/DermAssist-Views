@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
-  import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
   const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
@@ -223,6 +223,12 @@
     if (stream) stream.getTracks().forEach(track => track.stop())
     stream = null
   }
+
+  watch(previewImage, (newVal) => {
+    if (!newVal && !isScanning.value && !isCameraOn.value) {
+      startCamera()
+    }
+  })
 
   const handleVisibilityChange = () => {
     if (document.hidden) {
