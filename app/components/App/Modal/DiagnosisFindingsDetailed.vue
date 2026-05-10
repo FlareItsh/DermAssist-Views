@@ -136,6 +136,11 @@
     displayChartData.value.filter(e => e.label !== activeDisease.value)
   )
 
+  const activeConfidence = computed(() => {
+    const active = displayChartData.value.find(e => e.label === activeDisease.value)
+    return active ? active.value : (displayChartData.value[0]?.value || 0)
+  })
+
   // ── Nearest doctor by proximity ───────────────────────────────────
   const nearestDoctor = ref<any | null>(null)
   const allNearbyDoctors = ref<any[]>([])
@@ -434,9 +439,7 @@
               :stroke-width="45"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-foreground text-4xl font-black"
-                >{{ displayChartData[0]?.value }}%</span
-              >
+              <span class="text-foreground text-4xl font-black">{{ activeConfidence }}%</span>
               <span class="text-xs font-bold tracking-widest text-gray-400 uppercase"
                 >Confidence</span
               >
