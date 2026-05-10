@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { DonutEntry } from './DonutChart.vue'
+import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
 
 interface Props {
   role?: 'patient' | 'doctor'
@@ -9,7 +10,7 @@ const props = withDefaults(defineProps<Props>(), {
   role: 'patient'
 })
 
-const { currentDiagnosis, isScanned, qualityError } = useDiagnosis()
+const { currentDiagnosis, isScanned, qualityError, isHealthyState, chartData } = useDiagnosis()
 
 const userName = useCookie('user_name')
 const authUserName = useCookie('auth_user_name')
@@ -20,83 +21,11 @@ const hasAnyPendingRequest = computed(() => {
   return pendingAppointments.value.length > 0
 })
 
-// Disease Information Map
-const DISEASE_INFO: Record<string, { description: string, prescription: string, guidelines: string[] }> = {
-  'Acne': {
-    description: 'Acne is a condition that occurs when hair follicles are plugged with oil and dead skin cells.',
-    guidelines: ['Wash twice daily', 'Avoid picking', 'Use gentle cleansers']
-  },
-  'Eczema': {
-    description: 'Eczema is a condition that causes itchy and inflamed skin.',
-    guidelines: ['Moisturize frequently', 'Avoid triggers', 'Short lukewarm baths']
-  },
-  'Herpes': {
-    description: 'A viral infection causing sores, usually around the mouth or genitals.',
-    guidelines: ['Keep area clean', 'Avoid contact', 'Wash hands frequently']
-  },
-  'Clear': {
-    description: 'No significant skin irregularities detected. The skin appears healthy.',
-    guidelines: ['Maintain current skincare routine', 'Use daily sunscreen', 'Stay hydrated']
-  },
-  'None': {
-    description: 'The skin appears clear and healthy with no significant irregularities detected.',
-    guidelines: ['Use daily sunscreen', 'Stay hydrated', 'Maintain a healthy diet']
-  }
-}
-
-// Color Map for Diseases (Serious Palette)
-const COLOR_MAP: Record<string, string> = {
-  'Acne': '#ef4444',
-  'Eczema': '#d97706',
-  'Herpes': '#4c0516',
-  'Clear': '#22c55e',
-  'None': '#22c55e'
-}
-
-// Smart Detection Thresholds
-const isHealthyState = computed(() => {
-  if (!currentDiagnosis.value) return false
-  // If confidence in any disease is below 50%, we consider it a Healthy result
-  return currentDiagnosis.value.confidence < 0.50
-})
-
-const chartData = computed(() => {
-  if (!currentDiagnosis.value) {
-    return [{ label: 'Normal', value: 100, color: '#f3f4f6' }]
-  }
-
-  if (isHealthyState.value) {
-    return [{ label: 'Healthy', value: 100, color: COLOR_MAP['Clear'] }]
-  }
-
-  // Only show significant findings (> 5%)
-  return Object.entries(currentDiagnosis.value.all_probabilities)
-    .filter(([label, value]) => value > 0.05)
-    .map(([label, value]) => ({
-      label,
-      value: Math.round(value * 100),
-      color: COLOR_MAP[label] || '#475569'
-    }))
-})
-
-const info = computed(() => {
-  if (!currentDiagnosis.value) {
-    return {
-      description: 'Perform a scan for clinical description.',
-      prescription: 'No findings yet.',
-      guidelines: ['Waiting for scan...']
-    }
-  }
-  const label = isHealthyState.value ? 'Clear' : currentDiagnosis.value.label
-  return DISEASE_INFO[label] || DISEASE_INFO['Clear']
-})
-
 const accuracy = computed(() => {
   if (!currentDiagnosis.value) return 0
   return Math.round(currentDiagnosis.value.confidence * 100)
 })
 
-const isDetailedModalOpen = ref(false)
 const showScanReminder = ref(false)
 
 const errorMessage = computed(() => {
@@ -107,12 +36,24 @@ const errorMessage = computed(() => {
 
 const handleProceed = () => {
   if (currentDiagnosis.value) {
-    isDetailedModalOpen.value = true
+    navigateTo('/Patient/Scan/Results')
   } else {
     showScanReminder.value = true
     setTimeout(() => { showScanReminder.value = false }, 3000)
   }
 }
+
+const info = computed(() => {
+  if (!currentDiagnosis.value) {
+    return {
+      description: 'Perform a scan for clinical description.',
+      prescription: 'No findings yet.',
+      guidelines: ['Waiting for scan...']
+    }
+  }
+  const label = isHealthyState.value ? 'Clear' : currentDiagnosis.value.label
+  return DISEASE_DATABASE[label] || DISEASE_DATABASE['Clear']
+})
 
 const isEditingName = ref(false)
 const tempUserName = ref(userName.value || 'Guest User')
@@ -205,27 +146,5 @@ const toggleEditName = () => {
         </AppButton>
       </div>
     </div>
-
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="isDetailedModalOpen" class="fixed inset-0 z-999 flex items-center justify-center p-4 sm:p-6"
-          @click.self="isDetailedModalOpen = false">
-          <div class="fixed inset-0 bg-black/60 transition-opacity"></div>
-
-          <!-- Modal Container -->
-          <div
-            class="modal-container relative bg-card max-h-[90vh] w-[90vw] overflow-hidden rounded-[2.5rem] shadow-2xl transition-all">
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="isDetailedModalOpen = false"
-              class="absolute top-6 right-6 z-10 rounded-full p-2 hover:bg-gray-100">
-              <Icon name="material-symbols:close-rounded" class="text-2xl text-gray-400" />
-            </AppButton>
-            <AppModalDiagnosisFindingsDetailed :role="props.role"
-              :condition-name="currentDiagnosis?.label === 'None' ? 'None' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
-              :patient-name="props.role === 'patient' ? userName : ''" :diagnosis-data="chartData"
-              :diagnosis-uuid="currentDiagnosis?.id" @close="isDetailedModalOpen = false" />
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
