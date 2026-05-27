@@ -36,6 +36,7 @@ const form = reactive({
   longitude: null as number | null,
   age: '',
   gender: '',
+  affiliation: '',
   prcNumber: ''
 })
 
@@ -124,7 +125,7 @@ watch(user, (newVal) => {
     form.longitude = userData.longitude ?? null
     form.age = userData.age || ''
     form.gender = userData.gender || ''
-
+    form.affiliation = userData.affiliation || ''
     form.prcNumber = userData.prcNumber || userData.doctor_verification?.prcNumber || ''
 
     initDropdowns()
@@ -259,7 +260,7 @@ const logout = () => {
               class="bg-foreground/5 rounded-xl p-3 text-left">
               <span class="text-foreground/40 text-[10px] font-bold uppercase block mb-1">PRC License No.</span>
               <span class="text-sm font-mono">{{ user?.data?.prcNumber || user?.data?.doctor_verification?.prcNumber
-                }}</span>
+              }}</span>
             </div>
 
 
@@ -297,6 +298,12 @@ const logout = () => {
                 <input v-model="form.prcNumber" type="text"
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
                   placeholder="Enter PRC license number" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Affiliation</label>
+                <input v-model="form.affiliation" type="text"
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                  placeholder="Enter affiliation" />
               </div>
             </div>
 
