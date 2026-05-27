@@ -139,20 +139,63 @@ const captureAndScan = async () => {
   canvas.width = video.videoWidth
   canvas.height = video.videoHeight
 
-  context.save()
-  context.scale(-1, 1)
-  context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
-  context.restore()
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        const maxSide = 1024
 
-  previewImage.value = canvas.toDataURL('image/jpeg')
-  stopCamera()
-  isCameraOn.value = false
+        if (width > height && width > maxSide) {
+          height *= maxSide / width
+          width = maxSide
+        } else if (height > maxSide) {
+          width *= maxSide / height
+          height = maxSide
+        }
 
-  canvas.toBlob(async (blob) => {
-    if (blob) {
-      const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' })
-      selectedFile.value = file
-      await performDiagnosis(file)
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return reject('Could not get canvas context')
+        ctx.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob)
+          else reject('Compression failed')
+        }, 'image/jpeg', 0.85)
+      }
+      img.onerror = reject
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
+  const performDiagnosis = async (file: File) => {
+    isScanning.value = true
+    errorMessage.value = ''
+    
+    try {
+      // Compress before sending
+      const compressedBlob = await compressImage(file)
+      const finalFile = new File([compressedBlob], 'scan.jpg', { type: 'image/jpeg' })
+
+      const formData = new FormData()
+      formData.append('image', finalFile)
+      if (userUuid.value) {
+        formData.append('user_uuid', userUuid.value)
+      }
+
+      const response = await $api<any>('/diagnose', {
+        method: 'POST',
+        headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {},
+        body: formData
+      })
+      if (response) setDiagnosis(response)
+    } catch (err: any) {
+      errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
+    } finally {
+      isScanning.value = false
     }
   }, 'image/jpeg', 0.85)
 }
@@ -224,13 +267,13 @@ onUnmounted(() => {
       <div class="sm:mx-10 mb-4 sm:mb-5 flex flex-1 flex-col items-center">
         <h1 id="scanner-heading"
           class="bg-foreground mt-3.5 w-full max-w-[500px] min-h-[4rem] rounded-t-3xl px-4 sm:px-10 py-3 text-center text-3xl font-bold transition-all flex items-center justify-center"
-          :class="[qualityError || errorMessage || (!isCameraOn && !previewImage) ? 'text-destructive' : 'text-green-500']">
-          <span v-if="isScanning" class="text-destructive uppercase tracking-widest animate-pulse">Analyzing
-            Image...</span>
+          :class="[qualityError || errorMessage || (!isCameraOn && !previewImage) ? 'text-destructive' : 'text-green-500']"
+        >
+          <span v-if="isScanning" class="text-destructive uppercase tracking-widest animate-pulse">Analyzing Image...</span>
+          <span v-else-if="errorMessage" class="text-destructive">{{ errorMessage }}</span>
           <span v-else-if="previewImage" class="text-green-500">Scan Captured</span>
           <span v-else-if="!isCameraOn" class="text-destructive">Camera is Off</span>
           <span v-else-if="qualityError">{{ qualityError }}</span>
-          <span v-else-if="errorMessage">{{ errorMessage }}</span>
           <span v-else>Ready for Scan</span>
         </h1>
 
