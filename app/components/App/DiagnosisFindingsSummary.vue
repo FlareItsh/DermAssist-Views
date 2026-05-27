@@ -163,7 +163,7 @@ const toggleEditName = () => {
 </script>
 
 <template>
-  <div class="bg-card flex h-[calc(100vh-8rem)] flex-col rounded-3xl border-gray-100 p-6">
+  <div class="bg-card flex h-[calc(100vh-8rem)] flex-col rounded-xl border-gray-100 p-6">
     <h1 class="text-foreground text-2xl font-bold">Clinical Findings</h1>
 
     <div class="custom-scrollbar flex-1 overflow-y-auto pr-2">
@@ -250,7 +250,8 @@ const toggleEditName = () => {
           <Icon name="iconamoon:trash-light" class="text-4xl" />
         </AppButton>
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="handleProceed"
-          :disabled="!currentDiagnosis || !isScanned" :class="{ 'opacity-40 grayscale cursor-not-allowed': !currentDiagnosis || !isScanned }"
+          :disabled="!currentDiagnosis || !isScanned"
+          :class="{ 'opacity-40 grayscale cursor-not-allowed': !currentDiagnosis || !isScanned }"
           class="bg-primary text-card h-14 w-fit rounded-full px-10 py-3 text-2xl font-bold transition-all hover:opacity-90 active:scale-95">
           Proceed
         </AppButton>

@@ -1,98 +1,98 @@
 <script setup lang="ts">
-  const route = useRoute()
-  const router = useRouter()
-  const { getStorageUrl } = useStorage()
+const route = useRoute()
+const router = useRouter()
+const { getStorageUrl } = useStorage()
 
-  definePageMeta({
-    layout: 'dashboard-sidebar-layout'
-  })
+definePageMeta({
+  layout: 'dashboard-sidebar-layout'
+})
 
-  interface User {
-    id: number
-    uuid: string
-    first_name: string
-    middle_name: string | null
-    last_name: string
-    email: string
-    role: string
-    created_at: string
-    updated_at: string
-  }
+interface User {
+  id: number
+  uuid: string
+  first_name: string
+  middle_name: string | null
+  last_name: string
+  email: string
+  role: string
+  created_at: string
+  updated_at: string
+}
 
-  interface Verification {
-    id: number
-    uuid: string
-    prc_number: string
-    id_photo_path: string
-    status: 'pending' | 'verified' | 'declined'
-    rejection_reason?: string
-    user: User
-    created_at: string
-    updated_at: string
-  }
+interface Verification {
+  id: number
+  uuid: string
+  prc_number: string
+  id_photo_path: string
+  status: 'pending' | 'verified' | 'declined'
+  rejection_reason?: string
+  user: User
+  created_at: string
+  updated_at: string
+}
 
-  const {
-    data: response,
-    refresh,
-    pending
-  } = await useApi<{ data: Verification }>(`verifications/${route.params.uuid}`)
+const {
+  data: response,
+  refresh,
+  pending
+} = await useApi<{ data: Verification }>(`verifications/${route.params.uuid}`)
 
-  const verification = computed(() => response.value?.data)
+const verification = computed(() => response.value?.data)
 
-  const isUpdating = ref(false)
-  const isApproveModalOpen = ref(false)
-  const isRejectModalOpen = ref(false)
-  const declinedReason = ref('')
+const isUpdating = ref(false)
+const isApproveModalOpen = ref(false)
+const isRejectModalOpen = ref(false)
+const declinedReason = ref('')
 
-  const updateStatus = async (status: 'verified' | 'declined', reason?: string) => {
-    try {
-      isUpdating.value = true
-      await useApi(`verifications/${route.params.uuid}`, {
-        method: 'PUT',
-        body: {
-          status,
-          rejection_reason: reason
-        }
-      })
-      isApproveModalOpen.value = false
-      isRejectModalOpen.value = false
-      declinedReason.value = ''
-      await refresh()
-    } catch (error) {
-      console.error('Failed to update status:', error)
-    } finally {
-      isUpdating.value = false
-    }
-  }
-
-  const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gray' => {
-    switch (status) {
-      case 'pending':
-        return 'warning'
-      case 'verified':
-        return 'success'
-      case 'declined':
-        return 'danger'
-      default:
-        return 'gray'
-    }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+const updateStatus = async (status: 'verified' | 'declined', reason?: string) => {
+  try {
+    isUpdating.value = true
+    await useApi(`verifications/${route.params.uuid}`, {
+      method: 'PUT',
+      body: {
+        status,
+        rejection_reason: reason
+      }
     })
+    isApproveModalOpen.value = false
+    isRejectModalOpen.value = false
+    declinedReason.value = ''
+    await refresh()
+  } catch (error) {
+    console.error('Failed to update status:', error)
+  } finally {
+    isUpdating.value = false
   }
+}
 
-  const fullName = computed(() => {
-    if (!verification.value) return ''
-    const { first_name, middle_name, last_name } = verification.value.user
-    return `${first_name} ${middle_name ? middle_name + ' ' : ''}${last_name}`
+const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gray' => {
+  switch (status) {
+    case 'pending':
+      return 'warning'
+    case 'verified':
+      return 'success'
+    case 'declined':
+      return 'danger'
+    default:
+      return 'gray'
+  }
+}
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   })
+}
+
+const fullName = computed(() => {
+  if (!verification.value) return ''
+  const { first_name, middle_name, last_name } = verification.value.user
+  return `${first_name} ${middle_name ? middle_name + ' ' : ''}${last_name}`
+})
 </script>
 
 <template>
@@ -100,24 +100,10 @@
     <!-- Header -->
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-4">
-        <AppButton
-          variant="ghost"
-          size="icon"
-          @click="router.back()"
-          class="rounded-full bg-white shadow-sm ring-1 ring-gray-200"
-        >
-          <svg
-            class="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M10 19l-7-7m0 0l7-7m-7 7h18"
-            />
+        <AppButton variant="ghost" size="icon" @click="router.back()"
+          class="rounded-full bg-white shadow-sm ring-1 ring-gray-200">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
         </AppButton>
         <div>
@@ -126,49 +112,31 @@
         </div>
       </div>
 
-      <div
-        v-if="verification && verification.status === 'pending'"
-        class="flex items-center gap-3"
-      >
-        <AppButton
-          variant="destructive"
-          @click="isRejectModalOpen = true"
-        >
+      <div v-if="verification && verification.status === 'pending'" class="flex items-center gap-3">
+        <AppButton variant="destructive" @click="isRejectModalOpen = true">
           Reject Application
         </AppButton>
-        <AppButton
-          variant="solid"
-          @click="isApproveModalOpen = true"
-        >
+        <AppButton variant="solid" @click="isApproveModalOpen = true">
           Approve Doctor
         </AppButton>
       </div>
     </div>
 
     <!-- Loading State -->
-    <div
-      v-if="pending"
-      class="flex h-[60vh] flex-col items-center justify-center space-y-4"
-    >
-      <div
-        class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"
-      ></div>
+    <div v-if="pending" class="flex h-[60vh] flex-col items-center justify-center space-y-4">
+      <div class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
       <p class="font-medium text-gray-500">Loading verification details...</p>
     </div>
 
     <!-- Main Content -->
-    <div
-      v-else-if="verification"
-      class="grid grid-cols-1 gap-8 lg:grid-cols-3"
-    >
+    <div v-else-if="verification" class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <!-- Left Column: User Info & Details -->
       <div class="space-y-6 lg:col-span-1">
         <!-- User Profile Card -->
-        <div class="overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <div class="mb-6 flex flex-col items-center text-center">
             <div
-              class="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-indigo-50 text-indigo-600 ring-4 ring-indigo-50/50"
-            >
+              class="mb-4 flex h-24 w-24 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 ring-4 ring-indigo-50/50">
               <span class="text-4xl font-bold uppercase">
                 {{ verification.user.first_name[0] }}{{ verification.user.last_name[0] }}
               </span>
@@ -181,28 +149,19 @@
 
           <div class="space-y-4 border-t border-gray-100 pt-6">
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
-                >Email Address</span
-              >
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Email Address</span>
               <span class="font-medium text-gray-900">{{ verification.user.email }}</span>
             </div>
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
-                >Application Date</span
-              >
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Application Date</span>
               <span class="font-medium text-gray-900">{{
                 formatDate(verification.created_at)
               }}</span>
             </div>
             <div class="flex flex-col">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
-                >Current Status</span
-              >
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Current Status</span>
               <div class="mt-1">
-                <AppBadge
-                  :color="getStatusColor(verification.status)"
-                  size="sm"
-                >
+                <AppBadge :color="getStatusColor(verification.status)" size="sm">
                   {{
                     verification.status === 'verified'
                       ? 'Approved'
@@ -213,13 +172,8 @@
                 </AppBadge>
               </div>
             </div>
-            <div
-              v-if="verification.rejection_reason"
-              class="flex flex-col"
-            >
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
-                >Rejection Reason</span
-              >
+            <div v-if="verification.rejection_reason" class="flex flex-col">
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">Rejection Reason</span>
               <p class="mt-1 text-sm font-medium text-rose-600">
                 {{ verification.rejection_reason }}
               </p>
@@ -228,13 +182,11 @@
         </div>
 
         <!-- License Info -->
-        <div class="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
+        <div class="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
           <h3 class="mb-4 text-lg font-bold text-gray-900">Professional Credentials</h3>
           <div class="space-y-4">
             <div class="flex flex-col rounded-2xl bg-gray-50 p-4">
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
-                >PRC License Number</span
-              >
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">PRC License Number</span>
               <span class="mt-1 font-mono text-lg font-bold text-indigo-700">{{
                 verification.prc_number
               }}</span>
@@ -245,28 +197,18 @@
 
       <!-- Right Column: Document Preview -->
       <div class="lg:col-span-2">
-        <div
-          class="flex h-full flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm"
-        >
+        <div class="flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
           <div class="flex items-center justify-between border-b border-gray-100 px-8 py-4">
             <h3 class="text-lg font-bold text-gray-900">ID Verification Photo</h3>
-            <a
-              :href="getStorageUrl(verification.id_photo_path)"
-              target="_blank"
-              class="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
-            >
+            <a :href="getStorageUrl(verification.id_photo_path)" target="_blank"
+              class="text-sm font-semibold text-indigo-600 hover:text-indigo-700">
               Open in new tab
             </a>
           </div>
           <div class="flex flex-1 items-center justify-center bg-gray-900/5 p-8">
             <div
-              class="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-            >
-              <NuxtImg
-                :src="getStorageUrl(verification.id_photo_path)"
-                class="w-full object-contain"
-                placeholder
-              />
+              class="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+              <NuxtImg :src="getStorageUrl(verification.id_photo_path)" class="w-full object-contain" placeholder />
             </div>
           </div>
           <div class="border-t border-gray-100 bg-gray-50 px-8 py-6 text-center">
@@ -280,81 +222,45 @@
     </div>
 
     <!-- Not Found State -->
-    <div
-      v-else
-      class="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 py-32 text-center"
-    >
+    <div v-else
+      class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-32 text-center">
       <h3 class="text-xl font-bold text-gray-900">Verification record not found</h3>
       <p class="mt-2 text-gray-500">
         The verification request you're looking for might have been deleted or moved.
       </p>
-      <AppButton
-        variant="outline"
-        class="mt-6"
-        @click="router.push('/Admin/Moderation/Verification')"
-      >
+      <AppButton variant="outline" class="mt-6" @click="router.push('/Admin/Moderation/Verification')">
         Back to Verifications
       </AppButton>
     </div>
 
     <!-- Modal Section -->
-    <AppModal
-      v-model="isApproveModalOpen"
-      title="Approve Doctor"
+    <AppModal v-model="isApproveModalOpen" title="Approve Doctor"
       description="Are you sure you want to approve this doctor? This will grant them access to the platform."
-      size="md"
-    >
+      size="md">
       <div class="flex flex-col items-center py-4 text-center">
-        <div
-          class="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
-        >
-          <Icon
-            name="material-symbols:check-circle-outline-rounded"
-            class="text-4xl"
-          />
+        <div class="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl" />
         </div>
         <p class="text-gray-600">
-          You are about to verify <strong>{{ fullName }}</strong
-          >. They will be notified via email/sms.
+          You are about to verify <strong>{{ fullName }}</strong>. They will be notified via email/sms.
         </p>
       </div>
       <template #footer>
-        <AppButton
-          variant="ghost"
-          @click="isApproveModalOpen = false"
-          >Cancel</AppButton
-        >
-        <AppButton
-          variant="solid"
-          :loading="isUpdating"
-          @click="updateStatus('verified')"
-          >Confirm Approval</AppButton
-        >
+        <AppButton variant="ghost" @click="isApproveModalOpen = false">Cancel</AppButton>
+        <AppButton variant="solid" :loading="isUpdating" @click="updateStatus('verified')">Confirm Approval</AppButton>
       </template>
     </AppModal>
 
-    <AppModal
-      v-model="isRejectModalOpen"
-      title="Reject Application"
-      description="Please provide a reason for rejecting this doctor's verification request."
-      size="lg"
-    >
+    <AppModal v-model="isRejectModalOpen" title="Reject Application"
+      description="Please provide a reason for rejecting this doctor's verification request." size="lg">
       <div class="space-y-4 py-4">
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-bold tracking-wider text-gray-700 uppercase"
-            >Reason for Rejection</label
-          >
-          <textarea
-            v-model="declinedReason"
-            placeholder="e.g. PRC License is expired or photo is blurred..."
-            class="h-32 w-full rounded-3xl border border-gray-200 bg-gray-50 p-4 font-medium text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
-          ></textarea>
+          <label class="text-sm font-bold tracking-wider text-gray-700 uppercase">Reason for Rejection</label>
+          <textarea v-model="declinedReason" placeholder="e.g. PRC License is expired or photo is blurred..."
+            class="h-32 w-full rounded-xl border border-gray-200 bg-gray-50 p-4 font-medium text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500"></textarea>
         </div>
         <div class="flex gap-3 rounded-2xl border border-rose-100 bg-rose-50 p-4 text-rose-700">
-          <Icon
-            name="material-symbols:info-outline-rounded"
-            class="mt-0.5 shrink-0 text-xl"
-          />
+          <Icon name="material-symbols:info-outline-rounded" class="mt-0.5 shrink-0 text-xl" />
           <p class="text-sm">
             This reason will be shared with the applicant to help them understand why their request
             was declined.
@@ -362,17 +268,9 @@
         </div>
       </div>
       <template #footer>
-        <AppButton
-          variant="ghost"
-          @click="isRejectModalOpen = false"
-          >Cancel</AppButton
-        >
-        <AppButton
-          variant="destructive"
-          :loading="isUpdating"
-          :disabled="!declinedReason.trim()"
-          @click="updateStatus('declined', declinedReason)"
-        >
+        <AppButton variant="ghost" @click="isRejectModalOpen = false">Cancel</AppButton>
+        <AppButton variant="destructive" :loading="isUpdating" :disabled="!declinedReason.trim()"
+          @click="updateStatus('declined', declinedReason)">
           Confirm Rejection
         </AppButton>
       </template>

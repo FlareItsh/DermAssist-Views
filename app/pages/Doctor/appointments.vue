@@ -21,8 +21,8 @@ const filteredAppointments = computed(() => {
 
   if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  return list.filter(appt => 
-    appt.patientName.toLowerCase().includes(query) || 
+  return list.filter(appt =>
+    appt.patientName.toLowerCase().includes(query) ||
     appt.condition.toLowerCase().includes(query)
   )
 })
@@ -34,7 +34,7 @@ const goToChat = (uuid: string) => {
 
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
-    <div class="rounded-3xl flex justify-end items-center">
+    <div class="rounded-xl flex justify-end items-center">
       <AppButton variant="soft" rounded="both">
         <Icon name="lucide:plus" class="mr-2" />
         New Schedule
@@ -46,14 +46,12 @@ const goToChat = (uuid: string) => {
         No appointments found.
       </div>
       <div v-else class="flex flex-col gap-4">
-        <div 
-          v-for="appt in filteredAppointments" 
-          :key="appt.id"
-          class="bg-card rounded-3xl border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-all group"
-        >
+        <div v-for="appt in filteredAppointments" :key="appt.id"
+          class="bg-card rounded-xl border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-all group">
           <div class="flex items-center gap-5">
             <!-- Time Badge -->
-            <div class="bg-primary/10 rounded-2xl p-4 flex flex-col items-center justify-center min-w-[100px] border border-primary/20">
+            <div
+              class="bg-primary/10 rounded-2xl p-4 flex flex-col items-center justify-center min-w-[100px] border border-primary/20">
               <span class="text-primary font-bold text-lg leading-none">{{ appt.time }}</span>
               <span class="text-primary/60 text-[10px] uppercase font-bold mt-1 tracking-wider">{{ appt.type }}</span>
             </div>
@@ -74,17 +72,12 @@ const goToChat = (uuid: string) => {
           </div>
 
           <div class="flex items-center gap-3">
-             <AppButton 
-              variant="unstyled" size="unstyled" rounded="unstyled"
-              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-gray-100 hover:bg-primary/10 transition-colors text-secondary"
-            >
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-gray-100 hover:bg-primary/10 transition-colors text-secondary">
               <Icon name="lucide:phone" class="text-xl" />
             </AppButton>
-            <AppButton 
-              variant="unstyled" size="unstyled" rounded="unstyled"
-              @click="goToChat(appt.conversation_uuid)"
-              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary hover:bg-primary/80 transition-colors text-white"
-            >
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="goToChat(appt.conversation_uuid)"
+              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary hover:bg-primary/80 transition-colors text-white">
               <Icon name="lets-icons:message-light" class="text-2xl" />
             </AppButton>
           </div>

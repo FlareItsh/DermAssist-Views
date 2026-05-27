@@ -99,7 +99,7 @@ const behindCount = computed(() => {
 </script>
 
 <template>
-  <div class="appointment-schedule bg-navy rounded-3xl px-6 py-5 flex flex-col gap-3">
+  <div class="appointment-schedule bg-navy rounded-xl px-6 py-5 flex flex-col gap-3">
     <div class="flex items-center justify-between">
       <div class="flex flex-col gap-0.5">
         <h2 class="text-white text-xl font-bold">Patients Appointment Schedule</h2>
@@ -112,7 +112,7 @@ const behindCount = computed(() => {
             class="text-white/50 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 active:scale-90">
             <Icon name="material-symbols:chevron-left-rounded" class="text-2xl" />
           </button>
-          <div v-if="behindCount > 0" 
+          <div v-if="behindCount > 0"
             class="absolute -top-1 -left-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white shadow-lg pointer-events-none animate-pulse">
             {{ behindCount }}
           </div>
@@ -123,7 +123,7 @@ const behindCount = computed(() => {
             class="text-white/50 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10 active:scale-90">
             <Icon name="material-symbols:chevron-right-rounded" class="text-2xl" />
           </button>
-          <div v-if="aheadCount > 0" 
+          <div v-if="aheadCount > 0"
             class="absolute -top-1 p-2 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white shadow-lg pointer-events-none">
             {{ aheadCount }}
           </div>
@@ -133,8 +133,7 @@ const behindCount = computed(() => {
 
 
     <div class="flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-      <div v-for="d in days" :key="d.toDateString()"
-        @click="selectDay(d)"
+      <div v-for="d in days" :key="d.toDateString()" @click="selectDay(d)"
         class="day-card relative flex flex-col items-center justify-between cursor-pointer rounded-2xl px-1 pt-3 pb-2.5 min-h-[105px] transition-all duration-200 select-none"
         :class="[
           days.length === 1 ? 'w-[92px] shrink-0' : 'flex-1 min-w-0',
@@ -147,22 +146,20 @@ const behindCount = computed(() => {
                 : 'bg-[#0a1e33]/50 border border-transparent hover:bg-[#0a1e33]'
         ]">
         <!-- Day name -->
-        <span class="text-[13px] font-bold"
-          :class="[
-            isSelected(d) ? 'text-white' : 
-            getCount(d) > 0 ? 'text-navy/60' : 
-            isToday(d) ? 'text-card/50' : 'text-card/30'
-          ]">
+        <span class="text-[13px] font-bold" :class="[
+          isSelected(d) ? 'text-white' :
+            getCount(d) > 0 ? 'text-navy/60' :
+              isToday(d) ? 'text-card/50' : 'text-card/30'
+        ]">
           {{ dayName(d) }}
         </span>
 
         <!-- Day number -->
-        <span class="text-3xl font-bold"
-          :class="[
-            isSelected(d) ? 'text-white' :
-            getCount(d) > 0 ? 'text-card' : 
-            isToday(d) ? 'text-card' : 'text-card/70'
-          ]">
+        <span class="text-3xl font-bold" :class="[
+          isSelected(d) ? 'text-white' :
+            getCount(d) > 0 ? 'text-card' :
+              isToday(d) ? 'text-card' : 'text-card/70'
+        ]">
           {{ dayNum(d) }}
         </span>
 

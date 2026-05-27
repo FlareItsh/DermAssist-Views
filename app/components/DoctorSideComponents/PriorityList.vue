@@ -57,7 +57,7 @@ const conditionColor = (condition: string) => {
 </script>
 
 <template>
-  <div class="bg-card rounded-3xl border border-gray-100 w-full p-5 flex flex-col h-190">
+  <div class="bg-card rounded-xl border border-gray-100 w-full p-5 flex flex-col h-190">
     <!-- Header -->
     <div class="mb-4 flex items-center gap-3">
       <div class="bg-secondary h-7 w-1 shrink-0 rounded-full" />
