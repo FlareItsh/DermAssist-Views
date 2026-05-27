@@ -1,26 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-// Urgent records — mirrors the folder component from records.vue
-const urgentRecords = ref([
-  { id: 1, patientName: 'Rizal, Jose', condition: 'Herpes' },
-  { id: 2, patientName: 'Rizal, Jose', condition: 'Herpes' },
-  { id: 3, patientName: 'Rizal, Jose', condition: 'Herpes' },
-])
+const { getStorageUrl } = useStorage()
 
-const removeRecord = (id: number) => {
-  urgentRecords.value = urgentRecords.value.filter(r => r.id !== id)
+const { pendingAppointments } = useAppointments()
+
+const removeRecord = async (id: string) => {
+  // Logic to dismiss or decline
 }
 
 const { searchQuery } = useSearch()
 const filteredRecords = computed(() => {
-  if (!searchQuery.value) return urgentRecords.value
+  const list = pendingAppointments.value
+  if (!searchQuery.value) return list
   const query = searchQuery.value.toLowerCase()
-  const filtered = urgentRecords.value.filter(r => 
-    r.patientName.toLowerCase().includes(query) || 
-    r.condition.toLowerCase().includes(query)
+  return list.filter(r => 
+    r.doctor.toLowerCase().includes(query) || 
+    r.info.toLowerCase().includes(query)
   )
-  return filtered.length > 0 ? filtered : urgentRecords.value
 })
 </script>
 
@@ -39,14 +36,22 @@ const filteredRecords = computed(() => {
         :style="{ marginTop: index > 0 ? '-220px' : '0', zIndex: index + 1 }">
         
         <AppRecordFolder
-          :time="record.condition"
-          :title="record.patientName"
+          :time="record.info"
+          :title="record.doctor"
           is-urgent
-        />
+        >
+          <template #image>
+            <img 
+              v-if="record.diagnosis_image" 
+              :src="getStorageUrl(record.diagnosis_image)" 
+              class="h-10 w-10 rounded-lg object-cover border border-white/20"
+            />
+          </template>
+        </AppRecordFolder>
       </div>
 
       <!-- Empty state inside scroll area -->
-      <div v-if="urgentRecords.length === 0"
+      <div v-if="pendingAppointments.length === 0"
         class="rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center text-muted-foreground text-sm bg-gray-50/50 mt-4">
         <Icon name="solar:folder-check-bold" class="text-4xl opacity-20 mx-auto mb-2" />
         <p>No urgent diagnosis reports.</p>

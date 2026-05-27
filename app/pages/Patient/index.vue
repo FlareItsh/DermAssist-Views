@@ -6,6 +6,7 @@
   })
   const { searchQuery } = useSearch()
   const { appointments } = useAppointments()
+  const { getStorageUrl } = useStorage()
 
   const months = [
     'JAN',
@@ -33,7 +34,11 @@
       result = list
     }
 
-    return [...result].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    return [...result].sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : Infinity
+      const timeB = b.date ? new Date(b.date).getTime() : Infinity
+      return timeA - timeB
+    })
   })
 </script>
 
@@ -70,20 +75,27 @@
               >
                 <div class="flex flex-col items-center leading-none">
                   <span class="text-primary text-[10px] font-bold tracking-tighter uppercase">{{
-                    months[parseInt(appt.date.split('-')[1] || '1') - 1]
+                    appt.date ? months[parseInt(appt.date.split('-')[1]) - 1] : 'TBD'
                   }}</span>
                   <span class="text-foreground text-xl font-black">{{
-                    appt.date.split('-')[2] || '--'
+                    appt.date ? appt.date.split('-')[2] : '--'
                   }}</span>
                 </div>
-                <div class="flex flex-col">
-                  <span class="text-foreground text-sm leading-tight font-bold">{{
-                    appt.doctor
-                  }}</span>
-                  <span
-                    class="text-foreground/40 text-[10px] leading-none font-black tracking-widest uppercase"
-                    >{{ appt.info }}</span
-                  >
+                <div class="flex items-center gap-3">
+                  <img 
+                    v-if="appt.diagnosis_image" 
+                    :src="getStorageUrl(appt.diagnosis_image)" 
+                    class="h-10 w-10 rounded-lg object-cover border border-white/10"
+                  />
+                  <div class="flex flex-col">
+                    <span class="text-foreground text-sm leading-tight font-bold">{{
+                      appt.doctor
+                    }}</span>
+                    <span
+                      class="text-foreground/40 text-[10px] leading-none font-black tracking-widest uppercase"
+                      >{{ appt.info }}</span
+                    >
+                  </div>
                 </div>
               </div>
             </div>
