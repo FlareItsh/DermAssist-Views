@@ -1,5 +1,7 @@
 <script setup lang="ts">
-  import { userService } from '~/api/user/UserService'
+import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+import { userService } from '~/api/user/UserService'
+
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
@@ -65,7 +67,7 @@ const fetchAvailabilities = async () => {
   if (!doctorUuid) return
   isAvailLoading.value = true
   try {
-    const res = await $api<any[]>(`doctors/${doctorUuid}/availabilities`)
+    const res = await doctorAvailabilityService.listForDoctor(doctorUuid)
     availabilities.value = res ?? []
   } catch (e: any) {
     console.error('Failed to fetch availabilities:', e)
@@ -75,6 +77,11 @@ const fetchAvailabilities = async () => {
 }
 
 const addAvailability = async () => {
+  if (!doctorUuid) {
+    availErrorMsg.value = 'Unable to identify your doctor profile. Please sign in again.'
+    return
+  }
+
   if (!availForm.available_date || !availForm.start_time || !availForm.end_time) {
     availErrorMsg.value = 'Please fill out all fields.'
     return
@@ -89,14 +96,11 @@ const addAvailability = async () => {
   availErrorMsg.value = ''
   availSuccessMsg.value = ''
   try {
-    await $api(`doctors/${doctorUuid}/availabilities`, {
-      method: 'POST',
-      body: {
-        available_date: availForm.available_date,
-        start_time: availForm.start_time,
-        end_time: availForm.end_time,
-        is_available: 0 // Explicitly 0 to mark as Blocked / Away!
-      }
+    await doctorAvailabilityService.createForDoctor(doctorUuid, {
+      available_date: availForm.available_date,
+      start_time: availForm.start_time,
+      end_time: availForm.end_time,
+      is_available: 0 // Explicitly 0 to mark as Blocked / Away!
     })
     availSuccessMsg.value = 'Blocked/Away period added successfully!'
     availForm.available_date = ''
@@ -109,7 +113,7 @@ const addAvailability = async () => {
     }, 3000)
   } catch (e: any) {
     console.error('Failed to add availability:', e)
-    availErrorMsg.value = e.data?.message || 'Failed to add availability.'
+    availErrorMsg.value = e.data?.message || e.message || 'Failed to add availability.'
   } finally {
     isAddLoading.value = false
   }
@@ -117,12 +121,11 @@ const addAvailability = async () => {
 
 const deleteAvailability = async (uuid: string) => {
   try {
-    await $api(`availabilities/${uuid}`, {
-      method: 'DELETE'
-    })
+    await doctorAvailabilityService.delete(uuid)
     await fetchAvailabilities()
   } catch (e: any) {
     console.error('Failed to delete availability:', e)
+    availErrorMsg.value = e.data?.message || e.message || 'Failed to delete availability.'
   }
 }
 
