@@ -36,7 +36,7 @@ onMounted(() => {
         </div>
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           class="bg-primary/10 text-primary h-10 w-10 flex items-center justify-center rounded-xl hover:bg-primary/20 transition-colors">
-          <Icon name="material-symbols:share-outline-rounded" class="text-xl" />
+          <Icon name="material-symbols:share-rounded" class="text-xl" />
         </AppButton>
       </div>
     </header>

@@ -183,8 +183,11 @@
 
   const selectAlternativeDoctor = (altDoctor: any) => {
     nearestDoctor.value = altDoctor
-    if (patientLat.value && patientLng.value && altDoctor.latitude && altDoctor.longitude) {
-      doctorDistance.value = Math.round(haversineDistance(patientLat.value, patientLng.value, parseFloat(altDoctor.latitude), parseFloat(altDoctor.longitude)) * 10) / 10
+    const doctorLat = parseCoordinate(altDoctor.latitude)
+    const doctorLng = parseCoordinate(altDoctor.longitude)
+
+    if (patientLat.value !== null && patientLng.value !== null && doctorLat !== null && doctorLng !== null) {
+      doctorDistance.value = Math.round(haversineDistance(patientLat.value, patientLng.value, doctorLat, doctorLng) * 10) / 10
     } else {
       doctorDistance.value = null
     }
@@ -206,6 +209,41 @@
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   }
 
+  const parseCoordinate = (value: unknown): number | null => {
+    const parsed = typeof value === 'number' ? value : parseFloat(String(value ?? ''))
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  const geocodePatientLocation = async (patient: any) => {
+    if (!patient?.city || !patient?.province) return null
+
+    try {
+      const query = `${patient.city}, ${patient.province}, ${patient.country || 'Philippines'}`
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+        headers: { 'User-Agent': 'DermAssist/1.0 (contact@dermassist.com)' }
+      })
+      const data = await response.json()
+
+      if (!data?.length) return null
+
+      const latitude = parseCoordinate(data[0].lat)
+      const longitude = parseCoordinate(data[0].lon)
+
+      if (latitude === null || longitude === null) return null
+
+      await userService.update(patient.uuid, {
+        ...patient,
+        latitude,
+        longitude
+      })
+
+      return { latitude, longitude }
+    } catch (error) {
+      console.error('Failed to geocode patient location:', error)
+      return null
+    }
+  }
+
   const fetchNearestDoctor = async () => {
     if (!userUuid.value) return
     isDoctorLoading.value = true
@@ -213,17 +251,30 @@
 
     try {
       // 1. Get the user's latest data
-      const patient = await userService.show(userUuid.value as string, { t: Date.now() })
+      const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
+      const patient = patientRes?.data ?? patientRes
 
-      // Check if location or coordinates are missing
-      if (!patient?.city || !patient?.province || !patient?.latitude || !patient?.longitude) {
+      if (!patient?.city || !patient?.province) {
         isProfileIncomplete.value = true
         isDoctorLoading.value = false
         return
       }
 
-      const patLat = parseFloat(patient?.latitude || '0')
-      const patLng = parseFloat(patient?.longitude || '0')
+      let patLat = parseCoordinate(patient?.latitude)
+      let patLng = parseCoordinate(patient?.longitude)
+
+      if (patLat === null || patLng === null) {
+        const geocoded = await geocodePatientLocation(patient)
+        patLat = geocoded?.latitude ?? null
+        patLng = geocoded?.longitude ?? null
+      }
+
+      if (patLat === null || patLng === null) {
+        isProfileIncomplete.value = true
+        isDoctorLoading.value = false
+        return
+      }
+
       patientLat.value = patLat
       patientLng.value = patLng
 
@@ -555,7 +606,7 @@
         >
           <div class="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-sm">
             <Icon
-              name="material-symbols:location-on-outline-rounded"
+              name="material-symbols:location-on-outline"
               class="text-primary text-4xl"
             />
           </div>

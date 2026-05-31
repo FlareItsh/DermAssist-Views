@@ -10,13 +10,31 @@
   const userRole = useCookie('user_role')
 
   const { data: response } = await conversationService.useShow(uuid)
-  const conversation = computed(() => response.value)
+  const conversation = computed(() => (response.value as any)?.data ?? response.value)
+
+  const getPersonName = (person: any) => {
+    if (!person) return 'Unknown'
+    if (person.name) return person.name
+
+    const fullName = [person.first_name, person.last_name].filter(Boolean).join(' ')
+    return fullName || 'Unknown'
+  }
+
+  const getPersonAvatar = (person: any) => {
+    return person?.avatar ?? person?.avatar_path ?? null
+  }
 
   const otherPerson = computed(() => {
     if (!conversation.value) return { name: 'Unknown', avatar: null }
-    return userRole.value === 'doctor'
+    const person = userRole.value === 'doctor'
       ? conversation.value.patient
       : conversation.value.doctor
+
+    return {
+      ...person,
+      name: getPersonName(person),
+      avatar: getPersonAvatar(person)
+    }
   })
 </script>
 
