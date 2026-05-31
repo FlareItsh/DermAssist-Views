@@ -4,6 +4,7 @@
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import type { DonutEntry } from '../DonutChart.vue'
 
   const userUuid = useCookie('user_uuid')
@@ -158,7 +159,7 @@
     if (!nearestDoctor.value?.uuid) return
     isCheckingAvailability.value = true
     try {
-      const res = await $api<any>(`doctors/${nearestDoctor.value.uuid}/availability-check`)
+      const res = await doctorAvailabilityService.checkDoctor(nearestDoctor.value.uuid)
       availabilityStatus.value = res
     } catch (err) {
       console.error('Failed to check doctor availability:', err)
