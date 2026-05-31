@@ -17,6 +17,7 @@
     last_name: string
     email: string
     role: string
+    affiliation: string | null
     created_at: string
     updated_at: string
   }
@@ -203,6 +204,14 @@
               >
               <span class="font-medium text-gray-900">{{
                 formatDate(verification.created_at)
+              }}</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                >Affiliation</span
+              >
+              <span class="font-medium text-gray-900">{{
+                verification.user.affiliation || 'N/A'
               }}</span>
             </div>
             <div class="flex flex-col">

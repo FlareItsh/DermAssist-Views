@@ -38,12 +38,104 @@ const form = reactive({
   longitude: null as number | null,
   age: '',
   gender: '',
+  affiliation: '',
   prcNumber: ''
 })
 
 onMounted(async () => {
   await fetchRegions()
+  await fetchAvailabilities()
 })
+
+const doctorUuid = useCookie('user_uuid').value
+const availabilities = ref<any[]>([])
+const isAvailLoading = ref(false)
+const isAddLoading = ref(false)
+const availForm = reactive({
+  available_date: '',
+  start_time: '09:00',
+  end_time: '17:00',
+  is_available: false
+})
+const availSuccessMsg = ref('')
+const availErrorMsg = ref('')
+
+const fetchAvailabilities = async () => {
+  if (!doctorUuid) return
+  isAvailLoading.value = true
+  try {
+    const res = await $api<any[]>(`doctors/${doctorUuid}/availabilities`)
+    availabilities.value = res ?? []
+  } catch (e: any) {
+    console.error('Failed to fetch availabilities:', e)
+  } finally {
+    isAvailLoading.value = false
+  }
+}
+
+const addAvailability = async () => {
+  if (!availForm.available_date || !availForm.start_time || !availForm.end_time) {
+    availErrorMsg.value = 'Please fill out all fields.'
+    return
+  }
+  
+  if (availForm.start_time >= availForm.end_time) {
+    availErrorMsg.value = 'Start time must be before end time.'
+    return
+  }
+
+  isAddLoading.value = true
+  availErrorMsg.value = ''
+  availSuccessMsg.value = ''
+  try {
+    await $api(`doctors/${doctorUuid}/availabilities`, {
+      method: 'POST',
+      body: {
+        available_date: availForm.available_date,
+        start_time: availForm.start_time,
+        end_time: availForm.end_time,
+        is_available: 0 // Explicitly 0 to mark as Blocked / Away!
+      }
+    })
+    availSuccessMsg.value = 'Blocked/Away period added successfully!'
+    availForm.available_date = ''
+    availForm.start_time = '09:00'
+    availForm.end_time = '17:00'
+    availForm.is_available = false
+    await fetchAvailabilities()
+    setTimeout(() => {
+      availSuccessMsg.value = ''
+    }, 3000)
+  } catch (e: any) {
+    console.error('Failed to add availability:', e)
+    availErrorMsg.value = e.data?.message || 'Failed to add availability.'
+  } finally {
+    isAddLoading.value = false
+  }
+}
+
+const deleteAvailability = async (uuid: string) => {
+  try {
+    await $api(`availabilities/${uuid}`, {
+      method: 'DELETE'
+    })
+    await fetchAvailabilities()
+  } catch (e: any) {
+    console.error('Failed to delete availability:', e)
+  }
+}
+
+const formatTime = (time: string) => {
+  if (!time) return ''
+  const parts = time.split(':')
+  if (parts.length < 2) return time
+  let hours = parseInt(parts[0], 10)
+  const minutes = parts[1]
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12
+  hours = hours ? hours : 12
+  return `${hours}:${minutes} ${ampm}`
+}
 
 // Cascading logic
 watch(() => codes.region, async (newVal) => {
@@ -126,6 +218,7 @@ watch(user, (newVal) => {
     form.longitude = userData.longitude ?? null
     form.age = userData.age || ''
     form.gender = userData.gender || ''
+    form.affiliation = userData.affiliation || ''
 
     form.prcNumber = userData.prcNumber || userData.doctor_verification?.prcNumber || ''
 
@@ -287,6 +380,12 @@ const logout = () => {
                     class="bg-foreground/5 border-sidebar-border w-full rounded-2xl border px-4 py-3 outline-none transition-all opacity-60 cursor-not-allowed" />
                 </div>
                 <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Affiliation</label>
+                  <input v-model="form.affiliation" type="text"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Enter affiliation" />
+                </div>
+                <div class="flex flex-col gap-1.5">
                   <label class="text-foreground/70 ml-1 text-sm font-medium">PRC Number</label>
                   <input v-model="form.prcNumber" type="text"
                     class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
@@ -371,7 +470,106 @@ const logout = () => {
               </div>
             </form>
           </div>
+
+        <!-- Availability Section -->
+        <div class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+          <div>
+            <h2 class="text-xl font-bold">Clinic Hours & Away Settings</h2>
+            <p class="text-foreground/60 text-sm mt-1">By default, you are available every day. Set specific dates and times you will be away/unavailable below.</p>
+          </div>
+
+          <!-- Divider -->
+          <div class="h-px bg-sidebar-border my-6"></div>
+
+          <!-- Add Availability Form -->
+          <form @submit.prevent="addAvailability" class="flex flex-col gap-4">
+            <h3 class="text-md font-semibold text-foreground/80">Add Blocked / Away Period</h3>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
+                <input v-model="availForm.available_date" type="date" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Start Time</label>
+                <input v-model="availForm.start_time" type="time" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">End Time</label>
+                <input v-model="availForm.end_time" type="time" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-2">
+              <div>
+                <p v-if="availSuccessMsg" class="text-green-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
+                  <Icon name="heroicons:check-circle" size="18" />
+                  {{ availSuccessMsg }}
+                </p>
+                <p v-if="availErrorMsg" class="text-red-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
+                  <Icon name="heroicons:exclamation-circle" size="18" />
+                  {{ availErrorMsg }}
+                </p>
+              </div>
+
+              <AppButton type="submit" :loading="isAddLoading" class="min-w-[140px]">
+                Block Out Date
+              </AppButton>
+            </div>
+          </form>
+
+          <!-- Divider -->
+          <div class="h-px bg-sidebar-border my-6"></div>
+
+          <!-- Existing Slots -->
+          <div>
+            <h3 class="text-md font-semibold text-foreground/80 mb-4">Your Blocked / Away Dates</h3>
+            
+            <div v-if="isAvailLoading" class="flex flex-col gap-3">
+              <div v-for="i in 2" :key="i" class="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse"></div>
+            </div>
+
+            <div v-else-if="!availabilities.length" 
+              class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
+              <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2" />
+              <p class="text-foreground/50 text-sm">No blocked dates set. You are currently marked as available every day for new patient referrals.</p>
+            </div>
+
+            <div v-else class="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+              <div v-for="slot in availabilities" :key="slot.uuid"
+                class="flex items-center justify-between p-4 rounded-2xl border border-sidebar-border bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-all">
+                <div class="flex items-center gap-4">
+                  <div class="bg-red-500/10 text-red-500 p-2.5 rounded-xl">
+                    <Icon name="heroicons:calendar" size="20" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-bold text-foreground">
+                      {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
+                    </p>
+                    <p class="text-xs text-foreground/60 mt-0.5">
+                      {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <span class="bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-semibold px-3 py-1 rounded-full">
+                    Blocked / Away
+                  </span>
+                  
+                  <button @click="deleteAvailability(slot.uuid)"
+                    class="text-foreground/40 hover:text-red-500 p-2 rounded-xl hover:bg-red-500/5 transition-all cursor-pointer"
+                    title="Remove Blocked Period">
+                    <Icon name="heroicons:trash" size="18" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
   </div>
 </template>

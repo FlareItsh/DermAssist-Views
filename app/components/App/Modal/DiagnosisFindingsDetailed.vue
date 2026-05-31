@@ -149,10 +149,45 @@
   const doctorDistance = ref<number | null>(null)
   const isProfileIncomplete = ref(false)
 
+  const patientLat = ref<number | null>(null)
+  const patientLng = ref<number | null>(null)
+  const isCheckingAvailability = ref(false)
+  const availabilityStatus = ref<any>(null)
+
+  const checkAvailability = async () => {
+    if (!nearestDoctor.value?.uuid) return
+    isCheckingAvailability.value = true
+    try {
+      const res = await $api<any>(`doctors/${nearestDoctor.value.uuid}/availability-check`)
+      availabilityStatus.value = res
+    } catch (err) {
+      console.error('Failed to check doctor availability:', err)
+    } finally {
+      isCheckingAvailability.value = false
+    }
+  }
+
+  watch(nearestDoctor, async (newDoc) => {
+    if (newDoc?.uuid) {
+      await checkAvailability()
+    } else {
+      availabilityStatus.value = null
+    }
+  }, { immediate: true })
+
   const selectDoctor = (doctor: any) => {
     nearestDoctor.value = doctor
     doctorDistance.value = doctor.distance ? Math.round(doctor.distance * 10) / 10 : null
     isDoctorModalOpen.value = false
+  }
+
+  const selectAlternativeDoctor = (altDoctor: any) => {
+    nearestDoctor.value = altDoctor
+    if (patientLat.value && patientLng.value && altDoctor.latitude && altDoctor.longitude) {
+      doctorDistance.value = Math.round(haversineDistance(patientLat.value, patientLng.value, parseFloat(altDoctor.latitude), parseFloat(altDoctor.longitude)) * 10) / 10
+    } else {
+      doctorDistance.value = null
+    }
   }
 
   /**
@@ -189,6 +224,8 @@
 
       const patLat = parseFloat(patient?.latitude || '0')
       const patLng = parseFloat(patient?.longitude || '0')
+      patientLat.value = patLat
+      patientLng.value = patLng
 
       // 2. Fetch all verified doctors
       const doctorsRes = await userService.list({
@@ -554,6 +591,37 @@
           v-else
           class="flex flex-col gap-6"
         >
+          <!-- Availability Status Banner -->
+          <div v-if="isCheckingAvailability" class="h-12 w-full rounded-xl bg-foreground/5 animate-pulse mb-1"></div>
+
+          <div v-else-if="availabilityStatus" class="mb-1 animate-in slide-in-from-top-2 duration-300">
+            <!-- Available -->
+            <div v-if="availabilityStatus.is_available"
+              class="bg-green-500/10 border border-green-500/20 text-green-600 rounded-xl px-3.5 py-2.5 flex items-center gap-2">
+              <span class="relative flex h-2.5 w-2.5">
+                <span
+                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              </span>
+              <p class="text-xs font-bold uppercase tracking-wider">Available Now</p>
+            </div>
+
+            <!-- Unavailable Banner -->
+            <div v-else
+              class="bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl p-3.5 flex items-start gap-3">
+              <Icon name="heroicons:exclamation-triangle" class="text-xl mt-0.5 shrink-0" />
+              <div class="flex flex-col gap-0.5">
+                <p class="text-xs font-bold uppercase tracking-wider">Not Available Now</p>
+                <p v-if="availabilityStatus.next_available" class="text-xs leading-relaxed text-red-600/80 mt-0.5">
+                  Dr. {{ nearestDoctor.last_name }} is away. Next available on <strong>{{
+                    availabilityStatus.next_available.formatted }}</strong>.
+                </p>
+                <p v-else class="text-xs leading-relaxed text-red-600/80 mt-0.5">
+                  Dr. {{ nearestDoctor.last_name }} is currently away with no upcoming availability.
+                </p>
+              </div>
+            </div>
+          </div>
           <div
             v-if="doctorDistance && doctorDistance > 50"
             class="flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4"
@@ -596,7 +664,60 @@
                 <Icon name="material-symbols:verified-outline-rounded" />
                 <span>Verified</span>
               </div>
+              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 mt-1">
+                Affiliation: <span class="font-semibold">{{ nearestDoctor.affiliation }}</span>
+              </p>
             </div>
+          </div>
+
+          <!-- Recommended Alternative Doctor Card -->
+          <div
+            v-if="availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
+            class="bg-sidebar border border-sidebar-border rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 animate-in zoom-in-95 duration-500"
+          >
+            <div class="flex items-center justify-between">
+              <h4 class="text-base font-bold text-foreground flex items-center gap-2">
+                <Icon name="heroicons:user-group" class="text-primary text-xl" />
+                Recommended Alternative Doctor (Available)
+              </h4>
+              <span
+                class="bg-green-500/10 text-green-500 text-xs font-bold px-3 py-1 rounded-full border border-green-500/20 uppercase tracking-wider"
+              >
+                Available
+              </span>
+            </div>
+
+            <div class="flex gap-6 items-start">
+              <img
+                :src="availabilityStatus.alternatives[0].avatar_path ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path) : ''"
+                :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
+                class="h-24 w-20 rounded-2xl object-cover border border-sidebar-border shrink-0"
+                alt="Alternative Doctor photo"
+              />
+
+              <div class="flex-1 flex flex-col gap-1">
+                <p class="text-lg font-bold text-foreground">
+                  Dr. {{ availabilityStatus.alternatives[0].first_name }} {{ availabilityStatus.alternatives[0].last_name }}
+                </p>
+                <p class="text-xs text-foreground/50">
+                  PRC #{{ availabilityStatus.alternatives[0].prc_number || availabilityStatus.alternatives[0].prcNumber || 'N/A' }}
+                </p>
+                <p class="text-xs text-foreground/60 leading-relaxed mt-1">
+                  Location: {{ availabilityStatus.alternatives[0].city }}, {{ availabilityStatus.alternatives[0].province }}
+                </p>
+                <p v-if="availabilityStatus.alternatives[0].affiliation" class="text-xs text-foreground/60 mt-0.5">
+                  Affiliation: {{ availabilityStatus.alternatives[0].affiliation }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
+              class="bg-primary hover:bg-primary/90 text-white font-bold text-sm py-3 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer animate-in fade-in"
+            >
+              <Icon name="heroicons:user-plus" size="16" />
+              Select Alternative Doctor
+            </button>
           </div>
 
           <div class="mt-4 grid grid-cols-2 gap-3">

@@ -1,0 +1,13 @@
+{
+    "folders": [
+        {
+            "path": "."
+        },
+        {
+            "path": "../DermAssist-API"
+        },
+        {
+            "path": "../DermAssist-Algorithms"
+        }
+    ]
+}
