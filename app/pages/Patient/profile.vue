@@ -7,7 +7,8 @@
   const { data: response, refresh } = await userService.useShow(useCookie('user_uuid').value as string, {
     key: `userProfile-${useCookie('user_uuid').value}`
   })
-  const user = computed(() => response.value)
+  // Laravel JsonResource wraps single resources under `data` — unwrap at source
+  const user = computed(() => (response.value as any)?.data ?? response.value)
 
   const { 
     regions, provinces, cities, barangays, 

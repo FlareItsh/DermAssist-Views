@@ -43,12 +43,32 @@
     const query = searchValue.value.toLowerCase()
     return list.filter((c) => {
       const otherPerson = userRole.value === 'doctor' ? c.patient : c.doctor
-      return otherPerson?.name?.toLowerCase().includes(query)
+      return getPersonName(otherPerson).toLowerCase().includes(query)
     })
   })
 
+  const getPersonName = (person: any) => {
+    if (!person) return 'Unknown'
+    if (person.name) return person.name
+
+    const fullName = [person.first_name, person.last_name].filter(Boolean).join(' ')
+    return fullName || 'Unknown'
+  }
+
+  const getPersonAvatar = (person: any) => {
+    return person?.avatar ?? person?.avatar_path ?? null
+  }
+
   const getOtherPerson = (conv: Conversation): ConversationPerson | null => {
-    return userRole.value === 'doctor' ? conv.patient : conv.doctor
+    const person = userRole.value === 'doctor' ? conv.patient : conv.doctor
+
+    if (!person) return null
+
+    return {
+      ...person,
+      name: getPersonName(person),
+      avatar: getPersonAvatar(person)
+    }
   }
 
   const startPolling = () => {
