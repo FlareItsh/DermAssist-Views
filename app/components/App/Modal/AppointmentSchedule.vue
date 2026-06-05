@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { appointmentService } from '~/api/appointment/AppointmentService'
 
 const props = defineProps<{
   appointmentUuid: string
@@ -13,6 +14,7 @@ const emit = defineEmits<{
 const selectedDate = ref('')
 const scheduleTime = ref('09:00')
 const scheduleLocation = ref('')
+const scheduleMeetingLink = ref('')
 const isScheduling = ref(false)
 
 const handleDateSelected = (date: string) => {
@@ -24,13 +26,11 @@ const confirmSchedule = async () => {
   isScheduling.value = true
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
-    await $api(`appointments/${props.appointmentUuid}`, {
-      method: 'PUT',
-      body: {
-        status: 'scheduled',
-        scheduled_at: dateTime,
-        location: scheduleLocation.value
-      }
+    await appointmentService.update(props.appointmentUuid, {
+      status: 'scheduled',
+      scheduled_at: dateTime,
+      location: scheduleLocation.value,
+      meeting_link: scheduleMeetingLink.value
     })
     emit('scheduled')
     emit('close')
@@ -45,10 +45,11 @@ const confirmSchedule = async () => {
 <template>
   <Teleport to="body">
     <Transition name="modal">
-      <div class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
-        @click.self="emit('close')">
-        <div
-          class="bg-card border-border flex max-h-[90vh] flex-col overflow-y-auto rounded-xl border shadow-2xl lg:flex-row">
+      <div
+        class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+        @click.self="emit('close')"
+      >
+        <div class="bg-card border-border flex max-h-[90vh] flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row">
           <!-- Left side: Calendar -->
           <div class="p-6">
             <PatientSideComponentsCalendar @date-selected="handleDateSelected" />
@@ -67,25 +68,47 @@ const confirmSchedule = async () => {
 
             <div class="mb-4">
               <label class="mb-2 block text-sm font-bold text-gray-500">Time</label>
-              <input type="time" v-model="scheduleTime"
-                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500" />
+              <input
+                type="time"
+                v-model="scheduleTime"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div class="mb-4">
+              <label class="mb-2 block text-sm font-bold text-gray-500">Clinic / Location</label>
+              <input
+                type="text"
+                v-model="scheduleLocation"
+                placeholder="e.g. SkinCare Clinic, Rm 302"
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
+              />
             </div>
 
             <div class="mb-8">
-              <label class="mb-2 block text-sm font-bold text-gray-500">Clinic / Location</label>
-              <input type="text" v-model="scheduleLocation" placeholder="e.g. SkinCare Clinic, Rm 302"
-                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500" />
+              <label class="mb-2 block text-sm font-bold text-gray-500">Online Session Link <span class="font-normal">(Optional)</span></label>
+              <input
+                type="url"
+                v-model="scheduleMeetingLink"
+                placeholder="e.g. https://meet.google.com/..."
+                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
+              />
             </div>
 
             <div class="mt-auto flex flex-col gap-3">
-              <AppButton variant="solid" class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
+              <AppButton
+                variant="solid"
+                class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
                 :disabled="!selectedDate || !scheduleTime || !scheduleLocation || isScheduling"
-                @click="confirmSchedule">
+                @click="confirmSchedule"
+              >
                 {{ isScheduling ? 'Scheduling...' : 'Confirm Schedule' }}
               </AppButton>
-              <AppButton variant="unstyled"
+              <AppButton
+                variant="unstyled"
                 class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
-                @click="emit('close')">
+                @click="emit('close')"
+              >
                 Cancel
               </AppButton>
             </div>

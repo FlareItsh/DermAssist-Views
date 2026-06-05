@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue'
+  import { userService } from '~/api/user/UserService'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -7,6 +8,12 @@
   const { searchQuery } = useSearch()
   const { appointments } = useAppointments()
   const { getStorageUrl } = useStorage()
+
+  const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
+    key: `userProfile-${useCookie('user_uuid').value}`
+  })
+
+  const total_scans = computed(() => response.value?.total_scans ?? 0)
 
   const months = [
     'JAN',
@@ -53,7 +60,7 @@
           <p
             class="bg-card flex h-15 w-15 items-center justify-center rounded-full text-center text-xl font-medium shadow-[inset_0_0_9px_rgba(0,0,0,0.4),0_0_10px_rgba(0,0,0,0.5)]"
           >
-            15
+            {{ total_scans }}
           </p>
         </PatientSideComponentsPatientCard>
 
@@ -82,10 +89,10 @@
                   }}</span>
                 </div>
                 <div class="flex items-center gap-3">
-                  <img 
-                    v-if="appt.diagnosis_image" 
-                    :src="getStorageUrl(appt.diagnosis_image)" 
-                    class="h-10 w-10 rounded-lg object-cover border border-white/10"
+                  <img
+                    v-if="appt.diagnosis_image"
+                    :src="getStorageUrl(appt.diagnosis_image)"
+                    class="h-10 w-10 rounded-lg border border-white/10 object-cover"
                   />
                   <div class="flex flex-col">
                     <span class="text-foreground text-sm leading-tight font-bold">{{
@@ -96,6 +103,14 @@
                       >{{ appt.info }}</span
                     >
                   </div>
+                  <a
+                    v-if="appt.meeting_link"
+                    :href="appt.meeting_link"
+                    target="_blank"
+                    class="ml-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors rounded-xl px-4 py-2 text-xs font-bold shadow-sm"
+                  >
+                    Join Session
+                  </a>
                 </div>
               </div>
             </div>
@@ -145,8 +160,13 @@
           </p>
         </PatientSideComponentsSkinConditionsInfo>
       </div>
-      <AppUsers title="Doctors" role="doctor" status="verified" />
+      <AppUsers
+        title="Doctors"
+        role="doctor"
+        status="verified"
+      />
     </div>
+    <!-- TODO: CALENDAR -->
     <div class="sticky top-0 flex h-[calc(91vh-3rem)] flex-col gap-4">
       <PatientSideComponentsCalendar />
       <PatientSideComponentsSaaSPromotion class="flex-1" />

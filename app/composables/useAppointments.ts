@@ -1,13 +1,17 @@
+import { appointmentService } from '~/api/appointment/AppointmentService'
+
 export interface Appointment {
   id: string
   date: string // YYYY-MM-DD
   time: string
   doctor: string
   doctor_id: number
+  doctor_uuid?: string
   patient_id: number
   info: string
   diagnosis_image?: string
   location?: string
+  meeting_link?: string
   status: string
 }
 
@@ -35,7 +39,7 @@ export const useAppointments = () => {
     if (pending.value) return
     pending.value = true
     try {
-      const res = await $api<any[]>('appointments')
+      const res = await appointmentService.list()
       if (res) {
         const role = useCookie('user_role').value
 
@@ -59,10 +63,12 @@ export const useAppointments = () => {
             time,
             doctor: mapPerson(appt),
             doctor_id: appt.doctor_id,
+            doctor_uuid: appt.doctor?.uuid,
             patient_id: appt.patient_id,
             info: appt.diagnosis?.label || 'General Appointment',
             diagnosis_image: appt.diagnosis?.image_path,
             location: appt.location,
+            meeting_link: appt.meeting_link,
             status: appt.status,
             conversation_uuid: appt.conversation_uuid
           }
