@@ -39,7 +39,8 @@
         },
         { icon: 'tabler:id', label: 'Verification', to: '/admin/moderation/verification' }
       ]
-    }
+    },
+    { icon: 'heroicons:users', label: 'Dataset', to: '/admin/dataset' }
   ]
 
   const patientNavItems = computed(() => [

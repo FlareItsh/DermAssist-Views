@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import type { DonutEntry } from './DonutChart.vue'
   import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
+  import { datasetService } from '~/api/dataset/DatasetService'
 
   interface Props {
     role?: 'patient' | 'doctor'
@@ -35,9 +36,21 @@
     return null
   })
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (currentDiagnosis.value) {
-      navigateTo('/Patient/Scan/Results')
+      if (props.role === 'doctor') {
+        try {
+          if (currentDiagnosis.value.id || (currentDiagnosis.value as any).uuid) {
+            const uuid = currentDiagnosis.value.id || (currentDiagnosis.value as any).uuid;
+            await datasetService.saveFromDiagnosis(uuid);
+          }
+        } catch (e) {
+          console.error('Failed to save to dataset', e);
+        }
+        navigateTo('/Doctor/Scan/Results')
+      } else {
+        navigateTo('/Patient/Scan/Results')
+      }
     } else {
       showScanReminder.value = true
       setTimeout(() => {
