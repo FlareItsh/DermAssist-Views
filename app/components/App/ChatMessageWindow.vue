@@ -665,7 +665,7 @@
                 </div>
 
                 <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
-                <div v-if="userRole?.toLowerCase() === 'doctor' && msg.message.includes('[APPOINTMENT_REQUEST:') && !isAppointmentHandled(msg.message) && !activeAppointment" class="flex gap-2 mt-4">
+                <div v-if="userRole?.toLowerCase() === 'doctor' && (msg.message.includes('[APPOINTMENT_REQUEST:') || msg.message.includes('[DIAGNOSIS_ONLY:')) && !isAppointmentHandled(msg.message)" class="flex gap-2 mt-4">
                   <button @click.prevent="openScheduleModal(msg.message)" class="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95">
                     Accept & Schedule
                   </button>

@@ -12,6 +12,34 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
+  const { patientUuid } = useDiagnosis()
+
+  const isPatientModalOpen = ref(false)
+
+  const uniquePatients = computed(() => {
+    const patientsMap = new Map()
+    const allAppointments = [...appointments.value, ...pendingAppointments.value]
+    
+    for (const appt of allAppointments) {
+      if (appt.patient && appt.patient_uuid) {
+        if (!patientsMap.has(appt.patient_uuid)) {
+          patientsMap.set(appt.patient_uuid, {
+            ...appt.patient,
+            latest_appointment_date: appt.date || appt.created_at
+          })
+        } else {
+          const existing = patientsMap.get(appt.patient_uuid)
+          const currentDate = new Date(appt.date || appt.created_at)
+          const existingDate = new Date(existing.latest_appointment_date)
+          if (currentDate > existingDate) {
+            existing.latest_appointment_date = appt.date || appt.created_at
+          }
+        }
+      }
+    }
+    
+    return Array.from(patientsMap.values())
+  })
 
   const hasActiveAppointment = computed(() => {
     if (!nearestDoctor.value) return false
@@ -45,6 +73,8 @@
       summary?: string
     }
     diagnosisUuid?: string
+    appointmentUuid?: string
+    isNewScan?: boolean
   }>()
 
   const emit = defineEmits(['close'])
@@ -57,6 +87,16 @@
     () => props.patientName,
     val => {
       editablePatientName.value = val || ''
+    },
+    { immediate: true }
+  )
+
+  watch(
+    () => props.age,
+    val => {
+      if (val !== undefined && val !== null) {
+        patientAge.value = val
+      }
     },
     { immediate: true }
   )
@@ -326,7 +366,7 @@
   }
 
   const fetchUserAge = async () => {
-    if (!userUuid.value) return
+    if (!userUuid.value || props.role === 'doctor') return
     try {
       const res = await userService.show(userUuid.value as string)
       patientAge.value = res?.age ?? null
@@ -398,13 +438,31 @@
           >
           <div
             v-if="props.role === 'doctor'"
-            class="flex items-center gap-2"
+            class="flex items-center gap-2 w-full"
           >
-            <input
-              v-model="editablePatientName"
-              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
-              placeholder="Enter patient name"
-            />
+            <template v-if="props.isNewScan && patientUuid">
+              <span class="text-xl font-black text-gray-900">{{ patientName }}</span>
+              <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
+                Change
+              </AppButton>
+            </template>
+            <template v-else>
+              <input
+                v-model="editablePatientName"
+                class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
+                placeholder="Enter patient name"
+              />
+              <AppButton 
+                v-if="props.isNewScan" 
+                variant="ghost" 
+                size="sm" 
+                class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
+                @click="isPatientModalOpen = true"
+                title="Select Registered Patient"
+              >
+                <Icon name="material-symbols:person-search-outline" class="text-lg text-gray-500" />
+              </AppButton>
+            </template>
           </div>
           <span
             v-else
@@ -451,7 +509,11 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-12">
+      <div v-if="props.role === 'doctor' && (props.appointmentUuid || (editablePatientName?.trim() && editablePatientAge?.toString()?.trim() !== ''))" class="flex flex-col gap-12 mt-12">
+        <AppClinicalNoteForm :appointment-uuid="props.appointmentUuid" :skip-load="props.isNewScan" />
+      </div>
+
+      <div v-else class="flex flex-col gap-12 mt-12">
         <section class="rounded-[2.5rem] border border-gray-100 bg-white p-10 shadow-sm">
           <div class="mb-6 flex items-center gap-4">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
@@ -805,6 +867,8 @@
           </div>
         </div>
       </div>
+
+      <!-- Clinical Actions block removed for inline flow -->
     </div>
 
     <!-- Other Doctors Modal -->
@@ -904,7 +968,9 @@
             />
           </div>
         </div>
-      </div>
+    </div>
+
+
 
       <template #footer>
         <AppButton
@@ -913,6 +979,45 @@
           class="text-sm font-bold text-gray-400 transition-colors hover:text-gray-600"
         >
           Dismiss
+        </AppButton>
+      </template>
+    </AppModal>
+
+    <!-- Patient Selection Modal -->
+    <AppModal v-model="isPatientModalOpen" title="Assign Patient" description="Select a patient for this clinical scan." size="lg">
+      <div class="flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+        <div v-if="uniquePatients.length === 0" class="text-center py-10 text-gray-400">
+          <Icon name="material-symbols:inbox-outline" class="text-4xl opacity-50 mb-2" />
+          <p>No patients available</p>
+        </div>
+        <button
+          v-for="patient in uniquePatients"
+          :key="patient.uuid"
+          @click="patientUuid = patient.uuid; isPatientModalOpen = false"
+          class="flex items-center gap-4 p-4 rounded-2xl border transition-all text-left w-full"
+          :class="patientUuid === patient.uuid ? 'border-primary bg-primary/5 shadow-sm' : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'"
+        >
+          <img
+            :src="patient.avatar_path ? getStorageUrl(patient.avatar_path) : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`"
+            class="h-12 w-12 rounded-full object-cover shrink-0"
+          />
+          <div class="flex-1">
+            <p class="font-bold text-gray-900">{{ patient.first_name }} {{ patient.last_name }}</p>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Latest: {{ patient.latest_appointment_date ? new Date(patient.latest_appointment_date).toLocaleDateString() : 'N/A' }}
+            </p>
+          </div>
+          <div v-if="patientUuid === patient.uuid" class="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center shadow-sm">
+            <Icon name="material-symbols:check-small-rounded" class="text-xl" />
+          </div>
+        </button>
+      </div>
+      <template #footer>
+        <AppButton variant="outline" @click="patientUuid = null; isPatientModalOpen = false" class="rounded-xl px-6 font-bold" v-if="patientUuid">
+          Clear Selection
+        </AppButton>
+        <AppButton variant="ghost" @click="isPatientModalOpen = false" class="rounded-xl px-6 font-bold text-gray-500">
+          Close
         </AppButton>
       </template>
     </AppModal>

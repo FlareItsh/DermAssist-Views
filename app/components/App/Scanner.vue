@@ -2,7 +2,7 @@
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 
-  const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile } = useDiagnosis()
+  const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile, patientUuid } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
   const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -203,6 +203,9 @@
       formData.append('image', finalFile)
       if (userUuid.value) {
         formData.append('user_uuid', userUuid.value)
+      }
+      if (patientUuid.value) {
+        formData.append('patient_uuid', patientUuid.value)
       }
 
       const response = await diagnosisService.create(formData, {

@@ -1,6 +1,34 @@
 <script setup lang="ts">
-const { currentDiagnosis, isScanned, isHealthyState, chartData } = useDiagnosis()
+const { currentDiagnosis, isScanned, isHealthyState, chartData, patientUuid } = useDiagnosis()
+const { appointments, pendingAppointments } = useAppointments()
 const userName = useCookie('user_name')
+
+const patientName = computed(() => {
+  if (!patientUuid.value) return 'Unassigned Patient'
+  const allAppointments = [...appointments.value, ...pendingAppointments.value]
+  const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
+  if (match && match.patient) {
+    return `${match.patient.first_name} ${match.patient.last_name}`
+  }
+  return 'Unknown Patient'
+})
+
+const patientAge = computed(() => {
+  if (!patientUuid.value) return null
+  const allAppointments = [...appointments.value, ...pendingAppointments.value]
+  const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
+  if (match && match.patient) {
+    return match.patient.age
+  }
+  return null
+})
+
+const appointmentUuid = computed(() => {
+  if (!patientUuid.value) return null
+  const allAppointments = [...appointments.value, ...pendingAppointments.value]
+  const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
+  return match ? match.id : null
+})
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
@@ -47,9 +75,12 @@ onMounted(() => {
         v-if="currentDiagnosis"
         role="doctor"
         :condition-name="currentDiagnosis?.label === 'None' ? 'None' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
-        :patient-name="userName"
+        :patient-name="patientName"
+        :age="patientAge"
+        :appointment-uuid="appointmentUuid"
         :diagnosis-data="chartData"
         :diagnosis-uuid="currentDiagnosis?.id"
+        :is-new-scan="true"
       />
     </main>
   </div>

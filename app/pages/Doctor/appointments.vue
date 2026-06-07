@@ -10,6 +10,7 @@ const { searchQuery } = useSearch()
 const filteredAppointments = computed(() => {
   const list = appointments.value.map(a => ({
     id: a.id,
+    uuid: a.uuid,
     patientName: a.doctor, // other person's name
     condition: a.info,
     time: a.time || 'TBD',
@@ -74,18 +75,19 @@ const goToChat = (uuid: string) => {
           </div>
 
           <div class="flex items-center gap-3">
-             <AppButton 
-              variant="unstyled" size="unstyled" rounded="unstyled"
-              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-gray-100 hover:bg-primary/10 transition-colors text-secondary"
-            >
-              <Icon name="lucide:phone" class="text-xl" />
-            </AppButton>
             <AppButton 
               variant="unstyled" size="unstyled" rounded="unstyled"
               @click="goToChat(appt.conversation_uuid)"
-              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary hover:bg-primary/80 transition-colors text-white"
+              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-gray-100 hover:bg-gray-200 transition-colors text-secondary"
             >
               <Icon name="lets-icons:message-light" class="text-2xl" />
+            </AppButton>
+            <AppButton 
+              variant="unstyled" size="unstyled" rounded="unstyled"
+              @click="navigateTo(`/Doctor/Appointments/${appt.uuid}`)"
+              class="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary hover:bg-primary/80 transition-colors text-white"
+            >
+              <Icon name="material-symbols:edit-document-outline" class="text-2xl" />
             </AppButton>
           </div>
         </div>

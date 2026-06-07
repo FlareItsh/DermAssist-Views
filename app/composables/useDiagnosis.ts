@@ -117,6 +117,7 @@ const isScanned = ref(false)
 const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
+const patientUuid = ref<string | null>(null)
 
 export const useDiagnosis = () => {
   const isHealthyState = computed(() => {
@@ -156,6 +157,7 @@ export const useDiagnosis = () => {
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false
+    patientUuid.value = null
     clearDiagnosis()
   }
 
@@ -166,6 +168,7 @@ export const useDiagnosis = () => {
     qualityError,
     previewImage,
     selectedFile,
+    patientUuid,
     isHealthyState,
     chartData,
     setDiagnosis,
