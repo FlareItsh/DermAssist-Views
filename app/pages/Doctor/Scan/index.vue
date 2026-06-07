@@ -1,4 +1,11 @@
 <script setup lang="ts">
+  import { onMounted } from 'vue'
+  const { resetScanner } = useDiagnosis()
+
+  onMounted(() => {
+    resetScanner()
+  })
+
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
