@@ -8,11 +8,7 @@
   const date = useCookie('date')
 
   const props = defineProps<{
-    record: {
-      id: number
-      title: string
-      time: string
-    }
+    record: any
   }>()
 
   const userName = useCookie('user_name')
@@ -71,15 +67,29 @@
 
   type DiseaseName = keyof typeof diseases
 
-  const defaultChartData: DonutEntry[] = [
-    { label: 'Herpes', value: 3, color: '#4FC3F7' },
-    { label: 'Acne', value: 22, color: '#E53935' },
-    { label: 'Eczema', value: 75, color: '#7B5EF5' }
-  ]
+  const chartData = computed<DonutEntry[]>(() => {
+    if (!props.record?.probabilities) {
+      return [
+        { label: 'Herpes', value: 3, color: '#4FC3F7' },
+        { label: 'Acne', value: 22, color: '#E53935' },
+        { label: 'Eczema', value: 75, color: '#7B5EF5' }
+      ]
+    }
+    
+    return Object.entries(props.record.probabilities)
+      .map(([key, value]) => ({
+        label: key,
+        value: Math.round((value as number) * 100),
+        color: diseases[key as DiseaseName]?.color || '#CBD5E1'
+      }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value)
+  })
 
   const activeDisease = ref<DiseaseName>('Eczema')
 
   watchEffect(() => {
+    if (!props.record?.title) return
     if (props.record.title.includes('Acne')) activeDisease.value = 'Acne'
     else if (props.record.title.includes('Herpes')) activeDisease.value = 'Herpes'
     else activeDisease.value = 'Eczema'
@@ -92,63 +102,111 @@
   <div class="bg-card flex h-[90vh] overflow-hidden rounded-2xl">
     <!-- Left Column -->
     <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-8 pr-6">
-      <h1 class="text-foreground mb-6 text-4xl font-black">{{ activeDisease }}</h1>
+      <h1 class="text-foreground mb-6 text-4xl font-black">
+        {{ record.type === 'doctor_diagnosis' ? 'Clinical Assessment' : activeDisease }}
+      </h1>
 
       <div class="mb-8 flex flex-col gap-1">
-        <p class="text-base">
+        <p class="text-base" v-if="record.patient">
+          <span class="font-bold">Patient Name:</span>
+          <span class="ml-2">{{ record.patient.first_name }} {{ record.patient.last_name }}</span>
+        </p>
+        <p class="text-base" v-else>
           <span class="font-bold">Patient Name:</span>
           <span class="ml-2">{{ userName || 'Guest User' }}</span>
         </p>
-        <p class="text-base">
-          <span class="font-bold">Age:</span>
-          <span class="ml-2">{{ age || '--' }}</span>
+        <p class="text-base" v-if="record.doctor">
+          <span class="font-bold">Attending Doctor:</span>
+          <span class="ml-2">Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}</span>
         </p>
         <p class="text-base">
           <span class="font-bold">Date:</span>
-          <span class="ml-2">{{ date || new Date().toLocaleDateString() }}</span>
+          <span class="ml-2">{{ new Date(record.created_at || Date.now()).toLocaleDateString() }}</span>
         </p>
       </div>
 
-      <div class="mb-6">
-        <p class="text-foreground text-base leading-relaxed">
-          <span class="mr-1 inline-flex items-center gap-2">
-            <span
-              class="inline-block h-3 w-3 shrink-0 rounded-full"
-              :style="{ backgroundColor: currentDisease.color }"
-            ></span>
-            <strong>{{ activeDisease }}</strong>
-          </span>
-          {{ currentDisease.description }}
-        </p>
-      </div>
+      <!-- Clinical Note View -->
+      <template v-if="record.type === 'doctor_diagnosis' && record.clinical_note">
+        
+        <!-- PRESCRIPTION HIGHLIGHT -->
+        <div class="mb-8 rounded-2xl bg-amber-100 p-6 shadow-sm border border-amber-200">
+          <div class="flex items-center gap-3 mb-3 text-amber-900">
+            <Icon name="material-symbols:prescriptions-outline-rounded" class="text-3xl" />
+            <h2 class="text-xl font-bold uppercase tracking-wider">Prescriptions & Plan</h2>
+          </div>
+          <p class="text-amber-950 whitespace-pre-wrap leading-relaxed text-base font-medium">
+            {{ record.clinical_note.prescription || 'No specific prescriptions noted.' }}
+          </p>
+        </div>
 
-      <div class="mb-6">
-        <p class="mb-2 font-semibold">Common Symptoms</p>
-        <p class="mb-2 text-sm text-gray-600">
-          The appearance can vary significantly depending on skin tone and severity:
-        </p>
-        <ul class="list-disc space-y-1 pl-5 text-sm text-gray-700">
-          <li
-            v-for="(symptom, i) in currentDisease.symptoms"
-            :key="i"
-          >
-            {{ symptom }}
-          </li>
-        </ul>
-      </div>
+        <div class="space-y-6">
+          <div v-if="record.clinical_note.final_diagnosis">
+            <p class="mb-1 font-bold text-lg text-primary">Final Diagnosis</p>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.final_diagnosis }}</p>
+          </div>
+          <div v-if="record.clinical_note.history_of_present_illness">
+            <p class="mb-1 font-bold text-lg text-primary">History of Present Illness</p>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.history_of_present_illness }}</p>
+          </div>
+          <div v-if="record.clinical_note.physical_exam">
+            <p class="mb-1 font-bold text-lg text-primary">Physical Exam</p>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.physical_exam }}</p>
+          </div>
+          <div v-if="record.clinical_note.patient_education">
+            <p class="mb-1 font-bold text-lg text-primary">Patient Education</p>
+            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.patient_education }}</p>
+          </div>
+          <div v-if="record.clinical_note.follow_up_date || record.clinical_note.follow_up_instructions">
+            <p class="mb-1 font-bold text-lg text-primary">Follow-up</p>
+            <p class="text-gray-700 whitespace-pre-wrap" v-if="record.clinical_note.follow_up_date">Date: {{ record.clinical_note.follow_up_date }}</p>
+            <p class="text-gray-700 whitespace-pre-wrap" v-if="record.clinical_note.follow_up_instructions">{{ record.clinical_note.follow_up_instructions }}</p>
+          </div>
+        </div>
+      </template>
 
-      <div class="mb-4">
-        <p class="mb-2 font-semibold">What Causes It?</p>
-        <p class="mb-2 text-sm text-gray-600">Generally believed to be a combination of factors:</p>
-        <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
-          <li
-            v-for="(cause, i) in currentDisease.causes"
-            :key="i"
-          >
-            {{ cause }}
-          </li>
-        </ol>
-      </div>
+      <!-- Standard Scan View -->
+      <template v-else>
+        <div class="mb-6">
+          <p class="text-foreground text-base leading-relaxed">
+            <span class="mr-1 inline-flex items-center gap-2">
+              <span
+                class="inline-block h-3 w-3 shrink-0 rounded-full"
+                :style="{ backgroundColor: currentDisease.color }"
+              ></span>
+              <strong>{{ activeDisease }}</strong>
+            </span>
+            {{ currentDisease.description }}
+          </p>
+        </div>
+
+        <div class="mb-6">
+          <p class="mb-2 font-semibold">Common Symptoms</p>
+          <p class="mb-2 text-sm text-gray-600">
+            The appearance can vary significantly depending on skin tone and severity:
+          </p>
+          <ul class="list-disc space-y-1 pl-5 text-sm text-gray-700">
+            <li
+              v-for="(symptom, i) in currentDisease.symptoms"
+              :key="i"
+            >
+              {{ symptom }}
+            </li>
+          </ul>
+        </div>
+
+        <div class="mb-4">
+          <p class="mb-2 font-semibold">What Causes It?</p>
+          <p class="mb-2 text-sm text-gray-600">Generally believed to be a combination of factors:</p>
+          <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+            <li
+              v-for="(cause, i) in currentDisease.causes"
+              :key="i"
+            >
+              {{ cause }}
+            </li>
+          </ol>
+        </div>
+      </template>
     </div>
 
     <!-- Right Column -->
@@ -158,15 +216,17 @@
       <div class="flex w-full flex-col items-center">
         <h2 class="mb-8 text-center text-2xl font-bold">Findings</h2>
         <div class="flex w-full flex-col items-center gap-8">
+          <img v-if="record.image_path" :src="`http://localhost:8000/storage/${record.image_path}`" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border" alt="Scan Image" />
+          
           <AppDonutChart
-            :data="defaultChartData"
+            :data="chartData"
             :size="200"
             :stroke-width="35"
           />
 
           <div class="flex w-full max-w-[240px] flex-col gap-3">
             <div
-              v-for="(entry, i) in defaultChartData"
+              v-for="(entry, i) in chartData"
               :key="i"
               class="hover:bg-background group hover:border-border flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-transparent p-3 transition-all"
               @click="activeDisease = entry.label as DiseaseName"

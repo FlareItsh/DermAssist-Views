@@ -1,5 +1,6 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
+  import { recordService } from '~/api/record/RecordService'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -7,27 +8,43 @@
 
   const isOpen = ref(false)
   const selectedRecord = ref<any>(null)
+  const records = ref<any[]>([])
+  const isLoading = ref(true)
+  const activeTab = ref<'all' | 'scan' | 'doctor_diagnosis'>('all')
 
   const { searchQuery } = useSearch()
 
-  const mockRecords = [
-    { id: 1, time: '20 minutes ago', title: 'Herpes | Cold Sores | Viral' },
-    { id: 2, time: '3 hours ago', title: 'Eczema | Redness | Skin Rash' },
-    { id: 3, time: 'Yesterday', title: 'Acne | Pimple | Breakout' },
-    { id: 4, time: 'March 28, 2024', title: 'Eczema Flare-up' },
-    { id: 5, time: 'March 25, 2024', title: 'Severe Acne Case' },
-    { id: 6, time: 'March 20, 2024', title: 'Herpes Outbreak' },
-    { id: 7, time: 'March 15, 2024', title: 'Acne Scars' },
-    { id: 8, time: 'March 10, 2024', title: 'Chronic Eczema' },
-    { id: 9, time: 'March 05, 2024', title: 'Herpes Consultation' }
-  ]
+  const fetchRecords = async () => {
+    isLoading.value = true
+    try {
+      const response = await recordService.getRecords()
+      records.value = (response as any).data || response || []
+      console.log('RECORDS LOADED:', records.value)
+    } catch (e) {
+      console.error('Failed to fetch records', e)
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  onMounted(() => {
+    fetchRecords()
+  })
 
   const filteredRecords = computed(() => {
-    if (!searchQuery.value) return mockRecords
+    let result = records.value
+
+    if (activeTab.value !== 'all') {
+      result = result.filter(r => r.type === activeTab.value)
+    }
+
+    if (!searchQuery.value) return result
+
     const query = searchQuery.value.toLowerCase()
-    return mockRecords.filter(
+    return result.filter(
       record =>
-        record.title.toLowerCase().includes(query) || record.time.toLowerCase().includes(query)
+        record.title?.toLowerCase().includes(query) || 
+        record.label?.toLowerCase().includes(query)
     )
   })
 
@@ -35,18 +52,53 @@
     selectedRecord.value = record
     isOpen.value = true
   }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return 'Unknown Date'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  }
 </script>
 
 <template>
   <div class="mt-6 flex min-h-screen flex-col">
+    <!-- Tabs for Filtering -->
+    <div class="mb-8 flex gap-4">
+      <AppButton
+        variant="outline"
+        :class="activeTab === 'all' ? 'bg-primary text-white' : ''"
+        @click="activeTab = 'all'"
+      >
+        All Records
+      </AppButton>
+      <AppButton
+        variant="outline"
+        :class="activeTab === 'scan' ? 'bg-primary text-white' : ''"
+        @click="activeTab = 'scan'"
+      >
+        Self-Assessment Scans
+      </AppButton>
+      <AppButton
+        variant="outline"
+        :class="activeTab === 'doctor_diagnosis' ? 'bg-primary text-white' : ''"
+        @click="activeTab = 'doctor_diagnosis'"
+      >
+        Doctor's Diagnoses
+      </AppButton>
+    </div>
+
+    <div v-if="isLoading" class="flex items-center justify-center py-20">
+      <Icon name="svg-spinners:ring-resize" class="text-primary text-4xl" />
+    </div>
+
     <div
-      v-if="filteredRecords.length > 0"
+      v-else-if="filteredRecords.length > 0"
       class="flex flex-col"
     >
       <AppRecordFolder
         v-for="(record, index) in filteredRecords"
         :key="record.id"
-        :time="record.time"
+        :time="formatDate(record.created_at)"
         :title="record.title"
         :style="{
           marginTop: index === 0 ? '0px' : '-200px',

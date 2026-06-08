@@ -79,7 +79,7 @@
     isNewScan?: boolean
   }>()
 
-  const emit = defineEmits(['close'])
+  const emit = defineEmits(['close', 'finished'])
 
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
@@ -514,7 +514,13 @@
       </div>
 
       <div v-if="props.role === 'doctor' && (props.appointmentUuid || (editablePatientName?.trim() && editablePatientAge?.toString()?.trim() !== ''))" class="flex flex-col gap-12 mt-12">
-        <AppClinicalNoteForm :appointment-uuid="props.appointmentUuid" :skip-load="props.isNewScan" />
+        <AppClinicalNoteForm 
+          :appointment-uuid="props.appointmentUuid" 
+          :diagnosis-id="props.diagnosis?.id || null"
+          :skip-load="props.isNewScan" 
+          :is-finish-mode="props.isNewScan"
+          @saved="emit('finished')"
+        />
       </div>
 
       <div v-else class="flex flex-col gap-12 mt-12">

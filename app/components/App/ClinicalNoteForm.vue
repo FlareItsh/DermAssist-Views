@@ -6,7 +6,10 @@
     appointmentUuid?: string
     diagnosisId?: number | null
     skipLoad?: boolean
+    isFinishMode?: boolean
   }>()
+
+  const emit = defineEmits(['saved'])
 
   const note = ref<ClinicalNote>({
     history_of_present_illness: '',
@@ -58,6 +61,8 @@
       }
       
       showSuccess.value = true
+      emit('saved')
+      
       setTimeout(() => {
         showSuccess.value = false
       }, 3000)
@@ -91,7 +96,7 @@
       <AppButton :loading="isSaving" @click="saveNote" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
         <Icon v-if="showSuccess" name="material-symbols:check-circle-rounded" class="text-xl" />
         <Icon v-else-if="!isSaving" name="material-symbols:save-outline-rounded" class="text-xl" />
-        {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : 'Save Note') }}
+        {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : (isFinishMode ? 'Finish Diagnosis & Save' : 'Save Note')) }}
       </AppButton>
     </div>
 

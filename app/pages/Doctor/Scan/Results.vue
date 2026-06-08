@@ -40,6 +40,13 @@ onMounted(() => {
     navigateTo('/Doctor/Scan')
   }
 })
+
+const { clearDiagnosis, resetScanner } = useDiagnosis()
+
+const handleFinished = () => {
+  resetScanner()
+  navigateTo('/Doctor/Scan')
+}
 </script>
 
 <template>
@@ -60,7 +67,7 @@ onMounted(() => {
       <div class="flex items-center gap-6">
         <div class="flex flex-col items-end">
            <span class="text-[10px] font-black uppercase tracking-widest text-gray-400">Diagnosis ID</span>
-           <span class="text-xs font-mono font-bold text-gray-600">#{{ currentDiagnosis?.id?.slice(0, 8) || 'PENDING' }}</span>
+           <span class="text-xs font-mono font-bold text-gray-600">#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span>
         </div>
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           class="bg-primary/10 text-primary h-10 w-10 flex items-center justify-center rounded-xl hover:bg-primary/20 transition-colors">
@@ -79,8 +86,9 @@ onMounted(() => {
         :age="patientAge"
         :appointment-uuid="appointmentUuid"
         :diagnosis-data="chartData"
-        :diagnosis-uuid="currentDiagnosis?.id"
+        :diagnosis-uuid="currentDiagnosis?.uuid"
         :is-new-scan="true"
+        @finished="handleFinished"
       />
     </main>
   </div>
