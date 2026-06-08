@@ -517,6 +517,7 @@
         <AppClinicalNoteForm 
           :appointment-uuid="props.appointmentUuid" 
           :diagnosis-id="props.diagnosis?.id || null"
+          :diagnosis-uuid="props.diagnosisUuid || null"
           :skip-load="props.isNewScan" 
           :is-finish-mode="props.isNewScan"
           @saved="emit('finished')"

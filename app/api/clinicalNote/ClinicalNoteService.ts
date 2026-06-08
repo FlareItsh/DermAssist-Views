@@ -37,6 +37,13 @@ export class ClinicalNoteService extends BaseService {
       body: data
     })
   }
+
+  async saveForDiagnosis(diagnosisUuid: string, data: Partial<ClinicalNote>): Promise<ClinicalNote> {
+    return $api(`/diagnoses/${diagnosisUuid}/clinical-note`, {
+      method: 'POST',
+      body: data
+    })
+  }
 }
 
 export const clinicalNoteService = new ClinicalNoteService()

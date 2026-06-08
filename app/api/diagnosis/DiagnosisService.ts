@@ -1,14 +1,14 @@
 import { BaseService } from '../BaseService'
 
 export class DiagnosisService extends BaseService {
-  private resource = '/diagnose'
+  private resource = '/diagnoses'
 
   async list(params: object = {}): Promise<any> {
     return await this.request(this.resource, 'GET', params)
   }
 
   async create(payload: object, config: object = {}): Promise<any> {
-    return await this.request(this.resource, 'POST', payload, config)
+    return await this.request('/diagnose', 'POST', payload, config)
   }
 
   async show(uuid: string): Promise<any> {

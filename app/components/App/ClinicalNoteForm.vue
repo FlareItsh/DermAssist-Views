@@ -5,6 +5,7 @@
   const props = defineProps<{
     appointmentUuid?: string
     diagnosisId?: number | null
+    diagnosisUuid?: string | null
     skipLoad?: boolean
     isFinishMode?: boolean
   }>()
@@ -51,13 +52,18 @@
     isSaving.value = true
     showSuccess.value = false
     try {
-      if (props.diagnosisId) {
-        note.value.diagnosis_id = props.diagnosisId
+      if (props.diagnosisUuid) {
+        (note.value as any).diagnosis_uuid = props.diagnosisUuid
       }
       
       if (props.appointmentUuid) {
         const saved = await clinicalNoteService.save(props.appointmentUuid, note.value)
         note.value = { ...note.value, ...saved }
+      } else if (props.diagnosisUuid) {
+        const saved = await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
+        note.value = { ...note.value, ...saved }
+      } else {
+        throw new Error('Neither appointmentUuid nor diagnosisUuid provided for saving clinical note.')
       }
       
       showSuccess.value = true

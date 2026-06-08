@@ -96,6 +96,7 @@
   })
 
   const currentDisease = computed(() => diseases[activeDisease.value])
+  const isImageExpanded = ref(false)
 </script>
 
 <template>
@@ -216,7 +217,7 @@
       <div class="flex w-full flex-col items-center">
         <h2 class="mb-8 text-center text-2xl font-bold">Findings</h2>
         <div class="flex w-full flex-col items-center gap-8">
-          <img v-if="record.image_path" :src="`http://localhost:8000/storage/${record.image_path}`" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border" alt="Scan Image" />
+          <img v-if="record.image_path" :src="`http://localhost:8000/storage/${record.image_path}`" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border cursor-pointer hover:opacity-90 transition-opacity" alt="Scan Image" @click="isImageExpanded = true" />
           
           <AppDonutChart
             :data="chartData"
@@ -288,4 +289,28 @@
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition-opacity duration-300"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-300"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="isImageExpanded" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8 backdrop-blur-sm" @click="isImageExpanded = false">
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          @click="isImageExpanded = false"
+          class="group absolute top-6 right-6 z-10 rounded-full bg-white/10 p-3 transition-all hover:bg-white/20 active:scale-90"
+        >
+          <Icon
+            name="material-symbols:close-rounded"
+            class="text-3xl text-white"
+          />
+        </AppButton>
+        <img :src="`http://localhost:8000/storage/${record.image_path}`" class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" alt="Scan Image Expanded" @click.stop />
+      </div>
+    </Transition>
+  </Teleport>
 </template>
