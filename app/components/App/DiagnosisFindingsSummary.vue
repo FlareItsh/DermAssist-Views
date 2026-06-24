@@ -41,8 +41,8 @@
     if (currentDiagnosis.value) {
       if (props.role === 'doctor') {
         try {
-          if (currentDiagnosis.value.id || (currentDiagnosis.value as any).uuid) {
-            const uuid = currentDiagnosis.value.id || (currentDiagnosis.value as any).uuid;
+          if ((currentDiagnosis.value as any).uuid || currentDiagnosis.value.id) {
+            const uuid = (currentDiagnosis.value as any).uuid || currentDiagnosis.value.id;
             await datasetService.saveFromDiagnosis(uuid);
             if (patientUuid.value) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value });

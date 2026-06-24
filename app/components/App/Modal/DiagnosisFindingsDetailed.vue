@@ -5,6 +5,7 @@
   import { userService } from '~/api/user/UserService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+  import { useDoctorSelection } from '~/composables/useDoctorSelection'
   import type { DonutEntry } from '../DonutChart.vue'
 
   const userUuid = useCookie('user_uuid')
@@ -13,6 +14,7 @@
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
   const { patientUuid } = useDiagnosis()
+  const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
   const isPatientModalOpen = ref(false)
 
@@ -77,7 +79,7 @@
     isNewScan?: boolean
   }>()
 
-  const emit = defineEmits(['close'])
+  const emit = defineEmits(['close', 'finished'])
 
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
@@ -185,7 +187,6 @@
   // ── Nearest doctor by proximity ───────────────────────────────────
   const nearestDoctor = ref<any | null>(null)
   const allNearbyDoctors = ref<any[]>([])
-  const isDoctorModalOpen = ref(false)
   const isDoctorLoading = ref(false)
   const doctorDistance = ref<number | null>(null)
   const isProfileIncomplete = ref(false)
@@ -215,12 +216,6 @@
       availabilityStatus.value = null
     }
   }, { immediate: true })
-
-  const selectDoctor = (doctor: any) => {
-    nearestDoctor.value = doctor
-    doctorDistance.value = doctor.distance ? Math.round(doctor.distance * 10) / 10 : null
-    isDoctorModalOpen.value = false
-  }
 
   const selectAlternativeDoctor = (altDoctor: any) => {
     nearestDoctor.value = altDoctor
@@ -343,20 +338,29 @@
 
       allNearbyDoctors.value = withDistance
 
-      // 4. Check for active appointment to set the default "nearest" doctor
-      const activeAppt = [...appointments.value, ...pendingAppointments.value].find(a =>
-        ['scheduled', 'pending'].includes(a.status)
-      )
-
-      if (activeAppt && activeAppt.doctor_uuid) {
-        const docRes = await userService.show(activeAppt.doctor_uuid)
+      if (selectedDoctorUuid.value) {
+        const docRes = await userService.show(selectedDoctorUuid.value)
         nearestDoctor.value = docRes
-        // Set distance if available in our withDistance list
         const match = withDistance.find(d => d.uuid === docRes.uuid)
         doctorDistance.value = match ? Math.round(match.distance * 10) / 10 : null
-      } else if (withDistance.length > 0) {
-        nearestDoctor.value = withDistance[0]
-        doctorDistance.value = Math.round(withDistance[0].distance * 10) / 10
+        
+        clearSelection()
+      } else {
+        // 4. Check for active appointment to set the default "nearest" doctor
+        const activeAppt = [...appointments.value, ...pendingAppointments.value].find(a =>
+          ['scheduled', 'pending'].includes(a.status)
+        )
+
+        if (activeAppt && activeAppt.doctor_uuid) {
+          const docRes = await userService.show(activeAppt.doctor_uuid)
+          nearestDoctor.value = docRes
+          // Set distance if available in our withDistance list
+          const match = withDistance.find(d => d.uuid === docRes.uuid)
+          doctorDistance.value = match ? Math.round(match.distance * 10) / 10 : null
+        } else if (withDistance.length > 0) {
+          nearestDoctor.value = withDistance[0]
+          doctorDistance.value = Math.round(withDistance[0].distance * 10) / 10
+        }
       }
     } catch (e) {
       console.error('Failed to fetch doctors:', e)
@@ -510,7 +514,14 @@
       </div>
 
       <div v-if="props.role === 'doctor' && (props.appointmentUuid || (editablePatientName?.trim() && editablePatientAge?.toString()?.trim() !== ''))" class="flex flex-col gap-12 mt-12">
-        <AppClinicalNoteForm :appointment-uuid="props.appointmentUuid" :skip-load="props.isNewScan" />
+        <AppClinicalNoteForm 
+          :appointment-uuid="props.appointmentUuid" 
+          :diagnosis-id="props.diagnosis?.id || null"
+          :diagnosis-uuid="props.diagnosisUuid || null"
+          :skip-load="props.isNewScan" 
+          :is-finish-mode="props.isNewScan"
+          @saved="emit('finished')"
+        />
       </div>
 
       <div v-else class="flex flex-col gap-12 mt-12">
@@ -838,7 +849,7 @@
             <AppButton
               variant="outline"
               size="lg"
-              @click="isDoctorModalOpen = true"
+              @click="navigateTo('/Patient/Scan/SelectDoctor')"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
@@ -871,117 +882,7 @@
       <!-- Clinical Actions block removed for inline flow -->
     </div>
 
-    <!-- Other Doctors Modal -->
-    <AppModal
-      v-model="isDoctorModalOpen"
-      title="Select Your Specialist"
-      description="Connect with verified dermatologists near your location for a professional clinical review."
-      size="xl"
-    >
-      <div class="flex flex-col gap-5 py-2">
-        <div
-          v-for="(doc, index) in allNearbyDoctors"
-          :key="doc.uuid"
-          @click="selectDoctor(doc)"
-          class="group hover:border-primary/30 hover:bg-primary/[0.02] hover:shadow-primary/5 relative flex cursor-pointer items-center gap-6 rounded-[2.5rem] border border-gray-100 bg-white p-6 transition-all duration-300 hover:shadow-2xl active:scale-[0.99]"
-          :class="{
-            'border-primary/40 bg-primary/[0.03] ring-primary/20 ring-1':
-              nearestDoctor?.uuid === doc.uuid
-          }"
-        >
-          <!-- Ranking Badge -->
-          <div
-            v-if="index === 0"
-            class="bg-primary shadow-primary/30 absolute -top-3 left-8 rounded-full px-4 py-1 text-[10px] font-black tracking-widest text-white shadow-lg"
-          >
-            NEAREST MATCH
-          </div>
 
-          <!-- Doctor Avatar -->
-          <div
-            class="relative shrink-0 rounded-[2rem] border-2 border-gray-100 bg-white p-2 transition-transform duration-300 group-hover:scale-105"
-          >
-            <img
-              :src="doc.avatar_path ? getStorageUrl(doc.avatar_path) : ''"
-              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((doc.first_name || 'D') + '+' + (doc.last_name || 'r'))}&background=7B5EF5&color=fff&size=256'`"
-              class="h-20 w-20 rounded-2xl object-cover"
-              alt="Doctor photo"
-            />
-            <div
-              v-if="nearestDoctor?.uuid === doc.uuid"
-              class="bg-primary absolute -top-2 -right-2 flex h-8 w-8 items-center justify-center rounded-full text-white shadow-lg ring-4 ring-white"
-            >
-              <Icon
-                name="material-symbols:check-rounded"
-                class="text-xl"
-              />
-            </div>
-          </div>
-
-          <!-- Doctor Info -->
-          <div class="flex-1">
-            <div class="flex items-center gap-2">
-              <h4
-                class="group-hover:text-primary text-xl font-black text-gray-900 transition-colors"
-              >
-                Dr. {{ doc.first_name }} {{ doc.last_name }}
-              </h4>
-              <div
-                class="flex h-5 items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-black text-green-600 ring-1 ring-green-100"
-              >
-                <Icon name="material-symbols:verified-rounded" />
-                <span>VERIFIED</span>
-              </div>
-            </div>
-
-            <div
-              class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-gray-400"
-            >
-              <div class="flex items-center gap-2">
-                <div
-                  class="text-primary flex h-6 w-6 items-center justify-center rounded-full bg-gray-50"
-                >
-                  <Icon name="material-symbols:location-on-rounded" />
-                </div>
-                <span>{{ doc.city }}, {{ doc.province }}</span>
-              </div>
-              <div class="flex items-center gap-2">
-                <div
-                  class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-50 text-amber-500"
-                >
-                  <Icon name="material-symbols:distance-rounded" />
-                </div>
-                <span class="text-primary font-black"
-                  >{{ Math.round(doc.distance * 10) / 10 }}km away</span
-                >
-              </div>
-            </div>
-          </div>
-
-          <!-- Action Indicator -->
-          <div
-            class="group-hover:bg-primary flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 transition-all duration-300 group-hover:text-white"
-          >
-            <Icon
-              name="material-symbols:arrow-forward-ios-rounded"
-              class="text-lg text-gray-300 transition-colors group-hover:text-white"
-            />
-          </div>
-        </div>
-    </div>
-
-
-
-      <template #footer>
-        <AppButton
-          variant="unstyled"
-          @click="isDoctorModalOpen = false"
-          class="text-sm font-bold text-gray-400 transition-colors hover:text-gray-600"
-        >
-          Dismiss
-        </AppButton>
-      </template>
-    </AppModal>
 
     <!-- Patient Selection Modal -->
     <AppModal v-model="isPatientModalOpen" title="Assign Patient" description="Select a patient for this clinical scan." size="lg">

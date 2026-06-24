@@ -5,8 +5,12 @@
   const props = defineProps<{
     appointmentUuid?: string
     diagnosisId?: number | null
+    diagnosisUuid?: string | null
     skipLoad?: boolean
+    isFinishMode?: boolean
   }>()
+
+  const emit = defineEmits(['saved'])
 
   const note = ref<ClinicalNote>({
     history_of_present_illness: '',
@@ -48,16 +52,23 @@
     isSaving.value = true
     showSuccess.value = false
     try {
-      if (props.diagnosisId) {
-        note.value.diagnosis_id = props.diagnosisId
+      if (props.diagnosisUuid) {
+        (note.value as any).diagnosis_uuid = props.diagnosisUuid
       }
       
       if (props.appointmentUuid) {
         const saved = await clinicalNoteService.save(props.appointmentUuid, note.value)
         note.value = { ...note.value, ...saved }
+      } else if (props.diagnosisUuid) {
+        const saved = await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
+        note.value = { ...note.value, ...saved }
+      } else {
+        throw new Error('Neither appointmentUuid nor diagnosisUuid provided for saving clinical note.')
       }
       
       showSuccess.value = true
+      emit('saved')
+      
       setTimeout(() => {
         showSuccess.value = false
       }, 3000)
@@ -91,7 +102,7 @@
       <AppButton :loading="isSaving" @click="saveNote" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
         <Icon v-if="showSuccess" name="material-symbols:check-circle-rounded" class="text-xl" />
         <Icon v-else-if="!isSaving" name="material-symbols:save-outline-rounded" class="text-xl" />
-        {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : 'Save Note') }}
+        {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : (isFinishMode ? 'Finish Diagnosis & Save' : 'Save Note')) }}
       </AppButton>
     </div>
 
