@@ -67,8 +67,8 @@ export const useAppointments = () => {
             patient_uuid: appt.patient?.uuid,
             patient: appt.patient,
             created_at: appt.created_at,
-            info: appt.diagnosis?.label || 'General Appointment',
-            diagnosis_image: appt.diagnosis?.image_path,
+            info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+            diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
             location: appt.location,
             status: appt.status,
             conversation_uuid: appt.conversation_uuid
@@ -88,7 +88,7 @@ export const useAppointments = () => {
           .map((appt: any) => ({
             id: appt.uuid,
             doctor: mapPerson(appt),
-            info: appt.diagnosis?.label || 'General Appointment',
+            info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
             conversation_uuid: appt.conversation_uuid
           }))
       }
