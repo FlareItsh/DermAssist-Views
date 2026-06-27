@@ -6,31 +6,21 @@ const { addToPriority, isInPriority } = usePriorityList()
 const filteredPatients = computed(() => {
   let list = appointments.value
 
-  // Use a map to get unique patients
-  const uniquePatientsMap = new Map()
-  
-  for (const a of list) {
-    if (!uniquePatientsMap.has(a.patient_id)) {
-      const patientObj = a.raw?.patient || a.patient
-      const firstName = patientObj?.first_name || ''
-      const lastName = patientObj?.last_name || ''
-      const initials = (firstName.charAt(0) + lastName.charAt(0)).toUpperCase() || '?'
-
-      uniquePatientsMap.set(a.patient_id, {
-        id: a.patient_id, // Use patient_id as the unique key
-        name: a.doctor, // This field from useAppointments contains the other person's name
-        condition: a.info,
-        date: a.date ? new Date(a.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
-        avatar: patientObj?.avatar_path ? getStorageUrl(patientObj.avatar_path) : '',
-        initials: initials,
-        isUrgent: false,
-        conversation_uuid: a.conversation_uuid,
-        raw: a
-      })
-    }
+  // Filter by selected date if one is picked
+  if (selectedDate.value) {
+    list = list.filter(a => a.date === selectedDate.value)
   }
 
-  const mapped = Array.from(uniquePatientsMap.values())
+  const mapped = list.map(a => ({
+    id: a.id,
+    name: a.doctor, // This field from useAppointments contains the other person's name
+    condition: a.info,
+    date: a.date ? new Date(a.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : '',
+    isUrgent: false,
+    conversation_uuid: a.conversation_uuid,
+    raw: a
+  }))
 
   const { searchQuery } = useSearch()
   if (!searchQuery.value) return mapped
@@ -42,7 +32,11 @@ const filteredPatients = computed(() => {
 })
 
 const listTitle = computed(() => {
-  return 'Patients'
+  if (selectedDate.value) {
+    const d = new Date(selectedDate.value)
+    return `Appointments for ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+  }
+  return 'Appointments'
 })
 
 const handleAddToPriority = (apptId: string) => {
@@ -71,7 +65,7 @@ const goToChat = (uuid: string) => {
         v-if="filteredPatients.length === 0"
         class="w-full py-10 text-center text-muted-foreground italic text-sm"
       >
-        No accepted patients yet.
+        No accepted appointments yet.
       </div>
       <div
         v-for="patient in filteredPatients"
@@ -86,8 +80,8 @@ const goToChat = (uuid: string) => {
             :alt="patient.name"
             class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          <div v-else class="h-full w-full flex items-center justify-center bg-primary/10">
-             <span class="text-3xl font-bold text-primary">{{ patient.initials }}</span>
+          <div v-else class="h-full w-full flex items-center justify-center bg-primary/5">
+             <Icon name="solar:user-circle-bold" class="text-4xl text-primary/20" />
           </div>
           <!-- Urgent badge -->
           <div
