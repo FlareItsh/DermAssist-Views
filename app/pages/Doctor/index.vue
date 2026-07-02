@@ -10,6 +10,8 @@ definePageMeta({
     <div class="flex min-w-0 flex-1 gap-5 overflow-hidden pb-4">
       <!-- Left Column -->
       <div class="flex flex-1 flex-col gap-5 min-w-0 h-full overflow-y-auto custom-scrollbar pr-2">
+        <!-- Appointments List -->
+        <DoctorSideComponentsAppointmentsList />
         <!-- Patients List -->
         <DoctorSideComponentsPatientsList />
         <!-- Urgent Diagnosis Reports -->
