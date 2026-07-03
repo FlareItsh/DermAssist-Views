@@ -37,8 +37,12 @@
     return null
   })
 
+  const canProceed = computed(() => {
+    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value
+  })
+
   const handleProceed = async () => {
-    if (currentDiagnosis.value) {
+    if (canProceed.value) {
       if (props.role === 'doctor') {
         try {
           if ((currentDiagnosis.value as any).uuid || currentDiagnosis.value.id) {
@@ -249,9 +253,9 @@
           <p class="text-md text-foreground font-semibold">Condition Status</p>
           <p
             class="text-md mb-1 font-bold"
-            :class="[isHealthyState ? 'text-green-500' : 'text-primary']"
+            :class="[isHealthyState ? 'text-gray-500' : 'text-primary']"
           >
-            {{ isHealthyState ? 'HEALTHY / NORMAL SKIN' : currentDiagnosis?.label || 'Waiting...' }}
+            {{ isHealthyState ? 'No skin disease detected' : currentDiagnosis?.label || 'Waiting...' }}
           </p>
           <p class="text-md text-foreground mb-3 font-normal">{{ info.description }}</p>
         </div>
@@ -298,8 +302,8 @@
           size="unstyled"
           rounded="unstyled"
           @click="handleProceed"
-          :disabled="!currentDiagnosis || !isScanned"
-          :class="{ 'cursor-not-allowed opacity-40 grayscale': !currentDiagnosis || !isScanned }"
+          :disabled="!canProceed"
+          :class="{ 'cursor-not-allowed opacity-40 grayscale': !canProceed }"
           class="bg-primary text-card h-14 w-fit rounded-full px-10 py-3 text-2xl font-bold transition-all hover:opacity-90 active:scale-95"
         >
           Proceed

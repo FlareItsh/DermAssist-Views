@@ -2,6 +2,7 @@
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { conversationService } from '~/api/conversation/ConversationService'
   import { messageService } from '~/api/message/MessageService'
+
   interface MessageSender {
     id: string
     name: string
@@ -59,6 +60,8 @@
   }>()
 
   const userUuid = useCookie('user_uuid')
+  const route = useRoute()
+  const router = useRouter()
   const messageTerm = ref('')
   const messagesContainer = ref<HTMLElement | null>(null)
   
@@ -85,6 +88,7 @@
 
   const userRole = useCookie('user_role')
   const { getStorageUrl } = useStorage()
+  const { removeFromPriority } = usePriorityList()
 
   // --- Attachments ---
   const fileInput = ref<HTMLInputElement | null>(null)
@@ -170,13 +174,49 @@
   }
 
   // --- Active Appointment (Top Bar) ---
-  const { appointments, fetchAppointments } = useAppointments()
+  const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const activeAppointment = computed(() => {
     return appointments.value.find(a => a.conversation_uuid === props.conversationUuid && a.status === 'scheduled')
   })
-  
+
+  /**
+   * The pending appointment for this specific conversation (if any).
+   * Shown to the doctor as a top-of-window banner.
+   */
+  const pendingAppointmentForConversation = computed(() => {
+    return pendingAppointments.value.find(a => a.conversation_uuid === props.conversationUuid) ?? null
+  })
+
+  /** Open the schedule modal with the appointment UUID from a pending appointment directly. */
+  const openScheduleModalFromPending = (appt: any) => {
+    schedulingAppointmentUuid.value = appt.id
+    showScheduleModal.value = true
+  }
+
+  /** Decline a pending appointment directly from the banner. */
+  const declineAppointmentFromPending = async (appt: any) => {
+    try {
+      await appointmentService.update(appt.id, { status: 'declined' })
+      fetchMessages(1)
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const showCompleteConfirm = ref(false)
   const isCompleting = ref(false)
+
+  const openCompleteConfirmFromRoute = () => {
+    if (route.query.complete !== '1' || userRole.value?.toLowerCase() !== 'doctor' || !activeAppointment.value) {
+      return
+    }
+
+    showCompleteConfirm.value = true
+    const query = { ...route.query }
+    delete query.complete
+    router.replace({ query })
+  }
 
   const isToday = (dateStr: string) => {
     const today = new Date().toISOString().split('T')[0]
@@ -187,13 +227,26 @@
     fetchAppointments()
   })
 
+  watch(
+    [() => route.query.complete, activeAppointment],
+    openCompleteConfirmFromRoute,
+    { immediate: true }
+  )
+
   const completeAppointment = async () => {
     if (!activeAppointment.value) return
     isCompleting.value = true
     try {
-      await appointmentService.update(activeAppointment.value.id, { status: 'completed' })
+      const completedAppointment = activeAppointment.value
+      await appointmentService.update(completedAppointment.id, { status: 'completed' })
+      await conversationService.sendMessage(
+        props.conversationUuid,
+        `[APPOINTMENT_COMPLETED:${completedAppointment.id}] Appointment completed by the doctor. Your visit summary has been moved to your records.`
+      )
+      removeFromPriority(completedAppointment.id)
       showCompleteConfirm.value = false
       fetchAppointments()
+      fetchMessages(1)
     } catch (e) {
       console.error(e)
     } finally {
@@ -504,7 +557,56 @@
       </AppButton>
     </div>
 
-    <!-- Active Appointment Bar -->
+    <!-- Pending Appointment Request Banner (Doctor-only, shown when patient has a pending request for this conversation) -->
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="transform -translate-y-full opacity-0"
+      enter-to-class="transform translate-y-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="transform translate-y-0 opacity-100"
+      leave-to-class="transform -translate-y-full opacity-0"
+    >
+      <div
+        v-if="userRole?.toLowerCase() === 'doctor' && pendingAppointmentForConversation"
+        class="border-b border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-6 py-3"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100">
+              <Icon name="material-symbols:calendar-add-on-rounded" class="text-lg text-indigo-600" />
+            </div>
+            <div>
+              <p class="text-sm font-black text-indigo-900">New Appointment Request</p>
+              <p class="text-xs font-medium text-indigo-600">
+                {{ pendingAppointmentForConversation.doctor }} is requesting an appointment
+                <span v-if="pendingAppointmentForConversation.info && pendingAppointmentForConversation.info !== 'General Appointment'">
+                  for <span class="font-bold">{{ pendingAppointmentForConversation.info }}</span>
+                </span>
+                — review the chat for details.
+              </p>
+            </div>
+          </div>
+          <div class="flex shrink-0 items-center gap-2">
+            <button
+              @click="openScheduleModalFromPending(pendingAppointmentForConversation)"
+              class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
+            >
+              <Icon name="material-symbols:check-circle-outline-rounded" class="text-sm" />
+              Accept &amp; Schedule
+            </button>
+            <button
+              @click="declineAppointmentFromPending(pendingAppointmentForConversation)"
+              class="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+            >
+              <Icon name="material-symbols:cancel-outline-rounded" class="text-sm" />
+              Decline
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- Active Appointment Bar (scheduled appointment) -->
     <div v-if="activeAppointment" 
       class="border-b p-4 flex items-center justify-between transition-all"
       :class="[
@@ -540,6 +642,7 @@
     </div>
 
     <!-- Messages Area -->
+
     <div
       ref="messagesContainer"
       @scroll="handleScroll"
@@ -665,7 +768,7 @@
                 </div>
 
                 <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
-                <div v-if="userRole?.toLowerCase() === 'doctor' && (msg.message.includes('[APPOINTMENT_REQUEST:') || msg.message.includes('[DIAGNOSIS_ONLY:')) && !isAppointmentHandled(msg.message)" class="flex gap-2 mt-4">
+                <div v-if="userRole?.toLowerCase() === 'doctor' && msg.message.includes('[APPOINTMENT_REQUEST:') && !isAppointmentHandled(msg.message)" class="flex gap-2 mt-4">
                   <button @click.prevent="openScheduleModal(msg.message)" class="bg-indigo-600 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition-all active:scale-95">
                     Accept & Schedule
                   </button>
@@ -696,7 +799,21 @@
                   <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}</p>
                 </div>
               </div>
-              <p v-if="msg.message" class="text-base leading-relaxed whitespace-pre-wrap">{{ msg.message }}</p>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
+                <div class="flex flex-col">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="rounded-full bg-green-100 p-2">
+                      <Icon name="material-symbols:check-circle-rounded" class="text-xl text-green-600" />
+                    </div>
+                    <span class="font-bold text-green-700">Appointment Completed</span>
+                  </div>
+                  <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_COMPLETED:.*?\]/g, '').trim() }}</p>
+                </div>
+              </div>
+              <p
+                v-else-if="msg.message"
+                class="text-base leading-relaxed whitespace-pre-wrap"
+              >{{ msg.message }}</p>
 
               <!-- Attachments Display -->
               <div v-if="msg.attachments && msg.attachments.length > 0" class="mt-3 flex flex-col gap-2">

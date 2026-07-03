@@ -3,6 +3,19 @@
 
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
+  const props = withDefaults(defineProps<{
+    /** Earliest selectable date in YYYY-MM-DD format. Defaults to today. */
+    minDate?: string
+  }>(), {
+    minDate: () => {
+      const d = new Date()
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+  })
+
   const { appointments } = useAppointments()
 
   const appointmentsMap = computed(() => appointments.value.map(appt => appt.date))
@@ -22,8 +35,33 @@
     return new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), 1).getDay()
   })
 
-  // Helpers
+  /** Returns the YYYY-MM-DD string for a given day in the currently displayed month. */
+  const dateStringFor = (day: number): string => {
+    const year = currentDate.value.getFullYear()
+    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0')
+    return `${year}-${month}-${String(day).padStart(2, '0')}`
+  }
+
+  /** True when the displayed day is before the minDate. */
+  const isPast = (day: number): boolean => dateStringFor(day) < props.minDate
+
+  /** True when the displayed day is today exactly. */
+  const isToday = (day: number): boolean => dateStringFor(day) === props.minDate
+
+  /** Whether the "prev month" button should be disabled (can't go before the min month). */
+  const isPrevMonthDisabled = computed(() => {
+    const min = new Date(props.minDate)
+    return (
+      currentDate.value.getFullYear() < min.getFullYear() ||
+      (currentDate.value.getFullYear() === min.getFullYear() &&
+        currentDate.value.getMonth() <= min.getMonth())
+    )
+  })
+
+  const hasAppointment = (day: number) => appointmentsMap.value.includes(dateStringFor(day))
+
   const prevMonth = () => {
+    if (isPrevMonthDisabled.value) return
     currentDate.value = new Date(
       currentDate.value.getFullYear(),
       currentDate.value.getMonth() - 1,
@@ -39,20 +77,11 @@
     )
   }
 
-  const hasAppointment = (day: number) => {
-    const year = currentDate.value.getFullYear()
-    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0')
-    const dayStr = String(day).padStart(2, '0')
-    return appointmentsMap.value.includes(`${year}-${month}-${dayStr}`)
-  }
-
   const emit = defineEmits(['dateSelected'])
 
   const selectDate = (day: number) => {
-    const year = currentDate.value.getFullYear()
-    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0')
-    const dayStr = String(day).padStart(2, '0')
-    emit('dateSelected', `${year}-${month}-${dayStr}`)
+    if (isPast(day)) return
+    emit('dateSelected', dateStringFor(day))
   }
 </script>
 
@@ -67,7 +96,9 @@
       <div class="flex gap-2">
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="prevMonth"
-          class="hover:bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95"
+          :disabled="isPrevMonthDisabled"
+          class="flex h-8 w-8 items-center justify-center rounded-full transition-colors active:scale-95"
+          :class="isPrevMonthDisabled ? 'cursor-not-allowed opacity-25' : 'hover:bg-primary/10'"
         >
           <Icon
             name="material-symbols:chevron-left-rounded"
@@ -106,12 +137,19 @@
         v-for="date in daysInMonth"
         :key="date"
         @click="selectDate(date)"
-        class="text-foreground hover:bg-primary/10 relative flex h-8 w-8 cursor-pointer items-center justify-center place-self-center rounded-full text-[15px] font-semibold transition-colors"
+        class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-[15px] font-semibold transition-colors"
+        :class="[
+          isPast(date)
+            ? 'pointer-events-none text-gray-300 line-through'
+            : isToday(date)
+              ? 'cursor-pointer text-primary ring-2 ring-primary/40 hover:bg-primary/10'
+              : 'text-foreground cursor-pointer hover:bg-primary/10'
+        ]"
       >
         {{ date }}
 
         <div
-          v-if="hasAppointment(date)"
+          v-if="hasAppointment(date) && !isPast(date)"
           class="bg-secondary absolute -bottom-1 h-1 w-1 rounded-full"
         ></div>
       </div>

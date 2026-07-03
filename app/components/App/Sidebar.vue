@@ -27,8 +27,25 @@
 
   const isSubmenuOpen = (label: string) => expandedMenus.value.has(label)
 
+  const normalizePath = (path?: string) => {
+    if (!path) return ''
+    return path.replace(/\/+$/, '').toLowerCase() || '/'
+  }
+
+  const isPathActive = (to?: string): boolean => {
+    const itemPath = normalizePath(to)
+    const currentPath = normalizePath(route.path)
+
+    if (!itemPath) return false
+    if (itemPath === '/') return currentPath === '/'
+    if (currentPath === itemPath) return true
+    if (['/admin', '/doctor', '/patient'].includes(itemPath)) return false
+
+    return currentPath.startsWith(`${itemPath}/`)
+  }
+
   const isItemActive = (item: NavItem): boolean => {
-    if (item.to && route.path === item.to) return true
+    if (isPathActive(item.to)) return true
     if (item.children) {
       return item.children.some(child => isItemActive(child))
     }
@@ -76,7 +93,7 @@
               :to="item.to"
               class="group hover:bg-sidebar-accent flex items-center rounded-full p-2 transition-all duration-300 active:scale-95"
               :class="[
-                route.path === item.to ? 'bg-sidebar-accent' : '',
+                isItemActive(item) ? 'bg-sidebar-accent' : '',
                 isCollapsed ? 'w-14 justify-center mx-auto' : 'w-full justify-start'
               ]"
             >
@@ -88,7 +105,7 @@
                   size="34"
                   class="transition-colors duration-300"
                   :class="
-                    route.path === item.to
+                    isItemActive(item)
                       ? 'text-sidebar-accent-foreground'
                       : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                   "
@@ -111,7 +128,7 @@
                 <span
                   class="overflow-hidden text-lg font-medium whitespace-nowrap transition-colors duration-300"
                   :class="
-                    route.path === item.to
+                    isItemActive(item)
                       ? 'text-sidebar-accent-foreground'
                       : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                   "
@@ -190,13 +207,13 @@
                     <NuxtLink
                       :to="child.to"
                       class="group hover:bg-sidebar-accent/40 flex items-center gap-3 rounded-xl px-4 py-2.5 transition-all duration-300 active:scale-95"
-                      :class="route.path === child.to ? 'bg-sidebar-accent/60 text-sidebar-accent-foreground font-semibold' : 'text-foreground/80'"
+                      :class="isItemActive(child) ? 'bg-sidebar-accent/60 text-sidebar-accent-foreground font-semibold' : 'text-foreground/80'"
                     >
                       <Icon
                         :name="child.icon"
                         size="21"
                         class="transition-colors duration-300 group-hover:text-sidebar-accent-foreground"
-                        :class="route.path === child.to ? 'text-sidebar-accent-foreground' : 'text-foreground/40'"
+                        :class="isItemActive(child) ? 'text-sidebar-accent-foreground' : 'text-foreground/40'"
                       />
                       <!-- Notification Dot for children -->
                       <div

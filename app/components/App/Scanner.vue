@@ -9,6 +9,7 @@
   const errorMessage = ref('')
   const fileInput = ref<HTMLInputElement | null>(null)
   const isCameraOn = ref(false)
+  const uploadQualityWarning = ref<string | null>(null)
   
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
@@ -25,9 +26,12 @@
       // Explicitly cast to File to resolve the "redline" type issue
       selectedFile.value = file as File
       isScanned.value = false
+      uploadQualityWarning.value = null
       const reader = new FileReader()
       reader.onload = (e) => {
         previewImage.value = e.target?.result as string
+        // Analyse quality of the uploaded image using Canvas
+        analyzeUploadedImageQuality(previewImage.value)
       }
       reader.readAsDataURL(file)
       stopCamera()
@@ -39,6 +43,7 @@
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false
+    uploadQualityWarning.value = null
     await startCamera()
   }
 
@@ -83,6 +88,27 @@
       ctx.drawImage(v, 0, 0, c.width, c.height)
       qualityError.value = validateImageQuality(ctx, c.width, c.height)
     }, 400)
+  }
+
+  /**
+   * Analyse quality of an uploaded image (data URL) using an off-screen canvas.
+   * Uses the same luminance & variance heuristics as the live camera loop.
+   * Sets uploadQualityWarning when an issue is detected, otherwise clears it.
+   * This runs client-side only and never modifies the file sent to the API.
+   */
+  const analyzeUploadedImageQuality = (dataUrl: string): void => {
+    const img = new Image()
+    img.onload = () => {
+      const offscreen = document.createElement('canvas')
+      offscreen.width = 160
+      offscreen.height = 120
+      const ctx = offscreen.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height)
+      const warning = validateImageQuality(ctx, offscreen.width, offscreen.height)
+      uploadQualityWarning.value = warning
+    }
+    img.src = dataUrl
   }
 
   const validateImageQuality = (ctx: CanvasRenderingContext2D, width: number, height: number): string | null => {
@@ -285,12 +311,51 @@
         <canvas ref="canvasRef" class="hidden"></canvas>
 
         <div class="relative flex w-full flex-1 min-h-0 flex-col overflow-hidden rounded-3xl rounded-br-none bg-black">
+          <!-- Quality Warning Overlay for Uploaded Images (Augmented style) -->
+          <div
+            v-if="uploadQualityWarning && !isScanning"
+            class="absolute left-1/2 top-24 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-amber-500/30 bg-amber-950/80 p-4 text-white shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div class="flex items-start gap-3">
+              <Icon
+                name="material-symbols:warning-outline-rounded"
+                class="text-amber-400 text-2xl shrink-0 mt-0.5"
+              />
+              <div class="flex-1">
+                <h4 class="font-bold text-sm text-amber-200">Quality Warning: {{ uploadQualityWarning }}</h4>
+                <p class="text-xs text-amber-100/80 mt-1 leading-relaxed">
+                  This image has quality issues which may lead to lower scan accuracy. For best results, we recommend uploading a clearer, well-lit, close-up photo.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quality Warning Overlay for Camera (Augmented style) -->
+          <div
+            v-if="qualityError && isCameraOn && !previewImage && !isScanning"
+            class="absolute left-1/2 top-6 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-red-950/80 p-4 text-white shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+          >
+            <div class="flex items-start gap-3">
+              <Icon
+                name="material-symbols:warning-outline-rounded"
+                class="text-red-400 text-2xl shrink-0 mt-0.5"
+              />
+              <div class="flex-1">
+                <h4 class="font-bold text-sm text-red-200">Camera Alert: {{ qualityError }}</h4>
+                <p class="text-xs text-red-100/80 mt-1 leading-relaxed">
+                  Please adjust your position, distance, or lighting. High-quality inputs ensure 99% better accuracy.
+                </p>
+              </div>
+            </div>
+          </div>
+
           <img v-if="previewImage" :src="previewImage" class="absolute inset-0 h-full w-full rounded-4xl object-contain p-2 bg-black transition-opacity duration-500" :class="{ 'opacity-50': isScanning }" />
           <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline class="h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
           <div v-if="!isCameraOn && !previewImage" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 gap-4 p-4 text-center">
              <Icon name="material-symbols:videocam-off-outline-rounded" class="text-6xl sm:text-8xl opacity-20" />
              <p class="text-lg sm:text-xl font-normal opacity-50">Camera access is paused</p>
           </div>
+
           <div v-if="previewImage && !isScanning" class="absolute top-8 left-8">
             <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="resetToCamera" class="bg-white/90 backdrop-blur px-5 py-2 rounded-full font-bold shadow-xl flex items-center gap-2 hover:bg-white active:scale-95 transition-all text-primary">
               <Icon name="material-symbols:arrow-back-rounded" class="text-xl" />

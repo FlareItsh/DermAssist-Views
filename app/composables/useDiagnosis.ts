@@ -1,10 +1,23 @@
 import { ref, computed } from 'vue'
 
+export interface ImageQuality {
+  is_blurry: boolean
+  is_dark: boolean
+  is_overexposed: boolean
+  is_low_contrast: boolean
+  sharpness_score: number
+  brightness_score: number
+  contrast_score: number
+  status: string
+  feedback_message: string
+}
+
 export interface DiagnosisResult {
   id?: string
   label: string
   confidence: number
   all_probabilities: Record<string, number>
+  image_quality?: ImageQuality
 }
 
 export interface DiseaseInfo {
@@ -20,8 +33,8 @@ export const COLOR_MAP: Record<string, string> = {
   'Acne': '#ef4444',
   'Eczema': '#d97706',
   'Herpes': '#4c0516',
-  'Clear': '#22c55e',
-  'None': '#22c55e'
+  'Clear': '#6b7280',
+  'None': '#6b7280'
 }
 
 export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
@@ -122,7 +135,7 @@ const patientUuid = ref<string | null>(null)
 export const useDiagnosis = () => {
   const isHealthyState = computed(() => {
     if (!currentDiagnosis.value) return false
-    return currentDiagnosis.value.confidence < 0.50 || currentDiagnosis.value.label === 'None'
+    return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'None'
   })
 
   const chartData = computed(() => {
@@ -131,7 +144,7 @@ export const useDiagnosis = () => {
     }
 
     if (isHealthyState.value) {
-      return [{ label: 'Healthy', value: 100, color: COLOR_MAP['Clear'] }]
+      return [{ label: 'No skin disease detected', value: 100, color: COLOR_MAP['Clear'] }]
     }
 
     return Object.entries(currentDiagnosis.value.all_probabilities)

@@ -56,7 +56,12 @@ const goToChat = (uuid: string) => {
         <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
         <h2 class="text-foreground text-xl font-bold">{{ listTitle }}</h2>
       </div>
-      <button class="text-secondary text-sm font-semibold hover:underline transition">See more ›</button>
+      <NuxtLink
+        to="/doctor/appointments"
+        class="text-secondary text-sm font-semibold transition hover:underline"
+      >
+        See more ›
+      </NuxtLink>
     </div>
 
     <!-- Horizontal Scroll Row -->

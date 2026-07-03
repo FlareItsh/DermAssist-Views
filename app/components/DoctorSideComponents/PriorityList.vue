@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { appointmentService } from '~/api/appointment/AppointmentService'
-const { appointments, fetchAppointments } = useAppointments()
+const { appointments } = useAppointments()
 const { getStorageUrl } = useStorage()
 const { priorityIds, removeFromPriority } = usePriorityList()
 
@@ -25,26 +24,16 @@ const filteredPriority = computed(() => {
   )
 })
 
-const isCompleting = ref<string | null>(null)
-const accomplish = async (apptId: string) => {
-  isCompleting.value = apptId
-  try {
-    await appointmentService.update(apptId, { status: 'completed' })
-    removeFromPriority(apptId)
-    await fetchAppointments()
-  } catch (e) {
-    console.error('Failed to complete appointment:', e)
-  } finally {
-    isCompleting.value = null
-  }
-}
-
 const dismiss = (id: string) => {
   removeFromPriority(id)
 }
 
 const goToChat = (uuid: string) => {
-  if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
+  if (uuid) navigateTo(`/doctor/messages/${uuid}`)
+}
+
+const goToCompleteAppointment = (uuid: string) => {
+  if (uuid) navigateTo(`/doctor/messages/${uuid}?complete=1`)
 }
 
 const conditionColor = (condition: string) => {
@@ -102,11 +91,9 @@ const conditionColor = (condition: string) => {
               class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 hover:bg-primary/10 transition-colors">
               <Icon name="mingcute:message-4-line" class="text-secondary text-sm" />
             </AppButton>
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="accomplish(patient.id)"
-              :disabled="isCompleting === patient.id"
-              class="flex h-8 w-8 items-center justify-center rounded-full bg-primary hover:bg-primary/80 transition-colors disabled:opacity-50">
-              <Icon v-if="isCompleting === patient.id" name="line-md:loading-twotone-loop" class="text-white text-sm" />
-              <Icon v-else name="material-symbols:check-rounded" class="text-white text-sm" />
+            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="goToCompleteAppointment(patient.raw.conversation_uuid)"
+              class="flex h-8 w-8 items-center justify-center rounded-full bg-primary hover:bg-primary/80 transition-colors">
+              <Icon name="material-symbols:check-rounded" class="text-white text-sm" />
             </AppButton>
           </div>
 
