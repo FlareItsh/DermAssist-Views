@@ -24,8 +24,9 @@
 <script setup lang="ts">
   const route = useRoute()
   const userRole = useCookie('user_role')
+  const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
 
-  const adminNavItems = [
+  const adminNavItems = computed(() => [
     { icon: 'boxicons:dashboard', label: 'Dashboard', to: '/admin' },
     {
       icon: 'lucide:shield-check',
@@ -40,8 +41,14 @@
         { icon: 'tabler:id', label: 'Verification', to: '/admin/moderation/verification' }
       ]
     },
+    {
+      icon: 'material-symbols:report-outline',
+      label: 'Scan Appeals',
+      to: '/admin/appeals',
+      showBadge: hasUnseenAppeals.value
+    },
     { icon: 'heroicons:users', label: 'Dataset', to: '/admin/dataset' }
-  ]
+  ])
 
   const patientNavItems = computed(() => [
     { icon: 'material-symbols-light:dashboard-2-outline', label: 'Dashboard', to: '/patient' },
@@ -92,14 +99,14 @@
   const navItems = computed(() => {
     switch (userRole.value) {
       case 'admin':
-        return adminNavItems
+        return adminNavItems.value
       case 'doctor':
         return doctorNavItems.value
       case 'patient':
         return patientNavItems.value
       default:
         // Fallback to route-based if cookie is missing
-        if (route.path.startsWith('/admin')) return adminNavItems
+        if (route.path.startsWith('/admin')) return adminNavItems.value
         if (route.path.startsWith('/doctor')) return doctorNavItems.value
         return patientNavItems.value
     }
@@ -144,4 +151,20 @@
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
+
+  onMounted(() => {
+    if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
+      fetchAppeals()
+    }
+  })
+
+  watch(
+    () => route.path,
+    (path) => {
+      if (path.startsWith('/admin/appeals')) {
+        markAppealsSeen()
+      }
+    },
+    { immediate: true }
+  )
 </script>
