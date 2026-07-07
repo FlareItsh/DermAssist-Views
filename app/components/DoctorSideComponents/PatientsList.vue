@@ -1,7 +1,6 @@
 <script setup lang="ts">
 const { appointments, selectedDate } = useAppointments()
 const { getStorageUrl } = useStorage()
-const { addToPriority, isInPriority } = usePriorityList()
 
 const filteredPatients = computed(() => {
   let list = appointments.value
@@ -45,12 +44,12 @@ const listTitle = computed(() => {
   return 'Patients'
 })
 
-const handleAddToPriority = (apptId: string) => {
-  addToPriority(apptId)
+const goToChat = (uuid: string) => {
+  if (uuid) navigateTo(`/doctor/messages/${uuid}`)
 }
 
-const goToChat = (uuid: string) => {
-  if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
+const goToCompleteAppointment = (uuid: string) => {
+  if (uuid) navigateTo(`/doctor/messages/${uuid}?complete=1`)
 }
 </script>
 
@@ -62,7 +61,12 @@ const goToChat = (uuid: string) => {
         <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
         <h2 class="text-foreground text-xl font-bold">{{ listTitle }}</h2>
       </div>
-      <button class="text-secondary text-sm font-semibold hover:underline transition">See more ›</button>
+      <NuxtLink
+        to="/doctor/users"
+        class="text-secondary text-sm font-semibold transition hover:underline"
+      >
+        See more ›
+      </NuxtLink>
     </div>
 
     <!-- Horizontal Scroll Row -->
@@ -116,11 +120,10 @@ const goToChat = (uuid: string) => {
             </AppButton>
             <AppButton
               variant="unstyled" size="unstyled" rounded="unstyled"
-              @click.stop="handleAddToPriority(patient.id)"
-              :disabled="isInPriority(patient.id)"
-              class="flex h-7 w-7 items-center justify-center rounded-full bg-primary transition-colors hover:bg-primary/80 disabled:opacity-50 disabled:grayscale"
+              @click.stop="goToCompleteAppointment(patient.conversation_uuid)"
+              class="flex h-7 w-7 items-center justify-center rounded-full bg-primary transition-colors hover:bg-primary/80"
             >
-              <Icon :name="isInPriority(patient.id) ? 'material-symbols:check-rounded' : 'fluent:add-12-filled'" class="text-white text-sm" />
+              <Icon name="material-symbols:check-rounded" class="text-white text-sm" />
             </AppButton>
           </div>
         </div>

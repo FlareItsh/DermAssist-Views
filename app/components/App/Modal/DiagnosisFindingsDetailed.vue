@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import { computed, ref, watch, onMounted } from 'vue'
-  import { DISEASE_DATABASE, type DiseaseName } from '~/composables/useDiagnosis'
+  import { DISEASE_DATABASE, type DiseaseName, type ImageQuality } from '~/composables/useDiagnosis'
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
@@ -13,7 +13,7 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
-  const { patientUuid } = useDiagnosis()
+  const { patientUuid, currentDiagnosis } = useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
   const isPatientModalOpen = ref(false)
@@ -53,7 +53,7 @@
 
   const messageText = computed(() => {
     return hasActiveAppointment.value
-      ? ''
+      ? 'I would like to share additional findings from my recent skin scan.'
       : 'I would like to schedule an appointment regarding my recent skin scan.'
   })
 
@@ -147,7 +147,7 @@
     }
   }
 
-  const defaultChartData: DonutEntry[] = [{ label: 'Healthy', value: 100, color: '#22c55e' }]
+  const defaultChartData: DonutEntry[] = [{ label: 'No skin disease detected', value: 100, color: '#6b7280' }]
 
   // ── Active disease state ──────────────────────────────────────────
   const activeDisease = ref<DiseaseName>((props.conditionName as DiseaseName) || 'Eczema')
@@ -156,7 +156,7 @@
   watch(
     () => props.conditionName,
     newVal => {
-      if (newVal === 'Healthy') {
+      if (newVal === 'Healthy' || newVal === 'No skin disease detected') {
         activeDisease.value = 'Clear'
         return
       }
@@ -196,12 +196,55 @@
   const isCheckingAvailability = ref(false)
   const availabilityStatus = ref<any>(null)
 
+  const getLocalDateKey = (date = new Date()) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const normalizeDateKey = (date?: string) => {
+    if (!date) return ''
+    return date.slice(0, 10)
+  }
+
+  const timeToMinutes = (time?: string) => {
+    if (!time) return null
+    const [hours, minutes] = time.split(':').map(Number)
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+    return hours * 60 + minutes
+  }
+
+  const isBlockedRightNow = (slot: any, now = new Date()) => {
+    if (Number(slot.is_available) === 1 || slot.is_available === true) return false
+    if (normalizeDateKey(slot.available_date) !== getLocalDateKey(now)) return false
+
+    const start = timeToMinutes(slot.start_time)
+    const end = timeToMinutes(slot.end_time)
+    if (start === null || end === null) return true
+
+    const current = now.getHours() * 60 + now.getMinutes()
+    return current >= start && current <= end
+  }
+
   const checkAvailability = async () => {
     if (!nearestDoctor.value?.uuid) return
     isCheckingAvailability.value = true
     try {
-      const res = await doctorAvailabilityService.checkDoctor(nearestDoctor.value.uuid)
-      availabilityStatus.value = res
+      const today = getLocalDateKey()
+      const [status, slots] = await Promise.all([
+        doctorAvailabilityService.checkDoctor(nearestDoctor.value.uuid, { date: today }),
+        doctorAvailabilityService.listForDoctor(nearestDoctor.value.uuid)
+      ])
+
+      const blockedNow = Array.isArray(slots) && slots.some(slot => isBlockedRightNow(slot))
+      availabilityStatus.value = blockedNow
+        ? status
+        : {
+            ...status,
+            is_available: true,
+            next_available: null
+          }
     } catch (err) {
       console.error('Failed to check doctor availability:', err)
     } finally {
@@ -652,6 +695,99 @@
         </div>
       </div>
 
+      <!-- Image Quality & Reliability Card -->
+      <div
+        v-if="currentDiagnosis?.image_quality"
+        class="bg-card rounded-[2.5rem] border p-8 shadow-sm transition-all"
+        :class="currentDiagnosis.image_quality.status === 'Excellent'
+          ? 'border-green-100'
+          : 'border-amber-100'"
+      >
+        <div class="mb-6 flex items-center gap-4">
+          <div
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+            :class="currentDiagnosis.image_quality.status === 'Excellent'
+              ? 'bg-green-100 text-green-600'
+              : 'bg-amber-100 text-amber-600'"
+          >
+            <Icon
+              :name="currentDiagnosis.image_quality.status === 'Excellent'
+                ? 'material-symbols:verified-rounded'
+                : 'material-symbols:warning-outline-rounded'"
+              class="text-2xl"
+            />
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900">Image Quality</h3>
+            <span
+              class="text-sm font-bold"
+              :class="currentDiagnosis.image_quality.status === 'Excellent'
+                ? 'text-green-600'
+                : 'text-amber-600'"
+            >
+              {{ currentDiagnosis.image_quality.status }}
+            </span>
+          </div>
+        </div>
+
+        <p class="mb-6 text-base leading-relaxed text-gray-600">
+          {{ currentDiagnosis.image_quality.feedback_message }}
+        </p>
+
+        <!-- Quality metric pills -->
+        <div class="flex flex-wrap gap-2">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            :class="currentDiagnosis.image_quality.is_blurry
+              ? 'bg-red-50 text-red-600'
+              : 'bg-green-50 text-green-700'"
+          >
+            <Icon
+              :name="currentDiagnosis.image_quality.is_blurry ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              class="text-base"
+            />
+            Focus
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            :class="currentDiagnosis.image_quality.is_dark
+              ? 'bg-red-50 text-red-600'
+              : 'bg-green-50 text-green-700'"
+          >
+            <Icon
+              :name="currentDiagnosis.image_quality.is_dark ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              class="text-base"
+            />
+            Brightness
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            :class="currentDiagnosis.image_quality.is_overexposed
+              ? 'bg-red-50 text-red-600'
+              : 'bg-green-50 text-green-700'"
+          >
+            <Icon
+              :name="currentDiagnosis.image_quality.is_overexposed ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              class="text-base"
+            />
+            Glare
+          </span>
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            :class="currentDiagnosis.image_quality.is_low_contrast
+              ? 'bg-red-50 text-red-600'
+              : 'bg-green-50 text-green-700'"
+          >
+            <Icon
+              :name="currentDiagnosis.image_quality.is_low_contrast ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              class="text-base"
+            />
+            Contrast
+          </span>
+        </div>
+      </div>
+
+
       <div
         v-if="props.role !== 'doctor'"
         class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
@@ -857,6 +993,7 @@
               />
               <span class="truncate">Other Doctors</span>
             </AppButton>
+
             <AppButton
               size="lg"
               @click="sendDiagnosis"
@@ -873,8 +1010,29 @@
                 name="svg-spinners:ring-resize"
                 class="shrink-0 text-lg"
               />
-              <span class="truncate">{{ isSending ? 'Selecting...' : 'Select Doctor' }}</span>
+              <span class="truncate">
+                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Select Doctor' }}
+              </span>
             </AppButton>
+          </div>
+
+          <!-- Existing appointment notice (full-width, below the buttons) -->
+          <div
+            v-if="hasActiveAppointment"
+            class="mt-3 flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200"
+          >
+            <Icon name="material-symbols:info-outline-rounded" class="mt-0.5 shrink-0 text-base text-amber-500" />
+            <div class="flex-1 text-xs leading-relaxed text-amber-700">
+              <span class="font-black">Existing appointment found.</span>
+              This will send your new findings to the same doctor in your current conversation.
+              Go to
+              <NuxtLink
+                :to="`/Patient/Messages`"
+                @click="emit('close')"
+                class="font-bold underline hover:text-amber-900"
+              >Messages</NuxtLink>
+              to check the status or send additional findings.
+            </div>
           </div>
         </div>
       </div>

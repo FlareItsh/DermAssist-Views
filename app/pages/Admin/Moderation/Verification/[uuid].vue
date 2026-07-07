@@ -108,7 +108,7 @@
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50/50 px-6 py-8">
+  <div class="px-6 py-8">
     <!-- Header -->
     <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-4">
@@ -163,7 +163,7 @@
       class="flex h-[60vh] flex-col items-center justify-center space-y-4"
     >
       <div
-        class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"
+        class="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary"
       ></div>
       <p class="font-medium text-gray-500">Loading verification details...</p>
     </div>
@@ -179,14 +179,14 @@
         <div class="overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
           <div class="mb-6 flex flex-col items-center text-center">
             <div
-              class="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-indigo-50 text-indigo-600 ring-4 ring-indigo-50/50"
+              class="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 text-primary ring-4 ring-primary/5"
             >
               <span class="text-4xl font-bold uppercase">
                 {{ verification.user.first_name[0] }}{{ verification.user.last_name[0] }}
               </span>
             </div>
             <h2 class="text-2xl font-bold text-gray-900">{{ fullName }}</h2>
-            <p class="text-xs font-medium tracking-widest text-indigo-600 uppercase">
+            <p class="text-primary text-xs font-medium tracking-widest uppercase">
               {{ verification.user.role }}
             </p>
           </div>
@@ -255,7 +255,7 @@
               <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >PRC License Number</span
               >
-              <span class="mt-1 font-mono text-lg font-bold text-indigo-700">{{
+              <span class="mt-1 font-mono text-lg font-bold text-primary">{{
                 verification.prc_number
               }}</span>
             </div>
@@ -273,7 +273,7 @@
             <a
               :href="getStorageUrl(verification.id_photo_path)"
               target="_blank"
-              class="text-sm font-semibold text-indigo-600 hover:text-indigo-700"
+              class="text-primary text-sm font-semibold hover:opacity-80"
             >
               Open in new tab
             </a>
@@ -311,7 +311,7 @@
       <AppButton
         variant="outline"
         class="mt-6"
-        @click="router.push('/Admin/Moderation/Verification')"
+        @click="router.push('/admin/moderation/verification')"
       >
         Back to Verifications
       </AppButton>

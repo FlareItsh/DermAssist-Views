@@ -12,6 +12,8 @@ export interface Appointment {
   diagnosis_image?: string
   location?: string
   status: string
+  conversation_uuid?: string
+  completed_at?: string
 }
 
 export const useAppointments = () => {
@@ -22,7 +24,8 @@ export const useAppointments = () => {
 
   const appointments = useState<Appointment[]>('shared_appointments_list', () => [])
   const pendingAppointments = useState<Appointment[]>('shared_pending_appointments_list', () => [])
-  const declinedAppointments = useState<{ id: string; doctor: string; info: string }[]>('shared_declined_appointments_list', () => [])
+  const declinedAppointments = useState<{ id: string; doctor: string; info: string; conversation_uuid?: string }[]>('shared_declined_appointments_list', () => [])
+  const completedAppointments = useState<Appointment[]>('shared_completed_appointments_list', () => [])
   const selectedDate = useState<string | null>('appointments_selected_date', () => null)
   const pending = ref(false)
 
@@ -31,6 +34,7 @@ export const useAppointments = () => {
       appointments.value = []
       pendingAppointments.value = []
       declinedAppointments.value = []
+      completedAppointments.value = []
       selectedDate.value = null
       return
     }
@@ -71,7 +75,8 @@ export const useAppointments = () => {
             diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
             location: appt.location,
             status: appt.status,
-            conversation_uuid: appt.conversation_uuid
+            conversation_uuid: appt.conversation_uuid,
+            completed_at: appt.completed_at || appt.updated_at
           }
         }
 
@@ -91,6 +96,10 @@ export const useAppointments = () => {
             info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
             conversation_uuid: appt.conversation_uuid
           }))
+
+        completedAppointments.value = res
+          .filter((appt: any) => appt.status === 'completed')
+          .map(mapAppt)
       }
     } catch (e) {
       console.error(e)
@@ -104,6 +113,7 @@ export const useAppointments = () => {
     appointments.value = []
     pendingAppointments.value = []
     declinedAppointments.value = []
+    completedAppointments.value = []
     selectedDate.value = null
     localUserUuid.value = userUuid.value
     fetchAppointments()
@@ -115,6 +125,7 @@ export const useAppointments = () => {
       appointments.value = []
       pendingAppointments.value = []
       declinedAppointments.value = []
+      completedAppointments.value = []
       selectedDate.value = null
       if (newUuid) fetchAppointments()
     }
@@ -134,6 +145,7 @@ export const useAppointments = () => {
     appointments,
     pendingAppointments,
     declinedAppointments,
+    completedAppointments,
     selectedDate,
     pending,
     fetchAppointments
