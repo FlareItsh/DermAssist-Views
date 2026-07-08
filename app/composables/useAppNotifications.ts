@@ -287,6 +287,7 @@ export const useAppNotifications = () => {
     refreshAppeals,
     fetchAppointments,
     isPatientProfileIncomplete,
-    isDoctorProfileIncomplete
+    isDoctorProfileIncomplete,
+    profileRoute
   }
 }

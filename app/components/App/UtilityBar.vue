@@ -170,8 +170,11 @@
     dismissedNotifs,
     readNotifs,
     isPatientProfileIncomplete,
-    isDoctorProfileIncomplete
+    isDoctorProfileIncomplete,
+    profileRoute
   } = useAppNotifications()
+
+  const isProfileIncomplete = computed(() => isPatientProfileIncomplete.value || isDoctorProfileIncomplete.value)
 
   const isSearchVisible = computed(() => {
     if (userRole.value === 'admin') return false
@@ -519,7 +522,7 @@
                 @click="isProfileOpen = false"
                 class="hover:bg-primary/10 group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
               >
-                <div class="text-primary rounded-xl p-2 transition-colors group-hover:secondary">
+                <div class="text-primary rounded-xl p-2 transition-colors group-hover:bg-secondary">
                   <Icon name="material-symbols:settings-outline" size="20" />
                 </div>
                 Profile Settings

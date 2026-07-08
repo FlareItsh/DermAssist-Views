@@ -86,6 +86,7 @@
         v-for="userItem in filteredUsers"
         :key="userItem.id"
         class="shrink-0 cursor-pointer transition-all hover:scale-105 active:scale-95"
+        :doctorId="userItem.id"
         :doctorName="getDisplayName(userItem)"
         :doctorWorkplace="getWorkplaceOrLocation(userItem)"
         :doctorImage="userItem.avatar_path ? getStorageUrl(userItem.avatar_path) : (userItem.doctor_verification?.id_photo_path ? getStorageUrl(userItem.doctor_verification.id_photo_path) : '/images/lp-img.png')"
