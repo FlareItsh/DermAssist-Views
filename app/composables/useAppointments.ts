@@ -18,6 +18,7 @@ export interface Appointment {
 
 export const useAppointments = () => {
   const userUuid = useCookie('user_uuid')
+  const userRole = useCookie('user_role')
   
   // Use a ref for the current user in this instance to detect changes
   const localUserUuid = ref(userUuid.value)
@@ -44,7 +45,7 @@ export const useAppointments = () => {
     try {
       const res = await appointmentService.list()
       if (res) {
-        const role = useCookie('user_role').value
+        const role = userRole.value
 
         const mapPerson = (appt: any) => {
           const doctorName = appt.doctor ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}` : 'Unknown Doctor'
