@@ -13,7 +13,7 @@ export interface AppNotification {
   to?: string
 }
 
-export const useAppNotifications = async () => {
+export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
@@ -23,11 +23,11 @@ export const useAppNotifications = async () => {
   const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
   const readNotifs = useCookie<(string | number)[]>(`read_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
 
-  const { data: userProfile, refresh: refreshProfile } = await userService.useShow(() => userUuid.value as string, {
+  const { data: userProfile, refresh: refreshProfile } = userService.useShow(() => userUuid.value as string, {
     key: `userProfile-${userUuid.value}`
   })
 
-  const { data: appealsData, refresh: refreshAppeals } = await appealService.useList({}, {
+  const { data: appealsData, refresh: refreshAppeals } = appealService.useList({}, {
     immediate: userRole.value === 'admin',
     key: 'admin-appeals'
   })

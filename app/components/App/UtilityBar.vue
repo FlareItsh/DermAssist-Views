@@ -159,7 +159,7 @@
     if (userRole.value === 'doctor' || userRole.value === 'patient') fetchAppointments()
   })
 
-  const { data: appealsData, refresh: refreshAppeals } = await appealService.useList({}, {
+  const { data: appealsData, refresh: refreshAppeals } = appealService.useList({}, {
     immediate: userRole.value === 'admin',
     key: 'admin-appeals'
   })
@@ -171,7 +171,7 @@
     readNotifs,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete
-  } = await useAppNotifications()
+  } = useAppNotifications()
 
   const isSearchVisible = computed(() => {
     if (userRole.value === 'admin') return false

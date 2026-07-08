@@ -6,7 +6,7 @@
   })
 
   const { baseNotifications, notifications, unreadNotifications, dismissedNotifs, readNotifs } =
-    await useAppNotifications()
+    useAppNotifications()
 
   const selectedNotification = ref<any>(null)
   const isModalOpen = ref(false)
