@@ -14,5 +14,11 @@ export default defineNuxtConfig({
       storageBase: '' // Overridden by NUXT_PUBLIC_STORAGE_BASE environment variable
     }
   },
-  modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon']
+  modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon'],
+  icon: {
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 1024
+    }
+  }
 })

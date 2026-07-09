@@ -27,7 +27,7 @@
   const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
 
   const adminNavItems = computed(() => [
-    { icon: 'boxicons:dashboard', label: 'Dashboard', to: '/admin' },
+    { icon: 'humbleicons:dashboard', label: 'Dashboard', to: '/admin' },
     {
       icon: 'lucide:shield-check',
       label: 'Moderation',
@@ -160,7 +160,7 @@
 
   watch(
     () => route.path,
-    (path) => {
+    path => {
       if (path.startsWith('/admin/appeals')) {
         markAppealsSeen()
       }
