@@ -3,10 +3,13 @@ definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
-const { appointments } = useAppointments()
+const { appointments, fetchAppointments } = useAppointments()
 const { getStorageUrl } = useStorage()
 
 const { searchQuery } = useSearch()
+
+const showScheduleModal = ref(false)
+
 const filteredAppointments = computed(() => {
   const list = appointments.value.map(a => ({
     id: a.id,
@@ -15,7 +18,8 @@ const filteredAppointments = computed(() => {
     condition: a.info,
     time: a.time || 'TBD',
     date: a.date ? new Date(a.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'TBD',
-    type: 'Consultation',
+    type: a.purpose ? 'Follow-up' : 'Consultation',
+    purpose: a.purpose,
     avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
     conversation_uuid: a.conversation_uuid
   }))
@@ -36,7 +40,7 @@ const goToChat = (uuid: string) => {
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
     <div class="rounded-3xl flex justify-end items-center">
-      <AppButton variant="soft" rounded="both">
+      <AppButton variant="soft" rounded="both" @click="showScheduleModal = true">
         <Icon name="lucide:plus" class="mr-2" />
         New Schedule
       </AppButton>
@@ -94,4 +98,10 @@ const goToChat = (uuid: string) => {
       </div>
     </div>
   </div>
+
+  <AppModalDoctorScheduleNewModal
+    v-if="showScheduleModal"
+    @close="showScheduleModal = false"
+    @scheduled="fetchAppointments"
+  />
 </template>

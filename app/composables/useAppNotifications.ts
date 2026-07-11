@@ -190,10 +190,11 @@ export const useAppNotifications = () => {
 
     if (userRole.value === 'patient' && appointments.value.length > 0) {
       appointments.value.forEach((appt) => {
+        const purposeText = appt.purpose ? ` Purpose: ${appt.purpose}.` : ''
         list.push({
           id: `appt-scheduled-${appt.id}`,
           title: 'Appointment Confirmed!',
-          description: `${appt.doctor} confirmed your appointment on ${appt.date} at ${appt.time}${appt.location ? ' — ' + appt.location : ''}.`,
+          description: `${appt.doctor} confirmed your appointment on ${appt.date} at ${appt.time}${appt.location ? ' — ' + appt.location : ''}.${purposeText}`,
           time: appt.date || 'Upcoming',
           icon: 'material-symbols:calendar-month-rounded',
           color: 'text-indigo-500',

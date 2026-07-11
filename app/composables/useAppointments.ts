@@ -11,6 +11,7 @@ export interface Appointment {
   info: string
   diagnosis_image?: string
   location?: string
+  purpose?: string
   status: string
   conversation_uuid?: string
   completed_at?: string
@@ -57,8 +58,13 @@ export const useAppointments = () => {
           let date = ''
           let time = ''
           if (appt.scheduled_at) {
-            const dateObj = new Date(appt.scheduled_at)
-            date = dateObj.toISOString().split('T')[0]
+            // Strip 'Z' or offset to treat the date as local time
+            const localDateTimeStr = appt.scheduled_at.replace(/Z|(\+\d{2}:\d{2})$/i, '')
+            const dateObj = new Date(localDateTimeStr)
+            const year = dateObj.getFullYear()
+            const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+            const day = String(dateObj.getDate()).padStart(2, '0')
+            date = `${year}-${month}-${day}`
             time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           }
           return {
@@ -75,6 +81,7 @@ export const useAppointments = () => {
             info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
             diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
             location: appt.location,
+            purpose: appt.purpose,
             status: appt.status,
             conversation_uuid: appt.conversation_uuid,
             completed_at: appt.completed_at || appt.updated_at
