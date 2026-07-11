@@ -209,7 +209,7 @@
 </script>
 
 <template>
-  <div class="max-w-5xl">
+  <div class="max-w-5xl pb-24 md:pb-0">
     <div class="mb-8">
       <h1 class="text-3xl font-bold">Account Settings</h1>
       <p class="text-foreground/60 mt-2">Manage your personal information and profile settings.</p>

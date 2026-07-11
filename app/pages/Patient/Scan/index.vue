@@ -12,13 +12,34 @@
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
-    <div class="min-w-0 flex-1 h-full">
-      <AppScanner />
+  <div>
+    <!-- Desktop Layout -->
+    <div class="desktop-only flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
+      <div class="min-w-0 flex-1 h-full">
+        <AppScanner />
+      </div>
+
+      <div class="w-[450px] shrink-0 h-full">
+        <AppDiagnosisFindingsSummary />
+      </div>
     </div>
 
-    <div class="w-[450px] shrink-0 h-full">
-      <AppDiagnosisFindingsSummary />
+    <!-- Mobile Layout -->
+    <div class="mobile-only -mx-5">
+      <PatientMobileComponentsScanner />
     </div>
   </div>
 </template>
+
+<style scoped>
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+}
+</style>

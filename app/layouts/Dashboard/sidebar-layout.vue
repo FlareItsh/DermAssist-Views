@@ -1,16 +1,29 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <AppNavbar
-      :title="currentPageTitle"
-      :breadcrumbs="breadcrumbs"
-    >
-      <AppUtilityBar v-if="userRole !== 'admin'" />
-    </AppNavbar>
+    <!-- Mobile Header (only on mobile viewports for patients) -->
+    <div class="block md:hidden" v-if="userRole === 'patient'">
+      <PatientMobileComponentsHeroHeader />
+    </div>
+
+    <!-- Desktop Navbar (hidden on mobile) -->
+    <div class="hidden md:block">
+      <AppNavbar
+        :title="currentPageTitle"
+        :breadcrumbs="breadcrumbs"
+      >
+        <AppUtilityBar v-if="userRole !== 'admin'" />
+      </AppNavbar>
+    </div>
+
     <div class="flex flex-1 overflow-hidden">
-      <AppSidebar :items="navItems" />
+      <!-- Desktop Sidebar (hidden on mobile) -->
+      <div class="hidden md:block">
+        <AppSidebar :items="navItems" />
+      </div>
 
       <main
-        class="-mt-4 flex-1 overflow-y-auto p-5"
+        class="flex-1 overflow-y-auto p-5 pb-24 md:pb-5"
+        :class="userRole === 'patient' ? 'mt-0 pt-0 md:pt-5 md:-mt-4' : '-mt-4'"
         id="main-content"
       >
         <div class="mx-auto">
@@ -18,6 +31,9 @@
         </div>
       </main>
     </div>
+
+    <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
+    <AppMobileBottomNav v-if="userRole === 'patient'" />
   </div>
 </template>
 
