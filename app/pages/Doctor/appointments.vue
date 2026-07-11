@@ -3,15 +3,18 @@ definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
-const { appointments, fetchAppointments } = useAppointments()
+const { appointments, completedAppointments, fetchAppointments } = useAppointments()
 const { getStorageUrl } = useStorage()
 
 const { searchQuery } = useSearch()
 
 const showScheduleModal = ref(false)
+const activeTab = ref<'upcoming' | 'history'>('upcoming')
 
 const filteredAppointments = computed(() => {
-  const list = appointments.value.map(a => ({
+  const sourceList = activeTab.value === 'upcoming' ? appointments.value : completedAppointments.value
+
+  const list = sourceList.map(a => ({
     id: a.id,
     uuid: a.uuid,
     patientName: a.doctor, // other person's name
@@ -39,7 +42,24 @@ const goToChat = (uuid: string) => {
 
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
-    <div class="rounded-3xl flex justify-end items-center">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-1 bg-gray-100 p-1.5 rounded-2xl border border-gray-200/50">
+        <button
+          @click="activeTab = 'upcoming'"
+          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
+          :class="activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
+        >
+          Upcoming
+        </button>
+        <button
+          @click="activeTab = 'history'"
+          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
+          :class="activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
+        >
+          History
+        </button>
+      </div>
+
       <AppButton variant="soft" rounded="both" @click="showScheduleModal = true">
         <Icon name="lucide:plus" class="mr-2" />
         New Schedule

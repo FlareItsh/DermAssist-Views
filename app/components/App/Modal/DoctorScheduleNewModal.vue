@@ -9,7 +9,6 @@ const emit = defineEmits<{
 // ─── Data ───────────────────────────────────────────────────────────────────
 
 const { completedAppointments, fetchAppointments } = useAppointments()
-const { getStorageUrl } = useStorage()
 
 /**
  * Deduplicate completed patients — keep only the most recent appointment per patient.
@@ -100,8 +99,13 @@ const formatLastDate = (appt: any): string => {
   return new Date(raw).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
-const getAvatar = (appt: any): string =>
-  appt.diagnosis_image ? getStorageUrl(appt.diagnosis_image) : `https://i.pravatar.cc/150?u=${appt.patient_id}`
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 </script>
 
 <template>
@@ -113,6 +117,7 @@ const getAvatar = (appt: any): string =>
       >
         <div class="bg-card border-border flex max-h-[90vh] max-w-4xl flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row">
 
+          <!-- ── Step 1: Patient Picker ──────────────────────────────── -->
           <template v-if="step === 1">
             <div class="flex flex-col p-8 w-[90vw] sm:w-[500px] lg:w-[32rem]">
               <h3 class="mb-2 text-2xl font-bold">New Schedule</h3>
@@ -133,8 +138,8 @@ const getAvatar = (appt: any): string =>
                   @click="selectPatient(appt)"
                   class="group flex w-full items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-sm active:scale-[0.99]"
                 >
-                  <div class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border-2 border-gray-200 bg-gray-50">
-                    <img :src="getAvatar(appt)" class="h-full w-full object-cover" alt="" />
+                  <div class="h-12 w-12 shrink-0 flex items-center justify-center rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold text-sm">
+                    {{ getInitials(appt.doctor) }}
                   </div>
                   <div class="flex flex-1 flex-col min-w-0">
                     <span class="font-bold text-sm truncate">{{ appt.doctor }}</span>
