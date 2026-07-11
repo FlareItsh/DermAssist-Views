@@ -243,7 +243,7 @@ export const useAppNotifications = () => {
           id: `appt-declined-${appt.id}`,
           title: 'Appointment Declined',
           description: `Your ${appt.info} appointment request was declined. You can send a new referral or message the doctor.`,
-          time: 'Recently',
+          time: appt.completed_at ? formatRelativeTime(appt.completed_at) : 'Recently',
           icon: 'material-symbols:cancel-rounded',
           color: 'text-red-500',
           to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
@@ -271,7 +271,7 @@ export const useAppNotifications = () => {
           id: `appeal-${appeal.uuid}`,
           title: 'New Medical Appeal',
           description: `Dr. ${appeal.user.last_name} suggested "${appeal.suggested_label}" instead of "${appeal.diagnosis_label}". Reason: ${appeal.description}`,
-          time: 'New',
+          time: appeal.created_at ? formatRelativeTime(appeal.created_at) : 'New',
           icon: 'material-symbols:report-outline',
           color: 'text-red-500',
           to: '/admin/moderation/verification'
