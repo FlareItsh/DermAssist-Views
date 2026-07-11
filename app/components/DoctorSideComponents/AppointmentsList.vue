@@ -46,6 +46,14 @@ const handleAddToPriority = (apptId: string) => {
 const goToChat = (uuid: string) => {
   if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
 }
+
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 </script>
 
 <template>
@@ -85,8 +93,8 @@ const goToChat = (uuid: string) => {
             :alt="patient.name"
             class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
-          <div v-else class="h-full w-full flex items-center justify-center bg-primary/5">
-             <Icon name="solar:user-circle-bold" class="text-4xl text-primary/20" />
+          <div v-else class="h-full w-full flex items-center justify-center bg-primary/5 text-primary font-bold text-2xl">
+             {{ getInitials(patient.name) }}
           </div>
           <!-- Urgent badge -->
           <div

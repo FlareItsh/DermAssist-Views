@@ -32,6 +32,14 @@ const goToChat = (uuid: string) => {
   if (uuid) navigateTo(`/doctor/messages/${uuid}`)
 }
 
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 const goToCompleteAppointment = (uuid: string) => {
   if (uuid) navigateTo(`/doctor/messages/${uuid}?complete=1`)
 }
@@ -58,8 +66,8 @@ const conditionColor = (condition: string) => {
         <!-- Avatar -->
         <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-200">
           <img v-if="patient.avatar" :src="patient.avatar" :alt="patient.name" class="h-full w-full object-cover" />
-          <div v-else class="h-full w-full flex items-center justify-center bg-primary/5">
-            <Icon name="solar:user-circle-bold" class="text-2xl text-primary/20" />
+          <div v-else class="h-full w-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg">
+            {{ getInitials(patient.name) }}
           </div>
         </div>
 

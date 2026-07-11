@@ -23,7 +23,7 @@ const filteredAppointments = computed(() => {
     date: a.date ? new Date(a.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'TBD',
     type: a.purpose ? 'Follow-up' : 'Consultation',
     purpose: a.purpose,
-    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : null,
     conversation_uuid: a.conversation_uuid
   }))
 
@@ -34,6 +34,14 @@ const filteredAppointments = computed(() => {
     appt.condition.toLowerCase().includes(query)
   )
 })
+
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 
 const goToChat = (uuid: string) => {
   if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
@@ -84,8 +92,11 @@ const goToChat = (uuid: string) => {
             </div>
 
             <div class="flex items-center gap-4">
-              <div class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50">
+              <div v-if="appt.avatar" class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50 shrink-0">
                 <img :src="appt.avatar" class="h-full w-full object-cover" />
+              </div>
+              <div v-else class="h-14 w-14 flex items-center justify-center rounded-2xl border-2 border-primary/20 bg-primary/5 text-primary font-bold text-base shrink-0">
+                {{ getInitials(appt.patientName) }}
               </div>
               <div class="flex flex-col">
                 <h3 class="font-bold text-xl">{{ appt.patientName }}</h3>

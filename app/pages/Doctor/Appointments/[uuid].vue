@@ -27,6 +27,14 @@
       day: 'numeric'
     })
   })
+
+  const getInitials = (name: string): string => {
+    if (!name) return ''
+    const cleanName = name.replace(/^Dr\.\s+/i, '')
+    const parts = cleanName.trim().split(/\s+/)
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
 </script>
 
 <template>
@@ -57,11 +65,14 @@
       
       <!-- Patient Information Card -->
       <div class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm flex items-start gap-6">
-        <div class="h-24 w-24 rounded-2xl overflow-hidden border-2 border-indigo-100 bg-gray-50 shrink-0">
+        <div v-if="appointment.diagnosis_image" class="h-24 w-24 rounded-2xl overflow-hidden border-2 border-indigo-100 bg-gray-50 shrink-0">
            <img 
-              :src="appointment.diagnosis_image ? getStorageUrl(appointment.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + appointment.id" 
+              :src="getStorageUrl(appointment.diagnosis_image)" 
               class="h-full w-full object-cover" 
             />
+        </div>
+        <div v-else class="h-24 w-24 flex items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-50 text-indigo-600 font-bold text-2xl shrink-0">
+           {{ getInitials(appointment.doctor) }}
         </div>
         <div class="flex-1 space-y-4">
           <div>

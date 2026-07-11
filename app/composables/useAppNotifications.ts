@@ -32,17 +32,32 @@ export const useAppNotifications = () => {
     key: 'admin-appeals'
   })
 
-  const isPatientProfileIncomplete = computed(() => {
-    if (!userProfile.value || userRole.value !== 'patient') return false
+  const missingPatientFields = computed(() => {
+    if (!userProfile.value || userRole.value !== 'patient') return []
     const u = userProfile.value
-    return !u.city || !u.province || !u.age || u.age == 0 || !u.gender || u.gender === ''
+    const fields: string[] = []
+    if (!u.city) fields.push('City')
+    if (!u.province) fields.push('Province')
+    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.gender || u.gender === '') fields.push('Gender')
+    return fields
   })
 
-  const isDoctorProfileIncomplete = computed(() => {
-    if (!userProfile.value || userRole.value !== 'doctor') return false
+  const missingDoctorFields = computed(() => {
+    if (!userProfile.value || userRole.value !== 'doctor') return []
     const u = userProfile.value
-    return !u.city || !u.province || !u.age || u.age == 0 || !u.gender || u.gender === '' || !u.affiliation || !u.prc_number
+    const fields: string[] = []
+    if (!u.city) fields.push('City')
+    if (!u.province) fields.push('Province')
+    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.gender || u.gender === '') fields.push('Gender')
+    if (!u.affiliation) fields.push('Affiliation')
+    if (!(u.prc_number || u.prcNumber)) fields.push('PRC Number')
+    return fields
   })
+
+  const isPatientProfileIncomplete = computed(() => missingPatientFields.value.length > 0)
+  const isDoctorProfileIncomplete = computed(() => missingDoctorFields.value.length > 0)
 
   const profileRoute = computed(() => {
     if (userRole.value === 'doctor') return '/doctor/profile'
@@ -89,7 +104,7 @@ export const useAppNotifications = () => {
       list.push({
         id: 'profile-incomplete-patient',
         title: 'Complete Your Profile',
-        description: 'Add your location, age, and gender so doctors can better assist you.',
+        description: `Please add your missing profile information: ${missingPatientFields.value.join(', ')} so doctors can better assist you.`,
         time: 'Action needed',
         icon: 'solar:user-id-linear',
         color: 'text-red-500',
@@ -101,7 +116,7 @@ export const useAppNotifications = () => {
       list.push({
         id: 'profile-incomplete-doctor',
         title: 'Complete Your Doctor Profile',
-        description: 'Your profile is missing required fields (location, age, gender, affiliation, or PRC number). Complete it to appear in patient searches.',
+        description: `Your profile is missing required fields: ${missingDoctorFields.value.join(', ')}. Complete them to appear in patient searches.`,
         time: 'Action needed',
         icon: 'solar:user-id-linear',
         color: 'text-red-500',
@@ -269,12 +284,18 @@ export const useAppNotifications = () => {
   
   const notifications = computed(() => {
     const arr = dismissedNotifs.value || []
-    return baseNotifications.value.filter(n => !arr.includes(n.id))
+    return baseNotifications.value.filter(n => {
+      if (n.id === 'profile-incomplete-patient' || n.id === 'profile-incomplete-doctor') return true
+      return !arr.includes(n.id)
+    })
   })
   
   const unreadNotifications = computed(() => {
     const read = readNotifs.value || []
-    return notifications.value.filter(n => !read.includes(n.id))
+    return notifications.value.filter(n => {
+      if (n.id === 'profile-incomplete-patient' || n.id === 'profile-incomplete-doctor') return true
+      return !read.includes(n.id)
+    })
   })
 
   return {
@@ -289,6 +310,8 @@ export const useAppNotifications = () => {
     fetchAppointments,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,
+    missingPatientFields,
+    missingDoctorFields,
     profileRoute
   }
 }

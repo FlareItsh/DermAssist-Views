@@ -20,6 +20,7 @@ const {
 } = usePhLocations()
 
 const { getStorageUrl } = useStorage()
+const { missingDoctorFields, refreshProfile } = useAppNotifications()
 
 const codes = reactive({
   region: '',
@@ -279,6 +280,7 @@ const submitProfile = async () => {
     await userService.update(useCookie('user_uuid').value as string, form)
     isSuccess.value = true
     await refresh()
+    await refreshProfile()
 
     // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
     const userName = useCookie('user_name')
@@ -321,6 +323,16 @@ const logout = () => {
         <span class="text-sm font-bold uppercase tracking-wider">Verified Professional</span>
       </div>
     </div>
+
+    <!-- Profile Completion Alert -->
+    <AppAlert
+      v-if="missingDoctorFields.length > 0"
+      title="Profile Setup Required"
+      type="error"
+    >
+      Your profile is incomplete. Please fill out the following fields to complete registration: 
+      <span class="font-bold underline">{{ missingDoctorFields.join(', ') }}</span>.
+    </AppAlert>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <!-- Left: Profile Preview -->
