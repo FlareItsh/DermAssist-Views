@@ -28,8 +28,22 @@ export const useAdminAppeals = () => {
   const isLoadingAppeals = useState<boolean>('admin-appeals-loading', () => false)
   const appealsError = useState<string | null>('admin-appeals-error', () => null)
 
+  const filterStatus = useState<string>('admin-appeals-filter', () => 'pending')
+
+  const resolvedAppealUuids = useCookie<string[]>('admin_resolved_appeals', {
+    default: () => [],
+    maxAge: 60 * 60 * 24 * 365
+  })
+
+  const filteredAppeals = computed(() => {
+    if (filterStatus.value === 'resolved') {
+      return appeals.value.filter(a => resolvedAppealUuids.value.includes(a.uuid))
+    }
+    return appeals.value.filter(a => !resolvedAppealUuids.value.includes(a.uuid))
+  })
+
   const sortedAppeals = computed(() => {
-    return [...appeals.value].sort((a, b) => {
+    return [...filteredAppeals.value].sort((a, b) => {
       return new Date(getAppealTimestamp(b) || 0).getTime() - new Date(getAppealTimestamp(a) || 0).getTime()
     })
   })
@@ -44,7 +58,7 @@ export const useAdminAppeals = () => {
   })
 
   const hasUnseenAppeals = computed(() => {
-    return Boolean(latestAppealSignature.value && seenAppealSignature.value !== latestAppealSignature.value)
+    return Boolean(latestAppealSignature.value && seenAppealSignature.value !== latestAppealSignature.value && filterStatus.value === 'pending')
   })
 
   const fetchAppeals = async () => {
@@ -62,7 +76,19 @@ export const useAdminAppeals = () => {
   }
 
   const markAppealsSeen = () => {
-    seenAppealSignature.value = latestAppealSignature.value || null
+    if (filterStatus.value === 'pending') {
+      seenAppealSignature.value = latestAppealSignature.value || null
+    }
+  }
+
+  const resolveAppeal = (uuid: string) => {
+    if (!resolvedAppealUuids.value.includes(uuid)) {
+      resolvedAppealUuids.value.push(uuid)
+    }
+  }
+  
+  const restoreAppeal = (uuid: string) => {
+    resolvedAppealUuids.value = resolvedAppealUuids.value.filter(id => id !== uuid)
   }
 
   return {
@@ -70,8 +96,11 @@ export const useAdminAppeals = () => {
     sortedAppeals,
     isLoadingAppeals,
     appealsError,
+    filterStatus,
     hasUnseenAppeals,
     fetchAppeals,
-    markAppealsSeen
+    markAppealsSeen,
+    resolveAppeal,
+    restoreAppeal
   }
 }

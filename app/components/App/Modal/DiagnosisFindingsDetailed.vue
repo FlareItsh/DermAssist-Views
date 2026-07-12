@@ -787,6 +787,70 @@
         </div>
       </div>
 
+      <!-- Medical Appeal Card (Doctor Only) -->
+      <div
+        v-if="props.role === 'doctor'"
+        class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm mb-6"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-bold">Disagree with the results?</h3>
+            <p class="mt-1 text-sm text-gray-500">File an appeal to suggest a different diagnosis.</p>
+          </div>
+          <AppButton
+            v-if="!isAppealOpen"
+            variant="outline"
+            @click="isAppealOpen = true"
+            class="rounded-xl px-4 py-2 font-bold"
+          >
+            File Appeal
+          </AppButton>
+        </div>
+
+        <div v-if="isAppealOpen" class="animate-in slide-in-from-top-2 flex flex-col gap-4 duration-300">
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Suggested Diagnosis</label>
+            <input
+              v-model="suggestedLabel"
+              type="text"
+              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-primary transition-all outline-none"
+              placeholder="Enter correct diagnosis..."
+            />
+          </div>
+          <div class="flex flex-col gap-2">
+            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Reason / Description (Optional)</label>
+            <textarea
+              v-model="appealDescription"
+              rows="3"
+              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-primary transition-all outline-none resize-none"
+              placeholder="Provide details on why you disagree..."
+            ></textarea>
+          </div>
+
+          <div v-if="appealError" class="text-sm font-medium text-red-500">{{ appealError }}</div>
+          <div v-if="appealSuccess" class="text-sm font-medium text-green-500">Appeal submitted successfully!</div>
+
+          <div class="flex items-center justify-end gap-3 mt-2">
+            <AppButton
+              variant="ghost"
+              @click="isAppealOpen = false"
+              class="rounded-xl font-bold text-gray-500"
+              :disabled="isSubmittingAppeal"
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              @click="submitAppeal"
+              :loading="isSubmittingAppeal"
+              :disabled="!suggestedLabel"
+              class="bg-primary text-card rounded-xl px-6 py-2 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+            >
+              Submit Appeal
+            </AppButton>
+          </div>
+        </div>
+      </div>
+
 
       <div
         v-if="props.role !== 'doctor'"

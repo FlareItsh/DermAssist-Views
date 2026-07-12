@@ -512,12 +512,12 @@ onMounted(() => {
             </button>
             <button
               @click="sendDiagnosis"
-              :disabled="isSending || !nearestDoctor"
+              :disabled="isSending || !nearestDoctor || isHealthyState"
               class="w-full py-3 bg-primary text-white text-sm font-bold rounded-xl shadow-md hover:bg-primary/95 active:scale-95 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Icon v-if="isSending" name="svg-spinners:180-ring" size="16" />
               <Icon v-else name="solar:plain-bold-duotone" size="16" />
-              <span>Send Message</span>
+              <span>{{ isHealthyState ? 'Invalid Scan' : 'Send Message' }}</span>
             </button>
           </div>
         </div>
