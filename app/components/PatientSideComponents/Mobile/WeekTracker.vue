@@ -45,6 +45,37 @@ const weekDays = computed(() => {
     }
   })
 })
+const visibleWeekStart = computed(() => {
+  if (weekDays.value.length === 0) return new Date()
+  const firstDay = new Date(weekDays.value[0].dateStr)
+  firstDay.setHours(0, 0, 0, 0)
+  return firstDay
+})
+
+const visibleWeekEnd = computed(() => {
+  if (weekDays.value.length === 0) return new Date()
+  const lastDay = new Date(weekDays.value[6].dateStr)
+  lastDay.setHours(23, 59, 59, 999)
+  return lastDay
+})
+
+const hasApptsBefore = computed(() => {
+  const start = visibleWeekStart.value
+  return appointments.value.some(appt => {
+    if (!appt.date) return false
+    const apptDate = new Date(appt.date)
+    return apptDate < start
+  })
+})
+
+const hasApptsAfter = computed(() => {
+  const end = visibleWeekEnd.value
+  return appointments.value.some(appt => {
+    if (!appt.date) return false
+    const apptDate = new Date(appt.date)
+    return apptDate > end
+  })
+})
 </script>
 
 <template>
@@ -55,41 +86,49 @@ const weekDays = computed(() => {
     <!-- Week Day Tracker -->
     <div class="flex items-center justify-between gap-1">
       <!-- Prev week chevron button -->
-      <button @click="prevWeek" class="text-gray-400 hover:text-primary transition-colors shrink-0 p-1">
+      <button @click="prevWeek" class="text-gray-400 hover:text-primary transition-colors shrink-0 p-1 relative">
         <Icon name="heroicons:chevron-left-20-solid" size="18" />
+        <span v-if="hasApptsBefore" class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
       </button>
 
-      <!-- Scrollable row of 7 days -->
-      <div class="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-hide snap-x snap-mandatory flex-1 justify-between">
+      <!-- Row of 7 days (non-scrollable, fits on screen) -->
+      <div class="flex items-center gap-1.5 overflow-hidden flex-1 justify-between">
         <div
           v-for="day in weekDays"
           :key="day.dateStr"
           @click="toggleSelectDate(day.dateStr)"
-          class="flex flex-col items-center gap-1 shrink-0 w-11 snap-start cursor-pointer"
+          class="flex flex-col items-center gap-1 shrink-0 w-8 cursor-pointer"
         >
           <span class="text-[9px] font-bold uppercase" :class="selectedDate === day.dateStr ? 'text-primary' : 'text-gray-400'">{{ day.label }}</span>
           <div
             class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all"
             :class="[
-              selectedDate === day.dateStr ? 'bg-primary text-white shadow-md shadow-primary/30' : '',
-              day.hasAppt && selectedDate !== day.dateStr ? 'bg-primary/10 text-primary font-black' : '',
-              day.isToday && selectedDate !== day.dateStr ? 'border-2 border-primary text-primary' : '',
+              day.hasAppt ? 'bg-primary text-white shadow-md shadow-primary/30' : '',
+              day.isToday && !day.hasAppt ? 'border-2 border-primary text-primary' : '',
+              !day.hasAppt && !day.isToday && selectedDate === day.dateStr ? 'bg-gray-100 text-gray-700' : '',
               !day.hasAppt && !day.isToday && selectedDate !== day.dateStr ? 'text-gray-500' : ''
             ]"
           >
             {{ day.num }}
           </div>
-          <!-- Dot for today -->
-          <div
-            class="h-1 w-1 rounded-full"
-            :class="day.isToday ? 'bg-primary' : 'bg-transparent'"
-          ></div>
+          <!-- Indicator dots -->
+          <div class="flex gap-0.5 h-1.5 items-center justify-center">
+            <div
+              v-if="day.isToday"
+              class="h-1 w-1 rounded-full bg-primary"
+            ></div>
+            <div
+              v-if="day.hasAppt"
+              class="h-1 w-1 rounded-full bg-amber-500"
+            ></div>
+          </div>
         </div>
       </div>
 
       <!-- Next week chevron button -->
-      <button @click="nextWeek" class="text-gray-400 hover:text-primary transition-colors shrink-0 p-1">
+      <button @click="nextWeek" class="text-gray-400 hover:text-primary transition-colors shrink-0 p-1 relative">
         <Icon name="heroicons:chevron-right-20-solid" size="18" />
+        <span v-if="hasApptsAfter" class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
       </button>
     </div>
   </div>

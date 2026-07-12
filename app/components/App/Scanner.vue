@@ -62,16 +62,39 @@
 
   const startCamera = async () => {
     isCameraOn.value = true
+    errorMessage.value = ''
     await nextTick() 
+    
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      errorMessage.value = 'Camera API not supported. You must access this app via HTTPS (secure connection) to use the camera.'
+      isCameraOn.value = false
+      return
+    }
+
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' }
-      })
-      if (videoRef.value) videoRef.value.srcObject = stream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'user' } }
+        })
+      } catch (constraintErr) {
+        console.warn('Camera constraints failed, falling back to simple video stream:', constraintErr)
+        stream = await navigator.mediaDevices.getUserMedia({ video: true })
+      }
+
+      if (videoRef.value) {
+        videoRef.value.srcObject = stream
+        // Explicitly trigger play to bypass iOS autoplay restrictions
+        try {
+          await videoRef.value.play()
+        } catch (playErr) {
+          console.warn('Video auto-play blocked, playing manually:', playErr)
+        }
+      }
       startQualityLoop()
     } catch (err: any) {
       console.error('Camera access error:', err)
-      errorMessage.value = 'Could not access the camera.'
+      errorMessage.value = `Camera access error: ${err.name} (${err.message})`
+      isCameraOn.value = false // Reset state on error to keep UI responsive
     }
   }
 
@@ -350,7 +373,7 @@
           </div>
 
           <img v-if="previewImage" :src="previewImage" class="absolute inset-0 h-full w-full rounded-4xl object-contain p-2 bg-black transition-opacity duration-500" :class="{ 'opacity-50': isScanning }" />
-          <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline class="h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
+          <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline muted class="h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
           <div v-if="!isCameraOn && !previewImage" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 gap-4 p-4 text-center">
              <Icon name="material-symbols:videocam-off-outline-rounded" class="text-6xl sm:text-8xl opacity-20" />
              <p class="text-lg sm:text-xl font-normal opacity-50">Camera access is paused</p>

@@ -28,7 +28,9 @@ export const useAppointments = () => {
   const pendingAppointments = useState<Appointment[]>('shared_pending_appointments_list', () => [])
   const declinedAppointments = useState<{ id: string; doctor: string; info: string; conversation_uuid?: string }[]>('shared_declined_appointments_list', () => [])
   const completedAppointments = useState<Appointment[]>('shared_completed_appointments_list', () => [])
-  const selectedDate = useState<string | null>('appointments_selected_date', () => null)
+  const selectedDate = useState<string | null>('appointments_selected_date', () => {
+    return new Date().toISOString().split('T')[0]
+  })
   const pending = ref(false)
 
   const fetchAppointments = async () => {
@@ -37,7 +39,7 @@ export const useAppointments = () => {
       pendingAppointments.value = []
       declinedAppointments.value = []
       completedAppointments.value = []
-      selectedDate.value = null
+      selectedDate.value = new Date().toISOString().split('T')[0]
       return
     }
     
@@ -122,7 +124,7 @@ export const useAppointments = () => {
     pendingAppointments.value = []
     declinedAppointments.value = []
     completedAppointments.value = []
-    selectedDate.value = null
+    selectedDate.value = new Date().toISOString().split('T')[0]
     localUserUuid.value = userUuid.value
     fetchAppointments()
   }
@@ -134,7 +136,7 @@ export const useAppointments = () => {
       pendingAppointments.value = []
       declinedAppointments.value = []
       completedAppointments.value = []
-      selectedDate.value = null
+      selectedDate.value = new Date().toISOString().split('T')[0]
       if (newUuid) fetchAppointments()
     }
   })

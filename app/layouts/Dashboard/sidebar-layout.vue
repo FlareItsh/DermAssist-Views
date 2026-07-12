@@ -19,16 +19,26 @@
       <main
         class="flex-1"
         :class="[
-          isChatThread ? 'overflow-hidden pb-0 md:pb-5 bg-card md:bg-transparent' : 'overflow-y-auto pb-24 md:pb-5',
-          userRole === 'patient' ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5' : '-mt-4 p-5'
+          isChatPage ? 'overflow-hidden h-full pb-0 bg-card' : 'overflow-y-auto pb-24 md:pb-5',
+          userRole === 'patient' 
+            ? (isChatPage 
+                ? (isChatThread ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full' : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full')
+                : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5')
+            : '-mt-4 p-5'
         ]"
         id="main-content"
       >
-        <!-- Mobile Header (only on mobile viewports for patients) -->
-        <div class="block md:hidden sticky top-0 z-50" v-if="userRole === 'patient'">
+        <!-- Mobile Header (only on mobile viewports for patients, except in active chat threads) -->
+        <div class="block md:hidden relative z-50" v-if="userRole === 'patient' && !isChatThread">
           <PatientSideComponentsMobileHeroHeader />
         </div>
-        <div class="mx-auto" :class="userRole === 'patient' ? 'px-5 md:p-0' : ''">
+        <div 
+          class="mx-auto" 
+          :class="[
+            userRole === 'patient' ? 'px-5 md:p-0' : '',
+            isChatPage ? 'h-full min-h-0' : 'min-h-[calc(100vh+200px)]'
+          ]"
+        >
           <slot />
         </div>
       </main>
@@ -169,6 +179,10 @@
 
   const isChatThread = computed(() => {
     return /^\/(patient|doctor)\/messages\/[a-f0-9-]+/i.test(route.path)
+  })
+
+  const isChatPage = computed(() => {
+    return /^\/(patient|doctor)\/messages/i.test(route.path)
   })
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)

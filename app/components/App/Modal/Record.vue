@@ -97,6 +97,7 @@
 
   const currentDisease = computed(() => diseases[activeDisease.value])
   const isImageExpanded = ref(false)
+  const { getStorageUrl } = useStorage()
 </script>
 
 <template>
@@ -217,7 +218,7 @@
       <div class="flex w-full flex-col items-center">
         <h2 class="mb-8 text-center text-2xl font-bold">Findings</h2>
         <div class="flex w-full flex-col items-center gap-8">
-          <img v-if="record.image_path" :src="`http://localhost:8000/storage/${record.image_path}`" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border cursor-pointer hover:opacity-90 transition-opacity" alt="Scan Image" @click="isImageExpanded = true" />
+          <img v-if="record.image_path" :src="getStorageUrl(record.image_path)" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border cursor-pointer hover:opacity-90 transition-opacity" alt="Scan Image" @click="isImageExpanded = true" />
           
           <AppDonutChart
             :data="chartData"
@@ -309,7 +310,7 @@
             class="text-3xl text-white"
           />
         </AppButton>
-        <img :src="`http://localhost:8000/storage/${record.image_path}`" class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" alt="Scan Image Expanded" @click.stop />
+        <img :src="getStorageUrl(record.image_path)" class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" alt="Scan Image Expanded" @click.stop />
       </div>
     </Transition>
   </Teleport>

@@ -24,8 +24,8 @@
       </div>
     </div>
 
-    <!-- Mobile Layout -->
-    <div class="mobile-only -mx-5">
+    <!-- Mobile Layout - fullscreen, no scroll -->
+    <div class="mobile-only fixed inset-0 z-40 bg-black">
       <PatientSideComponentsMobileScanner />
     </div>
   </div>

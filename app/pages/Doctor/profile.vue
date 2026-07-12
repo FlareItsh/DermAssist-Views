@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 // Doctors might have verification data
-const { data: response, refresh } = await userService.useShow(useCookie('user_uuid').value as string, {
+const { data: response, refresh } = userService.useShow(useCookie('user_uuid').value as string, {
   key: `userProfile-${useCookie('user_uuid').value}`
 })
 // Laravel JsonResource wraps single resources under `data` — unwrap at source

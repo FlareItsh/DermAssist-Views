@@ -5,7 +5,7 @@
 </script>
 
 <template>
-  <div class="flex h-[calc(100dvh-9rem)] md:h-[calc(100vh-8rem)] gap-3 mt-4 md:mt-0">
+  <div class="flex h-full gap-3 mt-0">
     <AppChatConversationList
       base-path="/Doctor/Messages"
       class="flex-1 md:flex-none"

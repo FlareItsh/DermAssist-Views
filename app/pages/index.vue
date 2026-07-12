@@ -1,8 +1,8 @@
 <template>
-  <div class="mb-12 flex flex-col justify-center gap-12 px-5 md:gap-20 md:px-12">
+  <div class="mb-12 flex flex-col justify-center gap-5 px-5 md:gap-20 md:px-12">
     <!-- Hero Section -->
     <div>
-      <h1 class="font-barlow mt-8 text-center text-sm tracking-[1px] md:mt-12 md:text-5xl md:tracking-[5px]">
+      <h1 class="font-barlow mt-2 text-center text-[11px] tracking-[1px] md:mt-12 md:text-5xl md:tracking-[5px]">
         AI-Powered Skin Condition Recognition System
       </h1>
       <NuxtImg
@@ -99,31 +99,25 @@
         <h1 class="text-secondary text-base font-semibold md:text-5xl">Contact for Reports & Feedback</h1>
       </div>
       <div class="flex flex-col gap-6 md:flex-row md:gap-10">
-        <NuxtImg
-          src="/images/contact-us-img.png"
-          class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
-          alt="contact"
-        />
-
         <div class="bg-card flex w-full flex-col rounded-[25px] p-8 md:w-1/2 md:p-15 md:px-25">
           <h1 class="mb-2 text-base font-semibold md:text-3xl">Get in Touch</h1>
           <p class="mb-6 text-xs text-gray-500">
             Have questions, feedback, or need assistance? We're here to help!
           </p>
 
-          <p class="mb-1 text-sm text-gray-500">Name</p>
+          <p class="mb-1 text-[9px] text-gray-500">Name</p>
           <input
             type="text"
             class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
           />
 
-          <p class="mb-1 text-sm text-gray-500">Email</p>
+          <p class="mb-1 text-[9px] text-gray-500">Email</p>
           <input
             type="email"
             class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
           />
 
-          <p class="mb-1 text-sm text-gray-500">Message</p>
+          <p class="mb-1 text-[9px] text-gray-500">Message</p>
           <textarea
             class="bg-primary-light ring-secondary h-32 resize-none rounded-xl px-4 py-2 outline-none focus:ring-1"
           ></textarea>
@@ -131,17 +125,23 @@
           <div class="mt-4 flex items-center justify-start gap-2">
             <input
               type="checkbox"
-              class="accent-secondary h-4 w-4 cursor-pointer"
+              class="accent-secondary h-3 w-3 cursor-pointer"
             />
-            <p class="text-sm text-gray-500">I agree to the terms and conditions</p>
+            <p class="text-[9px] text-gray-500">I agree to the terms and conditions</p>
           </div>
 
           <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-            class="bg-secondary hover:bg-opacity-90 mt-8 rounded-xl py-3 font-semibold text-white transition-all md:mt-20"
+            class="bg-secondary text-[12px] hover:bg-opacity-90 mt-5 rounded-xl py-2 font-semibold text-white transition-all md:mt-20"
           >
             Send Message
           </AppButton>
         </div>
+
+        <NuxtImg
+          src="/images/contact-us-img.png"
+          class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
+          alt="contact"
+        />
       </div>
     </div>
   </div>
