@@ -1,10 +1,5 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <!-- Mobile Header (only on mobile viewports for patients) -->
-    <div class="block md:hidden" v-if="userRole === 'patient'">
-      <PatientMobileComponentsHeroHeader />
-    </div>
-
     <!-- Desktop Navbar (hidden on mobile) -->
     <div class="hidden md:block">
       <AppNavbar
@@ -22,18 +17,25 @@
       </div>
 
       <main
-        class="flex-1 overflow-y-auto p-5 pb-24 md:pb-5"
-        :class="userRole === 'patient' ? 'mt-0 pt-0 md:pt-5 md:-mt-4' : '-mt-4'"
+        class="flex-1"
+        :class="[
+          isChatThread ? 'overflow-hidden pb-0 md:pb-5 bg-card md:bg-transparent' : 'overflow-y-auto pb-24 md:pb-5',
+          userRole === 'patient' ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5' : '-mt-4 p-5'
+        ]"
         id="main-content"
       >
-        <div class="mx-auto">
+        <!-- Mobile Header (only on mobile viewports for patients) -->
+        <div class="block md:hidden sticky top-0 z-50" v-if="userRole === 'patient'">
+          <PatientSideComponentsMobileHeroHeader />
+        </div>
+        <div class="mx-auto" :class="userRole === 'patient' ? 'px-5 md:p-0' : ''">
           <slot />
         </div>
       </main>
     </div>
 
     <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
-    <AppMobileBottomNav v-if="userRole === 'patient'" />
+    <AppMobileBottomNav v-if="userRole === 'patient' && !isChatThread" />
   </div>
 </template>
 
@@ -165,6 +167,10 @@
     return active || { title: '', breadcrumbs: [] }
   })
 
+  const isChatThread = computed(() => {
+    return /^\/(patient|doctor)\/messages\/[a-f0-9-]+/i.test(route.path)
+  })
+
   const currentPageTitle = computed(() => activeItemInfo.value.title)
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
@@ -176,9 +182,18 @@
 
   watch(
     () => route.path,
-    path => {
+    async path => {
       if (path.startsWith('/admin/appeals')) {
         markAppealsSeen()
+      }
+      
+      // Scroll to top on page change (only on client-side)
+      if (typeof document !== 'undefined') {
+        await nextTick()
+        const mainContent = document.getElementById('main-content')
+        if (mainContent) {
+          mainContent.scrollTop = 0
+        }
       }
     },
     { immediate: true }

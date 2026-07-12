@@ -520,11 +520,11 @@
 <template>
   <div class="bg-card flex h-full flex-col">
     <!-- Header -->
-    <div class="border-border flex items-center justify-between border-b px-8 py-6">
+    <div class="bg-card border-border flex items-center justify-between border-b px-3 py-3 md:px-8 md:py-6">
       <div class="flex items-center gap-4">
         <NuxtLink
           :to="$route.path.replace(/\/[^/]+$/, '')"
-          class="text-foreground/40 hover:text-foreground -ml-2 flex items-center transition-colors lg:hidden"
+          class="text-foreground/40 hover:text-foreground mr-1 flex items-center transition-colors md:hidden"
         >
           <Icon name="heroicons:arrow-left-20-solid" class="text-2xl" />
         </NuxtLink>
@@ -542,7 +542,7 @@
             {{ otherPersonName.charAt(0) }}
           </div>
         </div>
-        <h2 class="text-foreground text-2xl font-bold">{{ otherPersonName }}</h2>
+        <h2 class="text-foreground text-lg md:text-2xl font-bold truncate max-w-[150px] md:max-w-none">{{ otherPersonName }}</h2>
       </div>
 
       <!-- Header actions menu -->
@@ -646,7 +646,7 @@
     <div
       ref="messagesContainer"
       @scroll="handleScroll"
-      class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto p-8"
+      class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 md:p-8"
     >
       <!-- Loading older messages indicator -->
       <div v-if="isFetchingOlder" class="flex justify-center py-2">
@@ -886,7 +886,7 @@
     </div>
 
     <!-- Input Area -->
-    <div class="p-8 pt-0">
+    <div class="py-2 px-3 md:p-8 md:pt-0 bg-card md:bg-transparent border-t md:border-0 border-border">
       <!-- File Preview Area -->
       <div v-if="selectedFiles.length > 0" class="mb-4 flex flex-wrap gap-3">
         <div 
@@ -928,10 +928,10 @@
             v-model="messageTerm"
             placeholder="Type a message..."
             @keydown="handleKeydown"
-            class="bg-foreground/5 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-14 w-full resize-none rounded-2xl border border-transparent px-6 pr-24 py-4 text-base transition-all outline-none focus:ring-4"
+            class="bg-foreground/5 mb-3 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-11 md:h-14 w-full resize-none rounded-2xl border border-transparent pl-4 pr-24 py-2.5 md:py-4 text-sm md:text-base transition-all outline-none focus:ring-4"
           ></textarea>
 
-          <div class="absolute top-1/2 right-4 -translate-y-1/2 flex items-center gap-2">
+          <div class="absolute right-4 -mb-1 -translate-y-1/2 flex items-center gap-2">
             <!-- Attachment Button -->
             <button
               @click="triggerFileInput"

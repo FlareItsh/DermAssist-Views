@@ -26,7 +26,7 @@
 
     <!-- Mobile Layout -->
     <div class="mobile-only -mx-5">
-      <PatientMobileComponentsScanner />
+      <PatientSideComponentsMobileScanner />
     </div>
   </div>
 </template>

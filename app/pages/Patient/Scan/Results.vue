@@ -58,7 +58,7 @@ onMounted(() => {
 
     <!-- Mobile Layout -->
     <div class="mobile-only min-h-screen bg-gray-50 -mx-5 px-5">
-      <PatientMobileComponentsScanResults />
+      <PatientSideComponentsMobileScanResults />
     </div>
   </div>
 </template>

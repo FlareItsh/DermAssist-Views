@@ -191,13 +191,13 @@
     <!-- ═══════════════════════════════════════════════
          MOBILE LAYOUT (only on phones/tablets)
          ═══════════════════════════════════════════════ -->
-    <div class="mobile-only min-h-screen bg-gray-50 -mx-5 px-5">
+    <div class="mobile-only min-h-screen -mx-5 px-5">
       <!-- ─── Scrollable Body ─── -->
       <div class="flex flex-col gap-3 relative z-10">
 
         <!-- My Health Overview Card -->
         <h2 class="text-foreground text-lg font-bold mb-0.5 mt-4">My Health Overview</h2>
-        <PatientMobileComponentsWeekTracker />
+        <PatientSideComponentsMobileWeekTracker />
 
         <!-- Total Scans Card -->
         <div class="bg-primary rounded-3xl px-5 py-4">
@@ -243,10 +243,10 @@
         </div>
 
         <!-- Skin Conditions Accordion -->
-        <PatientMobileComponentsSkinConditionAccordion />
+        <PatientSideComponentsMobileSkinConditionAccordion />
 
         <!-- Doctors Nearby -->
-        <PatientMobileComponentsDoctorsNearby />
+        <PatientSideComponentsMobileDoctorsNearby />
 
         <!-- SaaS Promo -->
         <PatientSideComponentsSaaSPromotion class="rounded-3xl overflow-hidden mb-2" />
