@@ -192,8 +192,8 @@
     isNotificationsOpen.value = false
 
     // Auto-mark as read on click
-    if (typeof notif.id === 'string') {
-      const arr = readNotifs.value || []
+    if (notif.id !== undefined && notif.id !== null) {
+      const arr = [...(readNotifs.value || [])]
       if (!arr.includes(notif.id)) {
         arr.push(notif.id)
         readNotifs.value = arr
@@ -206,7 +206,7 @@
   }
 
   const handleNotificationDelete = (id: string | number) => {
-    const arr = dismissedNotifs.value || []
+    const arr = [...(dismissedNotifs.value || [])]
     if (!arr.includes(id)) {
       arr.push(id)
       dismissedNotifs.value = arr
@@ -214,7 +214,7 @@
   }
 
   const markAllNotificationsRead = () => {
-    const arr = readNotifs.value || []
+    const arr = [...(readNotifs.value || [])]
     notifications.value.forEach(n => {
       if (!arr.includes(n.id)) arr.push(n.id)
     })
@@ -456,6 +456,7 @@
                 <li v-for="notif in notifications" :key="notif.id">
                   <AppNotificationPreview
                     v-bind="notif"
+                    :is-read="readNotifs.includes(notif.id)"
                     @click="handleNotificationClick(notif)"
                     @delete="handleNotificationDelete(notif.id)"
                   />
@@ -464,12 +465,7 @@
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
-              <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-                class="text-card hover:text-foreground/40 w-full cursor-pointer py-2 text-sm font-bold transition-colors"
-                @click="navigateTo('/notifications'); isNotificationsOpen = false"
-              >
-                View all activity
-              </AppButton>
+              
             </div>
           </div>
         </Transition>

@@ -15,43 +15,51 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-8rem)] flex-col overflow-hidden bg-white rounded-[2.5rem] shadow-sm border border-gray-100">
-    <!-- Header -->
-    <header class="flex items-center justify-between border-b border-gray-100 px-10 py-4 shrink-0">
-      <div class="flex items-center gap-4">
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-          @click="navigateTo('/Patient/Scan')"
-          class="group flex items-center gap-2 text-gray-500 hover:text-primary transition-colors">
-          <div class="bg-gray-100 group-hover:bg-primary/10 flex h-9 w-9 items-center justify-center rounded-full transition-colors">
-             <Icon name="material-symbols:arrow-back-rounded" class="text-lg" />
-          </div>
-          <span class="font-bold text-sm">Back to Scanner</span>
-        </AppButton>
-      </div>
-      
-      <div class="flex items-center gap-6">
-        <div class="flex flex-col items-end">
-           <span class="text-[10px] font-black uppercase tracking-widest text-gray-400">Diagnosis ID</span>
-           <span class="text-xs font-mono font-bold text-gray-600">#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span>
+  <div>
+    <!-- Desktop Layout -->
+    <div class="desktop-only flex h-[calc(100vh-8rem)] flex-col overflow-hidden bg-white rounded-[2.5rem] shadow-sm border border-gray-100">
+      <!-- Header -->
+      <header class="flex items-center justify-between border-b border-gray-100 px-10 py-4 shrink-0">
+        <div class="flex items-center gap-4">
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            @click="navigateTo('/Patient/Scan')"
+            class="group flex items-center gap-2 text-gray-500 hover:text-primary transition-colors">
+            <div class="bg-gray-100 group-hover:bg-primary/10 flex h-9 w-9 items-center justify-center rounded-full transition-colors">
+               <Icon name="material-symbols:arrow-back-rounded" class="text-lg" />
+            </div>
+            <span class="font-bold text-sm">Back to Scanner</span>
+          </AppButton>
         </div>
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-          class="bg-primary/10 text-primary h-10 w-10 flex items-center justify-center rounded-xl hover:bg-primary/20 transition-colors">
-          <Icon name="material-symbols:share-rounded" class="text-xl" />
-        </AppButton>
-      </div>
-    </header>
+        
+        <div class="flex items-center gap-6">
+          <div class="flex flex-col items-end">
+             <span class="text-[10px] font-black uppercase tracking-widest text-gray-400">Diagnosis ID</span>
+             <span class="text-xs font-mono font-bold text-gray-600">#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span>
+          </div>
+          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            class="bg-primary/10 text-primary h-10 w-10 flex items-center justify-center rounded-xl hover:bg-primary/20 transition-colors">
+            <Icon name="material-symbols:share-rounded" class="text-xl" />
+          </AppButton>
+        </div>
+      </header>
 
-    <!-- Main Content -->
-    <main class="flex-1 min-h-0">
-      <AppModalDiagnosisFindingsDetailed 
-        v-if="currentDiagnosis"
-        role="patient"
-        :condition-name="currentDiagnosis?.label === 'None' ? 'None' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
-        :patient-name="userName"
-        :diagnosis-data="chartData"
-        :diagnosis-uuid="currentDiagnosis?.uuid"
-      />
-    </main>
+      <!-- Main Content -->
+      <main class="flex-1 min-h-0">
+        <AppModalDiagnosisFindingsDetailed 
+          v-if="currentDiagnosis"
+          role="patient"
+          :condition-name="currentDiagnosis?.label === 'None' ? 'None' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
+          :patient-name="userName"
+          :diagnosis-data="chartData"
+          :diagnosis-uuid="currentDiagnosis?.uuid"
+        />
+      </main>
+    </div>
+
+    <!-- Mobile Layout -->
+    <div class="mobile-only min-h-screen bg-gray-50 -mx-5 px-5">
+      <PatientSideComponentsMobileScanResults />
+    </div>
   </div>
 </template>
 
@@ -65,5 +73,16 @@ onMounted(() => {
 .page-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+@media (min-width: 768px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
 }
 </style>

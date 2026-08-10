@@ -3,20 +3,27 @@ definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
-const { appointments } = useAppointments()
+const { appointments, completedAppointments, fetchAppointments } = useAppointments()
 const { getStorageUrl } = useStorage()
 
 const { searchQuery } = useSearch()
+
+const showScheduleModal = ref(false)
+const activeTab = ref<'upcoming' | 'history'>('upcoming')
+
 const filteredAppointments = computed(() => {
-  const list = appointments.value.map(a => ({
+  const sourceList = activeTab.value === 'upcoming' ? appointments.value : completedAppointments.value
+
+  const list = sourceList.map(a => ({
     id: a.id,
     uuid: a.uuid,
     patientName: a.doctor, // other person's name
     condition: a.info,
     time: a.time || 'TBD',
     date: a.date ? new Date(a.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'TBD',
-    type: 'Consultation',
-    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
+    type: a.purpose ? 'Follow-up' : 'Consultation',
+    purpose: a.purpose,
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : null,
     conversation_uuid: a.conversation_uuid
   }))
 
@@ -28,6 +35,14 @@ const filteredAppointments = computed(() => {
   )
 })
 
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 const goToChat = (uuid: string) => {
   if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
 }
@@ -35,8 +50,25 @@ const goToChat = (uuid: string) => {
 
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
-    <div class="rounded-3xl flex justify-end items-center">
-      <AppButton variant="soft" rounded="both">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-1 bg-gray-100 p-1.5 rounded-2xl border border-gray-200/50">
+        <button
+          @click="activeTab = 'upcoming'"
+          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
+          :class="activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
+        >
+          Upcoming
+        </button>
+        <button
+          @click="activeTab = 'history'"
+          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
+          :class="activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
+        >
+          History
+        </button>
+      </div>
+
+      <AppButton variant="soft" rounded="both" @click="showScheduleModal = true">
         <Icon name="lucide:plus" class="mr-2" />
         New Schedule
       </AppButton>
@@ -60,8 +92,11 @@ const goToChat = (uuid: string) => {
             </div>
 
             <div class="flex items-center gap-4">
-              <div class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50">
+              <div v-if="appt.avatar" class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50 shrink-0">
                 <img :src="appt.avatar" class="h-full w-full object-cover" />
+              </div>
+              <div v-else class="h-14 w-14 flex items-center justify-center rounded-2xl border-2 border-primary/20 bg-primary/5 text-primary font-bold text-base shrink-0">
+                {{ getInitials(appt.patientName) }}
               </div>
               <div class="flex flex-col">
                 <h3 class="font-bold text-xl">{{ appt.patientName }}</h3>
@@ -94,4 +129,10 @@ const goToChat = (uuid: string) => {
       </div>
     </div>
   </div>
+
+  <AppModalDoctorScheduleNewModal
+    v-if="showScheduleModal"
+    @close="showScheduleModal = false"
+    @scheduled="fetchAppointments"
+  />
 </template>

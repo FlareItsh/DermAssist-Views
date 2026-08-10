@@ -13,7 +13,7 @@ const allPatients = computed(() => {
     condition: a.info,
     priority: priorityIds.value.includes(a.id) ? 'High' : 'Low',
     lastVisit: a.date ? new Date(a.date).toLocaleDateString() : 'TBD',
-    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : 'https://i.pravatar.cc/150?u=' + a.id,
+    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : null,
     raw: a
   }))
 })

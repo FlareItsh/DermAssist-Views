@@ -3,7 +3,7 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  const { sortedAppeals, isLoadingAppeals, appealsError, fetchAppeals, markAppealsSeen } =
+  const { sortedAppeals, isLoadingAppeals, appealsError, fetchAppeals, markAppealsSeen, filterStatus, resolveAppeal, restoreAppeal } =
     useAdminAppeals()
 
   const getDoctorName = (appeal: any) => {
@@ -49,17 +49,30 @@
           Review doctors who filed appeals for scans they believe produced an incorrect diagnosis.
         </p>
       </div>
-
-      <div class="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-700">
-        <p class="text-xs font-bold tracking-wider uppercase">Total appeals</p>
-        <p class="text-2xl font-black">{{ sortedAppeals.length }}</p>
-      </div>
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="border-b border-gray-100 px-5 py-4">
-        <h2 class="text-lg font-black text-gray-950">Filed Appeals</h2>
-        <p class="mt-1 text-sm text-gray-500">Newest appeals appear first.</p>
+      <div class="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-lg font-black text-gray-950">Filed Appeals</h2>
+          <p class="mt-1 text-sm text-gray-500">Newest appeals appear first.</p>
+        </div>
+        <div class="flex gap-2 p-1 bg-gray-50 rounded-xl border border-gray-100">
+          <button 
+            @click="filterStatus = 'pending'"
+            :class="filterStatus === 'pending' ? 'bg-white shadow-sm text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm rounded-lg transition-all"
+          >
+            Pending
+          </button>
+          <button 
+            @click="filterStatus = 'resolved'"
+            :class="filterStatus === 'resolved' ? 'bg-white shadow-sm text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-700'"
+            class="px-4 py-2 text-sm rounded-lg transition-all"
+          >
+            Resolved
+          </button>
+        </div>
       </div>
 
       <div
@@ -109,26 +122,47 @@
             </p>
           </div>
 
-          <div class="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-4">
-            <div class="flex flex-wrap gap-2 text-sm">
-              <AppBadge
-                color="danger"
-                size="xs"
-                >{{ appeal.diagnosis_label || 'Scanner result' }}</AppBadge
-              >
-              <Icon
-                name="lucide:arrow-right"
-                class="self-center text-gray-400"
-              />
-              <AppBadge
-                color="success"
-                size="xs"
-                >{{ appeal.suggested_label || 'Doctor suggestion' }}</AppBadge
-              >
+          <div class="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap gap-2 text-sm">
+                <AppBadge
+                  color="danger"
+                  size="xs"
+                  >{{ appeal.diagnosis_label || 'Scanner result' }}</AppBadge
+                >
+                <Icon
+                  name="lucide:arrow-right"
+                  class="self-center text-gray-400"
+                />
+                <AppBadge
+                  color="success"
+                  size="xs"
+                  >{{ appeal.suggested_label || 'Doctor suggestion' }}</AppBadge
+                >
+              </div>
+              <p class="mt-3 text-sm leading-6 text-gray-600">
+                {{ appeal.description || 'No appeal reason was provided.' }}
+              </p>
             </div>
-            <p class="mt-3 text-sm leading-6 text-gray-600">
-              {{ appeal.description || 'No appeal reason was provided.' }}
-            </p>
+            
+            <div class="flex justify-end border-t border-gray-200/50 pt-3 mt-1">
+              <button
+                v-if="filterStatus === 'pending'"
+                @click="resolveAppeal(appeal.uuid)"
+                class="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-green-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm"
+              >
+                <Icon name="material-symbols:check-circle-outline-rounded" size="14" />
+                Resolve Appeal
+              </button>
+              <button
+                v-else
+                @click="restoreAppeal(appeal.uuid)"
+                class="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-amber-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm"
+              >
+                <Icon name="material-symbols:restore" size="14" />
+                Restore to Pending
+              </button>
+            </div>
           </div>
         </article>
       </div>
@@ -141,12 +175,12 @@
           class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500"
         >
           <Icon
-            name="material-symbols:report-outline"
+            :name="filterStatus === 'pending' ? 'material-symbols:report-outline' : 'material-symbols:check-circle-outline-rounded'"
             class="text-3xl"
           />
         </div>
         <p class="text-sm font-semibold text-gray-500">
-          No doctor scan appeals have been filed yet.
+          {{ filterStatus === 'pending' ? 'No pending doctor scan appeals found.' : 'No resolved appeals yet.' }}
         </p>
       </div>
     </section>

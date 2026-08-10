@@ -34,7 +34,7 @@
   })
 
   const markAllRead = () => {
-    const arr = readNotifs.value || []
+    const arr = [...(readNotifs.value || [])]
     notifications.value.forEach(n => {
       if (!arr.includes(n.id)) arr.push(n.id)
     })
@@ -42,7 +42,7 @@
   }
 
   const clearAll = () => {
-    const arr = dismissedNotifs.value || []
+    const arr = [...(dismissedNotifs.value || [])]
     notifications.value.forEach(n => {
       if (!arr.includes(n.id)) arr.push(n.id)
     })
@@ -50,8 +50,8 @@
   }
 
   const handleNotificationClick = (notif: any) => {
-    if (typeof notif.id === 'string' || typeof notif.id === 'number') {
-      const arr = readNotifs.value || []
+    if (notif.id !== undefined && notif.id !== null) {
+      const arr = [...(readNotifs.value || [])]
       if (!arr.includes(notif.id)) {
         arr.push(notif.id)
         readNotifs.value = arr
@@ -62,7 +62,7 @@
   }
 
   const handleNotificationDelete = (id: string | number) => {
-    const arr = dismissedNotifs.value || []
+    const arr = [...(dismissedNotifs.value || [])]
     if (!arr.includes(id)) {
       arr.push(id)
       dismissedNotifs.value = arr
@@ -162,6 +162,7 @@
         >
           <AppNotificationPreview
             v-bind="{ ...notif, to: undefined }"
+            :is-read="readNotifs.includes(notif.id)"
             class="bg-card border-border/20 hover:border-primary/40 rounded-2xl border shadow-sm transition-all hover:shadow-md"
             @click="handleNotificationClick(notif)"
             @delete="handleNotificationDelete(notif.id)"

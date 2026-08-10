@@ -103,7 +103,7 @@
 
 <template>
   <div
-    class="bg-card border-border flex h-full w-80 shrink-0 flex-col overflow-hidden rounded-3xl border shadow-sm"
+    class="bg-transparent md:bg-card border-0 md:border border-border flex h-full w-full md:w-80 shrink-0 flex-col overflow-hidden rounded-none md:rounded-3xl shadow-none md:shadow-sm"
   >
     <div class="border-border border-b p-4">
       <div class="relative">

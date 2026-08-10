@@ -1,23 +1,51 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <AppNavbar
-      :title="currentPageTitle"
-      :breadcrumbs="breadcrumbs"
-    >
-      <AppUtilityBar v-if="userRole !== 'admin'" />
-    </AppNavbar>
+    <!-- Desktop Navbar (hidden on mobile) -->
+    <div class="hidden md:block">
+      <AppNavbar
+        :title="currentPageTitle"
+        :breadcrumbs="breadcrumbs"
+      >
+        <AppUtilityBar v-if="userRole !== 'admin'" />
+      </AppNavbar>
+    </div>
+
     <div class="flex flex-1 overflow-hidden">
-      <AppSidebar :items="navItems" />
+      <!-- Desktop Sidebar (hidden on mobile) -->
+      <div class="hidden md:block">
+        <AppSidebar :items="navItems" />
+      </div>
 
       <main
-        class="-mt-4 flex-1 overflow-y-auto p-5"
+        class="flex-1"
+        :class="[
+          isChatPage ? 'overflow-hidden h-full pb-0 bg-card' : 'overflow-y-auto pb-24 md:pb-5',
+          userRole === 'patient' 
+            ? (isChatPage 
+                ? (isChatThread ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full' : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full')
+                : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5')
+            : '-mt-4 p-5'
+        ]"
         id="main-content"
       >
-        <div class="mx-auto">
+        <!-- Mobile Header (only on mobile viewports for patients, except in active chat threads) -->
+        <div class="block md:hidden relative z-50" v-if="userRole === 'patient' && !isChatThread">
+          <PatientSideComponentsMobileHeroHeader />
+        </div>
+        <div 
+          class="mx-auto" 
+          :class="[
+            userRole === 'patient' ? 'px-5 md:p-0' : '',
+            isChatPage ? 'h-full min-h-0' : 'min-h-[calc(100vh+200px)]'
+          ]"
+        >
           <slot />
         </div>
       </main>
     </div>
+
+    <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
+    <AppMobileBottomNav v-if="userRole === 'patient' && !isChatThread" />
   </div>
 </template>
 
@@ -149,6 +177,14 @@
     return active || { title: '', breadcrumbs: [] }
   })
 
+  const isChatThread = computed(() => {
+    return /^\/(patient|doctor)\/messages\/[a-f0-9-]+/i.test(route.path)
+  })
+
+  const isChatPage = computed(() => {
+    return /^\/(patient|doctor)\/messages/i.test(route.path)
+  })
+
   const currentPageTitle = computed(() => activeItemInfo.value.title)
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
@@ -160,9 +196,18 @@
 
   watch(
     () => route.path,
-    path => {
+    async path => {
       if (path.startsWith('/admin/appeals')) {
         markAppealsSeen()
+      }
+      
+      // Scroll to top on page change (only on client-side)
+      if (typeof document !== 'undefined') {
+        await nextTick()
+        const mainContent = document.getElementById('main-content')
+        if (mainContent) {
+          mainContent.scrollTop = 0
+        }
       }
     },
     { immediate: true }

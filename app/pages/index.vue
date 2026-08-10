@@ -1,12 +1,13 @@
 <template>
-  <div class="mb-12 flex flex-col justify-center gap-20 px-12">
+  <div class="mb-12 flex flex-col justify-center gap-5 px-5 md:gap-20 md:px-12">
+    <!-- Hero Section -->
     <div>
-      <h1 class="font-barlow mt-12 text-center text-5xl tracking-[5px]">
+      <h1 class="font-barlow mt-2 text-center text-[11px] tracking-[1px] md:mt-12 md:text-5xl md:tracking-[5px]">
         AI-Powered Skin Condition Recognition System
       </h1>
       <NuxtImg
         src="/images/lp-img.png"
-        class="mx-auto mb-2 h-screen w-auto"
+        class="mx-auto mb-2 h-auto w-full md:h-screen md:w-auto"
         alt="CTA"
       />
       <NuxtLink
@@ -18,79 +19,72 @@
       </NuxtLink>
     </div>
 
-    <div class="flex items-center justify-center space-x-20">
+    <!-- Features Pitch Section -->
+    <div class="flex items-center justify-center gap-5 md:space-x-20">
       <NuxtImg
         src="/images/accuracy-test.png"
-        class="h-100 w-auto"
+        class="h-auto w-2/5 shrink-0 md:h-100 md:w-auto"
         alt="CTA"
       />
-      <div class="flex flex-col space-y-3">
-        <p class="w-185 text-2xl font-semibold">With DermAssist, you benefit from AI-powered</p>
-        <p class="w-185 text-2xl font-semibold">
-          analysis backed by real doctors. Our system helps
-        </p>
-        <p class="w-185 text-2xl font-semibold">
-          detect skin concerns quickly and accurately, while
-        </p>
-        <p class="w-185 text-2xl font-semibold">
-          giving you the option to consult professionals for
-        </p>
-        <p class="w-185 text-2xl font-semibold">proper guidance.</p>
-        <div class="bg-secondary my-7 h-[5px] w-130 rounded-full"></div>
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled" class="bg-foreground text-card w-50 cursor-pointer rounded-full px-5 py-2 text-lg">
+      <div class="flex flex-col space-y-1 md:space-y-3">
+        <p class="text-[9px] font-semibold leading-snug md:w-145 md:text-2xl">With DermAssist, you benefit from AI-powered analysis backed by real doctors. Our system helps detect skin concerns quickly and accurately, while giving you the option to consult professionals for proper guidance.</p>
+        <div class="bg-secondary my-2 h-[2px] w-full rounded-full md:my-7 md:h-[5px] md:w-130"></div>
+        <AppButton variant="unstyled" size="unstyled" rounded="unstyled" class="bg-foreground text-card w-16 cursor-pointer rounded-full px-2 py-1 text-[9px] md:w-50 md:px-5 md:py-2 md:text-lg">
           Know More
         </AppButton>
       </div>
     </div>
 
+    <!-- About Section -->
     <div>
-      <div class="mb-20 flex flex-col items-center justify-center">
-        <h2 class="text-secondary text-4xl font-thin">About Us</h2>
-        <h1 class="text-secondary text-5xl font-semibold">About DermAssist</h1>
+      <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
+        <h2 class="text-secondary text-sm font-thin md:text-4xl">About Us</h2>
+        <h1 class="text-secondary text-base font-semibold md:text-5xl">About DermAssist</h1>
       </div>
       <div>
-        <h1 class="text-foreground -mb-25 text-[82px] leading-25 font-semibold tracking-[10px]">
+        <h1 class="text-foreground text-base font-semibold -mb-4 leading-tight tracking-widest md:-mb-25 md:text-[82px] md:leading-25 md:tracking-[10px]">
           Smarter Skin Care, Made <br />
           Accessible
         </h1>
         <NuxtImg
           src="/images/about-us-img.png"
-          class="h-auto w-screen"
+          class="h-auto w-full"
           alt="CTA"
         />
       </div>
     </div>
 
+    <!-- Features Section -->
     <div>
-      <div class="mb-20 flex flex-col items-center justify-center">
-        <h2 class="text-secondary text-4xl font-thin">Features</h2>
-        <h1 class="text-secondary text-5xl font-semibold">Our Features & Services</h1>
+      <div class="mb-5 flex flex-col items-center justify-center md:mb-20">
+        <h2 class="text-secondary text-sm font-thin md:text-4xl">Features</h2>
+        <h1 class="text-secondary text-base font-semibold md:text-5xl">Our Features & Services</h1>
       </div>
-      <div class="flex flex-wrap justify-center gap-10">
+      <div class="flex flex-wrap justify-center gap-3 md:gap-10">
         <div
           v-for="feature in features"
           :key="feature.title"
-          class="bg-card flex h-150 w-110 flex-col items-center justify-center rounded-[50px] p-10 shadow-sm transition-shadow hover:shadow-md"
+          class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-shadow hover:shadow-md md:h-150 md:w-110 md:rounded-[50px] md:p-10"
         >
           <div
-            class="bg-secondary text-card flex h-35 w-35 w-fit items-center justify-center rounded-full p-7"
+            class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-35 md:w-35 md:p-7"
           >
             <div
               v-if="feature.icon.startsWith('<svg')"
               v-html="feature.icon"
-              class="flex h-20 w-20 items-center justify-center [&>svg]:h-full [&>svg]:w-full"
+              class="flex h-5 w-5 items-center justify-center [&>svg]:h-full [&>svg]:w-full md:h-20 md:w-20"
             ></div>
             <Icon
               v-else
               :name="feature.icon"
-              class="text-7xl"
+              class="text-base md:text-7xl"
             />
           </div>
           <div class="flex flex-col items-center">
-            <p class="text-secondary mt-10 text-center text-[40px] font-bold">
+            <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-10 md:text-[40px]">
               {{ feature.title }}
             </p>
-            <p class="text-foreground text-md mt-5 px-4 text-center text-[20px]">
+            <p class="text-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-5 md:px-4 md:text-[20px]">
               {{ feature.description }}
             </p>
           </div>
@@ -98,37 +92,32 @@
       </div>
     </div>
 
+    <!-- Contact Section -->
     <div>
-      <div class="mb-20 flex flex-col items-center justify-center">
-        <h2 class="text-secondary text-4xl font-thin">Contact Us</h2>
-        <h1 class="text-secondary text-5xl font-semibold">Contact for Reports & Feedback</h1>
+      <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
+        <h2 class="text-secondary text-sm font-thin md:text-4xl">Contact Us</h2>
+        <h1 class="text-secondary text-base font-semibold md:text-5xl">Contact for Reports & Feedback</h1>
       </div>
-      <div class="flex gap-10">
-        <NuxtImg
-          src="/images/contact-us-img.png"
-          class="h-auto w-1/2 rounded-[25px] object-cover"
-          alt="contact"
-        />
-
-        <div class="bg-card flex w-1/2 flex-col rounded-[25px] p-15 px-25">
-          <h1 class="mb-2 text-3xl font-semibold">Get in Touch</h1>
-          <p class="mb-6 text-gray-500">
+      <div class="flex flex-col gap-6 md:flex-row md:gap-10">
+        <div class="bg-card flex w-full flex-col rounded-[25px] p-8 md:w-1/2 md:p-15 md:px-25">
+          <h1 class="mb-2 text-base font-semibold md:text-3xl">Get in Touch</h1>
+          <p class="mb-6 text-xs text-gray-500">
             Have questions, feedback, or need assistance? We're here to help!
           </p>
 
-          <p class="mb-1 text-sm text-gray-500">Name</p>
+          <p class="mb-1 text-[9px] text-gray-500">Name</p>
           <input
             type="text"
             class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
           />
 
-          <p class="mb-1 text-sm text-gray-500">Email</p>
+          <p class="mb-1 text-[9px] text-gray-500">Email</p>
           <input
             type="email"
             class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
           />
 
-          <p class="mb-1 text-sm text-gray-500">Message</p>
+          <p class="mb-1 text-[9px] text-gray-500">Message</p>
           <textarea
             class="bg-primary-light ring-secondary h-32 resize-none rounded-xl px-4 py-2 outline-none focus:ring-1"
           ></textarea>
@@ -136,21 +125,27 @@
           <div class="mt-4 flex items-center justify-start gap-2">
             <input
               type="checkbox"
-              class="accent-secondary h-4 w-4 cursor-pointer"
+              class="accent-secondary h-3 w-3 cursor-pointer"
             />
-            <p class="text-sm text-gray-500">I agree to the terms and conditions</p>
+            <p class="text-[9px] text-gray-500">I agree to the terms and conditions</p>
           </div>
 
           <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-            class="bg-secondary hover:bg-opacity-90 mt-20 rounded-xl py-3 font-semibold text-white transition-all"
+            class="bg-secondary text-[12px] hover:bg-opacity-90 mt-5 rounded-xl py-2 font-semibold text-white transition-all md:mt-20"
           >
             Send Message
           </AppButton>
         </div>
+
+        <NuxtImg
+          src="/images/contact-us-img.png"
+          class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
+          alt="contact"
+        />
       </div>
     </div>
   </div>
-  <div>{{ data }}</div>
+
 </template>
 
 <script setup lang="ts">
@@ -180,5 +175,5 @@
     }
   ]
 
-  const { data } = await useApi('test')
+
 </script>

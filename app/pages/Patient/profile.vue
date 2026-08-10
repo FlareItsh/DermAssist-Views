@@ -4,7 +4,7 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  const { data: response, refresh } = await userService.useShow(useCookie('user_uuid').value as string, {
+  const { data: response, refresh } = userService.useShow(useCookie('user_uuid').value as string, {
     key: `userProfile-${useCookie('user_uuid').value}`
   })
   // Laravel JsonResource wraps single resources under `data` — unwrap at source
@@ -17,6 +17,7 @@
   } = usePhLocations()
 
   const { getStorageUrl } = useStorage()
+  const { missingPatientFields, refreshProfile } = useAppNotifications()
 
   const codes = reactive({
     region: '',
@@ -177,6 +178,7 @@
       await userService.update(useCookie('user_uuid').value as string, form)
       isSuccess.value = true
       await refresh()
+      await refreshProfile()
 
       // Update name cookies
       const userName = useCookie('user_name')
@@ -207,11 +209,21 @@
 </script>
 
 <template>
-  <div class="max-w-5xl">
+  <div class="max-w-5xl pb-24 mt-4 md:pb-0">
     <div class="mb-8">
       <h1 class="text-3xl font-bold">Account Settings</h1>
       <p class="text-foreground/60 mt-2">Manage your personal information and profile settings.</p>
     </div>
+
+    <!-- Profile Completion Alert -->
+    <AppAlert
+      v-if="missingPatientFields.length > 0"
+      title="Profile Setup Required"
+      type="error"
+    >
+      Your profile is incomplete. Please fill out the following fields to complete registration: 
+      <span class="font-bold underline">{{ missingPatientFields.join(', ') }}</span>.
+    </AppAlert>
 
     <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
       <!-- Left: Profile Preview -->

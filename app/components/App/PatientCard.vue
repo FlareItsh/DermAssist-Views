@@ -18,14 +18,26 @@ const isRecentVisit = computed(() => {
   const visit = props.patient.lastVisit?.toLowerCase() || ''
   return visit.includes('hour') || visit.includes('minute') || visit.includes('hr') || visit.includes('min') || visit === 'just now'
 })
+
+const getInitials = (name: string): string => {
+  if (!name) return ''
+  const cleanName = name.replace(/^Dr\.\s+/i, '')
+  const parts = cleanName.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
 </script>
 
 <template>
   <div v-if="isPriorityList" class="bg-card border-red-500/30 shadow-red-500/5 group relative flex w-[340px] shrink-0 snap-start cursor-pointer flex-col gap-4 overflow-hidden rounded-2xl border p-5 shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl">
     <div class="flex items-start justify-between relative z-10">
       <div class="flex items-center gap-3">
-        <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-red-500/30 pb-0 shadow-sm">
+        <div v-if="patient.avatar" class="relative h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-red-500/30 pb-0 shadow-sm">
           <img :src="patient.avatar" :alt="patient.name" class="h-full w-full object-cover" />
+          <div class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500"></div>
+        </div>
+        <div v-else class="relative h-14 w-14 shrink-0 flex items-center justify-center rounded-full border-2 border-red-500/30 bg-red-50 text-red-500 font-bold text-lg shadow-sm">
+          {{ getInitials(patient.name) }}
           <div class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500"></div>
         </div>
         <div class="flex flex-col">
@@ -55,8 +67,11 @@ const isRecentVisit = computed(() => {
   <div v-else class="bg-card group relative flex cursor-pointer flex-col gap-4 overflow-hidden rounded-2xl border border-border/60 p-5 shadow-sm transition-all hover:-translate-y-1 hover:border-primary/30 hover:shadow-md">
     <div class="flex items-start justify-between">
       <div class="flex items-center gap-3">
-        <div class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border shadow-sm">
+        <div v-if="patient.avatar" class="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border border-border shadow-sm">
           <img :src="patient.avatar" :alt="patient.name" class="h-full w-full object-cover" />
+        </div>
+        <div v-else class="relative h-12 w-12 shrink-0 flex items-center justify-center rounded-full border border-border bg-gray-100 text-gray-500 font-bold text-sm shadow-sm">
+          {{ getInitials(patient.name) }}
         </div>
         <div class="flex flex-col">
           <h3 class="font-bold text-foreground">{{ patient.name }}</h3>
