@@ -2,9 +2,12 @@
 import { ref } from 'vue'
 import { appointmentService } from '~/api/appointment/AppointmentService'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   appointmentUuid: string
-}>()
+  mode?: 'schedule' | 'reschedule'
+}>(), {
+  mode: 'schedule'
+})
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -25,11 +28,20 @@ const confirmSchedule = async () => {
   isScheduling.value = true
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
-    await appointmentService.update(props.appointmentUuid, {
-      status: 'scheduled',
-      scheduled_at: dateTime,
-      location: scheduleLocation.value
-    })
+    
+    if (props.mode === 'reschedule') {
+      await appointmentService.proposeReschedule(props.appointmentUuid, {
+        scheduled_at: dateTime,
+        location: scheduleLocation.value
+      })
+    } else {
+      await appointmentService.update(props.appointmentUuid, {
+        status: 'scheduled',
+        scheduled_at: dateTime,
+        location: scheduleLocation.value
+      })
+    }
+    
     emit('scheduled')
     emit('close')
   } catch (e) {
@@ -90,7 +102,12 @@ const confirmSchedule = async () => {
                 :disabled="!selectedDate || !scheduleTime || !scheduleLocation || isScheduling"
                 @click="confirmSchedule"
               >
-                {{ isScheduling ? 'Scheduling...' : 'Confirm Schedule' }}
+                <template v-if="isScheduling">
+                  {{ props.mode === 'reschedule' ? 'Rescheduling...' : 'Scheduling...' }}
+                </template>
+                <template v-else>
+                  {{ props.mode === 'reschedule' ? 'Confirm Reschedule' : 'Confirm Schedule' }}
+                </template>
               </AppButton>
               <AppButton
                 variant="unstyled"
