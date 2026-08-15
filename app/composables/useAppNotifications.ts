@@ -265,6 +265,38 @@ export const useAppNotifications = () => {
       })
     }
 
+    if (userRole.value === 'patient' && appointments.value.length > 0) {
+      appointments.value.forEach((appt) => {
+        if (appt.status === 'reschedule_proposed') {
+          list.push({
+            id: `appt-reschedule-${appt.id}`,
+            title: 'Schedule Proposed',
+            description: `${appt.doctor} proposed a new schedule for your appointment. Please review and accept or propose another date.`,
+            time: 'Action needed',
+            icon: 'material-symbols:edit-calendar-rounded',
+            color: 'text-amber-500',
+            to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+          })
+        }
+      })
+    }
+
+    if (userRole.value === 'doctor' && appointments.value.length > 0) {
+      appointments.value.forEach((appt) => {
+        if (appt.status === 'reschedule_proposed') {
+          list.push({
+            id: `appt-reschedule-doctor-${appt.id}`,
+            title: 'Reschedule Proposed',
+            description: `The patient proposed a new schedule for an appointment. Please review and accept.`,
+            time: 'Action needed',
+            icon: 'material-symbols:edit-calendar-rounded',
+            color: 'text-amber-500',
+            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}` : '/Doctor/Messages'
+          })
+        }
+      })
+    }
+
     if (userRole.value === 'admin' && appealsData.value?.data) {
       appealsData.value.data.forEach((appeal: any) => {
         list.push({

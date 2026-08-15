@@ -410,14 +410,16 @@
 
           <span
             v-if="unreadNotifications.length > 0"
-            class="absolute top-3 right-3 flex h-3 w-3"
+            class="absolute top-2 right-2 flex h-4 w-4 items-center justify-center"
           >
             <span
               class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
             ></span>
             <span
-              class="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-red-500"
-            ></span>
+              class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 text-[8px] font-black text-white"
+            >
+              {{ unreadNotifications.length > 9 ? '9+' : unreadNotifications.length }}
+            </span>
           </span>
         </AppButton>
 
