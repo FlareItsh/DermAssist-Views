@@ -113,6 +113,11 @@
       ]
     },
     {
+      icon: 'heroicons:user-plus',
+      label: 'Secretaries',
+      to: '/doctor/secretaries'
+    },
+    {
       icon: 'lets-icons:message-light',
       label: 'Message',
       to: '/doctor/messages'
