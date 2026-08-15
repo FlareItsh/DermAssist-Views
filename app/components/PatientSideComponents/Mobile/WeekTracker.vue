@@ -1,8 +1,15 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { onClickOutside } from '@vueuse/core'
 
 const { appointments, selectedDate } = useAppointments()
 const baseDate = ref(new Date())
+const trackerRef = ref<HTMLElement | null>(null)
+const router = useRouter()
+
+onClickOutside(trackerRef, () => {
+  selectedDate.value = null
+})
 
 const prevWeek = () => {
   const d = new Date(baseDate.value)
@@ -22,6 +29,27 @@ const toggleSelectDate = (dateStr: string) => {
   } else {
     selectedDate.value = dateStr
   }
+}
+
+const closePanel = () => {
+  selectedDate.value = null
+}
+
+const selectedDayAppointments = computed(() => {
+  if (!selectedDate.value) return []
+  return appointments.value.filter(a => a.date === selectedDate.value)
+})
+
+const selectedDayLabel = computed(() => {
+  if (!selectedDate.value) return ''
+  const d = new Date(selectedDate.value + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+})
+
+const goToChat = (conversationUuid: string | undefined) => {
+  if (!conversationUuid) return
+  selectedDate.value = null
+  router.push(`/Patient/Messages/${conversationUuid}`)
 }
 
 const weekDays = computed(() => {
@@ -79,9 +107,12 @@ const hasApptsAfter = computed(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-3xl p-4 shadow-sm border border-gray-100">
+  <div ref="trackerRef" class="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex flex-col gap-3">
     
-    <p class="text-primary text-[10px] font-black uppercase tracking-wider mb-3">Appointment</p>
+    <div class="flex items-center justify-between">
+      <p class="text-primary text-[10px] font-black uppercase tracking-wider">Appointment Schedule</p>
+      <span v-if="selectedDate" class="text-xs font-bold text-gray-500">{{ selectedDayLabel }}</span>
+    </div>
 
     <!-- Week Day Tracker -->
     <div class="flex items-center justify-between gap-1">
@@ -99,13 +130,13 @@ const hasApptsAfter = computed(() => {
           @click="toggleSelectDate(day.dateStr)"
           class="flex flex-col items-center gap-1 shrink-0 w-8 cursor-pointer"
         >
-          <span class="text-[9px] font-bold uppercase" :class="selectedDate === day.dateStr ? 'text-primary' : 'text-gray-400'">{{ day.label }}</span>
+          <span class="text-[9px] font-bold uppercase" :class="selectedDate === day.dateStr ? 'text-primary font-black' : 'text-gray-400'">{{ day.label }}</span>
           <div
             class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all"
             :class="[
               day.hasAppt ? 'bg-primary text-white shadow-md shadow-primary/30' : '',
               day.isToday && !day.hasAppt ? 'border-2 border-primary text-primary' : '',
-              !day.hasAppt && !day.isToday && selectedDate === day.dateStr ? 'bg-gray-100 text-gray-700' : '',
+              !day.hasAppt && !day.isToday && selectedDate === day.dateStr ? 'bg-gray-100 text-gray-700 ring-2 ring-primary/30' : '',
               !day.hasAppt && !day.isToday && selectedDate !== day.dateStr ? 'text-gray-500' : ''
             ]"
           >
@@ -131,5 +162,79 @@ const hasApptsAfter = computed(() => {
         <span v-if="hasApptsAfter" class="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
       </button>
     </div>
+
+    <!-- Inline Expanded Section — extends downward when a date is selected -->
+    <Transition name="expand-down">
+      <div v-if="selectedDate" class="border-t border-gray-100 pt-3 mt-1 flex flex-col gap-2">
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-gray-700">
+            <Icon name="material-symbols:event-available-rounded" class="text-primary text-base" />
+            <span>{{ selectedDayLabel }}</span>
+          </div>
+          <button @click="closePanel" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors">
+            <Icon name="material-symbols:close-rounded" class="text-base" />
+          </button>
+        </div>
+
+        <div v-if="selectedDayAppointments.length === 0" class="py-3 text-center text-xs text-gray-400 font-semibold bg-gray-50 rounded-2xl border border-gray-100">
+          No appointments for this date
+        </div>
+
+        <div v-else class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+          <div
+            v-for="appt in selectedDayAppointments"
+            :key="appt.id"
+            @click="goToChat(appt.conversation_uuid)"
+            class="flex flex-col gap-2 p-3 bg-primary/5 hover:bg-primary/10 active:scale-[0.98] rounded-2xl border border-primary/10 transition-all cursor-pointer"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="h-7 w-7 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Icon name="material-symbols:stethoscope-rounded" class="text-sm" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-bold text-gray-900 truncate">{{ appt.doctor }}</p>
+                  <p class="text-[10px] font-semibold text-primary uppercase tracking-wide truncate">{{ appt.info }}</p>
+                </div>
+              </div>
+              <Icon name="material-symbols:arrow-forward-rounded" class="text-gray-400 text-sm shrink-0" />
+            </div>
+
+            <div class="flex flex-wrap gap-2 text-[11px] font-medium text-gray-600 bg-white/70 rounded-xl p-2 border border-gray-100">
+              <div v-if="appt.time" class="flex items-center gap-1">
+                <Icon name="material-symbols:schedule-rounded" class="text-primary text-xs shrink-0" />
+                <span>{{ appt.time }}</span>
+              </div>
+              <div v-if="appt.location" class="flex items-center gap-1 truncate">
+                <Icon name="material-symbols:location-on-rounded" class="text-primary text-xs shrink-0" />
+                <span class="truncate">{{ appt.location }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.expand-down-enter-active,
+.expand-down-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.expand-down-enter-from,
+.expand-down-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-4px);
+}
+
+.expand-down-enter-to,
+.expand-down-leave-from {
+  opacity: 1;
+  max-height: 300px;
+}
+</style>
+

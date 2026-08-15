@@ -27,6 +27,14 @@ export class AppointmentService extends BaseService {
     return await this.request(`${this.resource}/schedule-for-patient`, 'POST', payload)
   }
 
+  async proposeReschedule(uuid: string, payload: object): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/propose-reschedule`, 'POST', payload)
+  }
+
+  async acceptReschedule(uuid: string, payload: object): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/accept-reschedule`, 'POST', payload)
+  }
+
   async restore(uuid: string): Promise<any> {
     return await this.request(`${this.resource}/${uuid}/restore`, 'POST')
   }

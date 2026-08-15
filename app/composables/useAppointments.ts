@@ -91,7 +91,7 @@ export const useAppointments = () => {
         }
 
         appointments.value = res
-          .filter((appt: any) => appt.status === 'scheduled' && appt.scheduled_at)
+          .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
           .map(mapAppt)
 
         pendingAppointments.value = res

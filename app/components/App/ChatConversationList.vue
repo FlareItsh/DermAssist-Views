@@ -114,7 +114,7 @@
           v-model="searchValue"
           type="text"
           placeholder="Search conversations..."
-          class="bg-foreground/5 h-11 w-full rounded-2xl border border-transparent pl-11 pr-4 text-sm font-medium transition-all outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          class="bg-foreground/5 h-11 w-full text-gray-400 rounded-2xl border border-transparent pl-11 pr-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <button
           v-if="searchValue"

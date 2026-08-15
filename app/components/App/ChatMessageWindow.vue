@@ -176,7 +176,7 @@
   // --- Active Appointment (Top Bar) ---
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const activeAppointment = computed(() => {
-    return appointments.value.find(a => a.conversation_uuid === props.conversationUuid && a.status === 'scheduled')
+    return appointments.value.find(a => a.conversation_uuid === props.conversationUuid && (a.status === 'scheduled' || a.status === 'reschedule_proposed' || a.status === 'reschedule_requested'))
   })
 
   /**
@@ -187,10 +187,59 @@
     return pendingAppointments.value.find(a => a.conversation_uuid === props.conversationUuid) ?? null
   })
 
-  /** Open the schedule modal with the appointment UUID from a pending appointment directly. */
+  const scheduleMode = ref<'schedule' | 'reschedule'>('schedule')
+
   const openScheduleModalFromPending = (appt: any) => {
     schedulingAppointmentUuid.value = appt.id
+    scheduleMode.value = 'schedule'
     showScheduleModal.value = true
+  }
+
+  const openRescheduleModal = () => {
+    if (!activeAppointment.value) return
+    schedulingAppointmentUuid.value = activeAppointment.value.id
+    scheduleMode.value = 'reschedule'
+    showScheduleModal.value = true
+  }
+
+  const handleScheduleModalClose = () => {
+    showScheduleModal.value = false
+    scheduleMode.value = 'schedule'
+  }
+
+  const acceptReschedule = async (uuid: string) => {
+    try {
+      await appointmentService.acceptReschedule(uuid, {})
+      fetchMessages(1)
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const cancelAppointment = async (uuid: string) => {
+    try {
+      await appointmentService.update(uuid, { status: 'declined' })
+      fetchMessages(1)
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const requestReschedule = async (uuid: string) => {
+    try {
+      await appointmentService.update(uuid, { status: 'reschedule_requested' })
+      fetchMessages(1)
+      fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const isRescheduleProposedByMe = (uuid: string) => {
+    const msg = [...allMessages.value].reverse().find(m => m.message.includes(`[APPOINTMENT_RESCHEDULE_PROPOSED:${uuid}:`))
+    return msg ? msg.sender?.id === userUuid.value : false
   }
 
   /** Decline a pending appointment directly from the banner. */
@@ -338,13 +387,20 @@
   }
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
-    nextTick(() => {
+    const doScroll = () => {
       if (messagesContainer.value) {
         messagesContainer.value.scrollTo({
           top: messagesContainer.value.scrollHeight,
           behavior
         })
       }
+    }
+
+    nextTick(() => {
+      doScroll()
+      setTimeout(doScroll, 50)
+      setTimeout(doScroll, 150)
+      setTimeout(doScroll, 300)
     })
   }
 
@@ -389,6 +445,28 @@
     }
   }
 
+  watch(
+    () => props.conversationUuid,
+    (newUuid, oldUuid) => {
+      if (newUuid && newUuid !== oldUuid) {
+        allMessages.value = []
+        currentPage.value = 1
+        lastPage.value = 1
+        isUserNearBottom = true
+
+        const hasCache = loadFromCache()
+        if (hasCache) {
+          scrollToBottom('instant')
+        }
+
+        fetchMessages(1).then(() => {
+          scrollToBottom('instant')
+          markUnreadMessages()
+        })
+      }
+    }
+  )
+
   onMounted(() => {
     const hasCache = loadFromCache()
     if (hasCache) {
@@ -396,7 +474,7 @@
     }
     
     fetchMessages(1).then(() => {
-      if (!hasCache) scrollToBottom('instant')
+      scrollToBottom('instant')
       markUnreadMessages()
     })
     
@@ -608,36 +686,91 @@
 
     <!-- Active Appointment Bar (scheduled appointment) -->
     <div v-if="activeAppointment" 
-      class="border-b p-4 flex items-center justify-between transition-all"
+      class="border-b p-4 flex flex-col transition-all"
       :class="[
         isToday(activeAppointment.date) 
           ? 'bg-amber-50 border-amber-100' 
           : 'bg-indigo-50 border-indigo-100'
       ]"
     >
-      <div class="flex items-center gap-3">
-        <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
-          <Icon 
-            :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
-            class="text-xl"
-            :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
-          />
+      <div class="flex items-center justify-between w-full">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
+            <Icon 
+              :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
+              class="text-xl"
+              :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
+            />
+          </div>
+          <div>
+            <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
+              {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
+            </p>
+            <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
+              {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
+            </p>
+          </div>
         </div>
-        <div>
-          <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
-            {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
-          </p>
-          <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
-            {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
-          </p>
+        
+        <div v-if="userRole?.toLowerCase() === 'doctor'" class="flex gap-2">
+          <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+            <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+            Mark as Accomplished
+          </AppButton>
+          <AppButton @click="openRescheduleModal" class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2">
+            <Icon name="material-symbols:edit-calendar-rounded" class="text-lg" />
+            Reschedule
+          </AppButton>
         </div>
       </div>
-      
-      <div v-if="userRole?.toLowerCase() === 'doctor'">
-        <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
-          <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
-          Mark as Accomplished
-        </AppButton>
+
+      <!-- Action Bar below current appointment when status is reschedule_proposed or reschedule_requested -->
+      <div v-if="activeAppointment.status === 'reschedule_proposed' || activeAppointment.status === 'reschedule_requested'" class="mt-4 p-3 bg-white/60 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-3 border border-amber-200 shadow-sm backdrop-blur-sm">
+        
+        <!-- Case 1: Status is reschedule_proposed -->
+        <template v-if="activeAppointment.status === 'reschedule_proposed'">
+          <template v-if="!isRescheduleProposedByMe(activeAppointment.id)">
+            <div class="flex items-center gap-2 text-amber-800 text-sm font-bold shrink-0">
+              <Icon name="material-symbols:info" class="text-lg shrink-0" />
+              New schedule proposed by {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }}
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <AppButton @click="acceptReschedule(activeAppointment.id)" class="bg-green-600 text-white hover:bg-green-700 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Accept</AppButton>
+              
+              <!-- If patient is responding to doctor, they Request Reschedule. If doctor is responding to patient, they can Propose Another (open modal) -->
+              <AppButton v-if="userRole?.toLowerCase() === 'patient'" @click="requestReschedule(activeAppointment.id)" class="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Request Reschedule</AppButton>
+              <AppButton v-else @click="openRescheduleModal" class="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Propose Another Date</AppButton>
+              
+              <AppButton @click="cancelAppointment(activeAppointment.id)" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Cancel</AppButton>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex items-center gap-2 text-amber-800 text-sm font-bold">
+              <Icon name="material-symbols:hourglass-top-rounded" class="text-lg animate-pulse shrink-0" />
+              Waiting for {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to confirm your proposed schedule...
+            </div>
+          </template>
+        </template>
+
+        <!-- Case 2: Status is reschedule_requested -->
+        <template v-else-if="activeAppointment.status === 'reschedule_requested'">
+          <template v-if="userRole?.toLowerCase() === 'doctor'">
+            <div class="flex items-center gap-2 text-amber-800 text-sm font-bold shrink-0">
+              <Icon name="material-symbols:info" class="text-lg shrink-0" />
+              Patient requested a new schedule
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+              <AppButton @click="openRescheduleModal" class="bg-indigo-600 text-white hover:bg-indigo-700 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Choose Another Date</AppButton>
+              <AppButton @click="cancelAppointment(activeAppointment.id)" class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-2 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all shadow-sm w-full sm:w-auto justify-center">Cancel</AppButton>
+            </div>
+          </template>
+          <template v-else>
+            <div class="flex items-center gap-2 text-amber-800 text-sm font-bold">
+              <Icon name="material-symbols:hourglass-top-rounded" class="text-lg animate-pulse shrink-0" />
+              Waiting for doctor to propose a new schedule...
+            </div>
+          </template>
+        </template>
       </div>
     </div>
 
@@ -810,6 +943,39 @@
                   <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_COMPLETED:.*?\]/g, '').trim() }}</p>
                 </div>
               </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_PROPOSED:')">
+                <div class="flex flex-col">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="rounded-full bg-amber-100 p-2">
+                      <Icon name="material-symbols:edit-calendar-rounded" class="text-xl text-amber-600" />
+                    </div>
+                    <span class="font-bold text-amber-700">Reschedule Proposed</span>
+                  </div>
+                  <p class="text-sm opacity-90" v-html="msg.message.replace(/\[APPOINTMENT_RESCHEDULE_PROPOSED:.*?\]/g, '').trim()"></p>
+                </div>
+              </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">
+                <div class="flex flex-col">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="rounded-full bg-amber-100 p-2">
+                      <Icon name="material-symbols:event-repeat-rounded" class="text-xl text-amber-600" />
+                    </div>
+                    <span class="font-bold text-amber-700">Reschedule Requested</span>
+                  </div>
+                  <p class="text-sm opacity-90" v-html="msg.message.replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '').trim()"></p>
+                </div>
+              </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_ACCEPTED:')">
+                <div class="flex flex-col">
+                  <div class="mb-2 flex items-center gap-2">
+                    <div class="rounded-full bg-green-100 p-2">
+                      <Icon name="material-symbols:check-circle-rounded" class="text-xl text-green-600" />
+                    </div>
+                    <span class="font-bold text-green-700">Reschedule Accepted</span>
+                  </div>
+                  <p class="text-sm opacity-90" v-html="msg.message.replace(/\[APPOINTMENT_RESCHEDULE_ACCEPTED:.*?\]/g, '').trim()"></p>
+                </div>
+              </div>
               <p
                 v-else-if="msg.message"
                 class="text-base leading-relaxed whitespace-pre-wrap"
@@ -928,7 +1094,7 @@
             v-model="messageTerm"
             placeholder="Type a message..."
             @keydown="handleKeydown"
-            class="bg-foreground/5 mb-3 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-11 md:h-14 w-full resize-none rounded-2xl border border-transparent pl-4 pr-24 py-2.5 md:py-4 text-sm md:text-base transition-all outline-none focus:ring-4"
+            class="bg-foreground/5 mb-3 text-gray-400 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-11 md:h-14 w-full resize-none rounded-2xl border border-transparent pl-4 pr-24 py-2.5 md:py-4 text-sm md:text-base transition-all outline-none focus:ring-4"
           ></textarea>
 
           <div class="absolute right-4 -mb-1 -translate-y-1/2 flex items-center gap-2">
@@ -1063,7 +1229,8 @@
       <AppModalAppointmentSchedule
         v-if="showScheduleModal"
         :appointment-uuid="schedulingAppointmentUuid"
-        @close="showScheduleModal = false"
+        :mode="scheduleMode"
+        @close="handleScheduleModalClose"
         @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
       />
 
