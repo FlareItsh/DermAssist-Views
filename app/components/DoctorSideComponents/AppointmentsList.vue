@@ -44,7 +44,11 @@ const handleAddToPriority = (apptId: string) => {
 }
 
 const goToChat = (uuid: string) => {
-  if (uuid) navigateTo(`/Doctor/Messages/${uuid}`)
+  if (uuid) {
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/Secretary' : '/Doctor'
+    navigateTo(`${prefix}/Messages/${uuid}`)
+  }
 }
 
 const getInitials = (name: string): string => {

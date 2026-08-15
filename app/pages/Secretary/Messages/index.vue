@@ -1,0 +1,22 @@
+<script setup lang="ts">
+  definePageMeta({
+    layout: 'dashboard-sidebar-layout'
+  })
+</script>
+
+<template>
+  <div class="flex h-full gap-3 mt-0">
+    <AppChatConversationList
+      base-path="/Secretary/Messages"
+      class="flex-1 md:flex-none"
+    />
+    <div class="hidden md:flex bg-card border-border flex-1 overflow-hidden rounded-3xl border shadow-sm w-full">
+      <div class="flex h-full w-full items-center justify-center">
+        <div class="text-foreground/20 text-center">
+          <Icon name="solar:chat-round-line-linear" class="mb-4 text-9xl" />
+          <p class="text-2xl font-bold">Select a conversation to start chatting</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>

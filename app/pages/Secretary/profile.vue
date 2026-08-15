@@ -1,0 +1,600 @@
+<script setup lang="ts">
+import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+import { userService } from '~/api/user/UserService'
+
+definePageMeta({
+  layout: 'dashboard-sidebar-layout'
+})
+
+// Doctors might have verification data
+const { data: response, refresh } = userService.useShow(useCookie('user_uuid').value as string, {
+  key: `userProfile-${useCookie('user_uuid').value}`
+})
+// Laravel JsonResource wraps single resources under `data` — unwrap at source
+const user = computed(() => (response.value as any)?.data ?? response.value)
+
+const {
+  regions, provinces, cities, barangays,
+  fetchRegions, fetchProvinces, fetchCities, fetchBarangays,
+  findProvinceByName, findCityByName, findBarangayByName
+} = usePhLocations()
+
+const { getStorageUrl } = useStorage()
+const { missingDoctorFields, refreshProfile } = useAppNotifications()
+
+const codes = reactive({
+  region: '',
+  province: '',
+  city: '',
+  barangay: ''
+})
+
+const form = reactive({
+  first_name: '',
+  last_name: '',
+  email: '',
+  street: '',
+  barangay: '',
+  city: '',
+  province: '',
+  country: 'Philippines',
+  latitude: null as number | null,
+  longitude: null as number | null,
+  age: '',
+  gender: '',
+  affiliation: '',
+  prcNumber: ''
+})
+
+onMounted(async () => {
+  await fetchRegions()
+  await fetchAvailabilities()
+})
+
+const doctorUuid = useCookie('user_uuid').value
+const availabilities = ref<any[]>([])
+const isAvailLoading = ref(false)
+const isAddLoading = ref(false)
+const availForm = reactive({
+  available_date: '',
+  start_time: '09:00',
+  end_time: '17:00',
+  is_available: false
+})
+const availSuccessMsg = ref('')
+const availErrorMsg = ref('')
+
+const fetchAvailabilities = async () => {
+  if (!doctorUuid) return
+  isAvailLoading.value = true
+  try {
+    const res = await doctorAvailabilityService.listForDoctor(doctorUuid)
+    availabilities.value = res ?? []
+  } catch (e: any) {
+    console.error('Failed to fetch availabilities:', e)
+  } finally {
+    isAvailLoading.value = false
+  }
+}
+
+const addAvailability = async () => {
+  if (!doctorUuid) {
+    availErrorMsg.value = 'Unable to identify your doctor profile. Please sign in again.'
+    return
+  }
+
+  if (!availForm.available_date || !availForm.start_time || !availForm.end_time) {
+    availErrorMsg.value = 'Please fill out all fields.'
+    return
+  }
+  
+  if (availForm.start_time >= availForm.end_time) {
+    availErrorMsg.value = 'Start time must be before end time.'
+    return
+  }
+
+  isAddLoading.value = true
+  availErrorMsg.value = ''
+  availSuccessMsg.value = ''
+  try {
+    await doctorAvailabilityService.createForDoctor(doctorUuid, {
+      available_date: availForm.available_date,
+      start_time: availForm.start_time,
+      end_time: availForm.end_time,
+      is_available: 0 // Explicitly 0 to mark as Blocked / Away!
+    })
+    availSuccessMsg.value = 'Blocked/Away period added successfully!'
+    availForm.available_date = ''
+    availForm.start_time = '09:00'
+    availForm.end_time = '17:00'
+    availForm.is_available = false
+    await fetchAvailabilities()
+    setTimeout(() => {
+      availSuccessMsg.value = ''
+    }, 3000)
+  } catch (e: any) {
+    console.error('Failed to add availability:', e)
+    availErrorMsg.value = e.data?.message || e.message || 'Failed to add availability.'
+  } finally {
+    isAddLoading.value = false
+  }
+}
+
+const deleteAvailability = async (uuid: string) => {
+  try {
+    await doctorAvailabilityService.delete(uuid)
+    await fetchAvailabilities()
+  } catch (e: any) {
+    console.error('Failed to delete availability:', e)
+    availErrorMsg.value = e.data?.message || e.message || 'Failed to delete availability.'
+  }
+}
+
+const formatTime = (time: string) => {
+  if (!time) return ''
+  const parts = time.split(':')
+  if (parts.length < 2) return time
+  let hours = parseInt(parts[0], 10)
+  const minutes = parts[1]
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12
+  hours = hours ? hours : 12
+  return `${hours}:${minutes} ${ampm}`
+}
+
+// Cascading logic
+watch(() => codes.region, async (newVal) => {
+  if (newVal) {
+    codes.province = ''
+    codes.city = ''
+    codes.barangay = ''
+    const region = regions.value.find(r => r.code === newVal)
+    if (region) form.province = region.name
+    await fetchProvinces(newVal)
+  }
+})
+
+watch(() => codes.province, async (newVal) => {
+  if (newVal) {
+    codes.city = ''
+    codes.barangay = ''
+    const prov = provinces.value.find(p => p.code === newVal)
+    if (prov) form.province = prov.name
+    await fetchCities(newVal)
+  }
+})
+
+watch(() => codes.city, async (newVal) => {
+  if (newVal) {
+    codes.barangay = ''
+    const city = cities.value.find(c => c.code === newVal)
+    if (city) form.city = city.name
+    await fetchBarangays(newVal)
+  }
+})
+
+watch(() => codes.barangay, (newVal) => {
+  if (newVal) {
+    const brgy = barangays.value.find(b => b.code === newVal)
+    if (brgy) form.barangay = brgy.name
+  }
+})
+
+const initDropdowns = async () => {
+  if (form.province) {
+    const prov = await findProvinceByName(form.province)
+    if (prov) {
+      codes.region = prov.regionCode
+      await fetchProvinces(prov.regionCode)
+      codes.province = prov.code
+
+      if (form.city) {
+        const city = await findCityByName(prov.code, form.city)
+        if (city) {
+          await fetchCities(prov.code)
+          codes.city = city.code
+
+          if (form.barangay) {
+            const brgy = await findBarangayByName(city.code, form.barangay)
+            if (brgy) {
+              await fetchBarangays(city.code)
+              codes.barangay = brgy.code
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+const loaded = ref(false)
+watch(user, (newVal) => {
+  if (newVal && !loaded.value) {
+    const userData = newVal
+    form.first_name = userData.first_name || ''
+    form.last_name = userData.last_name || ''
+    form.email = userData.email || ''
+    form.street = userData.street || ''
+    form.barangay = userData.barangay || ''
+    form.city = userData.city || ''
+    form.province = userData.province || ''
+    form.country = userData.country || 'Philippines'
+    form.latitude = userData.latitude ?? null
+    form.longitude = userData.longitude ?? null
+    form.age = userData.age || ''
+    form.gender = userData.gender || ''
+    form.affiliation = userData.affiliation || ''
+
+    form.prcNumber = userData.prcNumber || userData.doctor_verification?.prcNumber || ''
+
+    initDropdowns()
+    loaded.value = true
+  }
+}, { immediate: true, deep: true })
+
+const isLoading = ref(false)
+const isGeoLoading = ref(false)
+const isSuccess = ref(false)
+const isLogoutModalOpen = ref(false)
+
+const geocodeAddress = async () => {
+  if (!form.city || !form.province) return
+
+  isGeoLoading.value = true
+  try {
+    // Step 1: Specific Search
+    let query = `${form.street}, ${form.barangay}, ${form.city}, ${form.province}, ${form.country}`
+    let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+      headers: { 'User-Agent': 'DermAssist/1.0 (contact@dermassist.com)' }
+    })
+    let data = await response.json()
+
+    // Step 2: Fallback to City level if specific fails
+    if (!data || data.length === 0) {
+      query = `${form.city}, ${form.province}, ${form.country}`
+      response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
+        headers: { 'User-Agent': 'DermAssist/1.0 (contact@dermassist.com)' }
+      })
+      data = await response.json()
+    }
+
+    if (data && data.length > 0) {
+      form.latitude = parseFloat(data[0].lat)
+      form.longitude = parseFloat(data[0].lon)
+    }
+  } catch (error) {
+    console.error('Geocoding failed:', error)
+  } finally {
+    isGeoLoading.value = false
+  }
+}
+
+const submitProfile = async () => {
+  isLoading.value = true
+  try {
+    // Auto-geocode before saving if coordinates are empty
+    if (!form.latitude || !form.longitude) {
+      await geocodeAddress()
+    }
+
+    await userService.update(useCookie('user_uuid').value as string, form)
+    isSuccess.value = true
+    await refresh()
+    await refreshProfile()
+
+    // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
+    const userName = useCookie('user_name')
+    const authName = useCookie('auth_user_name')
+    userName.value = `${form.first_name} ${form.last_name}`
+    authName.value = `${form.first_name} ${form.last_name}`
+
+    setTimeout(() => {
+      isSuccess.value = false
+      navigateTo('/secretary')
+    }, 1500)
+  } catch (error) {
+    console.error('Failed to update profile:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const logout = () => {
+  isLogoutModalOpen.value = false
+  useCookie('auth_token').value = null
+  useCookie('user_role').value = null
+  useCookie('user_uuid').value = null
+  useCookie('user_name').value = null
+  useCookie('auth_user_name').value = null
+  navigateTo('/auth/login')
+}
+</script>
+
+<template>
+  <div class="max-w-5xl">
+    <div class="mb-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Secretary Profile</h1>
+        <p class="text-foreground/60 mt-2">Manage your professional and personal information.</p>
+      </div>
+      <div v-if="user?.doctor_verification?.status === 'verified'"
+        class="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-2xl border border-primary/20">
+        <Icon name="heroicons:shield-check-20-solid" size="20" />
+        <span class="text-sm font-bold uppercase tracking-wider">Verified Professional</span>
+      </div>
+    </div>
+
+    <!-- Profile Completion Alert -->
+    <AppAlert
+      v-if="missingDoctorFields.length > 0"
+      title="Profile Setup Required"
+      type="error"
+    >
+      Your profile is incomplete. Please fill out the following fields to complete registration: 
+      <span class="font-bold underline">{{ missingDoctorFields.join(', ') }}</span>.
+    </AppAlert>
+
+    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <!-- Left: Profile Preview -->
+      <div class="lg:col-span-1">
+        <div class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm">
+          <div class="relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-1 border-2 border-primary/20">
+            <template v-if="user?.avatar_path">
+              <NuxtImg :src="getStorageUrl(user.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
+            </template>
+            <div v-else class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-4xl font-bold text-primary">
+              Dr. {{ form.last_name?.charAt(0) }}
+            </div>
+            <button class="absolute bottom-0 right-0 z-10 bg-primary p-2 rounded-full text-white shadow-lg hover:bg-primary-hover transition-colors">
+              <Icon name="heroicons:camera-20-solid" size="16" />
+            </button>
+          </div>
+          <h2 class="text-xl font-bold">Dr. {{ form.first_name }} {{ form.last_name }}</h2>
+          <p class="text-foreground/60 text-sm italic">{{ form.email }}</p>
+
+          <div class="mt-6 flex flex-col gap-2">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-foreground/50">Profile Setup</span>
+              <AppProfileStatusBadge
+                :is-complete="user?.doctor_verification?.status === 'verified'"
+                :is-declined="user?.doctor_verification?.status === 'declined'"
+                :is-pending="user?.doctor_verification?.status === 'pending'" />
+            </div>
+            <div v-if="user?.prcNumber || user?.doctor_verification" class="bg-foreground/5 rounded-xl p-3 text-left">
+              <span class="text-foreground/40 text-[10px] font-bold uppercase block mb-1">PRC License No.</span>
+              <span class="text-sm font-mono">{{ user?.prcNumber || user?.doctor_verification?.prcNumber }}</span>
+            </div>
+
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Form -->
+      <div class="lg:col-span-2">
+        <div class="bg-sidebar border-sidebar-border rounded-3xl border p-8 shadow-sm">
+            <form @submit.prevent="submitProfile" class="flex flex-col gap-6">
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">First Name</label>
+                  <input v-model="form.first_name" type="text"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Enter first name" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Last Name</label>
+                  <input v-model="form.last_name" type="text"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Enter last name" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5 text-foreground">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Email Address</label>
+                  <input v-model="form.email" type="email" disabled
+                    class="bg-foreground/5 border-sidebar-border w-full rounded-2xl border px-4 py-3 outline-none transition-all opacity-60 cursor-not-allowed" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Affiliation</label>
+                  <input v-model="form.affiliation" type="text"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Enter affiliation" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">PRC Number</label>
+                  <input v-model="form.prcNumber" type="text"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Enter PRC license number" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Age</label>
+                  <input v-model="form.age" type="number"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                    placeholder="Your age" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Gender</label>
+                  <select v-model="form.gender"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none">
+                    <option value="" disabled>Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Region</label>
+                  <select v-model="codes.region"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none">
+                    <option value="" disabled>Select Region</option>
+                    <option v-for="r in regions" :key="r.code" :value="r.code">{{ r.name }}</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Province</label>
+                  <select v-model="codes.province" :disabled="!provinces.length"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
+                    <option value="" disabled>{{ provinces.length ? 'Select Province' : 'N/A' }}</option>
+                    <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">City / Municipality</label>
+                  <select v-model="codes.city" :disabled="!cities.length"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
+                    <option value="" disabled>Select City</option>
+                    <option v-for="c in cities" :key="c.code" :value="c.code">{{ c.name }}</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Barangay</label>
+                  <select v-model="codes.barangay" :disabled="!barangays.length"
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
+                    <option value="" disabled>Select Barangay</option>
+                    <option v-for="b in barangays" :key="b.code" :value="b.code">{{ b.name }}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Street Address / Clinic Name</label>
+                <input v-model="form.street" type="text"
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
+                  placeholder="House No., Street Name, Clinic/Hospital" />
+              </div>
+
+              <div class="mt-4 flex items-center justify-between">
+                <div v-if="isSuccess" class="flex items-center gap-2 text-green-500">
+                  <Icon name="heroicons:check-circle" size="20" />
+                  <span class="text-sm font-medium">Doctor profile updated!</span>
+                </div>
+                <div v-if="!isSuccess"></div>
+
+                <AppButton type="submit" :loading="isLoading" class="min-w-[140px]">
+                  Save Profile
+                </AppButton>
+              </div>
+            </form>
+          </div>
+
+        <!-- Availability Section -->
+        <div class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+          <div>
+            <h2 class="text-xl font-bold">Clinic Hours & Away Settings</h2>
+            <p class="text-foreground/60 text-sm mt-1">By default, you are available every day. Set specific dates and times you will be away/unavailable below.</p>
+          </div>
+
+          <!-- Divider -->
+          <div class="h-px bg-sidebar-border my-6"></div>
+
+          <!-- Add Availability Form -->
+          <form @submit.prevent="addAvailability" class="flex flex-col gap-4">
+            <h3 class="text-md font-semibold text-foreground/80">Add Blocked / Away Period</h3>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
+                <input v-model="availForm.available_date" type="date" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Start Time</label>
+                <input v-model="availForm.start_time" type="time" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">End Time</label>
+                <input v-model="availForm.end_time" type="time" required
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between mt-2">
+              <div>
+                <p v-if="availSuccessMsg" class="text-green-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
+                  <Icon name="heroicons:check-circle" size="18" />
+                  {{ availSuccessMsg }}
+                </p>
+                <p v-if="availErrorMsg" class="text-red-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
+                  <Icon name="heroicons:exclamation-circle" size="18" />
+                  {{ availErrorMsg }}
+                </p>
+              </div>
+
+              <AppButton type="submit" :loading="isAddLoading" class="min-w-[140px]">
+                Block Out Date
+              </AppButton>
+            </div>
+          </form>
+
+          <!-- Divider -->
+          <div class="h-px bg-sidebar-border my-6"></div>
+
+          <!-- Existing Slots -->
+          <div>
+            <h3 class="text-md font-semibold text-foreground/80 mb-4">Your Blocked / Away Dates</h3>
+            
+            <div v-if="isAvailLoading" class="flex flex-col gap-3">
+              <div v-for="i in 2" :key="i" class="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse"></div>
+            </div>
+
+            <div v-else-if="!availabilities.length" 
+              class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
+              <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2" />
+              <p class="text-foreground/50 text-sm">No blocked dates set. You are currently marked as available every day for new patient referrals.</p>
+            </div>
+
+            <div v-else class="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+              <div v-for="slot in availabilities" :key="slot.uuid"
+                class="flex items-center justify-between p-4 rounded-2xl border border-sidebar-border bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-all">
+                <div class="flex items-center gap-4">
+                  <div class="bg-red-500/10 text-red-500 p-2.5 rounded-xl">
+                    <Icon name="heroicons:calendar" size="20" />
+                  </div>
+                  <div>
+                    <p class="text-sm font-bold text-foreground">
+                      {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
+                    </p>
+                    <p class="text-xs text-foreground/60 mt-0.5">
+                      {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <span class="bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-semibold px-3 py-1 rounded-full">
+                    Blocked / Away
+                  </span>
+                  
+                  <button @click="deleteAvailability(slot.uuid)"
+                    class="text-foreground/40 hover:text-red-500 p-2 rounded-xl hover:bg-red-500/5 transition-all cursor-pointer"
+                    title="Remove Blocked Period">
+                    <Icon name="heroicons:trash" size="18" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.5em;
+}
+</style>
