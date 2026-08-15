@@ -36,7 +36,7 @@
           class="mx-auto" 
           :class="[
             userRole === 'patient' ? 'px-5 md:p-0' : '',
-            isChatPage ? 'h-full min-h-0' : 'min-h-[calc(100vh+200px)]'
+            isChatPage ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
           <slot />
