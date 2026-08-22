@@ -75,7 +75,17 @@
       to: '/admin/appeals',
       showBadge: hasUnseenAppeals.value
     },
-    { icon: 'heroicons:users', label: 'Dataset', to: '/admin/dataset' }
+    { icon: 'heroicons:users', label: 'Dataset', to: '/admin/dataset' },
+    {
+      icon: 'heroicons:credit-card',
+      label: 'Subscriptions',
+      children: [
+        { icon: 'heroicons:chart-bar', label: 'Dashboard', to: '/admin/subscriptions' },
+        { icon: 'heroicons:adjustments-horizontal', label: 'Plan Builder', to: '/admin/subscriptions/plans' },
+        { icon: 'heroicons:receipt-percent', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
+        { icon: 'heroicons:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
+      ]
+    }
   ])
 
   const patientNavItems = computed(() => [
