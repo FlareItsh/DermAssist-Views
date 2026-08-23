@@ -60,7 +60,7 @@ export class UserService extends BaseService {
     return await this.request(`/doctor/patients/${patientUuid}/send-scan`, 'POST', { diagnosis_uuid: diagnosisUuid })
   }
 
-  async scheduleAppointmentForPatient(patientUuid: string, payload: { scheduled_at: string; location: string; purpose: string }): Promise<any> {
+  async scheduleAppointmentForPatient(patientUuid: string, payload: { scheduled_at: string; scheduled_end_at?: string; location: string; purpose: string }): Promise<any> {
     return await this.request(`/doctor/patients/${patientUuid}/schedule-appointment`, 'POST', payload)
   }
 

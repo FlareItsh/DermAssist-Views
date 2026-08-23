@@ -14,14 +14,36 @@ const emit = defineEmits<{
   (e: 'scheduled'): void
 }>()
 
+const userRole = useCookie('user_role')
+const isDoctor = computed(() => userRole.value === 'doctor')
+
+const getTodayStr = () => {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const selectedDate = ref('')
 const scheduleTime = ref('09:00')
+const scheduleEndTime = ref('10:00')
 const scheduleLocation = ref('')
 const isScheduling = ref(false)
+const errorMessage = ref<string | null>(null)
 
-// ─── Blocked dates ───────────────────────────────────────────────────────────
+// Auto-sync end time when start time changes if end time <= start time
+watch(scheduleTime, (newStart) => {
+  if (!newStart) return
+  const [h, m] = newStart.split(':').map(Number)
+  const endHour = (h + 1) % 24
+  scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+})
+
+// ─── Appointments & Blocked dates ───────────────────────────────────────────
 
 const { blockedSlots, isTimeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+const { isApptTimeConflicting } = useAppointments()
 
 const handleDateSelected = (date: string) => {
   selectedDate.value = date
@@ -33,6 +55,16 @@ const handleDateSelected = (date: string) => {
 const isSelectedTimeBlocked = computed(() => {
   if (!selectedDate.value || !scheduleTime.value) return false
   return isTimeBlockedOnDate(selectedDate.value, scheduleTime.value)
+})
+
+const isApptConflict = computed(() => {
+  if (!selectedDate.value || !scheduleTime.value) return false
+  return isApptTimeConflicting(selectedDate.value, scheduleTime.value, scheduleEndTime.value, props.appointmentUuid)
+})
+
+const isTimeRangeInvalid = computed(() => {
+  if (!scheduleTime.value || !scheduleEndTime.value) return false
+  return scheduleEndTime.value <= scheduleTime.value
 })
 
 /**
@@ -57,29 +89,33 @@ const blockedRangesLabel = computed(() => {
 })
 
 const confirmSchedule = async () => {
-  if (!selectedDate.value || !scheduleTime.value || !scheduleLocation.value) return
-  if (isSelectedTimeBlocked.value) return
+  errorMessage.value = null
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value || !scheduleLocation.value) return
+  if (isSelectedTimeBlocked.value || isTimeRangeInvalid.value || isApptConflict.value) return
   isScheduling.value = true
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
+    const endDateTime = `${selectedDate.value} ${scheduleEndTime.value}:00`
 
     if (props.mode === 'reschedule') {
       await appointmentService.proposeReschedule(props.appointmentUuid, {
         scheduled_at: dateTime,
+        scheduled_end_at: endDateTime,
         location: scheduleLocation.value
       })
     } else {
       await appointmentService.update(props.appointmentUuid, {
         status: 'scheduled',
         scheduled_at: dateTime,
+        scheduled_end_at: endDateTime,
         location: scheduleLocation.value
       })
     }
 
     emit('scheduled')
     emit('close')
-  } catch (e) {
-    console.error(e)
+  } catch (e: any) {
+    errorMessage.value = e.data?.message || e.message || 'Failed to schedule appointment.'
   } finally {
     isScheduling.value = false
   }
@@ -99,12 +135,13 @@ const confirmSchedule = async () => {
             <PatientSideComponentsCalendar
               :blocked-slots="blockedSlots"
               :show-manage-blocks-link="true"
+              :show-appointment-details-panel="!isDoctor"
               @date-selected="handleDateSelected"
             />
           </div>
 
           <!-- Right side: Time & Location -->
-          <div class="bg-foreground/5 flex flex-col justify-center p-8 lg:w-80">
+          <div class="bg-foreground/5 flex flex-col justify-center p-8 lg:w-96">
             <h3 class="mb-6 text-2xl font-bold">
               {{ props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment' }}
             </h3>
@@ -116,14 +153,55 @@ const confirmSchedule = async () => {
               </div>
             </div>
 
+            <!-- Start & End Time Fields -->
             <div class="mb-4">
-              <label class="mb-2 block text-sm font-bold text-gray-500">Time</label>
-              <input
-                type="time"
-                v-model="scheduleTime"
-                class="w-full rounded-xl border p-3 outline-none transition-all focus:border-indigo-500"
-                :class="isSelectedTimeBlocked ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-              />
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
+                  <input
+                    type="time"
+                    v-model="scheduleTime"
+                    class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                    :class="(isSelectedTimeBlocked || isApptConflict) ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
+                  <input
+                    type="time"
+                    v-model="scheduleEndTime"
+                    class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                    :class="isTimeRangeInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                  />
+                </div>
+              </div>
+
+              <!-- Time range invalid warning -->
+              <div v-if="isTimeRangeInvalid" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                End time must be after start time.
+              </div>
+
+              <!-- Conflicting Appointment Warning -->
+              <Transition name="fade-scale">
+                <div
+                  v-if="isApptConflict"
+                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                >
+                  <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                  <div>
+                    <p class="font-bold">Conflicting Appointment</p>
+                    <p class="text-red-500 mt-0.5">
+                      An appointment is already scheduled during this time slot. Please choose a different time.
+                    </p>
+                  </div>
+                </div>
+              </Transition>
+
+              <!-- Conflict / Error Alert -->
+              <div v-if="errorMessage" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 flex items-start gap-1.5">
+                <Icon name="material-symbols:warning-rounded" class="text-base text-red-500 shrink-0 mt-0.5" />
+                <span>{{ errorMessage }}</span>
+              </div>
 
               <!-- Blocked time warning -->
               <Transition name="fade-scale">
@@ -171,7 +249,7 @@ const confirmSchedule = async () => {
               <AppButton
                 variant="solid"
                 class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
-                :disabled="!selectedDate || !scheduleTime || !scheduleLocation || isScheduling || isSelectedTimeBlocked"
+                :disabled="!selectedDate || !scheduleTime || !scheduleEndTime || !scheduleLocation || isScheduling || isSelectedTimeBlocked || isTimeRangeInvalid || isApptConflict"
                 @click="confirmSchedule"
               >
                 <template v-if="isScheduling">

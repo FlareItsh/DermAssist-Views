@@ -4,6 +4,8 @@ export interface Appointment {
   id: string
   date: string // YYYY-MM-DD
   time: string
+  raw_scheduled_at?: string
+  raw_scheduled_end_at?: string
   doctor: string
   doctor_id: number
   doctor_uuid?: string
@@ -74,6 +76,8 @@ export const useAppointments = () => {
             id: appt.uuid,
             date,
             time,
+            raw_scheduled_at: appt.scheduled_at,
+            raw_scheduled_end_at: appt.scheduled_end_at,
             doctor: mapPerson(appt),
             doctor_id: appt.doctor_id,
             doctor_uuid: appt.doctor?.uuid,
@@ -119,6 +123,31 @@ export const useAppointments = () => {
     }
   }
 
+  const isApptTimeConflicting = (dateStr: string, startTimeStr: string, endTimeStr?: string, excludeUuid?: string): boolean => {
+    if (!dateStr || !startTimeStr) return false
+
+    // Parse start datetime ms
+    const targetStartMs = new Date(`${dateStr}T${startTimeStr}:00`).getTime()
+    let targetEndMs = endTimeStr ? new Date(`${dateStr}T${endTimeStr}:00`).getTime() : targetStartMs + 3600000
+
+    if (isNaN(targetStartMs) || isNaN(targetEndMs)) return false
+
+    return appointments.value.some(appt => {
+      if (excludeUuid && appt.id === excludeUuid) return false
+      if (!appt.raw_scheduled_at) return false
+
+      const apptStartMs = new Date(appt.raw_scheduled_at.replace(/Z|(\+\d{2}:\d{2})$/i, '')).getTime()
+      const apptEndMs = appt.raw_scheduled_end_at
+        ? new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, '')).getTime()
+        : apptStartMs + 3600000
+
+      if (isNaN(apptStartMs) || isNaN(apptEndMs)) return false
+
+      // Overlap condition: targetStart < apptEnd AND targetEnd > apptStart
+      return targetStartMs < apptEndMs && targetEndMs > apptStartMs
+    })
+  }
+
   // Clear and refetch if user changed since last call
   if (localUserUuid.value !== userUuid.value) {
     appointments.value = []
@@ -159,6 +188,7 @@ export const useAppointments = () => {
     completedAppointments,
     selectedDate,
     pending,
-    fetchAppointments
+    fetchAppointments,
+    isApptTimeConflicting
   }
 }

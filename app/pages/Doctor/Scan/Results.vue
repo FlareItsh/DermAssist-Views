@@ -60,7 +60,7 @@ onMounted(() => {
   }
 })
 
-const handleFinished = () => {
+const handleFinished = (payload?: { conversationUuid?: string; followUpScheduled?: boolean }) => {
   if (import.meta.client) {
     try {
       localStorage.removeItem('dermassist_active_diagnosis')
@@ -75,7 +75,13 @@ const handleFinished = () => {
     }
   }
   resetScanner()
-  navigateTo('/Doctor/Scan')
+  if (payload?.conversationUuid) {
+    navigateTo(`/Doctor/Messages/${payload.conversationUuid}`)
+  } else if (payload?.followUpScheduled) {
+    navigateTo('/Doctor/Messages')
+  } else {
+    navigateTo('/Doctor/Scan')
+  }
 }
 </script>
 

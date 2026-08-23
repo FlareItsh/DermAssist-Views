@@ -14,7 +14,7 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
-  const { patientUuid, currentDiagnosis } = useDiagnosis()
+  const { patientUuid, currentDiagnosis, saveActiveDiagnosisState } = useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
   const isPatientModalOpen = ref(false)
@@ -80,7 +80,10 @@
     isNewScan?: boolean
   }>()
 
-  const emit = defineEmits(['close', 'finished'])
+  const emit = defineEmits<{
+    (e: 'close'): void
+    (e: 'finished', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
+  }>()
 
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
@@ -293,6 +296,7 @@
 
       const createdUser = response.user
       patientUuid.value = createdUser.uuid
+      saveActiveDiagnosisState()
       userName.value = `${createdUser.first_name} ${createdUser.last_name}`
       editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
       if (createdUser.age) {
@@ -814,7 +818,7 @@
           :diagnosis-uuid="props.diagnosisUuid || null"
           :skip-load="props.isNewScan" 
           :is-finish-mode="props.isNewScan"
-          @saved="emit('finished')"
+          @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />
       </div>
@@ -1570,10 +1574,10 @@
 
       <template #footer>
         <div class="flex items-center justify-end gap-3 w-full" v-if="!createAccountSuccess">
-          <AppButton variant="ghost" class="rounded-xl px-6 font-bold text-gray-500" @click="isCreateAccountModalOpen = false">
+          <AppButton type="button" variant="ghost" class="rounded-xl px-6 font-bold text-gray-500" @click.stop="isCreateAccountModalOpen = false">
             Cancel
           </AppButton>
-          <AppButton class="rounded-xl px-6 font-bold" @click="handleCreatePatientAccount" :disabled="isSubmittingAccount">
+          <AppButton type="button" class="rounded-xl px-6 font-bold" @click.stop="handleCreatePatientAccount" :disabled="isSubmittingAccount">
             {{ isSubmittingAccount ? 'Creating...' : 'Register & Link Account' }}
           </AppButton>
         </div>

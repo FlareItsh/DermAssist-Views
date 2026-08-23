@@ -11,7 +11,10 @@
     isFinishMode?: boolean
   }>()
 
-  const emit = defineEmits(['saved', 'require-patient-account'])
+  const emit = defineEmits<{
+    (e: 'saved', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
+    (e: 'require-patient-account'): void
+  }>()
   const { patientUuid } = useDiagnosis()
 
   const storageKey = computed(() => {
@@ -52,8 +55,16 @@
   const noFollowUp = ref(false)
   const followUpDateOnly = ref('')
   const followUpTimeOnly = ref('09:00')
+  const followUpEndTimeOnly = ref('10:00')
   const followUpError = ref<string | null>(null)
   const followUpSectionRef = ref<HTMLElement | null>(null)
+
+  watch(followUpTimeOnly, (newStart) => {
+    if (!newStart) return
+    const [h, m] = newStart.split(':').map(Number)
+    const endHour = (h + 1) % 24
+    followUpEndTimeOnly.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  })
 
   const parseFollowUpDate = (val: string) => {
     if (!val) {
@@ -80,7 +91,7 @@
     }
   }
 
-  watch([noFollowUp, followUpDateOnly, followUpTimeOnly], () => {
+  watch([noFollowUp, followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly], () => {
     followUpError.value = null
     syncFollowUpDate()
   })
@@ -88,6 +99,8 @@
   const isSaving = ref(false)
   const isLoaded = ref(false)
   const showSuccess = ref(false)
+  const isExplicitSaveRequested = ref(false)
+  const hasSavedFollowUp = ref(false)
 
   const loadDraftIfExists = () => {
     try {
@@ -105,6 +118,9 @@
         }
         if (parsed.followUpTimeOnly) {
           followUpTimeOnly.value = parsed.followUpTimeOnly
+        }
+        if (parsed.followUpEndTimeOnly) {
+          followUpEndTimeOnly.value = parsed.followUpEndTimeOnly
         }
         if (note.value.follow_up_date) {
           parseFollowUpDate(note.value.follow_up_date)
@@ -147,7 +163,7 @@
 
   // Auto-save draft on note changes
   watch(
-    [note, noFollowUp, followUpDateOnly, followUpTimeOnly],
+    [note, noFollowUp, followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly],
     () => {
       if (!isLoaded.value) return
       try {
@@ -155,7 +171,8 @@
           note: note.value,
           noFollowUp: noFollowUp.value,
           followUpDateOnly: followUpDateOnly.value,
-          followUpTimeOnly: followUpTimeOnly.value
+          followUpTimeOnly: followUpTimeOnly.value,
+          followUpEndTimeOnly: followUpEndTimeOnly.value
         }
         localStorage.setItem(storageKey.value, JSON.stringify(draftData))
       } catch (e) {
@@ -165,7 +182,9 @@
     { deep: true }
   )
 
-  const { isTimeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+  const { blockedSlots, isTimeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+  const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
+  const scheduledFollowUpUuid = ref<string | undefined>()
 
   const availableTimeSlots = [
     { value: '08:00', label: '08:00 AM' },
@@ -191,6 +210,59 @@
     return isWholeDayBlocked(followUpDateOnly.value)
   })
 
+  const isFollowUpConflict = computed(() => {
+    if (hasSavedFollowUp.value) return false
+    if (!followUpDateOnly.value || !followUpTimeOnly.value) return false
+    return isApptTimeConflicting(
+      followUpDateOnly.value,
+      followUpTimeOnly.value,
+      followUpEndTimeOnly.value,
+      scheduledFollowUpUuid.value || props.appointmentUuid
+    )
+  })
+
+  const handleFollowUpDateSelected = (date: string) => {
+    followUpDateOnly.value = date
+    noFollowUp.value = false
+  }
+
+  const findConversationUuid = (value: any): string | undefined => {
+    if (!value || typeof value !== 'object') return undefined
+    if (typeof value.conversation_uuid === 'string') return value.conversation_uuid
+    for (const nested of Object.values(value)) {
+      const found = findConversationUuid(nested)
+      if (found) return found
+    }
+    return undefined
+  }
+
+  const findScheduledAppointment = (value: any): any | undefined => {
+    if (!value || typeof value !== 'object') return undefined
+    if (typeof value.uuid === 'string' && (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)) return value
+    if (typeof value.id === 'string' && (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)) return value
+    for (const nested of Object.values(value)) {
+      const found = findScheduledAppointment(nested)
+      if (found) return found
+    }
+    return undefined
+  }
+
+  const isSameScheduledTime = (rawDateTime: string | undefined, date: string, time: string) => {
+    if (!rawDateTime) return false
+    return rawDateTime.replace('T', ' ').replace(/Z|(\+\d{2}:\d{2})$/i, '').slice(0, 16) === `${date} ${time}`
+  }
+
+  const findScheduledFollowUpFromList = () => {
+    if (!followUpDateOnly.value || !followUpTimeOnly.value || !patientUuid.value) return undefined
+    return appointments.value.find(appt => {
+      const apptPatientUuid = (appt as any).patient_uuid || (appt as any).patient?.uuid
+      return apptPatientUuid === patientUuid.value
+        && isSameScheduledTime(appt.raw_scheduled_at, followUpDateOnly.value, followUpTimeOnly.value)
+    })
+  }
+
+  const existingSelectedFollowUp = computed(() => findScheduledFollowUpFromList())
+
   const saveNote = async () => {
     followUpError.value = null
     if (!noFollowUp.value && !followUpDateOnly.value) {
@@ -199,6 +271,26 @@
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
       return
+    }
+
+    if (!noFollowUp.value && followUpDateOnly.value && followUpEndTimeOnly.value <= followUpTimeOnly.value) {
+      followUpError.value = "Follow-up appointment end time must be after the start time."
+      if (followUpSectionRef.value) {
+        followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
+
+    if (!noFollowUp.value && isFollowUpConflict.value) {
+      if (existingSelectedFollowUp.value) {
+        scheduledFollowUpUuid.value = existingSelectedFollowUp.value.id
+      } else {
+        followUpError.value = "An appointment is already scheduled during this time slot. Please choose a different time."
+        if (followUpSectionRef.value) {
+          followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+        return
+      }
     }
 
     if (!noFollowUp.value && followUpDateOnly.value && isTimeBlockedOnDate(followUpDateOnly.value, followUpTimeOnly.value)) {
@@ -220,6 +312,9 @@
 
     isSaving.value = true
     showSuccess.value = false
+    let scheduledConversationUuid: string | undefined
+    let didScheduleFollowUp = false
+    const alreadyScheduledFollowUp = existingSelectedFollowUp.value
     try {
       syncFollowUpDate()
 
@@ -238,15 +333,41 @@
       }
 
       // Schedule follow-up appointment if patient account exists
-      if (!noFollowUp.value && followUpDateOnly.value && patientUuid.value) {
+      if (alreadyScheduledFollowUp) {
+        didScheduleFollowUp = true
+        scheduledFollowUpUuid.value = alreadyScheduledFollowUp.id
+        scheduledConversationUuid = alreadyScheduledFollowUp.conversation_uuid
+        hasSavedFollowUp.value = true
+      } else if (isExplicitSaveRequested.value && !noFollowUp.value && followUpDateOnly.value && patientUuid.value) {
         try {
-          await userService.scheduleAppointmentForPatient(patientUuid.value, {
+          const scheduled = await userService.scheduleAppointmentForPatient(patientUuid.value, {
             scheduled_at: `${followUpDateOnly.value} ${followUpTimeOnly.value}:00`,
+            scheduled_end_at: `${followUpDateOnly.value} ${followUpEndTimeOnly.value}:00`,
             location: 'Doctor Clinic',
             purpose: note.value.follow_up_instructions || 'Follow-up appointment for diagnosis assessment'
           })
-        } catch (err) {
+          didScheduleFollowUp = true
+          const scheduledAppointment = findScheduledAppointment(scheduled)
+          scheduledFollowUpUuid.value = scheduledAppointment?.uuid || scheduledAppointment?.id
+          scheduledConversationUuid = findConversationUuid(scheduled)
+          hasSavedFollowUp.value = true
+        } catch (err: any) {
           console.error('Failed to auto-schedule follow-up appointment:', err)
+          await fetchAppointments()
+          const scheduledFromList = findScheduledFollowUpFromList()
+          if (scheduledFromList) {
+            didScheduleFollowUp = true
+            scheduledFollowUpUuid.value = scheduledFromList.id
+            scheduledConversationUuid = scheduledFromList.conversation_uuid
+            hasSavedFollowUp.value = true
+          } else {
+          followUpError.value = err.data?.message || err.message || 'Conflict detected: Failed to schedule appointment.'
+          if (followUpSectionRef.value) {
+            followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+          isSaving.value = false
+          return
+          }
         }
       }
 
@@ -257,8 +378,9 @@
         // silent fail
       }
       
+      followUpError.value = null
       showSuccess.value = true
-      emit('saved')
+      emit('saved', { conversationUuid: scheduledConversationUuid, followUpScheduled: didScheduleFollowUp })
       
       setTimeout(() => {
         showSuccess.value = false
@@ -274,7 +396,21 @@
   const saveWithoutAccount = async () => {
     noFollowUp.value = true
     followUpError.value = null
-    await saveNote()
+    isExplicitSaveRequested.value = true
+    try {
+      await saveNote()
+    } finally {
+      isExplicitSaveRequested.value = false
+    }
+  }
+
+  const handleSaveClick = async () => {
+    isExplicitSaveRequested.value = true
+    try {
+      await saveNote()
+    } finally {
+      isExplicitSaveRequested.value = false
+    }
   }
 </script>
 
@@ -297,7 +433,7 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <AppButton :loading="isSaving" @click="saveNote" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
+        <AppButton type="button" :loading="isSaving" @click="handleSaveClick" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
           <Icon v-if="showSuccess" name="material-symbols:check-circle-rounded" class="text-xl" />
           <Icon v-else-if="!isSaving" name="material-symbols:save-outline-rounded" class="text-xl" />
           {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : (isFinishMode ? 'Finish Diagnosis & Save' : 'Save Note')) }}
@@ -422,32 +558,68 @@
             </div>
 
             <!-- Date & Time Selection -->
-            <div v-if="!noFollowUp" class="flex flex-col sm:flex-row flex-wrap items-center gap-3 bg-white p-3 rounded-xl border border-gray-200 shadow-xs mt-1">
-              <div class="flex items-center gap-2 w-full sm:w-auto flex-1">
-                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Date:</span>
-                <input 
-                  type="date" 
-                  v-model="followUpDateOnly" 
-                  :min="getTodayStr()"
-                  class="bg-gray-50/80 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-primary focus:bg-white cursor-pointer w-full" 
+            <div v-if="!noFollowUp" class="grid gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-xs mt-1 overflow-visible xl:grid-cols-[400px_minmax(260px,1fr)]">
+              <div class="relative z-30 flex w-full justify-center overflow-visible xl:block">
+                <PatientSideComponentsCalendar
+                  :min-date="getTodayStr()"
+                  :blocked-slots="blockedSlots"
+                  :show-manage-blocks-link="true"
+                  :show-appointment-details-panel="false"
+                  @date-selected="handleFollowUpDateSelected"
                 />
               </div>
 
-              <div class="flex items-center gap-2 w-full sm:w-auto flex-1">
-                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider pl-1">Time:</span>
-                <select 
-                  v-model="followUpTimeOnly" 
-                  class="bg-gray-50/80 border border-gray-200 rounded-lg px-3 py-2 text-xs font-bold text-gray-800 outline-none focus:border-primary focus:bg-white cursor-pointer w-full"
-                >
-                  <option 
-                    v-for="slot in availableTimeSlots" 
-                    :key="slot.value" 
-                    :value="slot.value"
-                    :disabled="isTimeBlockedOnDate(followUpDateOnly, slot.value)"
+              <div class="flex min-w-0 flex-col justify-center gap-4 rounded-2xl bg-gray-50/80 p-4 border border-gray-100">
+                <div>
+                  <label class="mb-2 block text-sm font-bold text-gray-500">Selected Date</label>
+                  <div class="rounded-xl border border-gray-200 bg-white p-3 font-semibold text-indigo-600">
+                    {{ followUpDateOnly || 'Please select a date from the calendar' }}
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
+                <input
+                  type="time"
+                  v-model="followUpTimeOnly"
+                  class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                      :class="(isTimeBlockedOnDate(followUpDateOnly, followUpTimeOnly) || (!showSuccess && isFollowUpConflict)) ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                />
+                  </div>
+                  <div>
+                    <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
+                    <input
+                      type="time"
+                      v-model="followUpEndTimeOnly"
+                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                      :class="followUpEndTimeOnly <= followUpTimeOnly ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                    />
+                  </div>
+                </div>
+
+                <Transition name="fade-scale">
+                  <div
+                    v-if="followUpEndTimeOnly <= followUpTimeOnly"
+                    class="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
-                    {{ slot.label }} {{ isTimeBlockedOnDate(followUpDateOnly, slot.value) ? '(Unavailable)' : '' }}
-                  </option>
-                </select>
+                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <p class="font-bold">End time must be after start time.</p>
+                  </div>
+                </Transition>
+
+                <Transition name="fade-scale">
+                  <div
+                    v-if="!showSuccess && isFollowUpConflict"
+                    class="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <div>
+                      <p class="font-bold">Conflicting Appointment</p>
+                      <p class="text-red-500 mt-0.5">An appointment is already scheduled during this time slot. Please choose a different time.</p>
+                    </div>
+                  </div>
+                </Transition>
               </div>
             </div>
 

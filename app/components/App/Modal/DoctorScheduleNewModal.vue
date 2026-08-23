@@ -46,12 +46,28 @@ const backToPatients = () => {
 
 // ─── Step 2 form ────────────────────────────────────────────────────────────
 
+const getTodayStr = () => {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 const selectedDate = ref('')
 const scheduleTime = ref('09:00')
+const scheduleEndTime = ref('10:00')
 const scheduleLocation = ref('')
 const schedulePurpose = ref('')
 const isScheduling = ref(false)
 const scheduleError = ref('')
+
+watch(scheduleTime, (newStart) => {
+  if (!newStart) return
+  const [h, m] = newStart.split(':').map(Number)
+  const endHour = (h + 1) % 24
+  scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+})
 
 // ─── Blocked dates ───────────────────────────────────────────────────────────
 
@@ -63,6 +79,11 @@ const { blockedSlots, isTimeBlockedOnDate, getBlockedTimesForDate } = useBlocked
 const isSelectedTimeBlocked = computed(() => {
   if (!selectedDate.value || !scheduleTime.value) return false
   return isTimeBlockedOnDate(selectedDate.value, scheduleTime.value)
+})
+
+const isTimeRangeInvalid = computed(() => {
+  if (!scheduleTime.value || !scheduleEndTime.value) return false
+  return scheduleEndTime.value <= scheduleTime.value
 })
 
 /**
@@ -89,6 +110,7 @@ const blockedRangesLabel = computed(() => {
 const resetForm = () => {
   selectedDate.value = ''
   scheduleTime.value = '09:00'
+  scheduleEndTime.value = '10:00'
   scheduleLocation.value = ''
   schedulePurpose.value = ''
   scheduleError.value = ''
@@ -102,9 +124,11 @@ const isFormValid = computed(
   () =>
     !!selectedDate.value &&
     !!scheduleTime.value &&
+    !!scheduleEndTime.value &&
     !!scheduleLocation.value &&
     !!schedulePurpose.value &&
-    !isSelectedTimeBlocked.value
+    !isSelectedTimeBlocked.value &&
+    !isTimeRangeInvalid.value
 )
 
 const confirmSchedule = async () => {
@@ -113,9 +137,11 @@ const confirmSchedule = async () => {
   scheduleError.value = ''
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
+    const endDateTime = `${selectedDate.value} ${scheduleEndTime.value}:00`
     await appointmentService.scheduleForPatient({
       patient_id: selectedPatient.value.patient_id,
       scheduled_at: dateTime,
+      scheduled_end_at: endDateTime,
       location: scheduleLocation.value,
       purpose: schedulePurpose.value,
     })
@@ -123,7 +149,7 @@ const confirmSchedule = async () => {
     emit('scheduled')
     emit('close')
   } catch (e: any) {
-    scheduleError.value = e?.message ?? 'Something went wrong. Please try again.'
+    scheduleError.value = e?.data?.message ?? e?.message ?? 'Something went wrong. Please try again.'
   } finally {
     isScheduling.value = false
   }
@@ -207,32 +233,57 @@ const getInitials = (name: string): string => {
 
           <!-- ── Step 2: Schedule Details ───────────────────────────── -->
           <template v-else>
-            <div class="p-6">
-              <PatientSideComponentsCalendar
-                :blocked-slots="blockedSlots"
-                :show-manage-blocks-link="true"
-                @date-selected="handleDateSelected"
-              />
-            </div>
-
-            <div class="bg-foreground/5 flex flex-col justify-center p-8 lg:w-80">
-              <h3 class="mb-6 text-2xl font-bold">Schedule Appointment</h3>
-
-              <div class="mb-4">
-                <label class="mb-2 block text-sm font-bold text-gray-500">Selected Date</label>
-                <div class="rounded-xl border border-gray-200 bg-white p-3 font-semibold text-indigo-600">
-                  {{ selectedDate || 'Please select a date from the calendar' }}
+            <div class="flex flex-col p-8 w-[90vw] sm:w-[500px] lg:w-[32rem]">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="text-2xl font-bold">Schedule Appointment</h3>
+                  <p class="text-xs text-indigo-600 font-bold mt-0.5" v-if="selectedPatient">
+                    Patient: {{ selectedPatient.doctor }}
+                  </p>
                 </div>
+                <button @click="backToPatients" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full">
+                  <Icon name="material-symbols:close-rounded" class="text-xl" />
+                </button>
               </div>
 
+              <!-- Direct Date Picker Input -->
               <div class="mb-4">
-                <label class="mb-2 block text-sm font-bold text-gray-500">Time</label>
+                <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">Select Date</label>
                 <input
-                  type="time"
-                  v-model="scheduleTime"
-                  class="w-full rounded-xl border p-3 outline-none transition-all focus:border-indigo-500"
-                  :class="isSelectedTimeBlocked ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                  type="date"
+                  v-model="selectedDate"
+                  :min="getTodayStr()"
+                  class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm font-bold text-gray-800 outline-none focus:border-indigo-500 cursor-pointer"
                 />
+              </div>
+
+              <!-- Start & End Time Fields -->
+              <div class="mb-4">
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
+                    <input
+                      type="time"
+                      v-model="scheduleTime"
+                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                      :class="isSelectedTimeBlocked ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
+                    <input
+                      type="time"
+                      v-model="scheduleEndTime"
+                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
+                      :class="isTimeRangeInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
+                    />
+                  </div>
+                </div>
+
+                <!-- Time range invalid warning -->
+                <div v-if="isTimeRangeInvalid" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                  End time must be after start time.
+                </div>
 
                 <!-- Blocked time warning -->
                 <Transition name="fade-scale">
@@ -245,55 +296,40 @@ const getInitials = (name: string): string => {
                       <p class="font-bold">This time is blocked</p>
                       <p class="text-red-500 mt-0.5">
                         Blocked on this date: <strong>{{ blockedRangesLabel }}</strong>.
-                        Please choose a different time.
                       </p>
                     </div>
-                  </div>
-                </Transition>
-
-                <!-- Partial block info (date has blocks but time is fine) -->
-                <Transition name="fade-scale">
-                  <div
-                    v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
-                    class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
-                  >
-                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
-                    <p>
-                      <span class="font-bold">Note:</span>
-                      This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong>.
-                    </p>
                   </div>
                 </Transition>
               </div>
 
               <div class="mb-4">
-                <label class="mb-2 block text-sm font-bold text-gray-500">Clinic / Location</label>
+                <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">Clinic / Location</label>
                 <input
                   type="text"
                   v-model="scheduleLocation"
                   placeholder="e.g. SkinCare Clinic, Rm 302"
-                  class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
+                  class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-indigo-500 font-medium"
                 />
               </div>
 
-              <div class="mb-8">
-                <label class="mb-2 block text-sm font-bold text-gray-500">Purpose of Appointment</label>
+              <div class="mb-6">
+                <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">Purpose of Appointment</label>
                 <textarea
                   v-model="schedulePurpose"
-                  rows="3"
+                  rows="2"
                   placeholder="e.g. Follow-up on eczema treatment…"
-                  class="w-full resize-none rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
+                  class="w-full resize-none rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-indigo-500 font-medium"
                 />
               </div>
 
-              <p v-if="scheduleError" class="mb-4 rounded-xl bg-red-50 p-3 text-xs font-medium text-red-500">
+              <p v-if="scheduleError" class="mb-4 rounded-xl bg-red-50 border border-red-200 p-3 text-xs font-bold text-red-600">
                 {{ scheduleError }}
               </p>
 
               <div class="mt-auto flex flex-col gap-3">
                 <AppButton
                   variant="solid"
-                  class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
+                  class="bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 font-bold py-3.5 rounded-2xl shadow-lg"
                   :disabled="!isFormValid || isScheduling"
                   @click="confirmSchedule"
                 >
@@ -301,7 +337,7 @@ const getInitials = (name: string): string => {
                 </AppButton>
                 <AppButton
                   variant="unstyled"
-                  class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                  class="bg-gray-100 text-gray-700 font-bold transition-all hover:bg-gray-200 py-3 rounded-2xl"
                   @click="backToPatients"
                 >
                   Back

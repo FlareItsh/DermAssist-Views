@@ -14,6 +14,8 @@
     blockedSlots?: BlockedSlot[]
     /** When true, renders a "Manage Blocked Dates" link that navigates to the doctor profile page. */
     showManageBlocksLink?: boolean
+    /** When false, clicking appointment dates only selects the date and appointment details stay hover-only. */
+    showAppointmentDetailsPanel?: boolean
   }>(), {
     minDate: () => {
       const d = new Date()
@@ -24,6 +26,7 @@
     },
     blockedSlots: () => [],
     showManageBlocksLink: false,
+    showAppointmentDetailsPanel: true,
   })
 
   const { appointments, fetchAppointments } = useAppointments()
@@ -72,6 +75,20 @@
 
   const getAppointmentsForDate = (dateStr: string) => {
     return appointments.value.filter(a => a.date === dateStr)
+  }
+
+  const formatAppointmentTimeRange = (appt: any): string => {
+    const formatRawTime = (raw?: string) => {
+      if (!raw) return ''
+      const localDateTimeStr = raw.replace(/Z|(\+\d{2}:\d{2})$/i, '')
+      const date = new Date(localDateTimeStr)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const start = appt.time || formatRawTime(appt.raw_scheduled_at)
+    const end = formatRawTime(appt.raw_scheduled_end_at)
+    return end ? `${start} - ${end}` : start
   }
 
   // ── Blocked date helpers ─────────────────────────────────────────────────────
@@ -153,6 +170,7 @@
   const calendarRef = ref<HTMLElement | null>(null)
 
   onClickOutside(calendarRef, () => {
+    if (!props.showAppointmentDetailsPanel) return
     selectedDay.value = null
   })
 
@@ -161,9 +179,12 @@
     if (isPast(day)) return
     // Whole-day blocked dates cannot be selected
     if (isWholeDayBlocked(day)) return
-    // Toggle selected day
-    if (selectedDay.value === dateStr) {
-      selectedDay.value = null
+    if (props.showAppointmentDetailsPanel) {
+      if (selectedDay.value === dateStr) {
+        selectedDay.value = null
+      } else {
+        selectedDay.value = dateStr
+      }
     } else {
       selectedDay.value = dateStr
     }
@@ -189,11 +210,11 @@
 </script>
 
 <template>
-  <div ref="calendarRef" class="relative">
+  <div ref="calendarRef" class="relative z-30">
     <!-- Appointment Detail Panel — overlaps content to the left, does NOT push layout -->
     <Transition name="slide-left">
       <div
-        v-if="selectedDay && appointmentsForDay.length > 0"
+        v-if="showAppointmentDetailsPanel && selectedDay && appointmentsForDay.length > 0"
         class="absolute right-[calc(100%+12px)] top-0 w-72 z-50 pointer-events-auto"
       >
         <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
@@ -331,7 +352,7 @@
             isPast(date)
               ? 'pointer-events-none text-gray-300 line-through'
               : isWholeDayBlocked(date)
-                ? 'pointer-events-none cursor-not-allowed bg-red-50 text-red-300 ring-1 ring-red-200'
+                ? 'cursor-not-allowed bg-red-50 text-red-300 ring-1 ring-red-200'
                 : selectedDay === dateStringFor(date)
                   ? 'bg-secondary text-white cursor-pointer shadow-md'
                   : isDateBlocked(date)
@@ -360,7 +381,7 @@
           <Transition name="fade-scale">
             <div
               v-if="hoveredDate === dateStringFor(date) && isDateBlocked(date) && !isPast(date)"
-              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-52 bg-red-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-red-700/60 backdrop-blur-md text-left text-xs"
+              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-52 bg-red-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-red-700/60 backdrop-blur-md text-left text-xs"
             >
               <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-900/95 rotate-45 border-r border-b border-red-700/60" />
               <div class="flex items-center gap-1.5 mb-1">
@@ -376,10 +397,14 @@
           <!-- Appointment hover tooltip (only if not blocked) -->
           <Transition name="fade-scale">
             <div
-              v-if="hoveredDate === dateStringFor(date) && hasAppointment(date) && !isPast(date) && !isDateBlocked(date)"
-              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-48 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-slate-700/60 backdrop-blur-md text-left text-xs"
+              v-if="hoveredDate === dateStringFor(date) && hasAppointment(date) && !isPast(date) && (!isDateBlocked(date) || !showAppointmentDetailsPanel)"
+              class="absolute left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-48 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-slate-700/60 backdrop-blur-md text-left text-xs"
+              :class="isDateBlocked(date) ? 'top-full mt-2' : 'bottom-full mb-2'"
             >
-              <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-r border-b border-slate-700/60" />
+              <div
+                class="absolute left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-slate-700/60"
+                :class="isDateBlocked(date) ? '-top-1 border-l border-t' : '-bottom-1 border-r border-b'"
+              />
 
               <div
                 v-for="appt in getAppointmentsForDate(dateStringFor(date))"
@@ -394,7 +419,7 @@
                 <div class="flex items-center gap-2 mt-0.5 text-[10px] text-gray-300">
                   <span v-if="appt.time" class="flex items-center gap-0.5">
                     <Icon name="material-symbols:schedule-rounded" class="text-indigo-400 text-xs shrink-0" />
-                    {{ appt.time }}
+                    {{ formatAppointmentTimeRange(appt) }}
                   </span>
                   <span v-if="appt.location" class="flex items-center gap-0.5 truncate">
                     <Icon name="material-symbols:location-on-rounded" class="text-indigo-400 text-xs shrink-0" />
