@@ -61,8 +61,11 @@ const availForm = reactive({
   end_time: '17:00',
   is_available: false
 })
+const blockWholeDay = ref(false)
 const availSuccessMsg = ref('')
 const availErrorMsg = ref('')
+
+const { fetchBlockedSlots } = useBlockedDates()
 
 const fetchAvailabilities = async () => {
   if (!doctorUuid) return
@@ -70,6 +73,8 @@ const fetchAvailabilities = async () => {
   try {
     const res = await doctorAvailabilityService.listForDoctor(doctorUuid)
     availabilities.value = res ?? []
+    // Keep shared blocked-dates state in sync
+    await fetchBlockedSlots()
   } catch (e: any) {
     console.error('Failed to fetch availabilities:', e)
   } finally {
@@ -83,14 +88,24 @@ const addAvailability = async () => {
     return
   }
 
-  if (!availForm.available_date || !availForm.start_time || !availForm.end_time) {
+  if (!availForm.available_date) {
     availErrorMsg.value = 'Please fill out all fields.'
     return
   }
-  
-  if (availForm.start_time >= availForm.end_time) {
-    availErrorMsg.value = 'Start time must be before end time.'
-    return
+
+  // When blocking the whole day, use full-day sentinel times
+  const startTime = blockWholeDay.value ? '00:00' : availForm.start_time
+  const endTime = blockWholeDay.value ? '23:59' : availForm.end_time
+
+  if (!blockWholeDay.value) {
+    if (!startTime || !endTime) {
+      availErrorMsg.value = 'Please fill out all fields.'
+      return
+    }
+    if (startTime >= endTime) {
+      availErrorMsg.value = 'Start time must be before end time.'
+      return
+    }
   }
 
   isAddLoading.value = true
@@ -99,8 +114,8 @@ const addAvailability = async () => {
   try {
     await doctorAvailabilityService.createForDoctor(doctorUuid, {
       available_date: availForm.available_date,
-      start_time: availForm.start_time,
-      end_time: availForm.end_time,
+      start_time: startTime,
+      end_time: endTime,
       is_available: 0 // Explicitly 0 to mark as Blocked / Away!
     })
     availSuccessMsg.value = 'Blocked/Away period added successfully!'
@@ -108,6 +123,7 @@ const addAvailability = async () => {
     availForm.start_time = '09:00'
     availForm.end_time = '17:00'
     availForm.is_available = false
+    blockWholeDay.value = false
     await fetchAvailabilities()
     setTimeout(() => {
       availSuccessMsg.value = ''
@@ -488,7 +504,7 @@ const logout = () => {
           </div>
 
         <!-- Availability Section -->
-        <div class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+        <div id="blocked-dates" class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
           <div>
             <h2 class="text-xl font-bold">Clinic Hours & Away Settings</h2>
             <p class="text-foreground/60 text-sm mt-1">By default, you are available every day. Set specific dates and times you will be away/unavailable below.</p>
@@ -500,22 +516,45 @@ const logout = () => {
           <!-- Add Availability Form -->
           <form @submit.prevent="addAvailability" class="flex flex-col gap-4">
             <h3 class="text-md font-semibold text-foreground/80">Add Blocked / Away Period</h3>
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+            <!-- Block whole day toggle -->
+            <label class="flex items-center gap-3 cursor-pointer group w-fit">
+              <div
+                @click="blockWholeDay = !blockWholeDay"
+                class="relative h-5 w-9 rounded-full transition-colors duration-200"
+                :class="blockWholeDay ? 'bg-red-500' : 'bg-foreground/20'"
+              >
+                <span
+                  class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
+                  :class="blockWholeDay ? 'translate-x-4' : 'translate-x-0'"
+                />
+              </div>
+              <span class="text-sm font-medium text-foreground/70 group-hover:text-foreground transition-colors">
+                Block entire day
+              </span>
+              <span v-if="blockWholeDay" class="text-xs font-semibold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                All day (00:00 – 23:59)
+              </span>
+            </label>
+
+            <div class="grid grid-cols-1 gap-4" :class="blockWholeDay ? 'md:grid-cols-1' : 'md:grid-cols-3'">
               <div class="flex flex-col gap-1.5">
                 <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
                 <input v-model="availForm.available_date" type="date" required
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 ml-1 text-sm font-medium">Start Time</label>
-                <input v-model="availForm.start_time" type="time" required
-                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 ml-1 text-sm font-medium">End Time</label>
-                <input v-model="availForm.end_time" type="time" required
-                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
-              </div>
+              <template v-if="!blockWholeDay">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">Start Time</label>
+                  <input v-model="availForm.start_time" type="time" required
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 ml-1 text-sm font-medium">End Time</label>
+                  <input v-model="availForm.end_time" type="time" required
+                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+                </div>
+              </template>
             </div>
 
             <div class="flex items-center justify-between mt-2">

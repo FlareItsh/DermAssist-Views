@@ -146,6 +146,20 @@
     return match ? match[2] : ''
   }
 
+  /** Extract UUID from an APPOINTMENT_SCHEDULED system message. */
+  const extractScheduledAppointmentUuid = (message: string): string => {
+    const match = message.match(/\[APPOINTMENT_SCHEDULED:([a-f0-9-]+)\]/)
+    return match ? match[1] : ''
+  }
+
+  /** Returns true when the patient can request a reschedule directly from the chat bubble. */
+  const canPatientRequestReschedule = (message: string): boolean => {
+    if (userRole.value?.toLowerCase() !== 'patient') return false
+    const uuid = extractScheduledAppointmentUuid(message)
+    if (!uuid) return false
+    return activeAppointment.value?.id === uuid && activeAppointment.value?.status === 'scheduled'
+  }
+
   const openScheduleModal = (message: string) => {
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return
@@ -169,7 +183,8 @@
     if (!uuid) return true
     return allMessages.value.some(m => 
       m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) || 
-      m.message.includes(`[APPOINTMENT_DECLINED:${uuid}]`)
+      m.message.includes(`[APPOINTMENT_DECLINED:${uuid}]`) ||
+      m.message.includes(`[APPOINTMENT_CANCELLED:${uuid}]`)
     )
   }
 
@@ -254,17 +269,38 @@
   }
 
   const showCompleteConfirm = ref(false)
+  const showCancelConfirm = ref(false)
+  const showResolveModal = ref(false)
   const isCompleting = ref(false)
+  const isCancelling = ref(false)
+
+  const isOverdue = computed(() => {
+    if (!activeAppointment.value?.date) return false
+    const todayStr = new Date().toISOString().split('T')[0]
+    if (activeAppointment.value.date < todayStr) return true
+    if (activeAppointment.value.date === todayStr && activeAppointment.value.time) {
+      return new Date(`${activeAppointment.value.date}T${activeAppointment.value.time}`) < new Date()
+    }
+    return false
+  })
 
   const openCompleteConfirmFromRoute = () => {
-    if (route.query.complete !== '1' || userRole.value?.toLowerCase() !== 'doctor' || !activeAppointment.value) {
+    if (userRole.value?.toLowerCase() !== 'doctor' || !activeAppointment.value) return
+
+    if (route.query.resolve === '1') {
+      showResolveModal.value = true
+      const query = { ...route.query }
+      delete query.resolve
+      router.replace({ query })
       return
     }
 
-    showCompleteConfirm.value = true
-    const query = { ...route.query }
-    delete query.complete
-    router.replace({ query })
+    if (route.query.complete === '1') {
+      showCompleteConfirm.value = true
+      const query = { ...route.query }
+      delete query.complete
+      router.replace({ query })
+    }
   }
 
   const isToday = (dateStr: string) => {
@@ -277,7 +313,7 @@
   })
 
   watch(
-    [() => route.query.complete, activeAppointment],
+    [() => route.query.complete, () => route.query.resolve, activeAppointment],
     openCompleteConfirmFromRoute,
     { immediate: true }
   )
@@ -294,12 +330,31 @@
       )
       removeFromPriority(completedAppointment.id)
       showCompleteConfirm.value = false
+      showResolveModal.value = false
       fetchAppointments()
       fetchMessages(1)
     } catch (e) {
       console.error(e)
     } finally {
       isCompleting.value = false
+    }
+  }
+
+  const cancelAppointmentDirectly = async () => {
+    if (!activeAppointment.value) return
+    isCancelling.value = true
+    try {
+      const cancelledAppointment = activeAppointment.value
+      await appointmentService.update(cancelledAppointment.id, { status: 'declined' })
+      removeFromPriority(cancelledAppointment.id)
+      showCancelConfirm.value = false
+      showResolveModal.value = false
+      fetchAppointments()
+      fetchMessages(1)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      isCancelling.value = false
     }
   }
 
@@ -688,38 +743,77 @@
     <div v-if="activeAppointment" 
       class="border-b p-4 flex flex-col transition-all"
       :class="[
-        isToday(activeAppointment.date) 
-          ? 'bg-amber-50 border-amber-100' 
-          : 'bg-indigo-50 border-indigo-100'
+        isOverdue
+          ? 'bg-red-50 border-red-200'
+          : isToday(activeAppointment.date) 
+            ? 'bg-amber-50 border-amber-100' 
+            : 'bg-indigo-50 border-indigo-100'
       ]"
     >
       <div class="flex items-center justify-between w-full">
         <div class="flex items-center gap-3">
-          <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
+          <div class="p-2 rounded-full"
+            :class="[
+              isOverdue
+                ? 'bg-red-100'
+                : isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'
+            ]"
+          >
             <Icon 
-              :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
+              :name="isOverdue ? 'material-symbols:warning-rounded' : isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
               class="text-xl"
-              :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
+              :class="isOverdue ? 'text-red-600' : isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
             />
           </div>
           <div>
-            <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
-              {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
+            <p class="text-sm font-bold"
+              :class="[
+                isOverdue
+                  ? 'text-red-900'
+                  : isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'
+              ]"
+            >
+              {{ isOverdue ? 'Overdue Appointment — Action Needed' : isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
             </p>
-            <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
-              {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
+            <p class="text-xs font-medium"
+              :class="[
+                isOverdue
+                  ? 'text-red-700'
+                  : isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'
+              ]"
+            >
+              {{ isOverdue ? `Was scheduled for ${activeAppointment.date} at ${activeAppointment.time}. Please mark as Accomplished or Cancelled.` : isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date + ' at ' + activeAppointment.time }}
             </p>
           </div>
         </div>
         
-        <div v-if="userRole?.toLowerCase() === 'doctor'" class="flex gap-2">
-          <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
-            <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+        <div v-if="userRole?.toLowerCase() === 'doctor'" class="flex flex-wrap gap-2">
+          <button
+            @click="showCompleteConfirm = true"
+            class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
+          >
+            <Icon name="material-symbols:check-circle-rounded" class="text-sm" />
             Mark as Accomplished
-          </AppButton>
-          <AppButton @click="openRescheduleModal" class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2">
-            <Icon name="material-symbols:edit-calendar-rounded" class="text-lg" />
+          </button>
+          <button
+            @click="showCancelConfirm = true"
+            class="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95"
+          >
+            <Icon name="material-symbols:cancel-rounded" class="text-sm" />
+            Cancel
+          </button>
+          <button
+            @click="openRescheduleModal"
+            class="flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+          >
+            <Icon name="material-symbols:edit-calendar-rounded" class="text-sm" />
             Reschedule
+          </button>
+        </div>
+        <div v-else-if="userRole?.toLowerCase() === 'patient' && activeAppointment.status === 'scheduled'" class="flex gap-2">
+          <AppButton @click="requestReschedule(activeAppointment.id)" class="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2">
+            <Icon name="material-symbols:edit-calendar-rounded" class="text-lg" />
+            Request Reschedule
           </AppButton>
         </div>
       </div>
@@ -919,6 +1013,14 @@
                     <span class="font-bold text-green-700">Appointment Confirmed</span>
                   </div>
                   <p class="text-sm opacity-90" v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"></p>
+                  <button
+                    v-if="canPatientRequestReschedule(msg.message)"
+                    @click.prevent="requestReschedule(extractScheduledAppointmentUuid(msg.message))"
+                    class="mt-3 flex items-center gap-1.5 self-start rounded-xl border border-indigo-200 bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95"
+                  >
+                    <Icon name="material-symbols:edit-calendar-rounded" class="text-sm" />
+                    Request Reschedule
+                  </button>
                 </div>
               </div>
               <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
@@ -927,9 +1029,20 @@
                     <div class="bg-red-100 p-2 rounded-full">
                       <Icon name="material-symbols:cancel-rounded" class="text-xl text-red-500" />
                     </div>
-                    <span class="font-bold text-red-600">Appointment Declined</span>
+                    <span class="font-bold text-red-600">Appointment Request Declined</span>
                   </div>
                   <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}</p>
+                </div>
+              </div>
+              <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">
+                <div class="flex flex-col">
+                  <div class="flex items-center gap-2 mb-2">
+                    <div class="bg-amber-100 p-2 rounded-full">
+                      <Icon name="material-symbols:event-busy-rounded" class="text-xl text-amber-600" />
+                    </div>
+                    <span class="font-bold text-amber-800">Appointment Cancelled</span>
+                  </div>
+                  <p class="text-sm opacity-90">{{ msg.message.replace(/\[APPOINTMENT_CANCELLED:.*?\]/g, '').trim() }}</p>
                 </div>
               </div>
               <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
@@ -1234,39 +1347,88 @@
         @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
       />
 
-      <!-- Complete Appointment Confirmation Modal -->
+      <!-- Cancel Appointment Confirmation Modal -->
       <Transition name="modal">
         <div
-          v-if="showCompleteConfirm"
+          v-if="showCancelConfirm"
           class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
-          @click.self="showCompleteConfirm = false"
+          @click.self="showCancelConfirm = false"
         >
           <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
             <div class="mb-6 flex flex-col items-center text-center">
-              <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-                <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+              <div class="bg-red-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                <Icon name="material-symbols:cancel-outline-rounded" class="text-4xl text-red-600" />
               </div>
-              <h3 class="text-2xl font-bold">Complete Appointment?</h3>
-              <p class="text-foreground/60 mt-2">
-                Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+              <h3 class="text-2xl font-bold">Cancel Appointment?</h3>
+              <p class="text-foreground/60 mt-2 text-sm">
+                Are you sure you want to cancel this appointment? The patient will be notified that the appointment was cancelled.
               </p>
             </div>
 
             <div class="flex flex-col gap-3">
               <AppButton
                 variant="solid"
-                class="bg-indigo-600 text-white hover:bg-indigo-700"
-                :disabled="isCompleting"
-                @click="completeAppointment"
+                class="bg-red-600 text-white hover:bg-red-700"
+                :disabled="isCancelling"
+                @click="cancelAppointmentDirectly"
               >
-                {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
+                {{ isCancelling ? 'Cancelling...' : 'Yes, Cancel Appointment' }}
               </AppButton>
               <AppButton
                 variant="unstyled"
                 class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
-                @click="showCompleteConfirm = false"
+                @click="showCancelConfirm = false"
               >
-                Cancel
+                Go Back
+              </AppButton>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Resolution Choice Modal (Overdue Appointment Resolution) -->
+      <Transition name="modal">
+        <div
+          v-if="showResolveModal"
+          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          @click.self="showResolveModal = false"
+        >
+          <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+            <div class="mb-6 flex flex-col items-center text-center">
+              <div class="bg-amber-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                <Icon name="material-symbols:warning-rounded" class="text-4xl text-amber-600" />
+              </div>
+              <h3 class="text-2xl font-bold">Resolve Past Appointment</h3>
+              <p class="text-foreground/60 mt-2 text-sm">
+                This appointment date has passed. Please specify the outcome of this appointment.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <AppButton
+                variant="solid"
+                class="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center justify-center gap-2"
+                :disabled="isCompleting || isCancelling"
+                @click="completeAppointment"
+              >
+                <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+                {{ isCompleting ? 'Marking Accomplished...' : 'Mark as Accomplished' }}
+              </AppButton>
+              <AppButton
+                variant="solid"
+                class="bg-red-600 text-white hover:bg-red-700 flex items-center justify-center gap-2"
+                :disabled="isCompleting || isCancelling"
+                @click="cancelAppointmentDirectly"
+              >
+                <Icon name="material-symbols:cancel-rounded" class="text-lg" />
+                {{ isCancelling ? 'Cancelling...' : 'Cancel Appointment' }}
+              </AppButton>
+              <AppButton
+                variant="unstyled"
+                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                @click="showResolveModal = false"
+              >
+                Decide Later
               </AppButton>
             </div>
           </div>
