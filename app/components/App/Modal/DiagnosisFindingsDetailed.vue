@@ -446,6 +446,13 @@
     }
   }
 
+  const doctorCardRef = ref<HTMLElement | null>(null)
+  const showGuidancePill = ref(true)
+  const scrollToDoctor = () => {
+    showGuidancePill.value = false
+    doctorCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   onMounted(() => {
     fetchUserAge()
     fetchNearestDoctor()
@@ -453,34 +460,34 @@
 </script>
 
 <template>
-  <div class="flex h-full min-h-0">
+  <div class="custom-scrollbar flex h-full w-full overflow-y-auto items-start">
     <!-- Left Column: Knowledge Base -->
-    <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-10 pr-8">
-      <div class="mb-12 flex items-center gap-8">
+    <div class="sticky top-0 flex flex-1 flex-col p-10 pr-8 self-start overflow-y-auto custom-scrollbar max-h-full">
+      <div class="mb-8 flex items-center gap-5">
         <div
-          class="bg-primary/10 flex h-24 w-24 shrink-0 items-center justify-center rounded-[2.5rem] shadow-inner"
+          class="bg-primary/10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-inner"
         >
           <Icon
             name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-5xl"
+            class="text-primary text-3xl"
           />
         </div>
         <div>
-          <h1 class="text-foreground text-6xl font-black tracking-tighter">{{ activeDisease }}</h1>
-          <div class="mt-2 flex items-center gap-2">
+          <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">{{ activeDisease }}</h1>
+          <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-xl font-bold tracking-tight text-gray-500">
-              Clinical Analysis & Guidance
+            <p class="text-sm font-bold text-gray-500">
+              Clinical Analysis &amp; Guidance
             </p>
           </div>
         </div>
       </div>
 
       <div
-        class="mb-12 grid grid-cols-3 gap-8 rounded-[2.5rem] border border-gray-100 bg-gray-50/40 p-10 shadow-sm"
+        class="mb-8 grid grid-cols-3 gap-6 rounded-2xl border border-gray-100 bg-gray-50/40 p-6 shadow-sm"
       >
-        <div class="flex flex-col gap-2">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Patient Name</span
           >
           <div
@@ -488,7 +495,7 @@
             class="flex items-center gap-2 w-full"
           >
             <template v-if="props.isNewScan && patientUuid">
-              <span class="text-xl font-black text-gray-900">{{ patientName }}</span>
+              <span class="text-base font-bold text-gray-900">{{ patientName }}</span>
               <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
                 Change
               </AppButton>
@@ -496,7 +503,7 @@
             <template v-else>
               <input
                 v-model="editablePatientName"
-                class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
+                class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
                 placeholder="Enter patient name"
               />
               <AppButton 
@@ -507,19 +514,19 @@
                 @click="isPatientModalOpen = true"
                 title="Select Registered Patient"
               >
-                <Icon name="material-symbols:person-search-outline" class="text-lg text-gray-500" />
+                <Icon name="material-symbols:person-search-outline" class="text-base text-gray-500" />
               </AppButton>
             </template>
           </div>
           <span
             v-else
-            class="text-xl font-black text-gray-900"
+            class="text-base font-bold text-gray-900"
             >{{ patientName || (props.role === 'patient' ? userName : '') || 'Guest User' }}</span
           >
         </div>
 
-        <div class="flex flex-col gap-2 border-x border-gray-200 px-8">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 border-x border-gray-200 px-6">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Clinical Age</span
           >
           <div
@@ -530,22 +537,22 @@
               v-model="editablePatientAge"
               type="number"
               min="0"
-              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
+              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
               placeholder="Age"
             />
           </div>
           <span
             v-else
-            class="text-xl font-black text-gray-900"
+            class="text-base font-bold text-gray-900"
             >{{ patientAge || '--' }} years old</span
           >
         </div>
 
-        <div class="flex flex-col gap-2 pl-8">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 pl-6">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Assessment Date</span
           >
-          <span class="text-xl font-black text-gray-900">{{
+          <span class="text-base font-bold text-gray-900">{{
             date ||
             new Date().toLocaleDateString('en-US', {
               month: 'long',
@@ -567,62 +574,62 @@
         />
       </div>
 
-      <div v-else class="flex flex-col gap-12 mt-12">
-        <section class="rounded-[2.5rem] border border-gray-100 bg-white p-10 shadow-sm">
-          <div class="mb-6 flex items-center gap-4">
+      <div v-else class="flex flex-col gap-8 mt-6">
+        <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
-            <h3 class="text-2xl font-black tracking-tight">Clinical Understanding</h3>
+            <h3 class="text-xl font-bold tracking-tight">Clinical Understanding</h3>
           </div>
-          <p class="text-2xl leading-relaxed font-bold tracking-tight text-gray-600/90">
+          <p class="text-base leading-relaxed font-medium text-gray-700">
             {{ description || currentDisease.description }}
           </p>
         </section>
 
-        <div class="grid grid-cols-2 gap-12">
+        <div class="grid grid-cols-2 gap-8">
           <section>
-            <div class="mb-6 flex items-center gap-3">
+            <div class="mb-4 flex items-center gap-2.5">
               <div class="bg-secondary h-2 w-2 rounded-full"></div>
-              <h3 class="text-xl font-bold">Common Symptoms</h3>
+              <h3 class="text-lg font-bold">Common Symptoms</h3>
             </div>
-            <ul class="space-y-4">
+            <ul class="space-y-3">
               <li
                 v-for="(symptom, i) in displaySymptoms"
                 :key="i"
-                class="group flex items-start gap-4"
+                class="group flex items-start gap-3 text-sm text-gray-700"
               >
                 <div
-                  class="group-hover:bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors"
+                  class="group-hover:bg-primary/10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors"
                 >
                   <Icon
                     name="material-symbols:check-small-rounded"
                     class="group-hover:text-primary text-gray-400"
                   />
                 </div>
-                <p class="leading-snug text-gray-700">{{ symptom }}</p>
+                <p class="leading-snug">{{ symptom }}</p>
               </li>
             </ul>
           </section>
 
           <section>
-            <div class="mb-6 flex items-center gap-3">
+            <div class="mb-4 flex items-center gap-2.5">
               <div class="h-2 w-2 rounded-full bg-amber-500"></div>
-              <h3 class="text-xl font-bold">Probable Causes</h3>
+              <h3 class="text-lg font-bold">Probable Causes</h3>
             </div>
-            <ul class="space-y-4">
+            <ul class="space-y-3">
               <li
                 v-for="(cause, i) in displayCauses"
                 :key="i"
-                class="group flex items-start gap-4"
+                class="group flex items-start gap-3 text-sm text-gray-700"
               >
                 <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors group-hover:bg-amber-500/10"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors group-hover:bg-amber-500/10"
                 >
                   <Icon
                     name="material-symbols:info-outline-rounded"
                     class="text-gray-400 group-hover:text-amber-500"
                   />
                 </div>
-                <p class="leading-snug text-gray-700">{{ cause }}</p>
+                <p class="leading-snug">{{ cause }}</p>
               </li>
             </ul>
           </section>
@@ -632,51 +639,51 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="custom-scrollbar flex w-[480px] shrink-0 flex-col gap-8 overflow-y-auto border-l border-gray-100 bg-gray-50/30 p-10 lg:w-[550px]"
+      class="sticky top-0 flex w-[420px] shrink-0 flex-col gap-6 border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px] self-start relative min-h-[500px]"
     >
-      <div class="bg-card rounded-[2.5rem] border border-gray-100 p-8 shadow-sm">
-        <h2 class="mb-8 text-2xl font-bold">Statistical Findings</h2>
-        <div class="flex flex-col items-center gap-10">
+      <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h2 class="mb-6 text-xl font-bold">Statistical Findings</h2>
+        <div class="flex flex-col items-center gap-6">
           <div class="relative flex items-center justify-center">
             <AppDonutChart
               :data="displayChartData"
-              :size="240"
-              :stroke-width="45"
+              :size="200"
+              :stroke-width="38"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-foreground text-4xl font-black">{{ activeConfidence }}%</span>
-              <span class="text-xs font-bold tracking-widest text-gray-400 uppercase"
+              <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >Confidence</span
               >
             </div>
           </div>
 
-          <div class="grid w-full grid-cols-1 gap-3">
+          <div class="grid w-full grid-cols-1 gap-2.5">
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-transparent p-4 transition-all hover:border-gray-100 hover:bg-gray-50"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-gray-100 hover:bg-gray-50"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-4">
+              <div class="flex items-center gap-3">
                 <span
-                  class="h-4 w-4 shrink-0 rounded-full"
+                  class="h-3.5 w-3.5 shrink-0 rounded-full"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
                 <span
-                  class="text-lg font-bold"
+                  class="text-sm font-bold"
                   :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
                 >
                   {{ entry.label }}
                 </span>
               </div>
-              <div class="flex items-center gap-4">
-                <span class="text-lg font-black text-gray-400">{{ entry.value }}%</span>
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-gray-400">{{ entry.value }}%</span>
                 <div
-                  class="flex h-10 w-10 items-center justify-center rounded-full transition-all"
+                  class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
                   :class="
                     activeDisease === entry.label
-                      ? 'bg-primary shadow-primary/20 text-white shadow-lg'
+                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
                       : 'border border-gray-100 bg-white text-gray-300'
                   "
                 >
@@ -686,7 +693,7 @@
                         ? 'material-symbols:check'
                         : 'material-symbols:search'
                     "
-                    class="text-xl"
+                    class="text-base"
                   />
                 </div>
               </div>
@@ -854,11 +861,12 @@
 
       <div
         v-if="props.role !== 'doctor'"
+        ref="doctorCardRef"
         class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
       >
         <div class="flex items-center justify-between">
           <h3 class="text-2xl font-bold">
-            {{ hasActiveAppointment ? 'Your Preferred Doctor' : 'Nearest Specialist' }}
+            {{ hasActiveAppointment ? 'Your Referred Doctor' : 'Nearest Specialist' }}
           </h3>
         </div>
 
@@ -965,31 +973,31 @@
             </div>
           </div>
 
-          <div class="flex gap-6">
-            <div class="relative shrink-0 rounded-[2rem] border-2 border-gray-100 p-2">
+          <div class="flex gap-4 items-center">
+            <div class="relative shrink-0 rounded-2xl border-2 border-gray-100 p-1.5">
               <img
                 :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
                 :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=256'`"
-                class="h-40 w-36 rounded-3xl object-cover"
+                class="h-20 w-20 rounded-xl object-cover"
                 alt="Doctor photo"
               />
               <div
                 v-if="doctorDistance && doctorDistance > 50"
-                class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black text-white shadow-lg"
+                class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-white shadow-md"
               >
                 FAR
               </div>
             </div>
 
-            <div class="flex flex-1 flex-col justify-center gap-2">
-              <p class="text-foreground text-3xl font-black">
+            <div class="flex flex-1 flex-col justify-center gap-1 min-w-0">
+              <p class="text-foreground text-lg font-bold truncate">
                 Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
               </p>
-              <div class="text-primary flex items-center gap-2 text-base font-bold">
-                <Icon name="material-symbols:verified-outline-rounded" />
+              <div class="text-primary flex items-center gap-1.5 text-xs font-bold">
+                <Icon name="material-symbols:verified-outline-rounded" class="text-sm" />
                 <span>Verified</span>
               </div>
-              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 mt-1">
+              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 truncate">
                 Affiliation: <span class="font-semibold">{{ nearestDoctor.affiliation }}</span>
               </p>
             </div>
@@ -998,81 +1006,79 @@
           <!-- Recommended Alternative Doctor Card -->
           <div
             v-if="availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
-            class="bg-sidebar border border-sidebar-border rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 animate-in zoom-in-95 duration-500"
+            class="bg-sidebar border border-sidebar-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 animate-in zoom-in-95 duration-500"
           >
             <div class="flex items-center justify-between">
-              <h4 class="text-base font-bold text-foreground flex items-center gap-2">
-                <Icon name="heroicons:user-group" class="text-primary text-xl" />
+              <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Icon name="heroicons:user-group" class="text-primary text-base" />
                 Recommended Alternative Doctor (Available)
               </h4>
               <span
-                class="bg-green-500/10 text-green-500 text-xs font-bold px-3 py-1 rounded-full border border-green-500/20 uppercase tracking-wider"
+                class="bg-green-500/10 text-green-500 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-green-500/20 uppercase tracking-wider"
               >
                 Available
               </span>
             </div>
 
-            <div class="flex gap-6 items-start">
+            <div class="flex gap-4 items-center">
               <img
                 :src="availabilityStatus.alternatives[0].avatar_path ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path) : ''"
                 :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-                class="h-24 w-20 rounded-2xl object-cover border border-sidebar-border shrink-0"
+                class="h-14 w-14 rounded-xl object-cover border border-sidebar-border shrink-0"
                 alt="Alternative Doctor photo"
               />
 
-              <div class="flex-1 flex flex-col gap-1">
-                <p class="text-lg font-bold text-foreground">
+              <div class="flex-1 flex flex-col gap-0.5 min-w-0">
+                <p class="text-sm font-bold text-foreground truncate">
                   Dr. {{ availabilityStatus.alternatives[0].first_name }} {{ availabilityStatus.alternatives[0].last_name }}
                 </p>
-                <p class="text-xs text-foreground/50">
+                <p class="text-[11px] text-foreground/50">
                   PRC #{{ availabilityStatus.alternatives[0].prc_number || availabilityStatus.alternatives[0].prcNumber || 'N/A' }}
                 </p>
-                <p class="text-xs text-foreground/60 leading-relaxed mt-1">
+                <p class="text-[11px] text-foreground/60 leading-tight truncate">
                   Location: {{ availabilityStatus.alternatives[0].city }}, {{ availabilityStatus.alternatives[0].province }}
-                </p>
-                <p v-if="availabilityStatus.alternatives[0].affiliation" class="text-xs text-foreground/60 mt-0.5">
-                  Affiliation: {{ availabilityStatus.alternatives[0].affiliation }}
                 </p>
               </div>
             </div>
 
             <button
               @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
-              class="bg-primary hover:bg-primary/90 text-white font-bold text-sm py-3 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer animate-in fade-in"
+              class="bg-primary hover:bg-primary/90 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer animate-in fade-in"
             >
-              <Icon name="heroicons:user-plus" size="16" />
+              <Icon name="heroicons:user-plus" size="14" />
               Select Alternative Doctor
             </button>
           </div>
 
-          <div class="mt-4 grid grid-cols-2 gap-3">
+          <div class="mt-3 grid grid-cols-2 gap-3">
             <AppButton
               variant="outline"
-              size="lg"
+              size="md"
               @click="navigateTo('/Patient/Scan/SelectDoctor')"
+              class="h-11 rounded-xl text-xs font-bold"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <span class="truncate">Other Doctors</span>
             </AppButton>
 
             <AppButton
-              size="lg"
+              size="md"
               @click="sendDiagnosis"
               :disabled="isSending || !nearestDoctor"
-              class="bg-primary text-card shadow-primary/20 flex h-14 items-center justify-center gap-2 rounded-2xl px-2 text-center text-sm font-bold shadow-xl transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary text-white flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
             >
               <Icon
                 v-if="!isSending"
                 name="material-symbols:check-circle-outline-rounded"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <Icon
                 v-else
                 name="svg-spinners:ring-resize"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <span class="truncate">
                 {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Select Doctor' }}
@@ -1101,7 +1107,15 @@
         </div>
       </div>
 
-      <!-- Clinical Actions block removed for inline flow -->
+      <div
+        v-if="props.role !== 'doctor' && showGuidancePill"
+        @click="scrollToDoctor"
+        class="sticky bottom-4 mx-auto z-30 cursor-pointer flex items-center gap-2 rounded-full bg-slate-900/90 text-white px-4 py-2.5 text-xs font-semibold shadow-2xl backdrop-blur-md hover:bg-slate-800 transition-all border border-white/20 active:scale-95 group shrink-0"
+      >
+        <Icon name="material-symbols:local-hospital-outline-rounded" class="text-base text-indigo-400 group-hover:scale-110 transition-transform" />
+        <span>Proceed to Referred Doctor</span>
+        <Icon name="material-symbols:keyboard-double-arrow-down-rounded" class="text-base text-indigo-400 animate-bounce" />
+      </div>
     </div>
 
 

@@ -39,14 +39,14 @@
 </script>
 
 <template>
-  <div class="flex h-full gap-3 -mx-5 md:mx-0 mt-0 md:mt-0">
+  <div class="flex h-full gap-3 mx-0 mt-0">
     <div class="hidden md:block">
       <AppChatConversationList
         :active-id="uuid"
         base-path="/Doctor/Messages"
       />
     </div>
-    <div class="bg-card border-0 md:border md:border-border flex-1 overflow-hidden rounded-none md:rounded-3xl shadow-none md:shadow-sm w-full h-full">
+    <div class="bg-card border border-border flex-1 overflow-hidden rounded-2xl md:rounded-3xl shadow-sm w-full h-full">
       <AppChatMessageWindow
         :key="uuid"
         :conversation-uuid="uuid"
