@@ -1,21 +1,52 @@
 <script setup lang="ts">
+import { userService } from '~/api/user/UserService'
 const { appointments } = useAppointments()
 const { priorityIds, addToPriority } = usePriorityList()
 const { getStorageUrl } = useStorage()
 const searchValue = ref('')
 
+const doctorPatients = ref<any[]>([])
+const isLoadingPatients = ref(true)
+
+const fetchDoctorPatients = async () => {
+  try {
+    isLoadingPatients.value = true
+    const response = await userService.listDoctorPatients()
+    doctorPatients.value = response.data || []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    isLoadingPatients.value = false
+  }
+}
+
+onMounted(() => {
+  fetchDoctorPatients()
+})
+
 const allPatients = computed(() => {
-  return appointments.value.map(a => ({
-    id: a.id,
-    name: a.doctor, // other person's name
-    age: 30, // Mocked
-    gender: 'N/A', // Mocked
-    condition: a.info,
-    priority: priorityIds.value.includes(a.id) ? 'High' : 'Low',
-    lastVisit: a.date ? new Date(a.date).toLocaleDateString() : 'TBD',
-    avatar: a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : null,
-    raw: a
-  }))
+  return appointments.value
+    .map(a => {
+      const patientObj = a.raw?.patient
+      const patientName = patientObj 
+        ? `${patientObj.first_name} ${patientObj.last_name}`
+        : (a.doctor && !a.doctor.startsWith('Dr.') ? a.doctor : '')
+
+      if (!patientName || patientName.startsWith('Dr.')) return null
+
+      return {
+        id: a.id,
+        name: patientName,
+        age: patientObj?.age || 30,
+        gender: patientObj?.gender || 'N/A',
+        condition: a.info,
+        priority: priorityIds.value.includes(a.id) ? 'High' : 'Low',
+        lastVisit: a.date ? new Date(a.date).toLocaleDateString() : 'TBD',
+        avatar: patientObj?.avatar_path ? getStorageUrl(patientObj.avatar_path) : (a.diagnosis_image ? getStorageUrl(a.diagnosis_image) : null),
+        raw: a
+      }
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null)
 })
 
 const filteredPatients = computed(() => {
@@ -40,6 +71,30 @@ definePageMeta({
 
 <template>
   <div class="flex flex-col h-full gap-3 pb-8">
+    <!-- Doctor Registered Patients Section -->
+    <section class="min-w-0" v-if="doctorPatients.length > 0 || isLoadingPatients">
+      <div class="mb-5 flex items-center gap-2">
+        <h2 class="text-xl font-bold text-foreground">My Registered Patients</h2>
+      </div>
+
+      <div v-if="isLoadingPatients" class="flex gap-4 mb-2">
+         <div class="col-span-1 md:col-span-2 bg-gray-50 rounded-3xl h-32 w-full animate-pulse"></div>
+      </div>
+      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-6 pt-1 mb-2">
+         <!-- Card spans 2 columns as requested -->
+         <AppDoctorRegisteredPatientCard 
+           v-for="patient in doctorPatients" 
+           :key="patient.uuid"
+           :patient="patient"
+           @refresh="fetchDoctorPatients"
+           class="md:col-span-2 lg:col-span-2"
+         />
+      </div>
+    </section>
+
+    <!-- Divider -->
+    <div class="h-px w-full bg-border/60 my-2" v-if="doctorPatients.length > 0"></div>
+
     <!-- Priority List Section -->
     <section class="min-w-0">
       <div class="mb-5 flex items-center gap-2">

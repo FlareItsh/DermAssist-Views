@@ -3,6 +3,7 @@
   import { DISEASE_DATABASE, type DiseaseName, type ImageQuality } from '~/composables/useDiagnosis'
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
@@ -85,10 +86,14 @@
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
 
+  const draftPatientKey = computed(() => 'draft_patient_info_' + (props.diagnosisUuid || 'active'))
+
   watch(
     () => props.patientName,
     val => {
-      editablePatientName.value = val || ''
+      if (val && !editablePatientName.value) {
+        editablePatientName.value = val
+      }
     },
     { immediate: true }
   )
@@ -96,7 +101,7 @@
   watch(
     () => props.age,
     val => {
-      if (val !== undefined && val !== null) {
+      if (val !== undefined && val !== null && !editablePatientAge.value) {
         patientAge.value = val
       }
     },
@@ -106,10 +111,214 @@
   watch(
     patientAge,
     val => {
-      editablePatientAge.value = val ? String(val) : ''
+      if (val && !editablePatientAge.value) {
+        editablePatientAge.value = String(val)
+      }
     },
     { immediate: true }
   )
+
+  // Restore draft patient info if available
+  onMounted(() => {
+    if (import.meta.client) {
+      try {
+        const raw = localStorage.getItem(draftPatientKey.value)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed.name) editablePatientName.value = parsed.name
+          if (parsed.age) editablePatientAge.value = parsed.age
+        }
+      } catch (e) {
+        // silent fail
+      }
+    }
+  })
+
+  // Auto-save draft patient info on edits
+  watch([editablePatientName, editablePatientAge], () => {
+    if (!import.meta.client) return
+    try {
+      if (editablePatientName.value || editablePatientAge.value) {
+        localStorage.setItem(draftPatientKey.value, JSON.stringify({
+          name: editablePatientName.value,
+          age: editablePatientAge.value
+        }))
+      }
+    } catch (e) {
+      // silent fail
+    }
+  })
+
+  // ── Create Patient Account State & Handler ───────────────────────
+  const {
+    regions: accountRegions,
+    provinces: accountProvinces,
+    cities: accountCities,
+    barangays: accountBarangays,
+    fetchRegions: fetchAccountRegions,
+    fetchProvinces: fetchAccountProvinces,
+    fetchCities: fetchAccountCities,
+    fetchBarangays: fetchAccountBarangays
+  } = usePhLocations()
+
+  const isCreateAccountModalOpen = ref(false)
+  const isSubmittingAccount = ref(false)
+  const createAccountSuccess = ref(false)
+  const createAccountError = ref<string | null>(null)
+
+
+
+  const accountCodes = reactive({
+    region: '',
+    province: '',
+    city: '',
+    barangay: ''
+  })
+
+  const newAccountForm = reactive({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    age: '',
+    gender: '',
+    street: '',
+    barangay: '',
+    city: '',
+    province: '',
+    country: 'Philippines'
+  })
+
+  // Cascading location watches for account creation modal
+  watch(() => accountCodes.region, async (newVal) => {
+    if (newVal) {
+      accountCodes.province = ''
+      accountCodes.city = ''
+      accountCodes.barangay = ''
+      const region = accountRegions.value.find(r => r.code === newVal)
+      if (region) newAccountForm.province = region.name
+      await fetchAccountProvinces(newVal)
+    }
+  })
+
+  watch(() => accountCodes.province, async (newVal) => {
+    if (newVal) {
+      accountCodes.city = ''
+      accountCodes.barangay = ''
+      const prov = accountProvinces.value.find(p => p.code === newVal)
+      if (prov) newAccountForm.province = prov.name
+      await fetchAccountCities(newVal)
+    }
+  })
+
+  watch(() => accountCodes.city, async (newVal) => {
+    if (newVal) {
+      accountCodes.barangay = ''
+      const city = accountCities.value.find(c => c.code === newVal)
+      if (city) newAccountForm.city = city.name
+      await fetchAccountBarangays(newVal)
+    }
+  })
+
+  watch(() => accountCodes.barangay, (newVal) => {
+    if (newVal) {
+      const brgy = accountBarangays.value.find(b => b.code === newVal)
+      if (brgy) newAccountForm.barangay = brgy.name
+    }
+  })
+
+  const highlightCreateAccount = ref(false)
+
+  const handleRequirePatientAccount = () => {
+    highlightCreateAccount.value = true
+    const el = document.getElementById('patient-account-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    setTimeout(() => {
+      highlightCreateAccount.value = false
+    }, 6000)
+  }
+
+  const openCreateAccountModal = async () => {
+    const rawName = (editablePatientName.value || props.patientName || '').trim()
+    const parts = rawName ? rawName.split(' ') : []
+    newAccountForm.firstName = parts[0] || ''
+    newAccountForm.lastName = parts.slice(1).join(' ') || ''
+    newAccountForm.age = editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
+    newAccountForm.email = ''
+    newAccountForm.password = ''
+    newAccountForm.gender = ''
+    newAccountForm.street = ''
+    newAccountForm.barangay = ''
+    newAccountForm.city = ''
+    newAccountForm.province = ''
+    accountCodes.region = ''
+    accountCodes.province = ''
+    accountCodes.city = ''
+    accountCodes.barangay = ''
+    createAccountError.value = null
+    createAccountSuccess.value = false
+    isCreateAccountModalOpen.value = true
+
+    if (!accountRegions.value.length) {
+      await fetchAccountRegions()
+    }
+  }
+
+  const handleCreatePatientAccount = async () => {
+    if (!newAccountForm.firstName.trim() || !newAccountForm.lastName.trim() || !newAccountForm.email.trim() || !newAccountForm.password.trim()) {
+      createAccountError.value = 'First Name, Last Name, Email, and Password are required.'
+      return
+    }
+
+    isSubmittingAccount.value = true
+    createAccountError.value = null
+
+    try {
+      const response = await userService.createDoctorPatient({
+        firstName: newAccountForm.firstName.trim(),
+        lastName: newAccountForm.lastName.trim(),
+        email: newAccountForm.email.trim(),
+        password: newAccountForm.password,
+        age: newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined,
+        gender: newAccountForm.gender || undefined,
+        street: newAccountForm.street?.trim() || undefined,
+        barangay: newAccountForm.barangay?.trim() || undefined,
+        city: newAccountForm.city?.trim() || undefined,
+        province: newAccountForm.province?.trim() || undefined
+      })
+
+      const createdUser = response.user
+      patientUuid.value = createdUser.uuid
+      userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      if (createdUser.age) {
+        editablePatientAge.value = String(createdUser.age)
+      }
+
+      if (props.diagnosisUuid) {
+        try {
+          await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
+        } catch (e) {
+          console.error('Failed to link diagnosis with new patient uuid:', e)
+        }
+      }
+
+      createAccountSuccess.value = true
+      // Close account modal after success
+      setTimeout(() => {
+        isCreateAccountModalOpen.value = false
+        createAccountSuccess.value = false
+      }, 900)
+    } catch (err: any) {
+      createAccountError.value = err.data?.message || err.message || 'Failed to create patient account.'
+    } finally {
+      isSubmittingAccount.value = false
+    }
+  }
 
   // ── Medical Appeal (Doctor only) ─────────────────────────────────
   const isAppealOpen = ref(false)
@@ -323,6 +532,8 @@
     }
   }
 
+  const isDoctorRegistered = ref(false)
+
   const fetchNearestDoctor = async () => {
     if (!userUuid.value) return
     isDoctorLoading.value = true
@@ -332,6 +543,15 @@
       // 1. Get the user's latest data
       const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
       const patient = patientRes?.data ?? patientRes
+
+      isDoctorRegistered.value = Boolean(patient?.is_doctor_registered)
+
+      if (patient?.is_doctor_registered && patient?.registered_by_doctor) {
+        nearestDoctor.value = patient.registered_by_doctor
+        doctorDistance.value = null
+        isDoctorLoading.value = false
+        return
+      }
 
       if (!patient?.city || !patient?.province) {
         isProfileIncomplete.value = true
@@ -492,31 +712,55 @@
           >
           <div
             v-if="props.role === 'doctor'"
-            class="flex items-center gap-2 w-full"
+            class="flex flex-col gap-2 w-full"
           >
-            <template v-if="props.isNewScan && patientUuid">
-              <span class="text-base font-bold text-gray-900">{{ patientName }}</span>
-              <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
-                Change
-              </AppButton>
-            </template>
-            <template v-else>
-              <input
-                v-model="editablePatientName"
-                class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
-                placeholder="Enter patient name"
-              />
-              <AppButton 
-                v-if="props.isNewScan" 
-                variant="ghost" 
-                size="sm" 
-                class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
-                @click="isPatientModalOpen = true"
-                title="Select Registered Patient"
-              >
-                <Icon name="material-symbols:person-search-outline" class="text-base text-gray-500" />
-              </AppButton>
-            </template>
+            <div class="flex items-center gap-2 w-full">
+              <template v-if="props.isNewScan && patientUuid">
+                <span class="text-base font-bold text-gray-900">{{ editablePatientName || patientName }}</span>
+                <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
+                  Change
+                </AppButton>
+              </template>
+              <template v-else>
+                <input
+                  v-model="editablePatientName"
+                  class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
+                  placeholder="Enter patient name"
+                />
+                <AppButton 
+                  v-if="props.isNewScan" 
+                  variant="ghost" 
+                  size="sm" 
+                  class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
+                  @click="isPatientModalOpen = true"
+                  title="Select Registered Patient"
+                >
+                  <Icon name="material-symbols:person-search-outline" class="text-base text-gray-500" />
+                </AppButton>
+              </template>
+            </div>
+
+            <!-- Create Patient Account Button for Unregistered Patient -->
+            <div id="patient-account-section" v-if="props.role === 'doctor'" class="mt-1 flex items-center gap-2 flex-wrap">
+              <template v-if="!patientUuid">
+                <button
+                  type="button"
+                  @click="openCreateAccountModal"
+                  class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs bg-primary/10 text-primary hover:bg-primary/20"
+                >
+                  <Icon name="material-symbols:person-add-rounded" class="text-base" />
+                  <span>Create Patient Account</span>
+                </button>
+                <div v-if="highlightCreateAccount" class="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-xl">
+                  <Icon name="material-symbols:error-outline-rounded" class="text-sm shrink-0" />
+                  <span>Account Required</span>
+                </div>
+              </template>
+              <div v-else class="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
+                <Icon name="material-symbols:check-circle" class="text-sm" />
+                <span>Account Linked</span>
+              </div>
+            </div>
           </div>
           <span
             v-else
@@ -563,7 +807,7 @@
         </div>
       </div>
 
-      <div v-if="props.role === 'doctor' && (props.appointmentUuid || (editablePatientName?.trim() && editablePatientAge?.toString()?.trim() !== ''))" class="flex flex-col gap-12 mt-12">
+      <div v-if="props.role === 'doctor'" class="flex flex-col gap-12 mt-12">
         <AppClinicalNoteForm 
           :appointment-uuid="props.appointmentUuid" 
           :diagnosis-id="props.diagnosis?.id || null"
@@ -571,6 +815,7 @@
           :skip-load="props.isNewScan" 
           :is-finish-mode="props.isNewScan"
           @saved="emit('finished')"
+          @require-patient-account="handleRequirePatientAccount"
         />
       </div>
 
@@ -1005,7 +1250,7 @@
 
           <!-- Recommended Alternative Doctor Card -->
           <div
-            v-if="availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
+            v-if="!isDoctorRegistered && availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
             class="bg-sidebar border border-sidebar-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 animate-in zoom-in-95 duration-500"
           >
             <div class="flex items-center justify-between">
@@ -1050,12 +1295,13 @@
             </button>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-3">
+          <div class="mt-3 flex items-center gap-3">
             <AppButton
+              v-if="!isDoctorRegistered"
               variant="outline"
               size="md"
               @click="navigateTo('/Patient/Scan/SelectDoctor')"
-              class="h-11 rounded-xl text-xs font-bold"
+              class="h-11 flex-1 rounded-xl text-xs font-bold"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
@@ -1068,7 +1314,8 @@
               size="md"
               @click="sendDiagnosis"
               :disabled="isSending || !nearestDoctor"
-              class="bg-primary text-white flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary text-white flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              :class="isDoctorRegistered ? 'w-full' : ''"
             >
               <Icon
                 v-if="!isSending"
@@ -1081,7 +1328,7 @@
                 class="shrink-0 text-base"
               />
               <span class="truncate">
-                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Select Doctor' }}
+                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : (isDoctorRegistered ? 'Proceed' : 'Select Doctor') }}
               </span>
             </AppButton>
           </div>
@@ -1158,5 +1405,181 @@
         </AppButton>
       </template>
     </AppModal>
+    <!-- Create Patient Account Modal -->
+    <AppModal v-model="isCreateAccountModalOpen" title="Create Patient Account" description="Register an account for this patient. This account will be linked exclusively to you." size="4xl">
+      <div class="flex flex-col gap-4 py-2">
+        <div v-if="createAccountSuccess" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-4 rounded-2xl flex items-center gap-3">
+          <Icon name="material-symbols:check-circle-rounded" class="text-3xl text-emerald-600 shrink-0" />
+          <div>
+            <p class="font-bold text-base">Account Created Successfully!</p>
+            <p class="text-xs text-emerald-600">The patient account has been created and linked to your profile.</p>
+          </div>
+        </div>
+
+        <div v-if="createAccountError" class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl flex items-center gap-3">
+          <Icon name="material-symbols:error-rounded" class="text-2xl text-rose-600 shrink-0" />
+          <p class="font-semibold text-xs">{{ createAccountError }}</p>
+        </div>
+
+        <div v-if="!createAccountSuccess" class="grid grid-cols-1 md:grid-cols-2 gap-8 py-2">
+          <!-- Left Column: Personal & Credentials -->
+          <div class="flex flex-col gap-4">
+            <div>
+              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Personal & Account Information</span>
+              
+              <div class="flex flex-col gap-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">First Name <span class="text-rose-500">*</span></label>
+                    <input 
+                      v-model="newAccountForm.firstName" 
+                      type="text" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="First Name"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Last Name <span class="text-rose-500">*</span></label>
+                    <input 
+                      v-model="newAccountForm.lastName" 
+                      type="text" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="Last Name"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Email Address <span class="text-rose-500">*</span></label>
+                  <input 
+                    v-model="newAccountForm.email" 
+                    type="email" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="patient@example.com"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Temporary Password <span class="text-rose-500">*</span></label>
+                  <input 
+                    v-model="newAccountForm.password" 
+                    type="password" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="Temporary password"
+                  />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Age</label>
+                    <input 
+                      v-model="newAccountForm.age" 
+                      type="number" 
+                      min="0"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="Age"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Gender</label>
+                    <select 
+                      v-model="newAccountForm.gender" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    >
+                      <option value="" disabled>Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Address & Location -->
+          <div class="flex flex-col gap-4">
+            <div>
+              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Address & Location Information</span>
+              
+              <div class="flex flex-col gap-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Region</label>
+                    <select 
+                      v-model="accountCodes.region" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    >
+                      <option value="" disabled>Select Region</option>
+                      <option v-for="r in accountRegions" :key="r.code" :value="r.code">{{ r.name }}</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Province</label>
+                    <select 
+                      v-model="accountCodes.province" 
+                      :disabled="!accountProvinces.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>{{ accountProvinces.length ? 'Select Province' : 'N/A' }}</option>
+                      <option v-for="p in accountProvinces" :key="p.code" :value="p.code">{{ p.name }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">City / Municipality</label>
+                    <select 
+                      v-model="accountCodes.city" 
+                      :disabled="!accountCities.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>Select City</option>
+                      <option v-for="c in accountCities" :key="c.code" :value="c.code">{{ c.name }}</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Barangay</label>
+                    <select 
+                      v-model="accountCodes.barangay" 
+                      :disabled="!accountBarangays.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>Select Barangay</option>
+                      <option v-for="b in accountBarangays" :key="b.code" :value="b.code">{{ b.name }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Street Address</label>
+                  <input 
+                    v-model="newAccountForm.street" 
+                    type="text" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="House No., Street Name"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-3 w-full" v-if="!createAccountSuccess">
+          <AppButton variant="ghost" class="rounded-xl px-6 font-bold text-gray-500" @click="isCreateAccountModalOpen = false">
+            Cancel
+          </AppButton>
+          <AppButton class="rounded-xl px-6 font-bold" @click="handleCreatePatientAccount" :disabled="isSubmittingAccount">
+            {{ isSubmittingAccount ? 'Creating...' : 'Register & Link Account' }}
+          </AppButton>
+        </div>
+      </template>
+    </AppModal>
+
+
   </div>
 </template>

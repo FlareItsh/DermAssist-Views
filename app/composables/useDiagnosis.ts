@@ -127,10 +127,47 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
 const currentDiagnosis = ref<DiagnosisResult | null>(null)
 const isScanning = ref(false)
 const isScanned = ref(false)
+const isProceededToResults = ref(false)
 const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
+
+// Restore active diagnosis state from localStorage on client side init
+if (import.meta.client) {
+  try {
+    const rawState = localStorage.getItem('dermassist_active_diagnosis')
+    if (rawState) {
+      const parsed = JSON.parse(rawState)
+      if (parsed.currentDiagnosis) currentDiagnosis.value = parsed.currentDiagnosis
+      if (typeof parsed.isScanned === 'boolean') isScanned.value = parsed.isScanned
+      if (typeof parsed.isProceededToResults === 'boolean') isProceededToResults.value = parsed.isProceededToResults
+      if (parsed.previewImage) previewImage.value = parsed.previewImage
+      if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
+    }
+  } catch (e) {
+    console.error('Failed to restore active diagnosis state', e)
+  }
+}
+
+const saveActiveDiagnosisState = () => {
+  if (!import.meta.client) return
+  try {
+    if (currentDiagnosis.value || isScanned.value || previewImage.value || patientUuid.value) {
+      localStorage.setItem('dermassist_active_diagnosis', JSON.stringify({
+        currentDiagnosis: currentDiagnosis.value,
+        isScanned: isScanned.value,
+        isProceededToResults: isProceededToResults.value,
+        previewImage: previewImage.value,
+        patientUuid: patientUuid.value
+      }))
+    } else {
+      localStorage.removeItem('dermassist_active_diagnosis')
+    }
+  } catch (e) {
+    console.error('Failed to save active diagnosis state', e)
+  }
+}
 
 export const useDiagnosis = () => {
   const isHealthyState = computed(() => {
@@ -159,11 +196,15 @@ export const useDiagnosis = () => {
   const setDiagnosis = (data: DiagnosisResult) => {
     currentDiagnosis.value = data
     isScanned.value = true
+    isProceededToResults.value = false
+    saveActiveDiagnosisState()
   }
 
   const clearDiagnosis = () => {
     currentDiagnosis.value = null
     isScanned.value = false
+    isProceededToResults.value = false
+    saveActiveDiagnosisState()
   }
 
   const resetScanner = () => {
@@ -178,6 +219,7 @@ export const useDiagnosis = () => {
     currentDiagnosis,
     isScanning,
     isScanned,
+    isProceededToResults,
     qualityError,
     previewImage,
     selectedFile,
@@ -186,6 +228,7 @@ export const useDiagnosis = () => {
     chartData,
     setDiagnosis,
     clearDiagnosis,
-    resetScanner
+    resetScanner,
+    saveActiveDiagnosisState
   }
 }

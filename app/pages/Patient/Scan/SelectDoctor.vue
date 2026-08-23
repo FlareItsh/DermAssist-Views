@@ -34,6 +34,12 @@ const fetchAllDoctors = async () => {
     const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
     const patient = patientRes?.data ?? patientRes
 
+    if (patient?.is_doctor_registered && patient?.registered_by_doctor) {
+      allNearbyDoctors.value = [{ ...patient.registered_by_doctor, distance: 0 }]
+      isLoading.value = false
+      return
+    }
+
     let patLat = parseCoordinate(patient?.latitude)
     let patLng = parseCoordinate(patient?.longitude)
 

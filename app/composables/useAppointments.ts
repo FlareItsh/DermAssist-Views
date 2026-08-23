@@ -53,7 +53,8 @@ export const useAppointments = () => {
         const mapPerson = (appt: any) => {
           const doctorName = appt.doctor ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}` : 'Unknown Doctor'
           const patientName = appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : 'Unknown Patient'
-          return role === 'doctor' ? patientName : doctorName
+          const currentRole = (userRole.value || useCookie('user_role').value || '')?.toString().toLowerCase()
+          return currentRole === 'doctor' ? patientName : doctorName
         }
 
         const mapAppt = (appt: any) => {

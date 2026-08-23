@@ -540,7 +540,7 @@ const logout = () => {
             <div class="grid grid-cols-1 gap-4" :class="blockWholeDay ? 'md:grid-cols-1' : 'md:grid-cols-3'">
               <div class="flex flex-col gap-1.5">
                 <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
-                <input v-model="availForm.available_date" type="date" required
+                <input v-model="availForm.available_date" type="date" :min="new Date().toISOString().split('T')[0]" required
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
               </div>
               <template v-if="!blockWholeDay">

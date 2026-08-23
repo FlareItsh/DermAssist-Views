@@ -1347,6 +1347,45 @@
         @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
       />
 
+      <!-- Complete Appointment Confirmation Modal -->
+      <Transition name="modal">
+        <div
+          v-if="showCompleteConfirm"
+          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+          @click.self="showCompleteConfirm = false"
+        >
+          <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+            <div class="mb-6 flex flex-col items-center text-center">
+              <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+              </div>
+              <h3 class="text-2xl font-bold">Complete Appointment?</h3>
+              <p class="text-foreground/60 mt-2 text-sm">
+                Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+              </p>
+            </div>
+
+            <div class="flex flex-col gap-3">
+              <AppButton
+                variant="solid"
+                class="bg-indigo-600 text-white hover:bg-indigo-700"
+                :disabled="isCompleting"
+                @click="completeAppointment"
+              >
+                {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
+              </AppButton>
+              <AppButton
+                variant="unstyled"
+                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                @click="showCompleteConfirm = false"
+              >
+                Cancel
+              </AppButton>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
       <!-- Cancel Appointment Confirmation Modal -->
       <Transition name="modal">
         <div
