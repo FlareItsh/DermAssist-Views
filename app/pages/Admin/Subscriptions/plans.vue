@@ -181,10 +181,21 @@
         </form>
       </div>
     </div>
+    <!-- Confirm Delete Modal -->
+    <AdminSideComponentsConfirmModal
+      :show="showDeleteModal"
+      title="Delete Subscription Plan"
+      :message="`Are you sure you want to delete '${planToDelete?.name}'? This action cannot be undone.`"
+      confirm-text="Delete Plan"
+      variant="danger"
+      @confirm="confirmDeletePlan"
+      @cancel="showDeleteModal = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue-sonner'
 import { subscriptionAdminService, type Plan } from '~/api/subscription/SubscriptionAdminService'
 
 definePageMeta({
@@ -197,6 +208,9 @@ const showModal = ref(false)
 const isEditing = ref(false)
 const selectedId = ref<number | null>(null)
 const plans = ref<Plan[]>([])
+
+const showDeleteModal = ref(false)
+const planToDelete = ref<Plan | null>(null)
 
 const form = ref<Plan>({
   name: '',
@@ -221,8 +235,8 @@ const fetchPlans = async () => {
   try {
     const res = await subscriptionAdminService.getPlans()
     plans.value = res?.data || []
-  } catch (error) {
-    console.error('Failed to load plans:', error)
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to load plans')
   } finally {
     isLoading.value = false
   }
@@ -271,13 +285,15 @@ const savePlan = async () => {
   try {
     if (isEditing.value && selectedId.value) {
       await subscriptionAdminService.updatePlan(selectedId.value, form.value)
+      toast.success('Subscription plan updated successfully')
     } else {
       await subscriptionAdminService.createPlan(form.value)
+      toast.success('Subscription plan created successfully')
     }
     showModal.value = false
     await fetchPlans()
   } catch (error: any) {
-    alert(error.message || 'Failed to save plan')
+    toast.error(error.message || 'Failed to save plan')
   } finally {
     isSubmitting.value = false
   }
@@ -288,18 +304,28 @@ const toggleActive = async (plan: Plan) => {
   try {
     await subscriptionAdminService.togglePlanActive(plan.id)
     plan.is_active = !plan.is_active
+    toast.success(`Plan status updated to ${plan.is_active ? 'Active' : 'Inactive'}`)
   } catch (error: any) {
-    alert(error.message || 'Failed to toggle status')
+    toast.error(error.message || 'Failed to toggle status')
   }
 }
 
-const deletePlan = async (plan: Plan) => {
-  if (!plan.id || !confirm(`Are you sure you want to delete "${plan.name}"?`)) return
+const deletePlan = (plan: Plan) => {
+  if (!plan.id) return
+  planToDelete.value = plan
+  showDeleteModal.value = true
+}
+
+const confirmDeletePlan = async () => {
+  if (!planToDelete.value?.id) return
   try {
-    await subscriptionAdminService.deletePlan(plan.id)
+    await subscriptionAdminService.deletePlan(planToDelete.value.id)
+    toast.success(`Plan "${planToDelete.value.name}" deleted successfully`)
+    showDeleteModal.value = false
+    planToDelete.value = null
     await fetchPlans()
   } catch (error: any) {
-    alert(error.message || 'Failed to delete plan')
+    toast.error(error.message || 'Failed to delete plan')
   }
 }
 

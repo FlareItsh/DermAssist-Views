@@ -128,6 +128,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue-sonner'
 import { subscriptionAdminService } from '~/api/subscription/SubscriptionAdminService'
 
 definePageMeta({
@@ -152,8 +153,8 @@ const fetchDashboard = async () => {
       metrics.value = res.data.metrics || metrics.value
       recentSubscribers.value = res.data.recent_subscribers || []
     }
-  } catch (error) {
-    console.error('Failed to load subscription dashboard:', error)
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to load subscription dashboard')
   } finally {
     isLoading.value = false
   }

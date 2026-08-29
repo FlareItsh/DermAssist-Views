@@ -134,10 +134,21 @@
         </form>
       </div>
     </div>
+    <!-- Confirm Delete Coupon Modal -->
+    <AdminSideComponentsConfirmModal
+      :show="showDeleteModal"
+      title="Delete Promo Coupon"
+      :message="`Are you sure you want to delete coupon code '${couponToDelete?.code}'?`"
+      confirm-text="Delete Coupon"
+      variant="danger"
+      @confirm="confirmDeleteCoupon"
+      @cancel="showDeleteModal = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue-sonner'
 import { subscriptionAdminService, type Coupon } from '~/api/subscription/SubscriptionAdminService'
 
 definePageMeta({
@@ -148,6 +159,9 @@ const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showModal = ref(false)
 const coupons = ref<Coupon[]>([])
+
+const showDeleteModal = ref(false)
+const couponToDelete = ref<Coupon | null>(null)
 
 const form = ref<Coupon>({
   code: '',
@@ -163,8 +177,8 @@ const fetchCoupons = async () => {
   try {
     const res = await subscriptionAdminService.getCoupons()
     coupons.value = res?.data || []
-  } catch (error) {
-    console.error('Failed to fetch coupons:', error)
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to fetch coupons')
   } finally {
     isLoading.value = false
   }
@@ -174,6 +188,7 @@ const createCoupon = async () => {
   isSubmitting.value = true
   try {
     await subscriptionAdminService.createCoupon(form.value)
+    toast.success('Coupon code created successfully')
     showModal.value = false
     form.value = {
       code: '',
@@ -185,7 +200,7 @@ const createCoupon = async () => {
     }
     await fetchCoupons()
   } catch (error: any) {
-    alert(error.message || 'Failed to create coupon')
+    toast.error(error.message || 'Failed to create coupon')
   } finally {
     isSubmitting.value = false
   }
@@ -196,18 +211,28 @@ const toggleActive = async (coupon: Coupon) => {
   try {
     await subscriptionAdminService.toggleCouponActive(coupon.id)
     coupon.is_active = !coupon.is_active
+    toast.success(`Coupon "${coupon.code}" status updated to ${coupon.is_active ? 'Active' : 'Inactive'}`)
   } catch (error: any) {
-    alert(error.message || 'Failed to toggle active state')
+    toast.error(error.message || 'Failed to toggle active state')
   }
 }
 
-const deleteCoupon = async (coupon: Coupon) => {
-  if (!coupon.id || !confirm(`Delete coupon code "${coupon.code}"?`)) return
+const deleteCoupon = (coupon: Coupon) => {
+  if (!coupon.id) return
+  couponToDelete.value = coupon
+  showDeleteModal.value = true
+}
+
+const confirmDeleteCoupon = async () => {
+  if (!couponToDelete.value?.id) return
   try {
-    await subscriptionAdminService.deleteCoupon(coupon.id)
+    await subscriptionAdminService.deleteCoupon(couponToDelete.value.id)
+    toast.success(`Coupon "${couponToDelete.value.code}" deleted successfully`)
+    showDeleteModal.value = false
+    couponToDelete.value = null
     await fetchCoupons()
   } catch (error: any) {
-    alert(error.message || 'Failed to delete coupon')
+    toast.error(error.message || 'Failed to delete coupon')
   }
 }
 

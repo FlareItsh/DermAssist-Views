@@ -144,10 +144,21 @@
         </div>
       </div>
     </div>
+    <!-- Confirm Approval Modal -->
+    <AdminSideComponentsConfirmModal
+      :show="showApproveModal"
+      title="Approve Payment Submission"
+      :message="`Are you sure you want to approve subscription payment for Dr. ${invoiceToApprove?.user?.first_name || 'Doctor'}?`"
+      confirm-text="Approve Payment"
+      variant="primary"
+      @confirm="confirmApprove"
+      @cancel="showApproveModal = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+import { toast } from 'vue-sonner'
 import { subscriptionAdminService, type PaymentInvoice } from '~/api/subscription/SubscriptionAdminService'
 
 definePageMeta({
@@ -162,6 +173,9 @@ const showRejectModal = ref(false)
 const rejectionReason = ref('')
 const selectedInvoiceId = ref<number | null>(null)
 
+const showApproveModal = ref(false)
+const invoiceToApprove = ref<PaymentInvoice | null>(null)
+
 const tabs = [
   { label: 'Pending Approval', value: 'pending' },
   { label: 'Approved Paid', value: 'paid' },
@@ -174,8 +188,8 @@ const fetchPayments = async () => {
   try {
     const res = await subscriptionAdminService.getPayments(activeTab.value)
     payments.value = res?.data?.data || []
-  } catch (error) {
-    console.error('Failed to fetch payments:', error)
+  } catch (error: any) {
+    toast.error(error.message || 'Failed to fetch payments')
   } finally {
     isLoading.value = false
   }
@@ -185,13 +199,21 @@ const openReceipt = (path: string) => {
   selectedReceipt.value = path.startsWith('http') ? path : `/storage/${path}`
 }
 
-const approve = async (invoice: PaymentInvoice) => {
-  if (!confirm(`Approve subscription payment for Dr. ${invoice.user?.first_name || 'Doctor'}?`)) return
+const approve = (invoice: PaymentInvoice) => {
+  invoiceToApprove.value = invoice
+  showApproveModal.value = true
+}
+
+const confirmApprove = async () => {
+  if (!invoiceToApprove.value?.id) return
   try {
-    await subscriptionAdminService.approvePayment(invoice.id)
+    await subscriptionAdminService.approvePayment(invoiceToApprove.value.id)
+    toast.success('Subscription payment approved successfully')
+    showApproveModal.value = false
+    invoiceToApprove.value = null
     await fetchPayments()
   } catch (error: any) {
-    alert(error.message || 'Failed to approve payment')
+    toast.error(error.message || 'Failed to approve payment')
   }
 }
 
@@ -202,13 +224,17 @@ const openRejectModal = (invoice: PaymentInvoice) => {
 }
 
 const confirmReject = async () => {
-  if (!selectedInvoiceId.value || !rejectionReason.value.trim()) return
+  if (!selectedInvoiceId.value || !rejectionReason.value.trim()) {
+    toast.error('Please enter a rejection reason')
+    return
+  }
   try {
     await subscriptionAdminService.rejectPayment(selectedInvoiceId.value, rejectionReason.value)
+    toast.success('Payment request rejected')
     showRejectModal.value = false
     await fetchPayments()
   } catch (error: any) {
-    alert(error.message || 'Failed to reject payment')
+    toast.error(error.message || 'Failed to reject payment')
   }
 }
 

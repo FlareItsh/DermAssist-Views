@@ -47,55 +47,55 @@ export interface Coupon {
 
 class SubscriptionAdminService extends BaseService {
   async getDashboard() {
-    return this.request<any>('/api/v1/admin/subscriptions/dashboard', 'GET')
+    return this.request<any>('/admin/subscriptions/dashboard', 'GET')
   }
 
   async getPlans() {
-    return this.request<any>('/api/v1/admin/plans', 'GET')
+    return this.request<any>('/admin/plans', 'GET')
   }
 
   async createPlan(data: Plan) {
-    return this.request<any>('/api/v1/admin/plans', 'POST', data)
+    return this.request<any>('/admin/plans', 'POST', data)
   }
 
   async updatePlan(id: number, data: Partial<Plan>) {
-    return this.request<any>(`/api/v1/admin/plans/${id}`, 'PUT', data)
+    return this.request<any>(`/admin/plans/${id}`, 'PUT', data)
   }
 
   async togglePlanActive(id: number) {
-    return this.request<any>(`/api/v1/admin/plans/${id}/toggle-active`, 'PATCH')
+    return this.request<any>(`/admin/plans/${id}/toggle-active`, 'PATCH')
   }
 
   async deletePlan(id: number) {
-    return this.request<any>(`/api/v1/admin/plans/${id}`, 'DELETE')
+    return this.request<any>(`/admin/plans/${id}`, 'DELETE')
   }
 
   async getPayments(status?: string) {
-    return this.request<any>('/api/v1/admin/payments', 'GET', { status })
+    return this.request<any>('/admin/payments', 'GET', { status })
   }
 
   async approvePayment(id: number, reference?: string) {
-    return this.request<any>(`/api/v1/admin/payments/${id}/approve`, 'POST', { transaction_reference: reference })
+    return this.request<any>(`/admin/payments/${id}/approve`, 'POST', { transaction_reference: reference })
   }
 
   async rejectPayment(id: number, reason: string) {
-    return this.request<any>(`/api/v1/admin/payments/${id}/reject`, 'POST', { reason })
+    return this.request<any>(`/admin/payments/${id}/reject`, 'POST', { reason })
   }
 
   async getCoupons() {
-    return this.request<any>('/api/v1/admin/coupons', 'GET')
+    return this.request<any>('/admin/coupons', 'GET')
   }
 
   async createCoupon(data: Coupon) {
-    return this.request<any>('/api/v1/admin/coupons', 'POST', data)
+    return this.request<any>('/admin/coupons', 'POST', data)
   }
 
   async toggleCouponActive(id: number) {
-    return this.request<any>(`/api/v1/admin/coupons/${id}/toggle-active`, 'PATCH')
+    return this.request<any>(`/admin/coupons/${id}/toggle-active`, 'PATCH')
   }
 
   async deleteCoupon(id: number) {
-    return this.request<any>(`/api/v1/admin/coupons/${id}`, 'DELETE')
+    return this.request<any>(`/admin/coupons/${id}`, 'DELETE')
   }
 }
 
