@@ -136,6 +136,11 @@
       icon: 'material-symbols-light:folder-copy-outline-rounded',
       label: 'Records',
       to: '/doctor/records'
+    },
+    {
+      icon: 'heroicons:credit-card',
+      label: 'Subscription',
+      to: '/doctor/subscription'
     }
   ])
 

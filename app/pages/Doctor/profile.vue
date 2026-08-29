@@ -585,6 +585,30 @@ const logout = () => {
             </div>
           </div>
         </div>
+
+        <!-- Subscription & Billing Section -->
+        <div class="border-sidebar-border bg-card rounded-2xl border p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="bg-primary/10 text-primary p-3 rounded-2xl">
+                <Icon name="heroicons:credit-card" size="24" />
+              </div>
+              <div>
+                <h2 class="text-lg font-bold text-foreground">Subscription & Billing</h2>
+                <p class="text-xs text-foreground/60">Manage your subscription plan, tier limits, and billing history.</p>
+              </div>
+            </div>
+
+            <AppButton
+              to="/doctor/subscription"
+              variant="solid"
+              size="sm"
+            >
+              <span>Manage Subscription</span>
+              <Icon name="heroicons:arrow-right" size="14" class="ml-1.5" />
+            </AppButton>
+          </div>
+        </div>
       </div>
     </div>
   </div>

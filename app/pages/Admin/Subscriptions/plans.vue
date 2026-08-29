@@ -149,6 +149,17 @@
             </div>
           </div>
 
+          <!-- Custom Marketing Feature Bullet Items -->
+          <div class="space-y-1.5 border-t border-gray-100 pt-3">
+            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Custom Feature Highlights (One per line)</label>
+            <textarea
+              v-model="customFeaturesText"
+              rows="3"
+              placeholder="e.g. 24/7 Priority Support&#10;Custom Clinic Branding&#10;Dedicated Account Manager"
+              class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition"
+            ></textarea>
+          </div>
+
           <!-- Feature Flags Checkboxes -->
           <div class="space-y-2 border-t border-gray-100 pt-3">
             <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Feature Access Flags</label>
@@ -230,6 +241,8 @@ const form = ref<Plan>({
   }
 })
 
+const customFeaturesText = ref('')
+
 const fetchPlans = async () => {
   isLoading.value = true
   try {
@@ -245,6 +258,7 @@ const fetchPlans = async () => {
 const openCreateModal = () => {
   isEditing.value = false
   selectedId.value = null
+  customFeaturesText.value = ''
   form.value = {
     name: '',
     tier_type: 'individual',
@@ -259,7 +273,8 @@ const openCreateModal = () => {
       show_in_recommendation: true,
       can_execute_scan: true,
       export_pdf_reports: true,
-      unlimited_appointments: true
+      unlimited_appointments: true,
+      custom_list: []
     }
   }
   showModal.value = true
@@ -269,20 +284,32 @@ const editPlan = (plan: Plan) => {
   isEditing.value = true
   selectedId.value = plan.id ?? null
   form.value = JSON.parse(JSON.stringify(plan))
-  if (!form.value.features) {
+  if (!form.value.features || Array.isArray(form.value.features)) {
     form.value.features = {
       show_in_recommendation: true,
       can_execute_scan: true,
       export_pdf_reports: true,
-      unlimited_appointments: true
+      unlimited_appointments: true,
+      custom_list: []
     }
   }
+  const existingList = form.value.features.custom_list || []
+  customFeaturesText.value = Array.isArray(existingList) ? existingList.join('\n') : ''
   showModal.value = true
 }
 
 const savePlan = async () => {
   isSubmitting.value = true
   try {
+    const customList = customFeaturesText.value
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+
+    if (typeof form.value.features === 'object' && form.value.features !== null) {
+      form.value.features.custom_list = customList
+    }
+
     if (isEditing.value && selectedId.value) {
       await subscriptionAdminService.updatePlan(selectedId.value, form.value)
       toast.success('Subscription plan updated successfully')
