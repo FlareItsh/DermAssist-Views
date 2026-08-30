@@ -63,7 +63,13 @@ const availForm = reactive({
 })
 const blockWholeDay = ref(false)
 const availSuccessMsg = ref('')
-const availErrorMsg = ref('')
+
+watch(blockWholeDay, (val) => {
+  if (val) {
+    availForm.start_time = '00:00'
+    availForm.end_time = '23:59'
+  }
+})
 
 const { fetchBlockedSlots } = useBlockedDates()
 
@@ -543,15 +549,13 @@ const logout = () => {
                 <input v-model="availForm.available_date" type="date" :min="new Date().toISOString().split('T')[0]" required
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
               </div>
-              <template v-if="!blockWholeDay">
-                <div class="mt-2">
-                  <AppTimeRangePicker
-                    v-model:start-time="availForm.start_time"
-                    v-model:end-time="availForm.end_time"
-                    label="Blockout Hours Range"
-                  />
-                </div>
-              </template>
+              <div class="mt-2">
+                <AppTimeRangePicker
+                  v-model:start-time="availForm.start_time"
+                  v-model:end-time="availForm.end_time"
+                  label="Blockout Hours Range"
+                />
+              </div>
             </div>
 
             <div class="flex items-center justify-between mt-2">

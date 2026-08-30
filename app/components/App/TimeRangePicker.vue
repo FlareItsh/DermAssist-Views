@@ -229,6 +229,17 @@ const applyDurationPreset = (minutesDuration: number) => {
   emit('change', { startTime: sStr, endTime: eStr })
 }
 
+const applyFullDayPreset = () => {
+  if (props.disabled) return
+  const sStr = props.minTime || '07:00'
+  const eStr = props.maxTime || '20:00'
+  localStart.value = sStr
+  localEnd.value = eStr
+  emit('update:startTime', sStr)
+  emit('update:endTime', eStr)
+  emit('change', { startTime: sStr, endTime: eStr })
+}
+
 // ─── Drag & Pointer Interaction Engine ───────────────────────────────────────
 
 const trackRef = ref<HTMLElement | null>(null)
@@ -379,28 +390,36 @@ const onPointerUp = (e: PointerEvent) => {
         </span>
       </div>
 
-      <!-- Quick Preset Buttons (30m, 1h, 2h) -->
+      <!-- Quick Preset Buttons (30m, 1h, 2h, Full Day) -->
       <div class="flex items-center gap-1">
         <button
           type="button"
           @click="applyDurationPreset(30)"
-          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
+          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95 cursor-pointer"
         >
           30m
         </button>
         <button
           type="button"
           @click="applyDurationPreset(60)"
-          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
+          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95 cursor-pointer"
         >
           1h
         </button>
         <button
           type="button"
           @click="applyDurationPreset(120)"
-          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
+          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95 cursor-pointer"
         >
           2h
+        </button>
+        <button
+          type="button"
+          @click="applyFullDayPreset"
+          class="rounded-lg border border-red-200 bg-red-50/80 px-2 py-1 text-[10px] font-bold text-red-600 transition-all hover:bg-red-100 active:scale-95 cursor-pointer"
+          title="Select full day range"
+        >
+          Full Day
         </button>
       </div>
     </div>
