@@ -63,6 +63,7 @@ const availForm = reactive({
 })
 const blockWholeDay = ref(false)
 const availSuccessMsg = ref('')
+const availErrorMsg = ref('')
 
 watch(blockWholeDay, (val) => {
   if (val) {
