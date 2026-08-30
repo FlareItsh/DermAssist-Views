@@ -157,7 +157,7 @@ const formatSchedule = (dateString: string) => {
     
     <div class="absolute rounded-3xl my-8 left-0 top-0 bottom-0 w-1" :class="props.patient.account_status === 'active' ? 'bg-green-500' : 'bg-red-500'"></div>
     
-    <div class="flex items-center gap-5 md:w-1/3">
+    <div class="flex items-center gap-5">
       <img
         :src="patient.avatar_path ? getStorageUrl(patient.avatar_path) : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`"
         class="h-20 w-20 rounded-2xl object-cover shrink-0 bg-gray-50 border border-gray-100"
@@ -175,7 +175,7 @@ const formatSchedule = (dateString: string) => {
       </div>
     </div>
     
-    <div class="flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 md:min-w-[260px]">
+    <div class="flex flex-col justify-center border-t md:border-t-0 border-gray-100 pt-4 md:pt-0 md:pl-6 md:min-w-[260px]">
       
       <!-- Default View -->
       <div v-if="!isScheduling" class="flex flex-col gap-3">
