@@ -95,23 +95,16 @@ const addAvailability = async () => {
   }
 
   if (!availForm.available_date) {
-    availErrorMsg.value = 'Please fill out all fields.'
+    availErrorMsg.value = 'Please select a date.'
     return
   }
 
-  // When blocking the whole day, use full-day sentinel times
-  const startTime = blockWholeDay.value ? '00:00' : availForm.start_time
-  const endTime = blockWholeDay.value ? '23:59' : availForm.end_time
+  const startTime = (blockWholeDay.value ? '00:00' : (availForm.start_time || '00:00')).slice(0, 5)
+  const endTime = (blockWholeDay.value ? '23:59' : (availForm.end_time || '23:59')).slice(0, 5)
 
-  if (!blockWholeDay.value) {
-    if (!startTime || !endTime) {
-      availErrorMsg.value = 'Please fill out all fields.'
-      return
-    }
-    if (startTime >= endTime) {
-      availErrorMsg.value = 'Start time must be before end time.'
-      return
-    }
+  if (!blockWholeDay.value && startTime >= endTime) {
+    availErrorMsg.value = 'Start time must be before end time.'
+    return
   }
 
   isAddLoading.value = true
@@ -131,6 +124,7 @@ const addAvailability = async () => {
     availForm.is_available = false
     blockWholeDay.value = false
     await fetchAvailabilities()
+    await fetchBlockedSlots()
     setTimeout(() => {
       availSuccessMsg.value = ''
     }, 3000)
@@ -146,6 +140,7 @@ const deleteAvailability = async (uuid: string) => {
   try {
     await doctorAvailabilityService.delete(uuid)
     await fetchAvailabilities()
+    await fetchBlockedSlots()
   } catch (e: any) {
     console.error('Failed to delete availability:', e)
     availErrorMsg.value = e.data?.message || e.message || 'Failed to delete availability.'

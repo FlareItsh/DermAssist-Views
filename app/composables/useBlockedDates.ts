@@ -21,10 +21,20 @@ export const useBlockedDates = () => {
   const isFetchingBlocked = ref(false)
 
   const fetchBlockedSlots = async () => {
-    if (!userUuid.value || userRole.value !== 'doctor') return
+    if (!userUuid.value) return
+    const role = (userRole.value || '').toString().toLowerCase()
+    if (!['doctor', 'secretary'].includes(role)) return
+
     isFetchingBlocked.value = true
     try {
-      const res = await doctorAvailabilityService.listForDoctor(userUuid.value)
+      let targetUuid = userUuid.value
+      if (role === 'secretary') {
+        const authUser = useCookie<any>('auth_user')
+        if (authUser.value?.doctor?.uuid) {
+          targetUuid = authUser.value.doctor.uuid
+        }
+      }
+      const res = await doctorAvailabilityService.listForDoctor(targetUuid)
       blockedSlots.value = (res ?? []).filter(
         (slot: BlockedSlot) => Number(slot.is_available) === 0 || slot.is_available === false
       )
