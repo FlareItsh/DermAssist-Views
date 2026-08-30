@@ -95,8 +95,7 @@ definePageMeta({
 </script>
 
 <template>
-  <div class="flex flex-col h-full gap-3 pb-8">
-    <!-- Doctor Registered Patients Section -->
+  <div class="flex flex-col h-full pb-8">
     <section class="min-w-0" v-if="doctorPatients.length > 0 || isLoadingPatients || totalPatients > 0">
       <div class="mb-5 flex items-center justify-between gap-2">
         <div class="flex items-center gap-3">
