@@ -127,10 +127,10 @@ definePageMeta({
       </div>
 
       <!-- Bottom Pagination -->
-      <div v-if="lastPage > 1 && !isLoadingPatients" class="flex items-center justify-center gap-3 pb-4">
+      <div v-if="lastPage > 1" class="flex items-center justify-center gap-3 pb-4">
         <button
           class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          :disabled="currentPage <= 1"
+          :disabled="currentPage <= 1 || isLoadingPatients"
           @click="goToPreviousPage"
         >
           <Icon name="material-symbols:chevron-left-rounded" class="text-base" />
@@ -141,7 +141,7 @@ definePageMeta({
         </span>
         <button
           class="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card hover:bg-muted text-xs font-bold text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          :disabled="currentPage >= lastPage"
+          :disabled="currentPage >= lastPage || isLoadingPatients"
           @click="goToNextPage"
         >
           Next
