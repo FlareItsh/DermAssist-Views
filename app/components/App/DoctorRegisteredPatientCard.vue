@@ -153,7 +153,7 @@ const formatSchedule = (dateString: string) => {
 </script>
 
 <template>
-  <div class="col-span-1 md:col-span-2 flex flex-col md:flex-row gap-6 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+  <div class="col-span-1 md:col-span-2 flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-white rounded-3xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
     
     <div class="absolute rounded-3xl my-8 left-0 top-0 bottom-0 w-1" :class="props.patient.account_status === 'active' ? 'bg-green-500' : 'bg-red-500'"></div>
     
@@ -175,7 +175,7 @@ const formatSchedule = (dateString: string) => {
       </div>
     </div>
     
-    <div class="flex-1 flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6">
+    <div class="flex flex-col justify-center border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 md:min-w-[260px]">
       
       <!-- Default View -->
       <div v-if="!isScheduling" class="flex flex-col gap-3">
