@@ -231,8 +231,8 @@ const applyDurationPreset = (minutesDuration: number) => {
 
 const applyFullDayPreset = () => {
   if (props.disabled) return
-  const sStr = props.minTime || '07:00'
-  const eStr = props.maxTime || '20:00'
+  const sStr = '00:00'
+  const eStr = '23:59'
   localStart.value = sStr
   localEnd.value = eStr
   emit('update:startTime', sStr)
@@ -416,7 +416,7 @@ const onPointerUp = (e: PointerEvent) => {
         <button
           type="button"
           @click="applyFullDayPreset"
-          class="rounded-lg border border-red-200 bg-red-50/80 px-2 py-1 text-[10px] font-bold text-red-600 transition-all hover:bg-red-100 active:scale-95 cursor-pointer"
+          class="rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95 cursor-pointer"
           title="Select full day range"
         >
           Full Day
