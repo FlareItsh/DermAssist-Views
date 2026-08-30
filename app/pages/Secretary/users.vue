@@ -110,21 +110,23 @@ definePageMeta({
         </div>
       </div>
 
-      <div v-if="isLoadingPatients" class="grid grid-cols-1 md:grid-cols-2 gap-5 pb-6 pt-1 mb-2">
-        <div
-          v-for="n in 2"
-          :key="n"
-          class="md:col-span-2 bg-gray-50 rounded-3xl h-32 w-full animate-pulse"
-        />
-      </div>
-      <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-6 pt-1 mb-2">
-        <AppDoctorRegisteredPatientCard
-          v-for="patient in doctorPatients"
-          :key="patient.uuid"
-          :patient="patient"
-          class="md:col-span-2 lg:col-span-2"
-          @refresh="handlePatientRefresh"
-        />
+      <div class="min-h-[290px]">
+        <div v-if="isLoadingPatients" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-6 pt-1 mb-2">
+          <div
+            v-for="n in 4"
+            :key="n"
+            class="md:col-span-2 lg:col-span-2 bg-gray-50/80 border border-gray-100 rounded-3xl h-[132px] w-full animate-pulse"
+          />
+        </div>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-6 pt-1 mb-2">
+          <AppDoctorRegisteredPatientCard
+            v-for="patient in doctorPatients"
+            :key="patient.uuid"
+            :patient="patient"
+            class="md:col-span-2 lg:col-span-2"
+            @refresh="handlePatientRefresh"
+          />
+        </div>
       </div>
 
       <!-- Bottom Pagination -->
