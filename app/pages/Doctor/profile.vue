@@ -549,6 +549,7 @@ const logout = () => {
                   v-model:start-time="availForm.start_time"
                   v-model:end-time="availForm.end_time"
                   label="Blockout Hours Range"
+                  :disabled="blockWholeDay"
                 />
               </div>
             </div>
