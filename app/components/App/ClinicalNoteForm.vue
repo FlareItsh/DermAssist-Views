@@ -182,7 +182,7 @@
     { deep: true }
   )
 
-  const { blockedSlots, isTimeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+  const { blockedSlots, isTimeBlockedOnDate, isTimeRangeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
   const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
@@ -293,7 +293,7 @@
       }
     }
 
-    if (!noFollowUp.value && followUpDateOnly.value && isTimeBlockedOnDate(followUpDateOnly.value, followUpTimeOnly.value)) {
+    if (!noFollowUp.value && followUpDateOnly.value && isTimeRangeBlockedOnDate(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)) {
       followUpError.value = "The selected time slot is marked as unavailable on your schedule. Please select another time or date, or check 'No follow-up appointment required'."
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -418,8 +418,7 @@
   <div v-if="!isLoaded" class="flex items-center justify-center py-20">
     <Icon name="svg-spinners:180-ring-with-bg" class="text-6xl text-primary opacity-50" />
   </div>
-  <div v-else class="space-y-10 rounded-[2.5rem] bg-white/70 backdrop-blur-xl border border-white/50 p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:p-10 relative overflow-hidden">
-    <!-- Decorative background elements -->
+  <div v-else class="space-y-10 rounded-[2.5rem] bg-white/70 backdrop-blur-xl border border-white/50 py-8 px-0 sm:py-10 sm:px-0 relative overflow-hidden">
     <div class="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
     
     <div class="flex items-center justify-between border-b border-gray-100/50 pb-6 relative z-10">
@@ -577,25 +576,13 @@
                   </div>
                 </div>
 
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
-                <input
-                  type="time"
-                  v-model="followUpTimeOnly"
-                  class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                      :class="(isTimeBlockedOnDate(followUpDateOnly, followUpTimeOnly) || (!showSuccess && isFollowUpConflict)) ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                />
-                  </div>
-                  <div>
-                    <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
-                    <input
-                      type="time"
-                      v-model="followUpEndTimeOnly"
-                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                      :class="followUpEndTimeOnly <= followUpTimeOnly ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                    />
-                  </div>
+                <div class="my-2">
+                  <AppTimeRangePicker
+                    v-model:start-time="followUpTimeOnly"
+                    v-model:end-time="followUpEndTimeOnly"
+                    :blocked-slots="dateBlockedSlots"
+                    label="Follow-Up Appointment Time"
+                  />
                 </div>
 
                 <Transition name="fade-scale">

@@ -32,7 +32,7 @@ export class UserService extends BaseService {
     return await this.request('/doctor/patients', 'POST', payload)
   }
 
-  async listDoctorPatients(params: object = {}): Promise<any> {
+  async listDoctorPatients(params: { page?: number; per_page?: number } = {}): Promise<any> {
     return await this.request('/doctor/patients', 'GET', params)
   }
 

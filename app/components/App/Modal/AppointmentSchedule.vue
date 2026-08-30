@@ -42,19 +42,24 @@ watch(scheduleTime, (newStart) => {
 
 // ─── Appointments & Blocked dates ───────────────────────────────────────────
 
-const { blockedSlots, isTimeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+const { blockedSlots, isTimeRangeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
 const { isApptTimeConflicting } = useAppointments()
 
 const handleDateSelected = (date: string) => {
   selectedDate.value = date
 }
 
+const blockedSlotsForDate = computed(() => {
+  if (!selectedDate.value) return []
+  return getBlockedTimesForDate(selectedDate.value)
+})
+
 /**
- * True when the currently selected date+time falls inside a blocked slot.
+ * True when the currently selected date+time range overlaps a blocked slot.
  */
 const isSelectedTimeBlocked = computed(() => {
-  if (!selectedDate.value || !scheduleTime.value) return false
-  return isTimeBlockedOnDate(selectedDate.value, scheduleTime.value)
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value) return false
+  return isTimeRangeBlockedOnDate(selectedDate.value, scheduleTime.value, scheduleEndTime.value)
 })
 
 const isApptConflict = computed(() => {
@@ -141,7 +146,7 @@ const confirmSchedule = async () => {
           </div>
 
           <!-- Right side: Time & Location -->
-          <div class="bg-foreground/5 flex flex-col justify-center p-8 lg:w-96">
+          <div class="bg-foreground/5 flex flex-col justify-center p-8 w-[95vw] max-w-2xl lg:w-[34rem]">
             <h3 class="mb-6 text-2xl font-bold">
               {{ props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment' }}
             </h3>
@@ -153,28 +158,14 @@ const confirmSchedule = async () => {
               </div>
             </div>
 
-            <!-- Start & End Time Fields -->
+            <!-- Start & End Time Fields (Range Drag & Custom Time Input) -->
             <div class="mb-4">
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
-                  <input
-                    type="time"
-                    v-model="scheduleTime"
-                    class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                    :class="(isSelectedTimeBlocked || isApptConflict) ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
-                  <input
-                    type="time"
-                    v-model="scheduleEndTime"
-                    class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                    :class="isTimeRangeInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                  />
-                </div>
-              </div>
+              <AppTimeRangePicker
+                v-model:start-time="scheduleTime"
+                v-model:end-time="scheduleEndTime"
+                :blocked-slots="blockedSlotsForDate"
+                label="Appointment Time"
+              />
 
               <!-- Time range invalid warning -->
               <div v-if="isTimeRangeInvalid" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">

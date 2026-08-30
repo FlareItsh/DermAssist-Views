@@ -537,22 +537,19 @@ const logout = () => {
               </span>
             </label>
 
-            <div class="grid grid-cols-1 gap-4" :class="blockWholeDay ? 'md:grid-cols-1' : 'md:grid-cols-3'">
+            <div class="flex flex-col gap-4">
               <div class="flex flex-col gap-1.5">
                 <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
                 <input v-model="availForm.available_date" type="date" :min="new Date().toISOString().split('T')[0]" required
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
               </div>
               <template v-if="!blockWholeDay">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Start Time</label>
-                  <input v-model="availForm.start_time" type="time" required
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">End Time</label>
-                  <input v-model="availForm.end_time" type="time" required
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+                <div class="mt-2">
+                  <AppTimeRangePicker
+                    v-model:start-time="availForm.start_time"
+                    v-model:end-time="availForm.end_time"
+                    label="Blockout Hours Range"
+                  />
                 </div>
               </template>
             </div>

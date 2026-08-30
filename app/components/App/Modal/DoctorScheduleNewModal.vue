@@ -71,14 +71,19 @@ watch(scheduleTime, (newStart) => {
 
 // ─── Blocked dates ───────────────────────────────────────────────────────────
 
-const { blockedSlots, isTimeBlockedOnDate, getBlockedTimesForDate } = useBlockedDates()
+const { blockedSlots, isTimeRangeBlockedOnDate, getBlockedTimesForDate } = useBlockedDates()
+
+const blockedSlotsForDate = computed(() => {
+  if (!selectedDate.value) return []
+  return getBlockedTimesForDate(selectedDate.value)
+})
 
 /**
- * True when the currently selected date+time falls inside a blocked slot.
+ * True when the currently selected date+time range overlaps a blocked slot.
  */
 const isSelectedTimeBlocked = computed(() => {
-  if (!selectedDate.value || !scheduleTime.value) return false
-  return isTimeBlockedOnDate(selectedDate.value, scheduleTime.value)
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value) return false
+  return isTimeRangeBlockedOnDate(selectedDate.value, scheduleTime.value, scheduleEndTime.value)
 })
 
 const isTimeRangeInvalid = computed(() => {
@@ -179,11 +184,11 @@ const getInitials = (name: string): string => {
         class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
         @click.self="emit('close')"
       >
-        <div class="bg-card border-border flex max-h-[90vh] max-w-4xl flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row">
+        <div class="bg-card border-border flex max-h-[90vh] max-w-5xl flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row">
 
           <!-- ── Step 1: Patient Picker ──────────────────────────────── -->
           <template v-if="step === 1">
-            <div class="flex flex-col p-8 w-[90vw] sm:w-[500px] lg:w-[32rem]">
+            <div class="flex flex-col p-8 w-[95vw] sm:w-[550px] lg:w-[34rem]">
               <h3 class="mb-2 text-2xl font-bold">New Schedule</h3>
               <p class="mb-6 text-sm text-gray-500">Select a patient to schedule a follow-up</p>
 
@@ -233,7 +238,7 @@ const getInitials = (name: string): string => {
 
           <!-- ── Step 2: Schedule Details ───────────────────────────── -->
           <template v-else>
-            <div class="flex flex-col p-8 w-[90vw] sm:w-[500px] lg:w-[32rem]">
+            <div class="flex flex-col p-8 w-[95vw] sm:w-[600px] lg:w-[36rem]">
               <div class="flex items-center justify-between mb-4">
                 <div>
                   <h3 class="text-2xl font-bold">Schedule Appointment</h3>
@@ -257,28 +262,14 @@ const getInitials = (name: string): string => {
                 />
               </div>
 
-              <!-- Start & End Time Fields -->
+              <!-- Start & End Time Fields (Range Drag & Custom Time Input) -->
               <div class="mb-4">
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</label>
-                    <input
-                      type="time"
-                      v-model="scheduleTime"
-                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                      :class="isSelectedTimeBlocked ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                    />
-                  </div>
-                  <div>
-                    <label class="mb-1.5 block text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</label>
-                    <input
-                      type="time"
-                      v-model="scheduleEndTime"
-                      class="w-full rounded-xl border p-3 text-xs font-bold outline-none transition-all focus:border-indigo-500"
-                      :class="isTimeRangeInvalid ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'"
-                    />
-                  </div>
-                </div>
+                <AppTimeRangePicker
+                  v-model:start-time="scheduleTime"
+                  v-model:end-time="scheduleEndTime"
+                  :blocked-slots="blockedSlotsForDate"
+                  label="Appointment Time"
+                />
 
                 <!-- Time range invalid warning -->
                 <div v-if="isTimeRangeInvalid" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">

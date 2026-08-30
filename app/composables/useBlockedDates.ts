@@ -79,6 +79,20 @@ export const useBlockedDates = () => {
     )
   }
 
+  /**
+   * Returns true if a time range [startTime, endTime] overlaps with any blocked range on the given date.
+   */
+  const isTimeRangeBlockedOnDate = (dateStr: string, startTime: string, endTime: string): boolean => {
+    if (!dateStr || !startTime || !endTime) return false
+    const sStart = startTime.slice(0, 5)
+    const sEnd = endTime.slice(0, 5)
+    return getBlockedTimesForDate(dateStr).some((slot) => {
+      const bStart = slot.start_time.slice(0, 5)
+      const bEnd = slot.end_time.slice(0, 5)
+      return sStart < bEnd && sEnd > bStart
+    })
+  }
+
   if (import.meta.client) {
     fetchBlockedSlots()
   }
@@ -91,5 +105,6 @@ export const useBlockedDates = () => {
     hasBlockedTime,
     isWholeDayBlocked,
     isTimeBlockedOnDate,
+    isTimeRangeBlockedOnDate,
   }
 }
