@@ -119,6 +119,12 @@
           path: '/'
         })
         userUuid.value = userData.uuid
+
+        const doctorUuid = useCookie('doctor_uuid', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        doctorUuid.value = userData.doctor_uuid || null
       }
 
       if (response.user && response.user.role) {

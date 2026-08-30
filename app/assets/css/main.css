@@ -9,9 +9,9 @@
 
   --color-popover: oklch(0.21 0.145 267);
   --color-popover-foreground: oklch(0 0 0);
-  --color-primary: oklch(0.7934 0.106 254.517);
+  --color-primary: oklch(0.55 0.20 255);
 
-  --color-primary-foreground: oklch(0.21 0.145 267);
+  --color-primary-foreground: oklch(0.99 0 0);
 
   --color-secondary: oklch(0.5888 0.215 258.275);
   --color-secondary-foreground: oklch(0 0 0);

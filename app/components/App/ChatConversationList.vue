@@ -42,7 +42,7 @@
     if (!searchValue.value) return list
     const query = searchValue.value.toLowerCase()
     return list.filter((c) => {
-      const otherPerson = userRole.value === 'doctor' ? c.patient : c.doctor
+      const otherPerson = (userRole.value === 'doctor' || userRole.value === 'secretary') ? c.patient : c.doctor
       return getPersonName(otherPerson).toLowerCase().includes(query)
     })
   })
@@ -60,7 +60,7 @@
   }
 
   const getOtherPerson = (conv: Conversation): ConversationPerson | null => {
-    const person = userRole.value === 'doctor' ? conv.patient : conv.doctor
+    const person = (userRole.value === 'doctor' || userRole.value === 'secretary') ? conv.patient : conv.doctor
 
     if (!person) return null
 

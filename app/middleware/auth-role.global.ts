@@ -10,10 +10,11 @@ export default defineNuxtRouteMiddleware((to, from) => {
   const isAdminRoute = path.startsWith('/admin')
   const isPatientRoute = path.startsWith('/patient')
   const isDoctorRoute = path.startsWith('/doctor')
+  const isSecretaryRoute = path.startsWith('/secretary')
   const isAuthRoute = path.startsWith('/auth')
 
   // If trying to access a protected area without a token
-  if (!token.value && (isAdminRoute || isPatientRoute || isDoctorRoute)) {
+  if (!token.value && (isAdminRoute || isPatientRoute || isDoctorRoute || isSecretaryRoute)) {
     return navigateTo('/auth/login')
   }
 
@@ -32,6 +33,10 @@ export default defineNuxtRouteMiddleware((to, from) => {
   }
 
   if (isDoctorRoute && role.value !== 'doctor') {
+    return navigateTo(`/${role.value || 'auth/login'}`)
+  }
+
+  if (isSecretaryRoute && role.value !== 'secretary') {
     return navigateTo(`/${role.value || 'auth/login'}`)
   }
 })

@@ -36,7 +36,7 @@
           class="mx-auto" 
           :class="[
             userRole === 'patient' ? 'px-5 md:p-0' : '',
-            isFullHeightPage ? 'h-full min-h-0' : 'min-h-[calc(100vh+200px)]'
+            (isFullHeightPage || isChatPage) ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
           <slot />
@@ -113,6 +113,11 @@
       ]
     },
     {
+      icon: 'heroicons:user-plus',
+      label: 'Secretaries',
+      to: '/doctor/secretaries'
+    },
+    {
       icon: 'lets-icons:message-light',
       label: 'Message',
       to: '/doctor/messages'
@@ -124,18 +129,43 @@
     }
   ])
 
+  const secretaryNavItems = computed(() => [
+    { icon: 'mi:home', label: 'Dashboard', to: '/secretary' },
+    {
+      icon: 'mage:user-circle',
+      label: 'Consultations',
+      children: [
+        { icon: 'heroicons:user-group', label: 'Patients', to: '/secretary/users' },
+        { icon: 'heroicons:calendar', label: 'Appointments', to: '/secretary/appointments' }
+      ]
+    },
+    {
+      icon: 'lets-icons:message-light',
+      label: 'Message',
+      to: '/secretary/messages'
+    },
+    {
+      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      label: 'Records',
+      to: '/secretary/records'
+    }
+  ])
+
   const navItems = computed(() => {
     switch (userRole.value) {
       case 'admin':
         return adminNavItems.value
       case 'doctor':
         return doctorNavItems.value
+      case 'secretary':
+        return secretaryNavItems.value
       case 'patient':
         return patientNavItems.value
       default:
         // Fallback to route-based if cookie is missing
         if (route.path.startsWith('/admin')) return adminNavItems.value
         if (route.path.startsWith('/doctor')) return doctorNavItems.value
+        if (route.path.startsWith('/secretary')) return secretaryNavItems.value
         return patientNavItems.value
     }
   })
@@ -178,11 +208,11 @@
   })
 
   const isChatThread = computed(() => {
-    return /^\/(patient|doctor)\/messages\/[a-f0-9-]+/i.test(route.path)
+    return /^\/(patient|doctor|secretary)\/messages\/[a-f0-9-]+/i.test(route.path)
   })
 
   const isChatPage = computed(() => {
-    return /^\/(patient|doctor)\/messages/i.test(route.path)
+    return /^\/(patient|doctor|secretary)\/messages/i.test(route.path)
   })
 
   const isFullHeightPage = computed(() => {

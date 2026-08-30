@@ -2,6 +2,7 @@
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { conversationService } from '~/api/conversation/ConversationService'
   import { messageService } from '~/api/message/MessageService'
+  import { userService } from '~/api/user/UserService'
 
   interface MessageSender {
     id: string
@@ -59,9 +60,40 @@
     (e: 'conversationDeleted'): void
   }>()
 
-  const userUuid = useCookie('user_uuid')
   const route = useRoute()
   const router = useRouter()
+
+  const userUuidCookie = useCookie('user_uuid')
+  const doctorUuidCookie = useCookie('doctor_uuid')
+  const userRole = useCookie('user_role')
+
+  const { data: currentUserResp } = await userService.useShow(() => userUuidCookie.value as string, {
+    key: `chatUser-${userUuidCookie.value}`
+  })
+  const currentUserData = computed(() => (currentUserResp.value as any)?.data ?? currentUserResp.value)
+
+  const conversationDoctorUuid = ref<string | null>(null)
+
+  // Fetch conversation data if on secretary side to obtain the doctor's UUID
+  if ((userRole.value === 'secretary' || route.path.toLowerCase().startsWith('/secretary')) && props.conversationUuid) {
+    const { data: convResp } = await conversationService.useShow(() => props.conversationUuid)
+    const convData = computed(() => (convResp.value as any)?.data ?? convResp.value)
+    watch(convData, (val) => {
+      if (val?.doctor?.id) {
+        conversationDoctorUuid.value = val.doctor.id
+      }
+    }, { immediate: true })
+  }
+
+  // When logged in as secretary, the sender in conversations is attributed to their doctor's UUID
+  const effectiveUserUuid = computed(() => {
+    const isSec = userRole.value === 'secretary' || route.path.toLowerCase().startsWith('/secretary')
+    if (isSec) {
+      const docUuidFromProfile = currentUserData.value?.doctor_uuid || currentUserData.value?.doctor?.uuid || currentUserData.value?.doctor_id
+      return doctorUuidCookie.value || docUuidFromProfile || conversationDoctorUuid.value || userUuidCookie.value
+    }
+    return userUuidCookie.value
+  })
   const messageTerm = ref('')
   const messagesContainer = ref<HTMLElement | null>(null)
   
@@ -86,7 +118,6 @@
   const messageToDelete = ref<Message | null>(null)
   const showDeleteConversationModal = ref(false)
 
-  const userRole = useCookie('user_role')
   const { getStorageUrl } = useStorage()
   const { removeFromPriority } = usePriorityList()
 
@@ -254,7 +285,7 @@
 
   const isRescheduleProposedByMe = (uuid: string) => {
     const msg = [...allMessages.value].reverse().find(m => m.message.includes(`[APPOINTMENT_RESCHEDULE_PROPOSED:${uuid}:`))
-    return msg ? msg.sender?.id === userUuid.value : false
+    return msg ? msg.sender?.id === effectiveUserUuid.value : false
   }
 
   /** Decline a pending appointment directly from the banner. */
@@ -367,24 +398,7 @@
   }
 
   const loadFromCache = () => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(cacheKey.value)
-      if (cached) {
-        try {
-          const parsed = JSON.parse(cached)
-          if (Array.isArray(parsed)) {
-            // Filter out any potential null/undefined entries from previous corrupt sessions
-            allMessages.value = parsed.filter(m => m && typeof m === 'object' && m.id)
-            return allMessages.value.length > 0
-          }
-          return false
-        } catch (e) {
-          localStorage.removeItem(cacheKey.value)
-          return false
-        }
-      }
-    }
-    return false
+    return false // Skip stale cache to ensure fresh server messages and accurate bubble alignment
   }
 
   // --- Fetching Logic ---
@@ -474,7 +488,7 @@
 
   const markUnreadMessages = async () => {
     const unread = allMessages.value.filter(
-      (m) => m && !m.is_read && m.sender?.id !== userUuid.value
+      (m) => m && !m.is_read && m.sender?.id !== effectiveUserUuid.value
     )
     for (const msg of unread) {
       try {
@@ -574,7 +588,7 @@
 
   // --- Context Menu & Actions ---
   const openContextMenu = (event: MouseEvent, msg: Message) => {
-    if (msg.sender?.id !== userUuid.value) return
+    if (msg.sender?.id !== effectiveUserUuid.value) return
     event.preventDefault()
     contextMenu.value = { visible: true, x: event.clientX, y: event.clientY, message: msg }
   }
@@ -906,7 +920,7 @@
           v-for="msg in allMessages.filter(m => m && m.id)"
           :key="msg.id"
           class="group flex items-end gap-3"
-          :class="msg.sender?.id === userUuid ? 'flex-row-reverse' : 'flex-row'"
+          :class="msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row'"
           @contextmenu="openContextMenu($event, msg)"
         >
           <div class="border-border/50 h-10 w-10 shrink-0 overflow-hidden rounded-full border">
@@ -954,7 +968,7 @@
               v-else
               class="relative px-5 py-3 transition-all"
               :class="[
-                msg.sender?.id === userUuid
+                msg.sender?.id === effectiveUserUuid
                   ? 'bg-primary shadow-primary/10 rounded-t-2xl rounded-bl-2xl text-white shadow-lg'
                   : 'bg-foreground/5 text-foreground rounded-t-2xl rounded-br-2xl'
               ]"
@@ -1100,7 +1114,7 @@
                   v-for="attachment in msg.attachments" 
                   :key="attachment.id"
                   class="group/attachment relative overflow-hidden rounded-xl border border-white/10"
-                  :class="msg.sender?.id === userUuid ? 'bg-white/10' : 'bg-black/5'"
+                  :class="msg.sender?.id === effectiveUserUuid ? 'bg-white/10' : 'bg-black/5'"
                 >
                   <!-- Image Preview -->
                   <div v-if="isImage(attachment.type)" class="max-w-xs">
@@ -1124,14 +1138,14 @@
                       <Icon 
                         :name="isPdf(attachment.type) ? 'solar:file-text-bold' : 'solar:document-bold'" 
                         class="text-xl"
-                        :class="msg.sender?.id === userUuid ? 'text-white' : 'text-primary'"
+                        :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'"
                       />
                     </div>
                     <div class="flex-1 overflow-hidden">
-                      <p class="truncate text-xs font-bold" :class="msg.sender?.id === userUuid ? 'text-white' : 'text-foreground'">
+                      <p class="truncate text-xs font-bold" :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-foreground'">
                         {{ attachment.name }}
                       </p>
-                      <p class="text-[10px] opacity-60" :class="msg.sender?.id === userUuid ? 'text-white' : 'text-foreground'">
+                      <p class="text-[10px] opacity-60" :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-foreground'">
                         {{ formatFileSize(attachment.size) }}
                       </p>
                     </div>
@@ -1142,22 +1156,22 @@
 
               <!-- Own message action dots (visible on hover) -->
               <button
-                v-if="msg.sender?.id === userUuid"
+                v-if="msg.sender?.id === effectiveUserUuid"
                 @click.stop="openContextMenu($event, msg)"
                 class="absolute top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-                :class="msg.sender?.id === userUuid ? '-left-9' : '-right-9'"
+                :class="msg.sender?.id === effectiveUserUuid ? '-left-9' : '-right-9'"
               >
                 <Icon name="solar:menu-dots-vertical-bold" class="text-foreground/30 hover:text-foreground/60 text-lg" />
               </button>
             </div>
 
             <span
-              class="text-foreground/30 text-[11px]"
-              :class="msg.sender?.id === userUuid ? 'text-right' : 'text-left'"
+              class="text-foreground/70 font-medium text-[11px]"
+              :class="msg.sender?.id === effectiveUserUuid ? 'text-right' : 'text-left'"
             >
               {{ formatTime(msg.created_at) }}
               <span v-if="isEdited(msg)" class="italic"> · edited</span>
-              <span v-if="msg.sender?.id === userUuid && msg.is_read" class="ml-1">✓✓</span>
+              <span v-if="msg.sender?.id === effectiveUserUuid && msg.is_read" class="ml-1">✓✓</span>
             </span>
           </div>
         </div>
@@ -1207,7 +1221,7 @@
             v-model="messageTerm"
             placeholder="Type a message..."
             @keydown="handleKeydown"
-            class="bg-foreground/5 mb-3 text-gray-400 focus:border-primary/20 focus:ring-primary/5 custom-scrollbar h-11 md:h-14 w-full resize-none rounded-2xl border border-transparent pl-4 pr-24 py-2.5 md:py-4 text-sm md:text-base transition-all outline-none focus:ring-4"
+            class="bg-foreground/5 mb-3 text-foreground placeholder:text-foreground/50 focus:border-primary/30 focus:ring-primary/20 custom-scrollbar h-11 md:h-14 w-full resize-none rounded-2xl border border-border/50 pl-4 pr-24 py-2.5 md:py-4 text-sm md:text-base transition-all outline-none focus:ring-4"
           ></textarea>
 
           <div class="absolute right-4 -mb-1 -translate-y-1/2 flex items-center gap-2">
@@ -1235,152 +1249,71 @@
       </div>
     </div>
 
-    <!-- Context Menu (floating) -->
-    <Teleport to="body">
-      <Transition
-        enter-active-class="transition duration-100 ease-out"
-        enter-from-class="transform scale-95 opacity-0"
-        enter-to-class="transform scale-100 opacity-100"
-        leave-active-class="transition duration-75 ease-in"
-        leave-from-class="transform scale-100 opacity-100"
-        leave-to-class="transform scale-95 opacity-0"
-      >
-        <div
-          v-if="contextMenu.visible"
-          class="fixed z-200 w-44 overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl"
-          :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
+    <!-- Context Menu & Modals (ClientOnly to prevent SSR Teleport hydration mismatch) -->
+    <ClientOnly>
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-100 ease-out"
+          enter-from-class="transform scale-95 opacity-0"
+          enter-to-class="transform scale-100 opacity-100"
+          leave-active-class="transition duration-75 ease-in"
+          leave-from-class="transform scale-100 opacity-100"
+          leave-to-class="transform scale-95 opacity-0"
         >
-          <button
-            @click.stop="startEditing(contextMenu.message!)"
-            class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          <div
+            v-if="contextMenu.visible"
+            class="fixed z-200 w-44 overflow-hidden rounded-2xl border border-white/20 bg-white shadow-2xl"
+            :style="{ top: `${contextMenu.y}px`, left: `${contextMenu.x}px` }"
           >
-            <Icon name="solar:pen-2-linear" class="text-lg text-indigo-500" />
-            Edit Message
-          </button>
-          <button
-            @click.stop="confirmDeleteMessage(contextMenu.message!)"
-            class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            <button
+              @click.stop="startEditing(contextMenu.message!)"
+              class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              <Icon name="solar:pen-2-linear" class="text-lg text-indigo-500" />
+              Edit Message
+            </button>
+            <button
+              @click.stop="confirmDeleteMessage(contextMenu.message!)"
+              class="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            >
+              <Icon name="solar:trash-bin-trash-linear" class="text-lg" />
+              Delete Message
+            </button>
+          </div>
+        </Transition>
+
+        <!-- Delete Message Confirmation Modal -->
+        <Transition name="modal">
+          <div
+            v-if="showDeleteMessageModal"
+            class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
+            @click.self="showDeleteMessageModal = false"
           >
-            <Icon name="solar:trash-bin-trash-linear" class="text-lg" />
-            Delete Message
-          </button>
-        </div>
-      </Transition>
-
-      <!-- Delete Message Confirmation Modal -->
-      <Transition name="modal">
-        <div
-          v-if="showDeleteMessageModal"
-          class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
-          @click.self="showDeleteMessageModal = false"
-        >
-          <div class="bg-card border-border modal-container w-full max-w-sm rounded-4xl border p-8 text-center shadow-2xl">
-            <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-500">
-              <Icon name="solar:trash-bin-trash-bold" size="40" />
-            </div>
-            <h3 class="mb-2 text-2xl font-bold">Delete Message</h3>
-            <p class="text-foreground/60 mb-8 text-sm">
-              Are you sure you want to delete this message?<br />
-              This action cannot be undone.
-            </p>
-            <div class="flex flex-col gap-3">
-              <AppButton
-                variant="solid"
-                class="border-none bg-red-500 text-white hover:bg-red-600"
-                @click="deleteMessage"
-              >
-                Yes, Delete
-              </AppButton>
-              <AppButton
-                variant="unstyled"
-                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
-                @click="showDeleteMessageModal = false"
-              >
-                Cancel
-              </AppButton>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- Delete Conversation Confirmation Modal -->
-      <Transition name="modal">
-        <div
-          v-if="showDeleteConversationModal"
-          class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
-          @click.self="showDeleteConversationModal = false"
-        >
-          <div class="bg-card border-border modal-container w-full max-w-sm rounded-4xl border p-8 text-center shadow-2xl">
-            <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-500">
-              <Icon name="solar:chat-round-dots-bold" size="40" />
-            </div>
-            <h3 class="mb-2 text-2xl font-bold">Delete Conversation</h3>
-            <p class="text-foreground/60 mb-8 text-sm">
-              Are you sure you want to delete this entire conversation with <strong>{{ otherPersonName }}</strong>?<br />
-              All messages will be permanently removed.
-            </p>
-            <div class="flex flex-col gap-3">
-              <AppButton
-                variant="solid"
-                class="border-none bg-red-500 text-white hover:bg-red-600"
-                @click="deleteConversation"
-              >
-                Yes, Delete Conversation
-              </AppButton>
-              <AppButton
-                variant="unstyled"
-                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
-                @click="showDeleteConversationModal = false"
-              >
-                Cancel
-              </AppButton>
-            </div>
-          </div>
-        </div>
-      </Transition>
-      <!-- Schedule Appointment Modal -->
-      <AppModalAppointmentSchedule
-        v-if="showScheduleModal"
-        :appointment-uuid="schedulingAppointmentUuid"
-        :mode="scheduleMode"
-        @close="handleScheduleModalClose"
-        @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
-      />
-
-      <!-- Complete Appointment Confirmation Modal -->
-      <Transition name="modal">
-        <div
-          v-if="showCompleteConfirm"
-          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
-          @click.self="showCompleteConfirm = false"
-        >
-          <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
-            <div class="mb-6 flex flex-col items-center text-center">
-              <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-                <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+            <div class="bg-card border-border modal-container w-full max-w-sm rounded-4xl border p-8 text-center shadow-2xl">
+              <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-500">
+                <Icon name="solar:trash-bin-trash-bold" size="40" />
               </div>
-              <h3 class="text-2xl font-bold">Complete Appointment?</h3>
-              <p class="text-foreground/60 mt-2 text-sm">
-                Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+              <h3 class="mb-2 text-2xl font-bold">Delete Message</h3>
+              <p class="text-foreground/60 mb-8 text-sm">
+                Are you sure you want to delete this message?<br />
+                This action cannot be undone.
               </p>
-            </div>
-
-            <div class="flex flex-col gap-3">
-              <AppButton
-                variant="solid"
-                class="bg-indigo-600 text-white hover:bg-indigo-700"
-                :disabled="isCompleting"
-                @click="completeAppointment"
-              >
-                {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
-              </AppButton>
-              <AppButton
-                variant="unstyled"
-                class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
-                @click="showCompleteConfirm = false"
-              >
-                Cancel
-              </AppButton>
+              <div class="flex flex-col gap-3">
+                <AppButton
+                  variant="solid"
+                  class="border-none bg-red-500 text-white hover:bg-red-600"
+                  @click="deleteMessage"
+                >
+                  Yes, Delete
+                </AppButton>
+                <AppButton
+                  variant="unstyled"
+                  class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                  @click="showDeleteMessageModal = false"
+                >
+                  Cancel
+                </AppButton>
+              </div>
             </div>
           </div>
         </div>
@@ -1474,6 +1407,93 @@
         </div>
       </Transition>
     </Teleport>
+=======
+        </Transition>
+
+        <!-- Delete Conversation Confirmation Modal -->
+        <Transition name="modal">
+          <div
+            v-if="showDeleteConversationModal"
+            class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
+            @click.self="showDeleteConversationModal = false"
+          >
+            <div class="bg-card border-border modal-container w-full max-w-sm rounded-4xl border p-8 text-center shadow-2xl">
+              <div class="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 text-red-500">
+                <Icon name="solar:chat-round-dots-bold" size="40" />
+              </div>
+              <h3 class="mb-2 text-2xl font-bold">Delete Conversation</h3>
+              <p class="text-foreground/60 mb-8 text-sm">
+                Are you sure you want to delete this entire conversation with <strong>{{ otherPersonName }}</strong>?<br />
+                All messages will be permanently removed.
+              </p>
+              <div class="flex flex-col gap-3">
+                <AppButton
+                  variant="solid"
+                  class="border-none bg-red-500 text-white hover:bg-red-600"
+                  @click="deleteConversation"
+                >
+                  Yes, Delete Conversation
+                </AppButton>
+                <AppButton
+                  variant="unstyled"
+                  class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                  @click="showDeleteConversationModal = false"
+                >
+                  Cancel
+                </AppButton>
+              </div>
+            </div>
+          </div>
+        </Transition>
+        <!-- Schedule Appointment Modal -->
+        <AppModalAppointmentSchedule
+          v-if="showScheduleModal"
+          :appointment-uuid="schedulingAppointmentUuid"
+          :mode="scheduleMode"
+          @close="handleScheduleModalClose"
+          @scheduled="() => { fetchMessages(1); fetchAppointments(); }"
+        />
+
+        <!-- Complete Appointment Confirmation Modal -->
+        <Transition name="modal">
+          <div
+            v-if="showCompleteConfirm"
+            class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            @click.self="showCompleteConfirm = false"
+          >
+            <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+              <div class="mb-6 flex flex-col items-center text-center">
+                <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
+                  <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+                </div>
+                <h3 class="text-2xl font-bold">Complete Appointment?</h3>
+                <p class="text-foreground/60 mt-2">
+                  Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+                </p>
+              </div>
+
+              <div class="flex flex-col gap-3">
+                <AppButton
+                  variant="solid"
+                  class="bg-indigo-600 text-white hover:bg-indigo-700"
+                  :disabled="isCompleting"
+                  @click="completeAppointment"
+                >
+                  {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
+                </AppButton>
+                <AppButton
+                  variant="unstyled"
+                  class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+                  @click="showCompleteConfirm = false"
+                >
+                  Cancel
+                </AppButton>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+    </ClientOnly>
   </div>
 </template>
 

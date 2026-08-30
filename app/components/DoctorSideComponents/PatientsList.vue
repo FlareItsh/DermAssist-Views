@@ -45,11 +45,19 @@ const listTitle = computed(() => {
 })
 
 const goToChat = (uuid: string) => {
-  if (uuid) navigateTo(`/doctor/messages/${uuid}`)
+  if (uuid) {
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/secretary' : '/doctor'
+    navigateTo(`${prefix}/messages/${uuid}`)
+  }
 }
 
 const goToCompleteAppointment = (uuid: string) => {
-  if (uuid) navigateTo(`/doctor/messages/${uuid}?complete=1`)
+  if (uuid) {
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/secretary' : '/doctor'
+    navigateTo(`${prefix}/messages/${uuid}?complete=1`)
+  }
 }
 </script>
 

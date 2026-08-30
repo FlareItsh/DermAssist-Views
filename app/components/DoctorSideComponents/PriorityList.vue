@@ -29,7 +29,11 @@ const dismiss = (id: string) => {
 }
 
 const goToChat = (uuid: string) => {
-  if (uuid) navigateTo(`/doctor/messages/${uuid}`)
+  if (uuid) {
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/secretary' : '/doctor'
+    navigateTo(`${prefix}/messages/${uuid}`)
+  }
 }
 
 const getInitials = (name: string): string => {
@@ -41,7 +45,11 @@ const getInitials = (name: string): string => {
 }
 
 const goToCompleteAppointment = (uuid: string) => {
-  if (uuid) navigateTo(`/doctor/messages/${uuid}?complete=1`)
+  if (uuid) {
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/secretary' : '/doctor'
+    navigateTo(`${prefix}/messages/${uuid}?complete=1`)
+  }
 }
 
 const conditionColor = (condition: string) => {
