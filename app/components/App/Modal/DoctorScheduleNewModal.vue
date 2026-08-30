@@ -78,6 +78,31 @@ const blockedSlotsForDate = computed(() => {
   return getBlockedTimesForDate(selectedDate.value)
 })
 
+const existingApptSlotsForDate = computed(() => {
+  if (!selectedDate.value) return []
+  return appointments.value
+    .filter((appt) => appt.date === selectedDate.value && appt.raw_scheduled_at)
+    .map((appt) => {
+      const startObj = new Date(appt.raw_scheduled_at!.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
+      const startH = String(startObj.getHours()).padStart(2, '0')
+      const startM = String(startObj.getMinutes()).padStart(2, '0')
+
+      let endH = String((startObj.getHours() + 1) % 24).padStart(2, '0')
+      let endM = startM
+      if (appt.raw_scheduled_end_at) {
+        const endObj = new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
+        endH = String(endObj.getHours()).padStart(2, '0')
+        endM = String(endObj.getMinutes()).padStart(2, '0')
+      }
+
+      return {
+        start_time: `${startH}:${startM}`,
+        end_time: `${endH}:${endM}`,
+        label: appt.doctor || 'Booked Appointment'
+      }
+    })
+})
+
 /**
  * True when the currently selected date+time range overlaps a blocked slot.
  */
@@ -268,6 +293,7 @@ const getInitials = (name: string): string => {
                   v-model:start-time="scheduleTime"
                   v-model:end-time="scheduleEndTime"
                   :blocked-slots="blockedSlotsForDate"
+                  :existing-appointments="existingApptSlotsForDate"
                   label="Appointment Time"
                 />
 

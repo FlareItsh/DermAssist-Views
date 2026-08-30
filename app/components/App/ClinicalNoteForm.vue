@@ -205,6 +205,31 @@
     return getBlockedTimesForDate(followUpDateOnly.value)
   })
 
+  const dateExistingAppts = computed(() => {
+    if (!followUpDateOnly.value) return []
+    return appointments.value
+      .filter((appt) => appt.date === followUpDateOnly.value && appt.id !== (scheduledFollowUpUuid.value || props.appointmentUuid) && appt.raw_scheduled_at)
+      .map((appt) => {
+        const startObj = new Date(appt.raw_scheduled_at!.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
+        const startH = String(startObj.getHours()).padStart(2, '0')
+        const startM = String(startObj.getMinutes()).padStart(2, '0')
+
+        let endH = String((startObj.getHours() + 1) % 24).padStart(2, '0')
+        let endM = startM
+        if (appt.raw_scheduled_end_at) {
+          const endObj = new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
+          endH = String(endObj.getHours()).padStart(2, '0')
+          endM = String(endObj.getMinutes()).padStart(2, '0')
+        }
+
+        return {
+          start_time: `${startH}:${startM}`,
+          end_time: `${endH}:${endM}`,
+          label: appt.doctor || 'Booked Appointment'
+        }
+      })
+  })
+
   const isSelectedDateFullyBlocked = computed(() => {
     if (!followUpDateOnly.value) return false
     return isWholeDayBlocked(followUpDateOnly.value)
@@ -581,6 +606,7 @@
                     v-model:start-time="followUpTimeOnly"
                     v-model:end-time="followUpEndTimeOnly"
                     :blocked-slots="dateBlockedSlots"
+                    :existing-appointments="dateExistingAppts"
                     label="Follow-Up Appointment Time"
                   />
                 </div>

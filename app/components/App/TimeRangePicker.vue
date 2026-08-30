@@ -11,6 +11,7 @@ const props = withDefaults(
     disabled?: boolean
     label?: string
     blockedSlots?: Array<{ start_time: string; end_time: string }>
+    existingAppointments?: Array<{ start_time: string; end_time: string; label?: string }>
   }>(),
   {
     minTime: '07:00',
@@ -18,7 +19,8 @@ const props = withDefaults(
     stepMinutes: 30,
     disabled: false,
     label: '',
-    blockedSlots: () => []
+    blockedSlots: () => [],
+    existingAppointments: () => []
   }
 )
 
@@ -114,7 +116,7 @@ const durationText = computed(() => {
   return `${mins} mins`
 })
 
-// ─── Blocked Slots & Conflict Detection ─────────────────────────────────────
+// ─── Blocked Slots & Existing Appointments Visual Overlays & Conflict Detection ──────────
 
 const blockedVisualRanges = computed(() => {
   if (!props.blockedSlots || !props.blockedSlots.length) return []
@@ -134,6 +136,24 @@ const blockedVisualRanges = computed(() => {
     .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
 })
 
+const appointmentVisualRanges = computed(() => {
+  if (!props.existingAppointments || !props.existingAppointments.length) return []
+  return props.existingAppointments
+    .map((slot) => {
+      const sMins = Math.max(effectiveMinMins.value, timeToMinutes(slot.start_time.slice(0, 5)))
+      const eMins = Math.min(effectiveMaxMins.value, timeToMinutes(slot.end_time.slice(0, 5)))
+      if (eMins <= sMins) return null
+      const leftPct = ((sMins - effectiveMinMins.value) / totalRangeMins.value) * 100
+      const rightPct = 100 - (((eMins - effectiveMinMins.value) / totalRangeMins.value) * 100)
+      return {
+        leftPct: Math.max(0, Math.min(100, leftPct)),
+        rightPct: Math.max(0, Math.min(100, rightPct)),
+        label: `${format12H(slot.start_time)} – ${format12H(slot.end_time)}${slot.label ? ' (' + slot.label + ')' : ''}`
+      }
+    })
+    .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
+})
+
 const hasBlockedConflict = computed(() => {
   if (!props.blockedSlots || !props.blockedSlots.length) return false
   const curStart = startMins.value
@@ -144,6 +164,19 @@ const hasBlockedConflict = computed(() => {
     return curStart < bEnd && curEnd > bStart
   })
 })
+
+const hasApptConflict = computed(() => {
+  if (!props.existingAppointments || !props.existingAppointments.length) return false
+  const curStart = startMins.value
+  const curEnd = endMins.value
+  return props.existingAppointments.some((slot) => {
+    const aStart = timeToMinutes(slot.start_time.slice(0, 5))
+    const aEnd = timeToMinutes(slot.end_time.slice(0, 5))
+    return curStart < aEnd && curEnd > aStart
+  })
+})
+
+const hasConflict = computed(() => hasBlockedConflict.value || hasApptConflict.value)
 
 // ─── Custom Time Inputs (Two-Way Binding) ────────────────────────────────────
 
@@ -419,7 +452,7 @@ const onPointerUp = (e: PointerEvent) => {
       <!-- Main Slider Track -->
       <div
         ref="trackRef"
-        class="relative h-12 w-full rounded-2xl bg-gray-200/80 border border-gray-300/50 shadow-inner cursor-pointer touch-none"
+        class="relative h-12 w-full rounded-2xl overflow-hidden bg-gray-200/80 border border-gray-300/50 shadow-inner cursor-pointer touch-none"
         @pointerdown="onTrackClick"
         @pointermove="onPointerMove"
         @pointerup="onPointerUp"
@@ -437,57 +470,60 @@ const onPointerUp = (e: PointerEvent) => {
         <!-- Visually Rendered Blocked Slots (Red Striped Overlays on Track) -->
         <div
           v-for="(b, idx) in blockedVisualRanges"
-          :key="idx"
-          class="absolute top-0 bottom-0 z-10 pointer-events-none rounded-lg overflow-hidden border-x border-red-500/40"
+          :key="'block-' + idx"
+          class="absolute top-0 bottom-0 z-10 pointer-events-none rounded-2xl overflow-hidden border border-red-500/40"
           :style="{ left: `${b.leftPct}%`, right: `${b.rightPct}%` }"
           :title="`Blocked: ${b.label}`"
         >
           <div class="w-full h-full bg-red-500/20 bg-[linear-gradient(45deg,rgba(239,68,68,0.25)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.25)_50%,rgba(239,68,68,0.25)_75%,transparent_75%,transparent)] bg-[length:10px_10px]"></div>
         </div>
 
+        <!-- Visually Rendered Existing Booked Appointments (Amber Striped Overlays on Track) -->
+        <div
+          v-for="(a, idx) in appointmentVisualRanges"
+          :key="'appt-' + idx"
+          class="absolute top-0 bottom-0 z-10 pointer-events-none rounded-2xl overflow-hidden border border-amber-500/50"
+          :style="{ left: `${a.leftPct}%`, right: `${a.rightPct}%` }"
+          :title="`Booked Appointment: ${a.label}`"
+        >
+          <div class="w-full h-full bg-amber-500/20 bg-[linear-gradient(45deg,rgba(245,158,11,0.25)_25%,transparent_25%,transparent_50%,rgba(245,158,11,0.25)_50%,rgba(245,158,11,0.25)_75%,transparent_75%,transparent)] bg-[length:10px_10px]"></div>
+        </div>
+
         <!-- Draggable Selection Band (Active Range) -->
         <div
           class="absolute top-1 bottom-1 z-20 rounded-xl shadow-md flex items-center justify-between border cursor-grab active:cursor-grabbing transition-all group"
           :class="
-            hasBlockedConflict
+            hasConflict
               ? 'bg-gradient-to-r from-red-600 via-rose-500 to-red-600 border-red-500 ring-2 ring-red-400/50'
               : 'bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-600 border-indigo-400/40'
           "
           :style="{ left: `${startPercent}%`, right: `${100 - endPercent}%` }"
           @pointerdown="onPointerDownMiddle"
         >
-          <!-- Left Handle (Start Time Drag Handle) -->
+
           <div
-            class="absolute -left-3.5 top-1/2 -translate-y-1/2 z-30 h-10 w-7 rounded-lg bg-white border-2 shadow-lg flex flex-col items-center justify-center cursor-ew-resize hover:scale-110 active:scale-95 transition-transform"
-            :class="hasBlockedConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'"
+            class="absolute -left-2 top-1/2 -translate-y-1/2 z-30 h-8 w-3 rounded-md bg-white border-2 shadow-md flex items-center justify-center cursor-ew-resize hover:scale-110 active:scale-95 transition-transform"
+            :class="hasConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'"
             title="Drag to change Start Time (30-min steps)"
             @pointerdown="onPointerDownStartHandle"
           >
-            <div class="flex gap-0.5 items-center justify-center">
-              <div class="w-0.5 h-4 bg-current rounded-full"></div>
-              <div class="w-0.5 h-4 bg-current rounded-full"></div>
-            </div>
+            <div class="w-0.5 h-3.5 bg-current rounded-full"></div>
           </div>
 
-          <!-- Middle Label on Band -->
           <div class="w-full text-center px-4 truncate pointer-events-none flex items-center justify-center gap-1.5">
-            <Icon v-if="hasBlockedConflict" name="material-symbols:block-rounded" class="text-white text-sm shrink-0 animate-pulse" />
+            <Icon v-if="hasConflict" name="material-symbols:block-rounded" class="text-white text-sm shrink-0 animate-pulse" />
             <span class="text-[11px] font-extrabold text-white tracking-wide drop-shadow-sm">
               {{ format12H(localStart) }} – {{ format12H(localEnd) }}
             </span>
           </div>
 
-          <!-- Right Handle (End Time Drag Handle) -->
           <div
-            class="absolute -right-3.5 top-1/2 -translate-y-1/2 z-30 h-10 w-7 rounded-lg bg-white border-2 shadow-lg flex flex-col items-center justify-center cursor-ew-resize hover:scale-110 active:scale-95 transition-transform"
-            :class="hasBlockedConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'"
+            class="absolute -right-2 top-1/2 -translate-y-1/2 z-30 h-8 w-3 rounded-md bg-white border-2 shadow-md flex items-center justify-center cursor-ew-resize hover:scale-110 active:scale-95 transition-transform"
+            :class="hasConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'"
             title="Drag to change End Time (30-min steps)"
             @pointerdown="onPointerDownEndHandle"
           >
-            <div class="flex gap-0.5 items-center justify-center">
-              <div class="w-0.5 h-4 bg-current rounded-full"></div>
-              <div class="w-0.5 h-4 bg-current rounded-full"></div>
-            </div>
+            <div class="w-0.5 h-3.5 bg-current rounded-full"></div>
           </div>
         </div>
 
@@ -496,9 +532,9 @@ const onPointerUp = (e: PointerEvent) => {
           <div
             v-if="activeTooltipTime"
             class="absolute -top-10 left-1/2 -translate-x-1/2 z-40 rounded-xl px-3 py-1 text-xs font-bold text-white shadow-xl flex items-center gap-1.5 border pointer-events-none"
-            :class="hasBlockedConflict ? 'bg-red-950 border-red-700' : 'bg-gray-900 border-gray-700'"
+            :class="hasConflict ? 'bg-red-950 border-red-700' : 'bg-gray-900 border-gray-700'"
           >
-            <Icon name="material-symbols:drag-pan-rounded" :class="hasBlockedConflict ? 'text-red-400' : 'text-indigo-400'" class="text-sm" />
+            <Icon name="material-symbols:drag-pan-rounded" :class="hasConflict ? 'text-red-400' : 'text-indigo-400'" class="text-sm" />
             <span>{{ activeTooltipTime }}</span>
           </div>
         </Transition>

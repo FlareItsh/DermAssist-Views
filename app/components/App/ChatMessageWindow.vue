@@ -1316,8 +1316,7 @@
               </div>
             </div>
           </div>
-        </div>
-      </Transition>
+        </Transition>
 
       <!-- Cancel Appointment Confirmation Modal -->
       <Transition name="modal">
@@ -1406,11 +1405,8 @@
           </div>
         </div>
       </Transition>
-    </Teleport>
-=======
-        </Transition>
 
-        <!-- Delete Conversation Confirmation Modal -->
+      <!-- Delete Conversation Confirmation Modal -->
         <Transition name="modal">
           <div
             v-if="showDeleteConversationModal"
