@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
-const apiStoragePath = join(currentDir, '../DermAssist-API/storage/app/public')
+const apiStoragePath = join(currentDir, '../api/storage/app/public')
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
