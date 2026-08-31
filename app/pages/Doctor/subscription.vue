@@ -58,6 +58,14 @@ const fetchSubscriptionData = async () => {
 onMounted(async () => {
   await fetchSubscriptionData()
 
+  // Handle required feature redirect
+  const requiredFeature = route.query.required as string
+  if (requiredFeature === 'scan') {
+    bannerAlert.type = 'info'
+    bannerAlert.title = 'Subscription Required'
+    bannerAlert.description = 'An active subscription plan is required to access Doctor AI Skin Scanning and Clinical Diagnostics.'
+  }
+
   // Handle return redirect from gateway payment
   const queryStatus = route.query.status as string
   const invoiceUuid = route.query.invoice as string
