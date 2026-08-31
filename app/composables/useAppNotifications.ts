@@ -185,19 +185,21 @@ export const useAppNotifications = () => {
     }
 
     if (userRole.value === 'doctor' && appointments.value.length > 0) {
+      const todayStr = new Date().toISOString().split('T')[0]
       appointments.value.forEach((appt) => {
         if (!appt.date) return
-        const apptDateTime = appt.date + (appt.time ? `T${appt.time}` : 'T00:00:00')
-        const hoursSince = hoursSinceAppointment(apptDateTime)
-        if (hoursSince >= 24) {
+        const isPastDate = appt.date < todayStr
+        const isPastTime = appt.date === todayStr && appt.time && new Date(`${appt.date}T${appt.time}`) < new Date()
+
+        if (isPastDate || isPastTime) {
           list.push({
             id: `doctor-appt-overdue-${appt.id}`,
-            title: 'Appointment Needs Review',
-            description: `Your appointment with ${appt.doctor} for ${appt.info} on ${appt.date} has passed. Did it go well? Please mark it as completed.`,
+            title: 'Overdue Appointment — Action Needed',
+            description: `Your appointment with ${appt.doctor} scheduled for ${appt.date} ${appt.time ? 'at ' + appt.time : ''} has passed. Please mark it as Accomplished or Cancelled.`,
             time: 'Overdue',
-            icon: 'material-symbols:assignment-late-rounded',
-            color: 'text-orange-500',
-            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}` : '/Doctor/Messages'
+            icon: 'material-symbols:warning-rounded',
+            color: 'text-red-500',
+            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}?resolve=1` : '/Doctor/Messages'
           })
         }
       })

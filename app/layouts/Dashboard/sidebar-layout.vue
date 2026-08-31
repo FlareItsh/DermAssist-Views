@@ -19,9 +19,9 @@
       <main
         class="flex-1"
         :class="[
-          isChatPage ? 'overflow-hidden h-full pb-0 bg-card' : 'overflow-y-auto pb-24 md:pb-5',
+          isFullHeightPage ? 'overflow-hidden h-full pb-0 bg-transparent' : 'overflow-y-auto pb-24 md:pb-5',
           userRole === 'patient' 
-            ? (isChatPage 
+            ? (isFullHeightPage 
                 ? (isChatThread ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full' : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full')
                 : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5')
             : '-mt-4 p-5'
@@ -36,7 +36,7 @@
           class="mx-auto" 
           :class="[
             userRole === 'patient' ? 'px-5 md:p-0' : '',
-            isChatPage ? 'h-full min-h-0' : 'min-h-0'
+            (isFullHeightPage || isChatPage) ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
           <slot />
@@ -213,6 +213,10 @@
 
   const isChatPage = computed(() => {
     return /^\/(patient|doctor|secretary)\/messages/i.test(route.path)
+  })
+
+  const isFullHeightPage = computed(() => {
+    return /^\/(patient|doctor)\/(messages|scan)/i.test(route.path)
   })
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)

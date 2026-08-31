@@ -133,14 +133,20 @@
         await navigateTo(`/${baseRole}`)
       }
     } catch (error: any) {
-      if (error.response?.status === 422) {
-        const validationErrors = error.response._data.errors
-        if (validationErrors.email) errors.email = validationErrors.email[0]
-        if (validationErrors.password) errors.password = validationErrors.password[0]
-      } else if (error.response?.status === 401) {
-        errors.general = error.response._data.message || 'Invalid credentials'
+      const status = error.status || error.statusCode || error.response?.status
+      const data = error.data || error.response?._data || {}
+      const msg = data.message || error.message || ''
+
+      if (status === 403 || msg.toLowerCase().includes('disabled')) {
+        errors.general = msg || 'Account Disabled: Your account has been disabled by your attending doctor.'
+      } else if (status === 422) {
+        const validationErrors = data.errors
+        if (validationErrors?.email) errors.email = validationErrors.email[0]
+        if (validationErrors?.password) errors.password = validationErrors.password[0]
+      } else if (status === 401) {
+        errors.general = msg || 'Invalid credentials'
       } else {
-        errors.general = 'An unexpected error occurred. Please try again.'
+        errors.general = msg || 'An unexpected error occurred. Please try again.'
       }
       console.error('Login failed:', error)
     } finally {
@@ -169,9 +175,16 @@
       >
         <div
           v-if="errors.general"
-          class="bg-destructive/10 text-destructive rounded-xl p-4 text-center text-sm font-medium"
+          class="rounded-2xl p-4 text-center text-sm font-semibold flex items-center justify-center gap-2.5 border transition-all"
+          :class="errors.general.toLowerCase().includes('disabled') 
+            ? 'bg-amber-50 text-amber-800 border-amber-200' 
+            : 'bg-rose-50 text-rose-700 border-rose-200'"
         >
-          {{ errors.general }}
+          <Icon 
+            :name="errors.general.toLowerCase().includes('disabled') ? 'material-symbols:block-rounded' : 'material-symbols:error-rounded'" 
+            class="text-xl shrink-0" 
+          />
+          <span>{{ errors.general }}</span>
         </div>
 
         <AuthInput

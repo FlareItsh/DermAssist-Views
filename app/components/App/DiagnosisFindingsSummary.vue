@@ -3,6 +3,7 @@
   import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { userService } from '~/api/user/UserService'
 
   interface Props {
     role?: 'patient' | 'doctor'
@@ -12,7 +13,7 @@
     role: 'patient'
   })
 
-  const { currentDiagnosis, isScanned, qualityError, isHealthyState, chartData, resetScanner, patientUuid } =
+  const { currentDiagnosis, isScanned, qualityError, isHealthyState, chartData, resetScanner, patientUuid, isProceededToResults, saveActiveDiagnosisState } =
     useDiagnosis()
 
   const userName = useCookie('user_name')
@@ -38,7 +39,8 @@
   })
 
   const canProceed = computed(() => {
-    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value
+    const hasPatient = props.role === 'patient' || !!patientUuid.value || !!assignedName.value
+    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && hasPatient
   })
 
   const handleProceed = async () => {
@@ -105,6 +107,24 @@
   const isPatientModalOpen = ref(false)
   const { getStorageUrl } = useStorage()
 
+  // Fetch doctor-registered patients
+  const doctorRegisteredPatients = ref<any[]>([])
+  const loadDoctorPatients = async () => {
+    if (props.role !== 'doctor') return
+    try {
+      const res = await userService.listDoctorPatients()
+      doctorRegisteredPatients.value = (res?.data ?? res ?? []).map((p: any) => ({
+        ...p,
+        _source: 'registered'
+      }))
+    } catch {
+      // silent fail
+    }
+  }
+  if (props.role === 'doctor') {
+    loadDoctorPatients()
+  }
+
   const uniquePatients = computed(() => {
     const patientsMap = new Map()
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
@@ -114,7 +134,8 @@
         if (!patientsMap.has(appt.patient_uuid)) {
           patientsMap.set(appt.patient_uuid, {
             ...appt.patient,
-            latest_appointment_date: appt.date || appt.created_at
+            latest_appointment_date: appt.date || appt.created_at,
+            _source: 'appointment'
           })
         } else {
           const existing = patientsMap.get(appt.patient_uuid)
@@ -127,14 +148,51 @@
       }
     }
     
+    // Merge doctor-registered patients (avoid duplicates)
+    for (const p of doctorRegisteredPatients.value) {
+      if (!patientsMap.has(p.uuid)) {
+        patientsMap.set(p.uuid, p)
+      }
+    }
+    
     return Array.from(patientsMap.values())
   })
 
+  // Tracks patient explicitly assigned for this scan (not the global cookie)
+  const assignedName = ref('')
+
   const selectedPatientName = computed(() => {
-    if (!patientUuid.value) return ''
-    const patient = uniquePatients.value.find(p => p.uuid === patientUuid.value)
-    return patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown'
+    if (patientUuid.value) {
+      const patient = uniquePatients.value.find(p => p.uuid === patientUuid.value)
+      if (patient) return `${patient.first_name} ${patient.last_name}`
+    }
+    return assignedName.value
   })
+
+  // Add Patient Name State
+  const isAddingPatient = ref(false)
+  const newPatientNameInput = ref('')
+
+  const handleAddPatientName = () => {
+    const trimmed = newPatientNameInput.value.trim()
+    if (!trimmed) return
+    assignedName.value = trimmed
+    userName.value = trimmed
+    patientUuid.value = null
+    const history = [...(recentNames.value || [])]
+    const filtered = history.filter(n => n !== trimmed)
+    recentNames.value = [trimmed, ...filtered].slice(0, 5)
+    newPatientNameInput.value = ''
+    isAddingPatient.value = false
+    isPatientModalOpen.value = false
+  }
+
+  const selectExistingPatient = (patient: any) => {
+    patientUuid.value = patient.uuid
+    assignedName.value = `${patient.first_name} ${patient.last_name}`
+    userName.value = assignedName.value
+    isPatientModalOpen.value = false
+  }
 </script>
 
 <template>
@@ -161,7 +219,7 @@
               Patient / Appointment:
             </p>
             <div v-if="props.role === 'doctor'" class="mt-2">
-              <div v-if="patientUuid" class="flex items-center justify-between border border-gray-100 rounded-2xl p-3 bg-gray-50/50">
+              <div v-if="selectedPatientName" class="flex items-center justify-between border border-gray-100 rounded-2xl p-3 bg-gray-50/50">
                 <div class="flex items-center gap-3">
                   <div class="bg-primary/10 text-primary h-10 w-10 flex items-center justify-center rounded-xl">
                     <Icon name="material-symbols:person" class="text-xl" />
@@ -183,39 +241,86 @@
                 <Icon name="material-symbols:chevron-right-rounded" class="text-gray-400 text-xl" />
               </AppButton>
 
-              <AppModal v-model="isPatientModalOpen" title="Assign Patient" description="Select a patient for this clinical scan." size="lg">
+              <AppModal v-model="isPatientModalOpen" title="Assign Patient" description="Select or add a patient for this clinical scan." size="lg">
                 <div class="flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                  <div v-if="uniquePatients.length === 0" class="text-center py-10 text-gray-400">
-                    <Icon name="material-symbols:inbox-outline" class="text-4xl opacity-50 mb-2" />
-                    <p>No patients available</p>
+                  
+                  <div v-if="!isAddingPatient">
+                    <div v-if="uniquePatients.length === 0" class="text-center py-6 text-gray-400">
+                      <Icon name="material-symbols:inbox-outline" class="text-4xl opacity-50 mb-2" />
+                      <p class="text-sm">No recent appointment patients</p>
+                    </div>
+                    <button
+                      v-for="patient in uniquePatients"
+                      :key="patient.uuid"
+                      @click="selectExistingPatient(patient)"
+                      class="flex items-center gap-4 p-4 rounded-2xl border transition-all text-left w-full mb-2"
+                      :class="patientUuid === patient.uuid ? 'border-primary bg-primary/5 shadow-sm' : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'"
+                    >
+                      <img
+                        :src="patient.avatar_path ? getStorageUrl(patient.avatar_path) : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`"
+                        class="h-12 w-12 rounded-full object-cover shrink-0"
+                      />
+                      <div class="flex-1">
+                        <p class="font-bold text-gray-900">{{ patient.first_name }} {{ patient.last_name }}</p>
+                        <div class="flex items-center gap-2 mt-0.5">
+                          <span
+                            v-if="patient._source === 'registered'"
+                            class="inline-block px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-primary/10 text-primary"
+                          >Registered</span>
+                          <p class="text-xs text-gray-500">
+                            {{ patient._source === 'registered' ? (patient.account_status === 'active' ? 'Active' : 'Disabled') : (patient.latest_appointment_date ? new Date(patient.latest_appointment_date).toLocaleDateString() : 'N/A') }}
+                          </p>
+                        </div>
+                      </div>
+                      <div v-if="patientUuid === patient.uuid" class="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center shadow-sm">
+                        <Icon name="material-symbols:check-small-rounded" class="text-xl" />
+                      </div>
+                    </button>
+                    
+                    <AppButton variant="outline" class="w-full mt-3 border-dashed rounded-2xl py-5 hover:bg-gray-50" @click="isAddingPatient = true">
+                      <span class="flex items-center gap-2 font-bold text-gray-600">
+                        <Icon name="material-symbols:add-circle-outline" class="text-xl text-primary" />
+                        Add Patient
+                      </span>
+                    </AppButton>
                   </div>
-                  <button
-                    v-for="patient in uniquePatients"
-                    :key="patient.uuid"
-                    @click="patientUuid = patient.uuid; isPatientModalOpen = false"
-                    class="flex items-center gap-4 p-4 rounded-2xl border transition-all text-left w-full"
-                    :class="patientUuid === patient.uuid ? 'border-primary bg-primary/5 shadow-sm' : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'"
-                  >
-                    <img
-                      :src="patient.avatar_path ? getStorageUrl(patient.avatar_path) : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`"
-                      class="h-12 w-12 rounded-full object-cover shrink-0"
-                    />
-                    <div class="flex-1">
-                      <p class="font-bold text-gray-900">{{ patient.first_name }} {{ patient.last_name }}</p>
-                      <p class="text-xs text-gray-500 mt-0.5">
-                        Latest: {{ patient.latest_appointment_date ? new Date(patient.latest_appointment_date).toLocaleDateString() : 'N/A' }}
-                      </p>
+                  
+                  <div v-else class="flex flex-col gap-4 p-2">
+                    <div class="flex items-center justify-between">
+                      <h3 class="font-bold text-base text-gray-900">Add Patient Name</h3>
+                      <button @click="isAddingPatient = false" class="text-gray-400 hover:text-gray-600">
+                        <Icon name="material-symbols:close-rounded" class="text-xl" />
+                      </button>
                     </div>
-                    <div v-if="patientUuid === patient.uuid" class="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center shadow-sm">
-                      <Icon name="material-symbols:check-small-rounded" class="text-xl" />
+                    
+                    <div>
+                      <label class="text-xs font-bold text-gray-500 mb-1.5 block">Patient Full Name</label>
+                      <input 
+                        v-model="newPatientNameInput" 
+                        type="text" 
+                        class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-semibold focus:border-primary focus:ring-1 focus:ring-primary outline-none" 
+                        placeholder="e.g. John Doe"
+                        @keyup.enter="handleAddPatientName"
+                        autoFocus
+                      />
                     </div>
-                  </button>
+                    
+                    <div class="flex items-center gap-2 mt-2">
+                      <AppButton class="flex-1 rounded-xl py-2.5 font-bold" @click="handleAddPatientName" :disabled="!newPatientNameInput.trim()">
+                        Add Patient
+                      </AppButton>
+                      <AppButton variant="ghost" class="rounded-xl py-2.5 font-bold text-gray-500" @click="isAddingPatient = false">
+                        Cancel
+                      </AppButton>
+                    </div>
+                  </div>
+                  
                 </div>
                 <template #footer>
-                  <AppButton variant="outline" @click="patientUuid = null; isPatientModalOpen = false" class="rounded-xl px-6 font-bold" v-if="patientUuid">
+                  <AppButton variant="outline" @click="patientUuid = null; assignedName = ''; isPatientModalOpen = false" class="rounded-xl px-6 font-bold" v-if="selectedPatientName && !isAddingPatient">
                     Clear Selection
                   </AppButton>
-                  <AppButton variant="ghost" @click="isPatientModalOpen = false" class="rounded-xl px-6 font-bold text-gray-500">
+                  <AppButton variant="ghost" @click="isPatientModalOpen = false; isAddingPatient = false" class="rounded-xl px-6 font-bold text-gray-500">
                     Close
                   </AppButton>
                 </template>
