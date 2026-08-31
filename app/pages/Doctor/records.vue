@@ -44,6 +44,18 @@
     )
   })
 
+  const recordsPerPage = 5
+  const recordCurrentPage = ref(1)
+
+  const paginatedRecords = computed(() => {
+    const start = (recordCurrentPage.value - 1) * recordsPerPage
+    return filteredRecords.value.slice(start, start + recordsPerPage)
+  })
+
+  watch(searchQuery, () => {
+    recordCurrentPage.value = 1
+  })
+
   const handleRecordClick = (record: any) => {
     selectedRecord.value = record
     isOpen.value = true
@@ -64,20 +76,31 @@
 
     <div
       v-else-if="filteredRecords.length > 0"
-      class="flex flex-col"
+      class="flex flex-col gap-6"
     >
-      <AppRecordFolder
-        v-for="(record, index) in filteredRecords"
-        :key="record.id"
-        :time="formatDate(record.created_at)"
-        :title="record.patient ? `${record.patient.first_name} ${record.patient.last_name} - ${record.title}` : record.title"
-        :style="{
-          marginTop: index === 0 ? '0px' : '-200px',
-          zIndex: 10 + index
-        }"
-        class="transition-all hover:z-100 hover:-translate-y-6"
-        @click="handleRecordClick(record)"
-      />
+      <div class="flex flex-col">
+        <AppRecordFolder
+          v-for="(record, index) in paginatedRecords"
+          :key="record.id"
+          :time="formatDate(record.created_at)"
+          :title="record.patient ? `${record.patient.first_name} ${record.patient.last_name} - ${record.title}` : record.title"
+          :style="{
+            marginTop: index === 0 ? '0px' : '-200px',
+            zIndex: 10 + index
+          }"
+          class="transition-all hover:z-100 hover:-translate-y-6"
+          @click="handleRecordClick(record)"
+        />
+      </div>
+
+      <div class="bg-card border border-sidebar-border rounded-2xl overflow-hidden mt-4">
+        <AppPagination
+          v-model:currentPage="recordCurrentPage"
+          :total-items="filteredRecords.length"
+          :per-page="recordsPerPage"
+          item-label="records"
+        />
+      </div>
     </div>
 
     <!-- No Results State -->

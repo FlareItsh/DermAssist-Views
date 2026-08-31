@@ -27,11 +27,17 @@ const filteredPatients = computed(() => {
   return [...list].sort((a, b) => a.name.localeCompare(b.name))
 })
 
-const priorityPatients = computed(() => allPatients.value.filter(p => p.priority === 'High'))
+const patientsPerPage = 8
+const patientCurrentPage = ref(1)
 
-const togglePriority = (patient: any) => {
-  addToPriority(patient.id)
-}
+const paginatedPatients = computed(() => {
+  const start = (patientCurrentPage.value - 1) * patientsPerPage
+  return filteredPatients.value.slice(start, start + patientsPerPage)
+})
+
+watch(searchValue, () => {
+  patientCurrentPage.value = 1
+})
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
@@ -73,12 +79,21 @@ definePageMeta({
         <Icon name="solar:magnifer-linear" class="mx-auto mb-2 text-4xl opacity-20" />
         <p class="text-sm">No patients found matching "{{ searchValue }}"</p>
       </div>
-      <div v-else class="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-6 pt-1 mb-2">
-        <AppPatientCard 
-          v-for="patient in filteredPatients" 
-          :key="patient.id"
-          :patient="patient"
-          @toggle-priority="togglePriority"
+      <div v-else class="space-y-4">
+        <div class="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 pb-2 pt-1">
+          <AppPatientCard 
+            v-for="patient in paginatedPatients" 
+            :key="patient.id"
+            :patient="patient"
+            @toggle-priority="togglePriority"
+          />
+        </div>
+
+        <AppPagination
+          v-model:currentPage="patientCurrentPage"
+          :total-items="filteredPatients.length"
+          :per-page="patientsPerPage"
+          item-label="patients"
         />
       </div>
     </section>

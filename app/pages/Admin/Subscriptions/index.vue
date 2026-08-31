@@ -28,9 +28,9 @@
       />
 
       <AdminSideComponentsMetricCard
-        label="Pending Approvals"
+        label="Pending Checkout"
         :value="metrics.pending_payments_count"
-        detail="Manual receipts awaiting review"
+        detail="Awaiting gateway completion"
         icon="lucide:clock"
         tone="amber"
         to="/admin/subscriptions/payments"

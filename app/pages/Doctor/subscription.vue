@@ -30,6 +30,14 @@ const isSubmittingCheckout = ref(false)
 const checkoutSuccessMsg = ref('')
 const checkoutErrorMsg = ref('')
 
+const invoicesPerPage = 5
+const invoiceCurrentPage = ref(1)
+
+const paginatedInvoices = computed(() => {
+  const start = (invoiceCurrentPage.value - 1) * invoicesPerPage
+  return invoices.value.slice(start, start + invoicesPerPage)
+})
+
 const fetchSubscriptionData = async () => {
   isLoading.value = true
   try {
@@ -371,7 +379,7 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
               </tr>
             </thead>
             <tbody class="divide-y divide-sidebar-border">
-              <tr v-for="inv in invoices" :key="inv.uuid" class="hover:bg-muted/10">
+              <tr v-for="inv in paginatedInvoices" :key="inv.uuid" class="hover:bg-muted/10">
                 <td class="py-3.5 px-4 font-medium text-foreground">
                   {{ new Date(inv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
                 </td>
@@ -396,6 +404,14 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             </tbody>
           </table>
         </div>
+
+        <!-- Pagination -->
+        <AppPagination
+          v-model:currentPage="invoiceCurrentPage"
+          :total-items="invoices.length"
+          :per-page="invoicesPerPage"
+          item-label="invoices"
+        />
       </div>
     </div>
 
