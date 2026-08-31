@@ -156,7 +156,7 @@ onMounted(() => {
           <h2 class="text-xl font-semibold text-gray-800 capitalize">{{ dataset.category }} <span
               class="text-sm font-normal text-gray-500 ml-2">({{ dataset.images.length }} images)</span></h2>
           <AppButton variant="outline" size="sm" @click="downloadZip(dataset.category)" class="flex items-center gap-2">
-            <Icon name="material-symbols:download" />
+            <Icon name="lucide:download" size="16" />
             Download Category
           </AppButton>
         </div>
@@ -169,8 +169,8 @@ onMounted(() => {
             <div
               class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
               <button @click="deleteImage(url)"
-                class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all shadow-lg">
-                <Icon name="material-symbols:delete-outline" class="text-xl" />
+                class="bg-destructive text-white p-2 rounded-full hover:opacity-90 transform hover:scale-110 transition-all shadow-lg">
+                <Icon name="lucide:trash-2" class="text-xl" />
               </button>
             </div>
           </div>
@@ -183,7 +183,7 @@ onMounted(() => {
       class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
       <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
         <button @click="showUploadModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <Icon name="material-symbols:close" class="text-2xl" />
+          <Icon name="lucide:x" class="text-xl" />
         </button>
 
         <h2 class="text-2xl font-bold mb-6 text-gray-900">Upload to Dataset</h2>
@@ -210,7 +210,7 @@ onMounted(() => {
           <AppButton :disabled="!uploadFile || !uploadCategory || isUploading" @click="uploadImage"
             class="min-w-[100px]">
             <span v-if="isUploading">
-              <Icon name="material-symbols:sync" class="animate-spin" />
+              <Icon name="lucide:loader-2" class="animate-spin" />
             </span>
             <span v-else>Upload</span>
           </AppButton>

@@ -146,22 +146,26 @@
             </div>
             
             <div class="flex justify-end border-t border-gray-200/50 pt-3 mt-1">
-              <button
+              <AppButton
                 v-if="filterStatus === 'pending'"
+                variant="outline"
+                size="sm"
                 @click="resolveAppeal(appeal.uuid)"
-                class="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-green-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm"
+                class="hover:text-green-600 hover:border-green-300"
               >
-                <Icon name="material-symbols:check-circle-outline-rounded" size="14" />
+                <Icon name="lucide:check-circle-2" size="14" class="mr-1.5" />
                 Resolve Appeal
-              </button>
-              <button
+              </AppButton>
+              <AppButton
                 v-else
+                variant="outline"
+                size="sm"
                 @click="restoreAppeal(appeal.uuid)"
-                class="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-amber-600 transition-colors bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm"
+                class="hover:text-amber-600 hover:border-amber-300"
               >
-                <Icon name="material-symbols:restore" size="14" />
+                <Icon name="lucide:rotate-ccw" size="14" class="mr-1.5" />
                 Restore to Pending
-              </button>
+              </AppButton>
             </div>
           </div>
         </article>
@@ -175,7 +179,7 @@
           class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500"
         >
           <Icon
-            :name="filterStatus === 'pending' ? 'material-symbols:report-outline' : 'material-symbols:check-circle-outline-rounded'"
+            :name="filterStatus === 'pending' ? 'lucide:alert-circle' : 'lucide:check-circle-2'"
             class="text-3xl"
           />
         </div>
