@@ -102,6 +102,53 @@ const appointmentCountMap = computed(() => {
   return map
 })
 
+// ── Blocked dates (doctor's own away/blocked slots) ──────────────────────────
+const { getBlockedTimesForDate, hasBlockedTime, isWholeDayBlocked: checkWholeDayBlocked } = useBlockedDates()
+
+/** True if a day has any blocked period. */
+const isDayBlocked = (d: Date): boolean => hasBlockedTime(toKey(d))
+
+/** True if the whole day is blocked (00:00–23:59). */
+const isDayFullyBlocked = (d: Date): boolean => checkWholeDayBlocked(toKey(d))
+
+/** Human-readable time range label for a day's blocked slots. */
+const blockedLabel = (d: Date): string => {
+  const slots = getBlockedTimesForDate(toKey(d))
+  if (!slots.length) return ''
+  return slots
+    .map((s) => {
+      const fmt = (t: string) => {
+        const [h, m] = t.split(':').map(Number)
+        const ampm = h >= 12 ? 'PM' : 'AM'
+        const hour = h % 12 || 12
+        return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+      }
+      if (s.start_time <= '00:01' && s.end_time >= '23:58') return 'All day'
+      return `${fmt(s.start_time)} – ${fmt(s.end_time)}`
+    })
+    .join(', ')
+}
+
+/** Tooltip hover state per day key. */
+const hoveredDayKey = ref<string | null>(null)
+
+// ── Overdue Appointments Helpers ──────────────────────────────────────────────
+const todayKeyStr = toKey(todayDate)
+
+const isApptOverdue = (appt: any): boolean => {
+  if (!appt.date || appt.status === 'completed' || appt.status === 'declined') return false
+  if (appt.date < todayKeyStr) return true
+  if (appt.date === todayKeyStr && appt.time) {
+    return new Date(`${appt.date}T${appt.time}`) < new Date()
+  }
+  return false
+}
+
+const isDayOverdue = (d: Date): boolean => {
+  const dateKey = toKey(d)
+  return appointments.value.some(a => a.date === dateKey && isApptOverdue(a))
+}
+
 // ── Patients for the selected popover date ───────────────────────────────────
 const popoverAppointments = computed(() => {
   if (!popoverKey.value) return []
@@ -112,6 +159,12 @@ const popoverDateLabel = computed(() => {
   if (!popoverKey.value) return ''
   const d = new Date(popoverKey.value + 'T00:00:00')
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+})
+
+/** Blocked slots for the currently open popover day. */
+const popoverBlockedSlots = computed(() => {
+  if (!popoverKey.value) return []
+  return getBlockedTimesForDate(popoverKey.value)
 })
 
 const getCount = (d: Date) => appointmentCountMap.value[toKey(d)] ?? 0
@@ -170,21 +223,33 @@ const behindCount = computed(() => {
     <div class="flex gap-1 overflow-x-auto py-3 custom-scrollbar">
       <div v-for="d in days" :key="d.toDateString()"
         @click="selectDay(d)"
-        class="day-card relative flex flex-col items-center justify-between cursor-pointer rounded-2xl px-1 pt-3 pb-2.5 min-h-[105px] transition-all duration-200 select-none"
+        @mouseenter="hoveredDayKey = toKey(d)"
+        @mouseleave="hoveredDayKey = null"
+        class="day-card relative flex flex-col items-center justify-between cursor-pointer rounded-2xl px-1 pt-3 pb-2.5 min-h-[105px] transition-all duration-200 select-none overflow-visible"
         :class="[
           days.length === 1 ? 'w-[92px] shrink-0' : 'flex-1 min-w-0',
           isSelected(d)
             ? 'bg-secondary border-[5px] border-white/20 scale-105 shadow-xl z-10'
-            : getCount(d) > 0
-              ? 'bg-primary border-[5px] border-navy/90'
-              : isToday(d)
-                ? 'bg-navy/90 border-[5px] border-primary/50'
-                : 'bg-[#0a1e33]/50 border border-transparent hover:bg-[#0a1e33]'
-        ]">
+            : isDayFullyBlocked(d)
+              ? 'bg-[#0a0f18] border border-red-900/40 opacity-60'
+              : isDayOverdue(d)
+                ? 'bg-amber-950/40 border-2 border-red-500/80 shadow-lg animate-pulse'
+                : isDayBlocked(d)
+                  ? 'bg-[#0a1e33]/70 border border-red-800/30'
+                  : getCount(d) > 0
+                    ? 'bg-primary border-[5px] border-navy/90'
+                    : isToday(d)
+                      ? 'bg-navy/90 border-[5px] border-primary/50'
+                      : 'bg-[#0a1e33]/50 border border-transparent hover:bg-[#0a1e33]'
+        ]"
+      >
         <!-- Day name -->
         <span class="text-[13px] font-bold"
           :class="[
             isSelected(d) ? 'text-white' : 
+            isDayFullyBlocked(d) ? 'text-red-400/70' :
+            isDayOverdue(d) ? 'text-amber-400' :
+            isDayBlocked(d) ? 'text-red-400/50' :
             getCount(d) > 0 ? 'text-navy/60' : 
             isToday(d) ? 'text-card/50' : 'text-card/30'
           ]">
@@ -195,6 +260,9 @@ const behindCount = computed(() => {
         <span class="text-3xl font-bold"
           :class="[
             isSelected(d) ? 'text-white' :
+            isDayFullyBlocked(d) ? 'text-red-300/50' :
+            isDayOverdue(d) ? 'text-amber-300' :
+            isDayBlocked(d) ? 'text-card/40' :
             getCount(d) > 0 ? 'text-card' : 
             isToday(d) ? 'text-card' : 'text-card/70'
           ]">
@@ -203,7 +271,13 @@ const behindCount = computed(() => {
 
         <!-- Indicator -->
         <div class="flex items-center justify-center w-full px-0.5">
-          <div v-if="getCount(d) > 0"
+          <div v-if="isDayOverdue(d) && !isSelected(d)"
+            class="flex h-5 w-full items-center justify-center rounded-full bg-red-600 text-white text-[10px] font-bold gap-1 shadow-md"
+          >
+            <Icon name="material-symbols:warning-rounded" class="text-xs shrink-0" />
+            <span>Overdue</span>
+          </div>
+          <div v-else-if="getCount(d) > 0"
             class="flex h-5 w-full items-center justify-center rounded-full text-sm font-bold shadow-sm"
             :class="isSelected(d) ? 'bg-white text-secondary' : 'bg-[#ff4d4d] text-white'">
             {{ getCount(d) }}
@@ -236,24 +310,50 @@ const behindCount = computed(() => {
 
         <!-- Patient list -->
         <div class="flex flex-col gap-2 max-h-48 overflow-y-auto custom-scrollbar">
-          <!-- No appointments -->
-          <div v-if="popoverAppointments.length === 0" class="flex items-center justify-center gap-2 py-4 text-white/30">
+        <!-- No appointments / Blocked notice -->
+        <div v-if="popoverAppointments.length === 0" class="flex flex-col gap-2 py-3">
+          <!-- Blocked notice if this day has restrictions -->
+          <div v-if="popoverBlockedSlots.length > 0"
+            class="flex items-start gap-2.5 rounded-xl bg-red-900/30 border border-red-800/40 px-3 py-2.5"
+          >
+            <Icon name="material-symbols:block-rounded" class="text-red-400 text-base shrink-0 mt-0.5" />
+            <div>
+              <p class="text-red-200 text-xs font-bold">
+                {{ isDayFullyBlocked(new Date(popoverKey + 'T00:00:00')) ? 'Fully Blocked / Away' : 'Partially Blocked' }}
+              </p>
+              <p class="text-red-400/80 text-[11px] font-semibold mt-0.5">
+                {{ blockedLabel(new Date(popoverKey + 'T00:00:00')) }}
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center justify-center gap-2 py-2 text-white/30">
             <Icon name="material-symbols:person-off-outline-rounded" class="text-lg" />
             <span class="text-xs font-semibold">No appointments for this day</span>
           </div>
+        </div>
 
           <!-- Patient rows -->
           <div
             v-for="appt in popoverAppointments"
             :key="appt.id"
-            @click="goToChat(appt.conversation_uuid)"
-            class="flex items-center gap-3 rounded-xl bg-white/8 hover:bg-white/15 active:scale-[0.98] px-3 py-2.5 transition-all border border-white/10 cursor-pointer group"
+            @click="goToChat(appt.conversation_uuid ? (isApptOverdue(appt) ? `${appt.conversation_uuid}?resolve=1` : appt.conversation_uuid) : undefined)"
+            class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all border cursor-pointer group"
+            :class="[
+              isApptOverdue(appt)
+                ? 'bg-red-950/60 hover:bg-red-900/80 border-red-500/50 shadow-md ring-1 ring-red-500/30'
+                : 'bg-white/8 hover:bg-white/15 border-white/10'
+            ]"
           >
-            <div class="bg-white/15 rounded-full h-8 w-8 flex items-center justify-center shrink-0">
-              <Icon name="material-symbols:person-rounded" class="text-white/70 text-base" />
+            <div class="rounded-full h-8 w-8 flex items-center justify-center shrink-0" :class="isApptOverdue(appt) ? 'bg-red-500/20 text-red-400' : 'bg-white/15 text-white/70'">
+              <Icon :name="isApptOverdue(appt) ? 'material-symbols:warning-rounded' : 'material-symbols:person-rounded'" class="text-base" />
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-white text-xs font-bold truncate">{{ appt.doctor }}</p>
+              <div class="flex items-center gap-2">
+                <p class="text-white text-xs font-bold truncate">{{ appt.doctor }}</p>
+                <span v-if="isApptOverdue(appt)" class="bg-red-500 text-white text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full">
+                  Overdue
+                </span>
+              </div>
               <p class="text-white/50 text-[11px] font-semibold truncate">{{ appt.info }}</p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
@@ -295,5 +395,16 @@ const behindCount = computed(() => {
 .expand-down-leave-from {
   opacity: 1;
   max-height: 400px;
+}
+
+.day-tooltip-enter-active,
+.day-tooltip-leave-active {
+  transition: all 0.15s ease-out;
+}
+
+.day-tooltip-enter-from,
+.day-tooltip-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px) scale(0.95);
 }
 </style>

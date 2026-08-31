@@ -3,6 +3,7 @@
   import { DISEASE_DATABASE, type DiseaseName, type ImageQuality } from '~/composables/useDiagnosis'
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
@@ -13,7 +14,7 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
-  const { patientUuid, currentDiagnosis } = useDiagnosis()
+  const { patientUuid, currentDiagnosis, saveActiveDiagnosisState } = useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
   const isPatientModalOpen = ref(false)
@@ -79,16 +80,23 @@
     isNewScan?: boolean
   }>()
 
-  const emit = defineEmits(['close', 'finished'])
+  const emit = defineEmits<{
+    (e: 'close'): void
+    (e: 'finished', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
+  }>()
 
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
 
+  const draftPatientKey = computed(() => 'draft_patient_info_' + (props.diagnosisUuid || 'active'))
+
   watch(
     () => props.patientName,
     val => {
-      editablePatientName.value = val || ''
+      if (val && !editablePatientName.value) {
+        editablePatientName.value = val
+      }
     },
     { immediate: true }
   )
@@ -96,7 +104,7 @@
   watch(
     () => props.age,
     val => {
-      if (val !== undefined && val !== null) {
+      if (val !== undefined && val !== null && !editablePatientAge.value) {
         patientAge.value = val
       }
     },
@@ -106,10 +114,215 @@
   watch(
     patientAge,
     val => {
-      editablePatientAge.value = val ? String(val) : ''
+      if (val && !editablePatientAge.value) {
+        editablePatientAge.value = String(val)
+      }
     },
     { immediate: true }
   )
+
+  // Restore draft patient info if available
+  onMounted(() => {
+    if (import.meta.client) {
+      try {
+        const raw = localStorage.getItem(draftPatientKey.value)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed.name) editablePatientName.value = parsed.name
+          if (parsed.age) editablePatientAge.value = parsed.age
+        }
+      } catch (e) {
+        // silent fail
+      }
+    }
+  })
+
+  // Auto-save draft patient info on edits
+  watch([editablePatientName, editablePatientAge], () => {
+    if (!import.meta.client) return
+    try {
+      if (editablePatientName.value || editablePatientAge.value) {
+        localStorage.setItem(draftPatientKey.value, JSON.stringify({
+          name: editablePatientName.value,
+          age: editablePatientAge.value
+        }))
+      }
+    } catch (e) {
+      // silent fail
+    }
+  })
+
+  // ── Create Patient Account State & Handler ───────────────────────
+  const {
+    regions: accountRegions,
+    provinces: accountProvinces,
+    cities: accountCities,
+    barangays: accountBarangays,
+    fetchRegions: fetchAccountRegions,
+    fetchProvinces: fetchAccountProvinces,
+    fetchCities: fetchAccountCities,
+    fetchBarangays: fetchAccountBarangays
+  } = usePhLocations()
+
+  const isCreateAccountModalOpen = ref(false)
+  const isSubmittingAccount = ref(false)
+  const createAccountSuccess = ref(false)
+  const createAccountError = ref<string | null>(null)
+
+
+
+  const accountCodes = reactive({
+    region: '',
+    province: '',
+    city: '',
+    barangay: ''
+  })
+
+  const newAccountForm = reactive({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    age: '',
+    gender: '',
+    street: '',
+    barangay: '',
+    city: '',
+    province: '',
+    country: 'Philippines'
+  })
+
+  // Cascading location watches for account creation modal
+  watch(() => accountCodes.region, async (newVal) => {
+    if (newVal) {
+      accountCodes.province = ''
+      accountCodes.city = ''
+      accountCodes.barangay = ''
+      const region = accountRegions.value.find(r => r.code === newVal)
+      if (region) newAccountForm.province = region.name
+      await fetchAccountProvinces(newVal)
+    }
+  })
+
+  watch(() => accountCodes.province, async (newVal) => {
+    if (newVal) {
+      accountCodes.city = ''
+      accountCodes.barangay = ''
+      const prov = accountProvinces.value.find(p => p.code === newVal)
+      if (prov) newAccountForm.province = prov.name
+      await fetchAccountCities(newVal)
+    }
+  })
+
+  watch(() => accountCodes.city, async (newVal) => {
+    if (newVal) {
+      accountCodes.barangay = ''
+      const city = accountCities.value.find(c => c.code === newVal)
+      if (city) newAccountForm.city = city.name
+      await fetchAccountBarangays(newVal)
+    }
+  })
+
+  watch(() => accountCodes.barangay, (newVal) => {
+    if (newVal) {
+      const brgy = accountBarangays.value.find(b => b.code === newVal)
+      if (brgy) newAccountForm.barangay = brgy.name
+    }
+  })
+
+  const highlightCreateAccount = ref(false)
+
+  const handleRequirePatientAccount = () => {
+    highlightCreateAccount.value = true
+    const el = document.getElementById('patient-account-section')
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+    setTimeout(() => {
+      highlightCreateAccount.value = false
+    }, 6000)
+  }
+
+  const openCreateAccountModal = async () => {
+    const rawName = (editablePatientName.value || props.patientName || '').trim()
+    const parts = rawName ? rawName.split(' ') : []
+    newAccountForm.firstName = parts[0] || ''
+    newAccountForm.lastName = parts.slice(1).join(' ') || ''
+    newAccountForm.age = editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
+    newAccountForm.email = ''
+    newAccountForm.password = ''
+    newAccountForm.gender = ''
+    newAccountForm.street = ''
+    newAccountForm.barangay = ''
+    newAccountForm.city = ''
+    newAccountForm.province = ''
+    accountCodes.region = ''
+    accountCodes.province = ''
+    accountCodes.city = ''
+    accountCodes.barangay = ''
+    createAccountError.value = null
+    createAccountSuccess.value = false
+    isCreateAccountModalOpen.value = true
+
+    if (!accountRegions.value.length) {
+      await fetchAccountRegions()
+    }
+  }
+
+  const handleCreatePatientAccount = async () => {
+    if (!newAccountForm.firstName.trim() || !newAccountForm.lastName.trim() || !newAccountForm.email.trim() || !newAccountForm.password.trim()) {
+      createAccountError.value = 'First Name, Last Name, Email, and Password are required.'
+      return
+    }
+
+    isSubmittingAccount.value = true
+    createAccountError.value = null
+
+    try {
+      const response = await userService.createDoctorPatient({
+        firstName: newAccountForm.firstName.trim(),
+        lastName: newAccountForm.lastName.trim(),
+        email: newAccountForm.email.trim(),
+        password: newAccountForm.password,
+        age: newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined,
+        gender: newAccountForm.gender || undefined,
+        street: newAccountForm.street?.trim() || undefined,
+        barangay: newAccountForm.barangay?.trim() || undefined,
+        city: newAccountForm.city?.trim() || undefined,
+        province: newAccountForm.province?.trim() || undefined
+      })
+
+      const createdUser = response.user
+      patientUuid.value = createdUser.uuid
+      saveActiveDiagnosisState()
+      userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      if (createdUser.age) {
+        editablePatientAge.value = String(createdUser.age)
+      }
+
+      if (props.diagnosisUuid) {
+        try {
+          await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
+        } catch (e) {
+          console.error('Failed to link diagnosis with new patient uuid:', e)
+        }
+      }
+
+      createAccountSuccess.value = true
+      // Close account modal after success
+      setTimeout(() => {
+        isCreateAccountModalOpen.value = false
+        createAccountSuccess.value = false
+      }, 900)
+    } catch (err: any) {
+      createAccountError.value = err.data?.message || err.message || 'Failed to create patient account.'
+    } finally {
+      isSubmittingAccount.value = false
+    }
+  }
 
   // ── Medical Appeal (Doctor only) ─────────────────────────────────
   const isAppealOpen = ref(false)
@@ -323,6 +536,8 @@
     }
   }
 
+  const isDoctorRegistered = ref(false)
+
   const fetchNearestDoctor = async () => {
     if (!userUuid.value) return
     isDoctorLoading.value = true
@@ -332,6 +547,15 @@
       // 1. Get the user's latest data
       const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
       const patient = patientRes?.data ?? patientRes
+
+      isDoctorRegistered.value = Boolean(patient?.is_doctor_registered)
+
+      if (patient?.is_doctor_registered && patient?.registered_by_doctor) {
+        nearestDoctor.value = patient.registered_by_doctor
+        doctorDistance.value = null
+        isDoctorLoading.value = false
+        return
+      }
 
       if (!patient?.city || !patient?.province) {
         isProfileIncomplete.value = true
@@ -446,6 +670,13 @@
     }
   }
 
+  const doctorCardRef = ref<HTMLElement | null>(null)
+  const showGuidancePill = ref(true)
+  const scrollToDoctor = () => {
+    showGuidancePill.value = false
+    doctorCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
   onMounted(() => {
     fetchUserAge()
     fetchNearestDoctor()
@@ -453,73 +684,97 @@
 </script>
 
 <template>
-  <div class="flex h-full min-h-0">
+  <div class="custom-scrollbar flex h-full w-full overflow-y-auto items-start">
     <!-- Left Column: Knowledge Base -->
-    <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-10 pr-8">
-      <div class="mb-12 flex items-center gap-8">
+    <div class="sticky top-0 flex flex-1 flex-col p-10 pr-8 self-start overflow-y-auto custom-scrollbar max-h-full">
+      <div class="mb-8 flex items-center gap-5">
         <div
-          class="bg-primary/10 flex h-24 w-24 shrink-0 items-center justify-center rounded-[2.5rem] shadow-inner"
+          class="bg-primary/10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-inner"
         >
           <Icon
             name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-5xl"
+            class="text-primary text-3xl"
           />
         </div>
         <div>
-          <h1 class="text-foreground text-6xl font-black tracking-tighter">{{ activeDisease }}</h1>
-          <div class="mt-2 flex items-center gap-2">
+          <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">{{ activeDisease }}</h1>
+          <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-xl font-bold tracking-tight text-gray-500">
-              Clinical Analysis & Guidance
+            <p class="text-sm font-bold text-gray-500">
+              Clinical Analysis &amp; Guidance
             </p>
           </div>
         </div>
       </div>
 
       <div
-        class="mb-12 grid grid-cols-3 gap-8 rounded-[2.5rem] border border-gray-100 bg-gray-50/40 p-10 shadow-sm"
+        class="mb-8 grid grid-cols-3 gap-6 rounded-2xl border border-gray-100 bg-gray-50/40 p-6 shadow-sm"
       >
-        <div class="flex flex-col gap-2">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Patient Name</span
           >
           <div
             v-if="props.role === 'doctor'"
-            class="flex items-center gap-2 w-full"
+            class="flex flex-col gap-2 w-full"
           >
-            <template v-if="props.isNewScan && patientUuid">
-              <span class="text-xl font-black text-gray-900">{{ patientName }}</span>
-              <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
-                Change
-              </AppButton>
-            </template>
-            <template v-else>
-              <input
-                v-model="editablePatientName"
-                class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
-                placeholder="Enter patient name"
-              />
-              <AppButton 
-                v-if="props.isNewScan" 
-                variant="ghost" 
-                size="sm" 
-                class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
-                @click="isPatientModalOpen = true"
-                title="Select Registered Patient"
-              >
-                <Icon name="material-symbols:person-search-outline" class="text-lg text-gray-500" />
-              </AppButton>
-            </template>
+            <div class="flex items-center gap-2 w-full">
+              <template v-if="props.isNewScan && patientUuid">
+                <span class="text-base font-bold text-gray-900">{{ editablePatientName || patientName }}</span>
+                <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
+                  Change
+                </AppButton>
+              </template>
+              <template v-else>
+                <input
+                  v-model="editablePatientName"
+                  class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
+                  placeholder="Enter patient name"
+                />
+                <AppButton 
+                  v-if="props.isNewScan" 
+                  variant="ghost" 
+                  size="sm" 
+                  class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
+                  @click="isPatientModalOpen = true"
+                  title="Select Registered Patient"
+                >
+                  <Icon name="material-symbols:person-search-outline" class="text-base text-gray-500" />
+                </AppButton>
+              </template>
+            </div>
+
+            <!-- Create Patient Account Button for Unregistered Patient -->
+            <div id="patient-account-section" v-if="props.role === 'doctor'" class="mt-1 flex items-center gap-2 flex-wrap">
+              <template v-if="!patientUuid">
+                <button
+                  type="button"
+                  @click="openCreateAccountModal"
+                  class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs bg-primary/10 text-primary hover:bg-primary/20"
+                >
+                  <Icon name="material-symbols:person-add-rounded" class="text-base" />
+                  <span>Create Patient Account</span>
+                </button>
+                <div v-if="highlightCreateAccount" class="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-xl">
+                  <Icon name="material-symbols:error-outline-rounded" class="text-sm shrink-0" />
+                  <span>Account Required</span>
+                </div>
+              </template>
+              <div v-else class="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
+                <Icon name="material-symbols:check-circle" class="text-sm" />
+                <span>Account Linked</span>
+              </div>
+            </div>
           </div>
           <span
             v-else
-            class="text-xl font-black text-gray-900"
+            class="text-base font-bold text-gray-900"
             >{{ patientName || (props.role === 'patient' ? userName : '') || 'Guest User' }}</span
           >
         </div>
 
-        <div class="flex flex-col gap-2 border-x border-gray-200 px-8">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 border-x border-gray-200 px-6">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Clinical Age</span
           >
           <div
@@ -530,22 +785,22 @@
               v-model="editablePatientAge"
               type="number"
               min="0"
-              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-1 text-xl font-black transition-colors outline-none"
+              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
               placeholder="Age"
             />
           </div>
           <span
             v-else
-            class="text-xl font-black text-gray-900"
+            class="text-base font-bold text-gray-900"
             >{{ patientAge || '--' }} years old</span
           >
         </div>
 
-        <div class="flex flex-col gap-2 pl-8">
-          <span class="text-xs font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 pl-6">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
             >Assessment Date</span
           >
-          <span class="text-xl font-black text-gray-900">{{
+          <span class="text-base font-bold text-gray-900">{{
             date ||
             new Date().toLocaleDateString('en-US', {
               month: 'long',
@@ -556,73 +811,74 @@
         </div>
       </div>
 
-      <div v-if="props.role === 'doctor' && (props.appointmentUuid || (editablePatientName?.trim() && editablePatientAge?.toString()?.trim() !== ''))" class="flex flex-col gap-12 mt-12">
+      <div v-if="props.role === 'doctor'" class="flex flex-col gap-12 mt-12">
         <AppClinicalNoteForm 
           :appointment-uuid="props.appointmentUuid" 
           :diagnosis-id="props.diagnosis?.id || null"
           :diagnosis-uuid="props.diagnosisUuid || null"
           :skip-load="props.isNewScan" 
           :is-finish-mode="props.isNewScan"
-          @saved="emit('finished')"
+          @saved="emit('finished', $event)"
+          @require-patient-account="handleRequirePatientAccount"
         />
       </div>
 
-      <div v-else class="flex flex-col gap-12 mt-12">
-        <section class="rounded-[2.5rem] border border-gray-100 bg-white p-10 shadow-sm">
-          <div class="mb-6 flex items-center gap-4">
+      <div v-else class="flex flex-col gap-8 mt-6">
+        <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
-            <h3 class="text-2xl font-black tracking-tight">Clinical Understanding</h3>
+            <h3 class="text-xl font-bold tracking-tight">Clinical Understanding</h3>
           </div>
-          <p class="text-2xl leading-relaxed font-bold tracking-tight text-gray-600/90">
+          <p class="text-base leading-relaxed font-medium text-gray-700">
             {{ description || currentDisease.description }}
           </p>
         </section>
 
-        <div class="grid grid-cols-2 gap-12">
+        <div class="grid grid-cols-2 gap-8">
           <section>
-            <div class="mb-6 flex items-center gap-3">
+            <div class="mb-4 flex items-center gap-2.5">
               <div class="bg-secondary h-2 w-2 rounded-full"></div>
-              <h3 class="text-xl font-bold">Common Symptoms</h3>
+              <h3 class="text-lg font-bold">Common Symptoms</h3>
             </div>
-            <ul class="space-y-4">
+            <ul class="space-y-3">
               <li
                 v-for="(symptom, i) in displaySymptoms"
                 :key="i"
-                class="group flex items-start gap-4"
+                class="group flex items-start gap-3 text-sm text-gray-700"
               >
                 <div
-                  class="group-hover:bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors"
+                  class="group-hover:bg-primary/10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors"
                 >
                   <Icon
                     name="material-symbols:check-small-rounded"
                     class="group-hover:text-primary text-gray-400"
                   />
                 </div>
-                <p class="leading-snug text-gray-700">{{ symptom }}</p>
+                <p class="leading-snug">{{ symptom }}</p>
               </li>
             </ul>
           </section>
 
           <section>
-            <div class="mb-6 flex items-center gap-3">
+            <div class="mb-4 flex items-center gap-2.5">
               <div class="h-2 w-2 rounded-full bg-amber-500"></div>
-              <h3 class="text-xl font-bold">Probable Causes</h3>
+              <h3 class="text-lg font-bold">Probable Causes</h3>
             </div>
-            <ul class="space-y-4">
+            <ul class="space-y-3">
               <li
                 v-for="(cause, i) in displayCauses"
                 :key="i"
-                class="group flex items-start gap-4"
+                class="group flex items-start gap-3 text-sm text-gray-700"
               >
                 <div
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors group-hover:bg-amber-500/10"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 transition-colors group-hover:bg-amber-500/10"
                 >
                   <Icon
                     name="material-symbols:info-outline-rounded"
                     class="text-gray-400 group-hover:text-amber-500"
                   />
                 </div>
-                <p class="leading-snug text-gray-700">{{ cause }}</p>
+                <p class="leading-snug">{{ cause }}</p>
               </li>
             </ul>
           </section>
@@ -632,51 +888,51 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="custom-scrollbar flex w-[480px] shrink-0 flex-col gap-8 overflow-y-auto border-l border-gray-100 bg-gray-50/30 p-10 lg:w-[550px]"
+      class="sticky top-0 flex w-[420px] shrink-0 flex-col gap-6 border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px] self-start relative min-h-[500px]"
     >
-      <div class="bg-card rounded-[2.5rem] border border-gray-100 p-8 shadow-sm">
-        <h2 class="mb-8 text-2xl font-bold">Statistical Findings</h2>
-        <div class="flex flex-col items-center gap-10">
+      <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h2 class="mb-6 text-xl font-bold">Statistical Findings</h2>
+        <div class="flex flex-col items-center gap-6">
           <div class="relative flex items-center justify-center">
             <AppDonutChart
               :data="displayChartData"
-              :size="240"
-              :stroke-width="45"
+              :size="200"
+              :stroke-width="38"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-foreground text-4xl font-black">{{ activeConfidence }}%</span>
-              <span class="text-xs font-bold tracking-widest text-gray-400 uppercase"
+              <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
+              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >Confidence</span
               >
             </div>
           </div>
 
-          <div class="grid w-full grid-cols-1 gap-3">
+          <div class="grid w-full grid-cols-1 gap-2.5">
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-4 rounded-2xl border border-transparent p-4 transition-all hover:border-gray-100 hover:bg-gray-50"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-gray-100 hover:bg-gray-50"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-4">
+              <div class="flex items-center gap-3">
                 <span
-                  class="h-4 w-4 shrink-0 rounded-full"
+                  class="h-3.5 w-3.5 shrink-0 rounded-full"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
                 <span
-                  class="text-lg font-bold"
+                  class="text-sm font-bold"
                   :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
                 >
                   {{ entry.label }}
                 </span>
               </div>
-              <div class="flex items-center gap-4">
-                <span class="text-lg font-black text-gray-400">{{ entry.value }}%</span>
+              <div class="flex items-center gap-3">
+                <span class="text-sm font-bold text-gray-400">{{ entry.value }}%</span>
                 <div
-                  class="flex h-10 w-10 items-center justify-center rounded-full transition-all"
+                  class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
                   :class="
                     activeDisease === entry.label
-                      ? 'bg-primary shadow-primary/20 text-white shadow-lg'
+                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
                       : 'border border-gray-100 bg-white text-gray-300'
                   "
                 >
@@ -686,7 +942,7 @@
                         ? 'material-symbols:check'
                         : 'material-symbols:search'
                     "
-                    class="text-xl"
+                    class="text-base"
                   />
                 </div>
               </div>
@@ -854,11 +1110,12 @@
 
       <div
         v-if="props.role !== 'doctor'"
+        ref="doctorCardRef"
         class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
       >
         <div class="flex items-center justify-between">
           <h3 class="text-2xl font-bold">
-            {{ hasActiveAppointment ? 'Your Preferred Doctor' : 'Nearest Specialist' }}
+            {{ hasActiveAppointment ? 'Your Referred Doctor' : 'Nearest Specialist' }}
           </h3>
         </div>
 
@@ -965,31 +1222,31 @@
             </div>
           </div>
 
-          <div class="flex gap-6">
-            <div class="relative shrink-0 rounded-[2rem] border-2 border-gray-100 p-2">
+          <div class="flex gap-4 items-center">
+            <div class="relative shrink-0 rounded-2xl border-2 border-gray-100 p-1.5">
               <img
                 :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
                 :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=256'`"
-                class="h-40 w-36 rounded-3xl object-cover"
+                class="h-20 w-20 rounded-xl object-cover"
                 alt="Doctor photo"
               />
               <div
                 v-if="doctorDistance && doctorDistance > 50"
-                class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black text-white shadow-lg"
+                class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-black text-white shadow-md"
               >
                 FAR
               </div>
             </div>
 
-            <div class="flex flex-1 flex-col justify-center gap-2">
-              <p class="text-foreground text-3xl font-black">
+            <div class="flex flex-1 flex-col justify-center gap-1 min-w-0">
+              <p class="text-foreground text-lg font-bold truncate">
                 Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
               </p>
-              <div class="text-primary flex items-center gap-2 text-base font-bold">
-                <Icon name="material-symbols:verified-outline-rounded" />
+              <div class="text-primary flex items-center gap-1.5 text-xs font-bold">
+                <Icon name="material-symbols:verified-outline-rounded" class="text-sm" />
                 <span>Verified</span>
               </div>
-              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 mt-1">
+              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 truncate">
                 Affiliation: <span class="font-semibold">{{ nearestDoctor.affiliation }}</span>
               </p>
             </div>
@@ -997,85 +1254,85 @@
 
           <!-- Recommended Alternative Doctor Card -->
           <div
-            v-if="availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
-            class="bg-sidebar border border-sidebar-border rounded-[2rem] p-6 shadow-sm flex flex-col gap-4 animate-in zoom-in-95 duration-500"
+            v-if="!isDoctorRegistered && availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
+            class="bg-sidebar border border-sidebar-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 animate-in zoom-in-95 duration-500"
           >
             <div class="flex items-center justify-between">
-              <h4 class="text-base font-bold text-foreground flex items-center gap-2">
-                <Icon name="heroicons:user-group" class="text-primary text-xl" />
+              <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Icon name="heroicons:user-group" class="text-primary text-base" />
                 Recommended Alternative Doctor (Available)
               </h4>
               <span
-                class="bg-green-500/10 text-green-500 text-xs font-bold px-3 py-1 rounded-full border border-green-500/20 uppercase tracking-wider"
+                class="bg-green-500/10 text-green-500 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-green-500/20 uppercase tracking-wider"
               >
                 Available
               </span>
             </div>
 
-            <div class="flex gap-6 items-start">
+            <div class="flex gap-4 items-center">
               <img
                 :src="availabilityStatus.alternatives[0].avatar_path ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path) : ''"
                 :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-                class="h-24 w-20 rounded-2xl object-cover border border-sidebar-border shrink-0"
+                class="h-14 w-14 rounded-xl object-cover border border-sidebar-border shrink-0"
                 alt="Alternative Doctor photo"
               />
 
-              <div class="flex-1 flex flex-col gap-1">
-                <p class="text-lg font-bold text-foreground">
+              <div class="flex-1 flex flex-col gap-0.5 min-w-0">
+                <p class="text-sm font-bold text-foreground truncate">
                   Dr. {{ availabilityStatus.alternatives[0].first_name }} {{ availabilityStatus.alternatives[0].last_name }}
                 </p>
-                <p class="text-xs text-foreground/50">
+                <p class="text-[11px] text-foreground/50">
                   PRC #{{ availabilityStatus.alternatives[0].prc_number || availabilityStatus.alternatives[0].prcNumber || 'N/A' }}
                 </p>
-                <p class="text-xs text-foreground/60 leading-relaxed mt-1">
+                <p class="text-[11px] text-foreground/60 leading-tight truncate">
                   Location: {{ availabilityStatus.alternatives[0].city }}, {{ availabilityStatus.alternatives[0].province }}
-                </p>
-                <p v-if="availabilityStatus.alternatives[0].affiliation" class="text-xs text-foreground/60 mt-0.5">
-                  Affiliation: {{ availabilityStatus.alternatives[0].affiliation }}
                 </p>
               </div>
             </div>
 
             <button
               @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
-              class="bg-primary hover:bg-primary/90 text-white font-bold text-sm py-3 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-98 flex items-center justify-center gap-2 cursor-pointer animate-in fade-in"
+              class="bg-primary hover:bg-primary/90 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer animate-in fade-in"
             >
-              <Icon name="heroicons:user-plus" size="16" />
+              <Icon name="heroicons:user-plus" size="14" />
               Select Alternative Doctor
             </button>
           </div>
 
-          <div class="mt-4 grid grid-cols-2 gap-3">
+          <div class="mt-3 flex items-center gap-3">
             <AppButton
+              v-if="!isDoctorRegistered"
               variant="outline"
-              size="lg"
+              size="md"
               @click="navigateTo('/Patient/Scan/SelectDoctor')"
+              class="h-11 flex-1 rounded-xl text-xs font-bold"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <span class="truncate">Other Doctors</span>
             </AppButton>
 
             <AppButton
-              size="lg"
+              size="md"
               @click="sendDiagnosis"
               :disabled="isSending || !nearestDoctor"
-              class="bg-primary text-card shadow-primary/20 flex h-14 items-center justify-center gap-2 rounded-2xl px-2 text-center text-sm font-bold shadow-xl transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary text-white flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              :class="isDoctorRegistered ? 'w-full' : ''"
             >
               <Icon
                 v-if="!isSending"
                 name="material-symbols:check-circle-outline-rounded"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <Icon
                 v-else
                 name="svg-spinners:ring-resize"
-                class="shrink-0 text-lg"
+                class="shrink-0 text-base"
               />
               <span class="truncate">
-                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Select Doctor' }}
+                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : (isDoctorRegistered ? 'Proceed' : 'Select Doctor') }}
               </span>
             </AppButton>
           </div>
@@ -1101,7 +1358,15 @@
         </div>
       </div>
 
-      <!-- Clinical Actions block removed for inline flow -->
+      <div
+        v-if="props.role !== 'doctor' && showGuidancePill"
+        @click="scrollToDoctor"
+        class="sticky bottom-4 mx-auto z-30 cursor-pointer flex items-center gap-2 rounded-full bg-slate-900/90 text-white px-4 py-2.5 text-xs font-semibold shadow-2xl backdrop-blur-md hover:bg-slate-800 transition-all border border-white/20 active:scale-95 group shrink-0"
+      >
+        <Icon name="material-symbols:local-hospital-outline-rounded" class="text-base text-indigo-400 group-hover:scale-110 transition-transform" />
+        <span>Proceed to Referred Doctor</span>
+        <Icon name="material-symbols:keyboard-double-arrow-down-rounded" class="text-base text-indigo-400 animate-bounce" />
+      </div>
     </div>
 
 
@@ -1144,5 +1409,181 @@
         </AppButton>
       </template>
     </AppModal>
+    <!-- Create Patient Account Modal -->
+    <AppModal v-model="isCreateAccountModalOpen" title="Create Patient Account" description="Register an account for this patient. This account will be linked exclusively to you." size="4xl">
+      <div class="flex flex-col gap-4 py-2">
+        <div v-if="createAccountSuccess" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-4 rounded-2xl flex items-center gap-3">
+          <Icon name="material-symbols:check-circle-rounded" class="text-3xl text-emerald-600 shrink-0" />
+          <div>
+            <p class="font-bold text-base">Account Created Successfully!</p>
+            <p class="text-xs text-emerald-600">The patient account has been created and linked to your profile.</p>
+          </div>
+        </div>
+
+        <div v-if="createAccountError" class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl flex items-center gap-3">
+          <Icon name="material-symbols:error-rounded" class="text-2xl text-rose-600 shrink-0" />
+          <p class="font-semibold text-xs">{{ createAccountError }}</p>
+        </div>
+
+        <div v-if="!createAccountSuccess" class="grid grid-cols-1 md:grid-cols-2 gap-8 py-2">
+          <!-- Left Column: Personal & Credentials -->
+          <div class="flex flex-col gap-4">
+            <div>
+              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Personal & Account Information</span>
+              
+              <div class="flex flex-col gap-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">First Name <span class="text-rose-500">*</span></label>
+                    <input 
+                      v-model="newAccountForm.firstName" 
+                      type="text" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="First Name"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Last Name <span class="text-rose-500">*</span></label>
+                    <input 
+                      v-model="newAccountForm.lastName" 
+                      type="text" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="Last Name"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Email Address <span class="text-rose-500">*</span></label>
+                  <input 
+                    v-model="newAccountForm.email" 
+                    type="email" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="patient@example.com"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Temporary Password <span class="text-rose-500">*</span></label>
+                  <input 
+                    v-model="newAccountForm.password" 
+                    type="password" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="Temporary password"
+                  />
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Age</label>
+                    <input 
+                      v-model="newAccountForm.age" 
+                      type="number" 
+                      min="0"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      placeholder="Age"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Gender</label>
+                    <select 
+                      v-model="newAccountForm.gender" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    >
+                      <option value="" disabled>Select gender</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                      <option value="prefer_not_to_say">Prefer not to say</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Address & Location -->
+          <div class="flex flex-col gap-4">
+            <div>
+              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Address & Location Information</span>
+              
+              <div class="flex flex-col gap-3.5">
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Region</label>
+                    <select 
+                      v-model="accountCodes.region" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    >
+                      <option value="" disabled>Select Region</option>
+                      <option v-for="r in accountRegions" :key="r.code" :value="r.code">{{ r.name }}</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Province</label>
+                    <select 
+                      v-model="accountCodes.province" 
+                      :disabled="!accountProvinces.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>{{ accountProvinces.length ? 'Select Province' : 'N/A' }}</option>
+                      <option v-for="p in accountProvinces" :key="p.code" :value="p.code">{{ p.name }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">City / Municipality</label>
+                    <select 
+                      v-model="accountCodes.city" 
+                      :disabled="!accountCities.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>Select City</option>
+                      <option v-for="c in accountCities" :key="c.code" :value="c.code">{{ c.name }}</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-semibold">Barangay</label>
+                    <select 
+                      v-model="accountCodes.barangay" 
+                      :disabled="!accountBarangays.length"
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    >
+                      <option value="" disabled>Select Barangay</option>
+                      <option v-for="b in accountBarangays" :key="b.code" :value="b.code">{{ b.name }}</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-semibold">Street Address</label>
+                  <input 
+                    v-model="newAccountForm.street" 
+                    type="text" 
+                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    placeholder="House No., Street Name"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-3 w-full" v-if="!createAccountSuccess">
+          <AppButton type="button" variant="ghost" class="rounded-xl px-6 font-bold text-gray-500" @click.stop="isCreateAccountModalOpen = false">
+            Cancel
+          </AppButton>
+          <AppButton type="button" class="rounded-xl px-6 font-bold" @click.stop="handleCreatePatientAccount" :disabled="isSubmittingAccount">
+            {{ isSubmittingAccount ? 'Creating...' : 'Register & Link Account' }}
+          </AppButton>
+        </div>
+      </template>
+    </AppModal>
+
+
   </div>
 </template>

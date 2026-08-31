@@ -66,6 +66,22 @@
     })
   })
 
+  const isScheduledForAction = computed(() => !!response.value?.account_action)
+  const scheduledAction = computed(() => response.value?.account_action)
+  const scheduledAt = computed(() => response.value?.account_action_scheduled_at)
+
+  const formatSchedule = (dateString?: string) => {
+    if (!dateString) return ''
+    const d = new Date(dateString)
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    })
+  }
+
 </script>
 
 <template>
@@ -175,7 +191,37 @@
             </p>
           </PatientSideComponentsSkinConditionsInfo>
         </div>
+
+        <div v-if="isScheduledForAction" class="w-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-3xl p-5 shadow-sm backdrop-blur-xs relative overflow-hidden group my-1">
+          <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
+          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5 relative z-10">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30">
+              <Icon name="material-symbols:timer-outline" class="text-3xl" />
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center gap-2">
+                <span class="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-700">
+                  Account Notice
+                </span>
+              </div>
+              <h3 class="text-xl font-bold text-foreground mt-1">
+                Account Scheduled for {{ scheduledAction === 'delete' ? 'Deletion' : 'Disabling' }}
+              </h3>
+              <p class="text-sm text-foreground/80 leading-relaxed mt-1">
+                Your attending doctor has scheduled your account for 
+                <strong class="text-orange-600 font-bold uppercase">{{ scheduledAction }}</strong> on 
+                <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong>.
+              </p>
+              <p class="text-xs text-foreground/60 mt-2 flex items-center gap-1.5">
+                <Icon name="solar:info-circle-bold" class="text-orange-500 shrink-0 text-sm" />
+                Please contact your attending doctor if you have any questions regarding this schedule.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <AppUsers
+          v-else
           title="Doctors"
           role="doctor"
           status="verified"
@@ -245,8 +291,28 @@
         <!-- Skin Conditions Accordion -->
         <PatientSideComponentsMobileSkinConditionAccordion />
 
+        <!-- Scheduled Action Indicator Banner (Mobile) -->
+        <div v-if="isScheduledForAction" class="w-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-3xl p-5 shadow-sm relative overflow-hidden my-2">
+          <div class="flex items-start gap-4">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-md">
+              <Icon name="material-symbols:timer-outline" class="text-2xl" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-700 mb-1">
+                Account Notice
+              </span>
+              <h3 class="text-base font-bold text-foreground leading-snug">
+                Account Scheduled for {{ scheduledAction === 'delete' ? 'Deletion' : 'Disabling' }}
+              </h3>
+              <p class="text-xs text-foreground/80 mt-1 leading-relaxed">
+                Scheduled for <strong class="text-orange-600 font-bold uppercase">{{ scheduledAction }}</strong> on <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong> by your doctor.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <!-- Doctors Nearby -->
-        <PatientSideComponentsMobileDoctorsNearby />
+        <PatientSideComponentsMobileDoctorsNearby v-else />
 
         <!-- SaaS Promo -->
         <PatientSideComponentsSaaSPromotion class="rounded-3xl overflow-hidden mb-2" />

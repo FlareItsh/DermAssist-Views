@@ -2,11 +2,20 @@
   import { ref, computed } from 'vue'
   import { onClickOutside } from '@vueuse/core'
 
+  import { appointmentService } from '~/api/appointment/AppointmentService'
+  import type { BlockedSlot } from '~/composables/useBlockedDates'
+
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
   const props = withDefaults(defineProps<{
     /** Earliest selectable date in YYYY-MM-DD format. Defaults to today. */
     minDate?: string
+    /** Blocked/away slots for the logged-in doctor. When provided, blocked dates are visually marked and disabled. */
+    blockedSlots?: BlockedSlot[]
+    /** When true, renders a "Manage Blocked Dates" link that navigates to the doctor profile page. */
+    showManageBlocksLink?: boolean
+    /** When false, clicking appointment dates only selects the date and appointment details stay hover-only. */
+    showAppointmentDetailsPanel?: boolean
   }>(), {
     minDate: () => {
       const d = new Date()
@@ -14,10 +23,13 @@
       const month = String(d.getMonth() + 1).padStart(2, '0')
       const day = String(d.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
-    }
+    },
+    blockedSlots: () => [],
+    showManageBlocksLink: false,
+    showAppointmentDetailsPanel: true,
   })
 
-  const { appointments } = useAppointments()
+  const { appointments, fetchAppointments } = useAppointments()
 
   const appointmentsMap = computed(() => appointments.value.map(appt => appt.date))
 
@@ -65,6 +77,62 @@
     return appointments.value.filter(a => a.date === dateStr)
   }
 
+  const formatAppointmentTimeRange = (appt: any): string => {
+    const formatRawTime = (raw?: string) => {
+      if (!raw) return ''
+      const localDateTimeStr = raw.replace(/Z|(\+\d{2}:\d{2})$/i, '')
+      const date = new Date(localDateTimeStr)
+      if (Number.isNaN(date.getTime())) return ''
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+
+    const start = appt.time || formatRawTime(appt.raw_scheduled_at)
+    const end = formatRawTime(appt.raw_scheduled_end_at)
+    return end ? `${start} - ${end}` : start
+  }
+
+  // ── Blocked date helpers ─────────────────────────────────────────────────────
+
+  /**
+   * Returns all blocked slots for a given YYYY-MM-DD date.
+   */
+  const getBlockedSlotsForDate = (dateStr: string): BlockedSlot[] => {
+    if (!props.blockedSlots?.length) return []
+    return props.blockedSlots.filter(
+      (slot) => slot.available_date?.slice(0, 10) === dateStr
+    )
+  }
+
+  /** Returns true if the date has any blocked period. */
+  const isDateBlocked = (day: number): boolean => {
+    return getBlockedSlotsForDate(dateStringFor(day)).length > 0
+  }
+
+  /** Returns true if the whole day is blocked (00:00–23:59 slot). */
+  const isWholeDayBlocked = (day: number): boolean => {
+    return getBlockedSlotsForDate(dateStringFor(day)).some(
+      (slot) => slot.start_time <= '00:01' && slot.end_time >= '23:58'
+    )
+  }
+
+  /** Human-readable label for blocked time ranges on a date. */
+  const blockedRangeLabel = (day: number): string => {
+    const slots = getBlockedSlotsForDate(dateStringFor(day))
+    if (!slots.length) return ''
+    return slots
+      .map((s) => {
+        const fmt = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          const ampm = h >= 12 ? 'PM' : 'AM'
+          const hour = h % 12 || 12
+          return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+        }
+        if (s.start_time <= '00:01' && s.end_time >= '23:58') return 'All day'
+        return `${fmt(s.start_time)} – ${fmt(s.end_time)}`
+      })
+      .join(', ')
+  }
+
   const prevMonth = () => {
     if (isPrevMonthDisabled.value) return
     currentDate.value = new Date(
@@ -102,32 +170,51 @@
   const calendarRef = ref<HTMLElement | null>(null)
 
   onClickOutside(calendarRef, () => {
+    if (!props.showAppointmentDetailsPanel) return
     selectedDay.value = null
   })
 
   const selectDate = (day: number) => {
     const dateStr = dateStringFor(day)
     if (isPast(day)) return
-    // Toggle selected day
-    if (selectedDay.value === dateStr) {
-      selectedDay.value = null
+    // Whole-day blocked dates cannot be selected
+    if (isWholeDayBlocked(day)) return
+    if (props.showAppointmentDetailsPanel) {
+      if (selectedDay.value === dateStr) {
+        selectedDay.value = null
+      } else {
+        selectedDay.value = dateStr
+      }
     } else {
       selectedDay.value = dateStr
     }
     emit('dateSelected', dateStr)
   }
 
+  const goToManageBlocks = () => {
+    router.push('/Doctor/profile#blocked-dates')
+  }
+
   const goToChat = (conversationUuid: string) => {
     router.push(`/Patient/Messages/${conversationUuid}`)
+  }
+
+  const requestReschedule = async (apptId: string) => {
+    try {
+      await appointmentService.update(apptId, { status: 'reschedule_requested' })
+      await fetchAppointments()
+    } catch (e) {
+      console.error(e)
+    }
   }
 </script>
 
 <template>
-  <div ref="calendarRef" class="relative">
+  <div ref="calendarRef" class="relative z-30">
     <!-- Appointment Detail Panel — overlaps content to the left, does NOT push layout -->
     <Transition name="slide-left">
       <div
-        v-if="selectedDay && appointmentsForDay.length > 0"
+        v-if="showAppointmentDetailsPanel && selectedDay && appointmentsForDay.length > 0"
         class="absolute right-[calc(100%+12px)] top-0 w-72 z-50 pointer-events-auto"
       >
         <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
@@ -174,15 +261,25 @@
                 </div>
               </div>
 
-              <!-- Go to chat -->
-              <button
-                v-if="appt.conversation_uuid"
-                @click="goToChat(appt.conversation_uuid)"
-                class="w-full bg-indigo-500 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl py-2 transition-all flex items-center justify-center gap-1.5 shadow-sm mt-1"
-              >
-                <Icon name="material-symbols:chat-rounded" class="text-sm" />
-                Go to Chat
-              </button>
+              <!-- Go to chat & Request Reschedule -->
+              <div class="flex flex-col gap-1.5 mt-1">
+                <button
+                  v-if="appt.conversation_uuid"
+                  @click="goToChat(appt.conversation_uuid)"
+                  class="w-full bg-indigo-500 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl py-2 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Icon name="material-symbols:chat-rounded" class="text-sm" />
+                  Go to Chat
+                </button>
+                <button
+                  v-if="appt.status === 'scheduled'"
+                  @click="requestReschedule(appt.id)"
+                  class="w-full bg-white border border-indigo-200 hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl py-1.5 transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Icon name="material-symbols:edit-calendar-rounded" class="text-sm" />
+                  Request Reschedule
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -254,29 +351,61 @@
           :class="[
             isPast(date)
               ? 'pointer-events-none text-gray-300 line-through'
-              : selectedDay === dateStringFor(date)
-                ? 'bg-secondary text-white cursor-pointer shadow-md'
-                : isToday(date)
-                  ? 'cursor-pointer text-primary ring-2 ring-primary/40 hover:bg-primary/10'
-                  : 'text-foreground cursor-pointer hover:bg-primary/10'
+              : isWholeDayBlocked(date)
+                ? 'cursor-not-allowed bg-red-50 text-red-300 ring-1 ring-red-200'
+                : selectedDay === dateStringFor(date)
+                  ? 'bg-secondary text-white cursor-pointer shadow-md'
+                  : isDateBlocked(date)
+                    ? 'cursor-pointer text-foreground hover:bg-primary/10 ring-1 ring-red-300'
+                    : isToday(date)
+                      ? 'cursor-pointer text-primary ring-2 ring-primary/40 hover:bg-primary/10'
+                      : 'text-foreground cursor-pointer hover:bg-primary/10'
           ]"
         >
           {{ date }}
 
+          <!-- Blocked indicator dot (partial block) -->
           <div
-            v-if="hasAppointment(date) && !isPast(date)"
+            v-if="isDateBlocked(date) && !isWholeDayBlocked(date) && !isPast(date)"
+            class="absolute -bottom-1 h-1 w-1 rounded-full bg-red-400"
+          />
+
+          <!-- Appointment indicator dot -->
+          <div
+            v-if="hasAppointment(date) && !isPast(date) && !isWholeDayBlocked(date)"
             class="absolute -bottom-1 h-1 w-1 rounded-full"
             :class="selectedDay === dateStringFor(date) ? 'bg-white' : 'bg-secondary'"
-          ></div>
+          />
 
-          <!-- Hover Text Cloud Tooltip (only if appointment exists on date) -->
+          <!-- Blocked date tooltip -->
           <Transition name="fade-scale">
             <div
-              v-if="hoveredDate === dateStringFor(date) && hasAppointment(date) && !isPast(date)"
-              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-50 pointer-events-none w-48 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-slate-700/60 backdrop-blur-md text-left text-xs"
+              v-if="hoveredDate === dateStringFor(date) && isDateBlocked(date) && !isPast(date)"
+              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-52 bg-red-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-red-700/60 backdrop-blur-md text-left text-xs"
             >
-              <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-r border-b border-slate-700/60"></div>
-              
+              <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-900/95 rotate-45 border-r border-b border-red-700/60" />
+              <div class="flex items-center gap-1.5 mb-1">
+                <Icon name="material-symbols:block-rounded" class="text-red-300 text-sm shrink-0" />
+                <p class="font-bold text-red-100 text-xs">Blocked / Away</p>
+              </div>
+              <p class="text-red-200 text-[10px] font-semibold">
+                {{ isWholeDayBlocked(date) ? 'Entire day blocked' : blockedRangeLabel(date) }}
+              </p>
+            </div>
+          </Transition>
+
+          <!-- Appointment hover tooltip (only if not blocked) -->
+          <Transition name="fade-scale">
+            <div
+              v-if="hoveredDate === dateStringFor(date) && hasAppointment(date) && !isPast(date) && (!isDateBlocked(date) || !showAppointmentDetailsPanel)"
+              class="absolute left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-48 bg-slate-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-slate-700/60 backdrop-blur-md text-left text-xs"
+              :class="isDateBlocked(date) ? 'top-full mt-2' : 'bottom-full mb-2'"
+            >
+              <div
+                class="absolute left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 rotate-45 border-slate-700/60"
+                :class="isDateBlocked(date) ? '-top-1 border-l border-t' : '-bottom-1 border-r border-b'"
+              />
+
               <div
                 v-for="appt in getAppointmentsForDate(dateStringFor(date))"
                 :key="appt.id"
@@ -290,7 +419,7 @@
                 <div class="flex items-center gap-2 mt-0.5 text-[10px] text-gray-300">
                   <span v-if="appt.time" class="flex items-center gap-0.5">
                     <Icon name="material-symbols:schedule-rounded" class="text-indigo-400 text-xs shrink-0" />
-                    {{ appt.time }}
+                    {{ formatAppointmentTimeRange(appt) }}
                   </span>
                   <span v-if="appt.location" class="flex items-center gap-0.5 truncate">
                     <Icon name="material-symbols:location-on-rounded" class="text-indigo-400 text-xs shrink-0" />
@@ -301,6 +430,18 @@
             </div>
           </Transition>
         </div>
+      </div>
+
+      <!-- Manage Blocked Dates link — only shown when explicitly enabled (doctor context) -->
+      <div v-if="showManageBlocksLink" class="mt-4 pt-3 border-t border-gray-100">
+        <button
+          @click="goToManageBlocks"
+          class="flex w-full items-center justify-center gap-1.5 rounded-xl py-1.5 text-xs font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 active:scale-95"
+        >
+          <Icon name="material-symbols:block-rounded" class="text-sm shrink-0" />
+          Manage Blocked Dates
+          <Icon name="material-symbols:arrow-forward-rounded" class="text-sm shrink-0" />
+        </button>
       </div>
     </div>
   </div>

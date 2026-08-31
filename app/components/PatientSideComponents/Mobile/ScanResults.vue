@@ -190,6 +190,8 @@ const geocodePatientLocation = async (patient: any) => {
   }
 }
 
+const isDoctorRegistered = ref(false)
+
 const fetchNearestDoctor = async () => {
   if (!userUuid.value) return
   isDoctorLoading.value = true
@@ -198,6 +200,15 @@ const fetchNearestDoctor = async () => {
   try {
     const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
     const patient = patientRes?.data ?? patientRes
+
+    isDoctorRegistered.value = Boolean(patient?.is_doctor_registered)
+
+    if (patient?.is_doctor_registered && patient?.registered_by_doctor) {
+      nearestDoctor.value = patient.registered_by_doctor
+      doctorDistance.value = null
+      isDoctorLoading.value = false
+      return
+    }
 
     if (!patient?.city || !patient?.province) {
       isProfileIncomplete.value = true
@@ -479,7 +490,7 @@ onMounted(() => {
           </div>
 
           <!-- Alternative Doctor -->
-          <div v-if="availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
+          <div v-if="!isDoctorRegistered && availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
             <div class="flex items-center justify-between">
               <h4 class="text-xs font-bold text-gray-900 flex items-center gap-1">
                 <Icon name="heroicons:user-group" class="text-primary" /> Alternative (Available)
@@ -502,8 +513,9 @@ onMounted(() => {
           </div>
 
           <!-- Actions -->
-          <div class="grid grid-cols-2 gap-3 mt-2">
+          <div :class="isDoctorRegistered ? 'flex mt-2' : 'grid grid-cols-2 gap-3 mt-2'">
             <button
+              v-if="!isDoctorRegistered"
               @click="navigateTo('/Patient/Scan/SelectDoctor')"
               class="w-full py-3 bg-white border-2 border-gray-100 text-gray-700 text-sm font-bold rounded-xl shadow-sm hover:bg-gray-50 active:scale-95 transition-all flex items-center justify-center gap-1.5"
             >
@@ -517,7 +529,7 @@ onMounted(() => {
             >
               <Icon v-if="isSending" name="svg-spinners:180-ring" size="16" />
               <Icon v-else name="solar:plain-bold-duotone" size="16" />
-              <span>{{ isHealthyState ? 'Invalid Scan' : 'Send Message' }}</span>
+              <span>{{ isHealthyState ? 'Invalid Scan' : (isSending ? 'Sending...' : (hasActiveAppointment ? 'Send Findings' : (isDoctorRegistered ? 'Proceed' : 'Send Message'))) }}</span>
             </button>
           </div>
         </div>
