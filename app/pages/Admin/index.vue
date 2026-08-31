@@ -333,7 +333,7 @@ onMounted(() => {
         to="/admin/dataset" :loading="isLoadingDatasets" />
 
       <AdminSideComponentsMetricCard label="Scan Appeals" :value="sortedAppeals.length"
-        detail="Doctor reports disputing scanner results" icon="material-symbols:report-outline" tone="rose"
+        detail="Doctor reports disputing scanner results" icon="lucide:alert-circle" tone="rose"
         to="/admin/appeals" :loading="isLoadingAppeals" />
     </div>
 

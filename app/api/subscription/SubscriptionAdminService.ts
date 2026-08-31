@@ -31,6 +31,17 @@ export interface PaymentInvoice {
   created_at: string
 }
 
+export interface Feature {
+  id?: number
+  uuid?: string
+  name: string
+  code?: string
+  description?: string
+  is_active?: boolean
+  sort_order?: number
+  is_included?: boolean
+}
+
 export interface Coupon {
   id?: number
   code: string
@@ -68,6 +79,27 @@ class SubscriptionAdminService extends BaseService {
 
   async deletePlan(id: number) {
     return this.request<any>(`/admin/plans/${id}`, 'DELETE')
+  }
+
+  // Feature Management
+  async getFeatures(activeOnly = false) {
+    return this.request<any>('/admin/features', 'GET', activeOnly ? { active_only: 1 } : undefined)
+  }
+
+  async createFeature(data: Partial<Feature>) {
+    return this.request<any>('/admin/features', 'POST', data)
+  }
+
+  async updateFeature(id: number, data: Partial<Feature>) {
+    return this.request<any>(`/admin/features/${id}`, 'PUT', data)
+  }
+
+  async toggleFeatureActive(id: number) {
+    return this.request<any>(`/admin/features/${id}/toggle-active`, 'PATCH')
+  }
+
+  async deleteFeature(id: number) {
+    return this.request<any>(`/admin/features/${id}`, 'DELETE')
   }
 
   async getPayments(status?: string) {

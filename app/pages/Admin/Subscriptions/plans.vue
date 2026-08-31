@@ -160,25 +160,33 @@
             ></textarea>
           </div>
 
-          <!-- Feature Flags Checkboxes -->
+          <!-- Dynamic Feature Flags Checkboxes -->
           <div class="space-y-2 border-t border-gray-100 pt-3">
-            <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Feature Access Flags</label>
-            <div class="space-y-2 text-xs">
-              <label class="flex items-center gap-2.5 cursor-pointer font-bold text-gray-700">
-                <input v-model="form.features.show_in_recommendation" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/20 h-4 w-4" />
-                <span>Show in Patient Scan Recommendations</span>
-              </label>
-              <label class="flex items-center gap-2.5 cursor-pointer font-bold text-gray-700">
-                <input v-model="form.features.can_execute_scan" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/20 h-4 w-4" />
-                <span>Allow Doctor AI Scan Execution</span>
-              </label>
-              <label class="flex items-center gap-2.5 cursor-pointer font-bold text-gray-700">
-                <input v-model="form.features.export_pdf_reports" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/20 h-4 w-4" />
-                <span>Allow PDF Clinical Report Exports</span>
-              </label>
-              <label class="flex items-center gap-2.5 cursor-pointer font-bold text-gray-700">
-                <input v-model="form.features.unlimited_appointments" type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary/20 h-4 w-4" />
-                <span>Enable Teleconsultation Appointments</span>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Feature Access Flags</label>
+              <NuxtLink to="/admin/subscriptions/features" class="text-[11px] font-bold text-primary hover:underline flex items-center gap-1">
+                <Icon name="lucide:settings" class="text-xs" />
+                <span>Manage Features</span>
+              </NuxtLink>
+            </div>
+            <div v-if="isLoadingFeatures" class="py-3 text-center text-xs text-gray-400">
+              Loading system features...
+            </div>
+            <div v-else class="space-y-2 text-xs">
+              <label 
+                v-for="feature in availableFeatures" 
+                :key="feature.id" 
+                class="flex items-center gap-2.5 cursor-pointer font-bold text-gray-700 hover:text-gray-900"
+              >
+                <input 
+                  v-model="form.features[feature.code || '']" 
+                  type="checkbox" 
+                  class="rounded border-gray-300 text-primary focus:ring-primary/20 h-4 w-4" 
+                />
+                <div class="flex flex-col">
+                  <span>{{ feature.name }}</span>
+                  <span v-if="feature.description" class="text-[10px] font-normal text-gray-400">{{ feature.description }}</span>
+                </div>
               </label>
             </div>
           </div>
@@ -207,18 +215,20 @@
 
 <script setup lang="ts">
 import { toast } from 'vue-sonner'
-import { subscriptionAdminService, type Plan } from '~/api/subscription/SubscriptionAdminService'
+import { subscriptionAdminService, type Plan, type Feature } from '~/api/subscription/SubscriptionAdminService'
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
 })
 
 const isLoading = ref(true)
+const isLoadingFeatures = ref(true)
 const isSubmitting = ref(false)
 const showModal = ref(false)
 const isEditing = ref(false)
 const selectedId = ref<number | null>(null)
 const plans = ref<Plan[]>([])
+const availableFeatures = ref<Feature[]>([])
 
 const showDeleteModal = ref(false)
 const planToDelete = ref<Plan | null>(null)
@@ -233,12 +243,7 @@ const form = ref<Plan>({
   trial_period_days: 0,
   grace_period_days: 3,
   is_active: true,
-  features: {
-    show_in_recommendation: true,
-    can_execute_scan: true,
-    export_pdf_reports: true,
-    unlimited_appointments: true
-  }
+  features: {}
 })
 
 const customFeaturesText = ref('')
@@ -255,10 +260,32 @@ const fetchPlans = async () => {
   }
 }
 
+const fetchFeatures = async () => {
+  isLoadingFeatures.value = true
+  try {
+    const res = await subscriptionAdminService.getFeatures()
+    availableFeatures.value = res?.data || []
+  } catch (e: any) {
+    console.error('Failed to load system features:', e)
+  } finally {
+    isLoadingFeatures.value = false
+  }
+}
+
 const openCreateModal = () => {
   isEditing.value = false
   selectedId.value = null
   customFeaturesText.value = ''
+  
+  const defaultFlags: Record<string, boolean> = {
+    custom_list: [] as any
+  }
+  availableFeatures.value.forEach((f) => {
+    if (f.code) {
+      defaultFlags[f.code] = true
+    }
+  })
+
   form.value = {
     name: '',
     tier_type: 'individual',
@@ -269,13 +296,7 @@ const openCreateModal = () => {
     trial_period_days: 14,
     grace_period_days: 3,
     is_active: true,
-    features: {
-      show_in_recommendation: true,
-      can_execute_scan: true,
-      export_pdf_reports: true,
-      unlimited_appointments: true,
-      custom_list: []
-    }
+    features: defaultFlags
   }
   showModal.value = true
 }
@@ -284,15 +305,28 @@ const editPlan = (plan: Plan) => {
   isEditing.value = true
   selectedId.value = plan.id ?? null
   form.value = JSON.parse(JSON.stringify(plan))
+  
   if (!form.value.features || Array.isArray(form.value.features)) {
-    form.value.features = {
-      show_in_recommendation: true,
-      can_execute_scan: true,
-      export_pdf_reports: true,
-      unlimited_appointments: true,
-      custom_list: []
-    }
+    form.value.features = {}
   }
+  
+  // Populate from plan_features relationship if available
+  const planFeats = (plan as any).plan_features || []
+  if (Array.isArray(planFeats) && planFeats.length > 0) {
+    planFeats.forEach((pf: any) => {
+      if (pf.code) {
+        form.value.features[pf.code] = Boolean(pf.is_included)
+      }
+    })
+  } else {
+    // Ensure all available features have an entry
+    availableFeatures.value.forEach((f) => {
+      if (f.code && form.value.features[f.code] === undefined) {
+        form.value.features[f.code] = false
+      }
+    })
+  }
+
   const existingList = form.value.features.custom_list || []
   customFeaturesText.value = Array.isArray(existingList) ? existingList.join('\n') : ''
   showModal.value = true
@@ -356,7 +390,7 @@ const confirmDeletePlan = async () => {
   }
 }
 
-onMounted(() => {
-  fetchPlans()
+onMounted(async () => {
+  await Promise.all([fetchPlans(), fetchFeatures()])
 })
 </script>

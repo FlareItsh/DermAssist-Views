@@ -55,112 +55,113 @@
   const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
 
   const adminNavItems = computed(() => [
-    { icon: 'humbleicons:dashboard', label: 'Dashboard', to: '/admin' },
+    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/admin' },
     {
       icon: 'lucide:shield-check',
       label: 'Moderation',
       children: [
-        { icon: 'heroicons:users', label: 'All Users', to: '/admin/moderation/users' },
+        { icon: 'lucide:users', label: 'All Users', to: '/admin/moderation/users' },
         {
-          icon: 'heroicons:shield-check',
+          icon: 'lucide:shield',
           label: 'Roles & Permissions',
           to: '/admin/moderation/roles'
         },
-        { icon: 'tabler:id', label: 'Verification', to: '/admin/moderation/verification' }
+        { icon: 'lucide:badge-check', label: 'Verification', to: '/admin/moderation/verification' }
       ]
     },
     {
-      icon: 'material-symbols:report-outline',
+      icon: 'lucide:alert-circle',
       label: 'Scan Appeals',
       to: '/admin/appeals',
       showBadge: hasUnseenAppeals.value
     },
-    { icon: 'heroicons:users', label: 'Dataset', to: '/admin/dataset' },
+    { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
     {
-      icon: 'heroicons:credit-card',
+      icon: 'lucide:credit-card',
       label: 'Subscriptions',
       children: [
-        { icon: 'heroicons:chart-bar', label: 'Dashboard', to: '/admin/subscriptions' },
-        { icon: 'heroicons:adjustments-horizontal', label: 'Plan Builder', to: '/admin/subscriptions/plans' },
-        { icon: 'heroicons:receipt-percent', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
-        { icon: 'heroicons:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
+        { icon: 'lucide:bar-chart-3', label: 'Dashboard', to: '/admin/subscriptions' },
+        { icon: 'lucide:sliders', label: 'Plan Builder', to: '/admin/subscriptions/plans' },
+        { icon: 'lucide:sparkles', label: 'Features Manager', to: '/admin/subscriptions/features' },
+        { icon: 'lucide:receipt', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
+        { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
     }
   ])
 
   const patientNavItems = computed(() => [
-    { icon: 'material-symbols-light:dashboard-2-outline', label: 'Dashboard', to: '/patient' },
+    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/patient' },
     {
-      icon: 'material-symbols-light:camera-outline-rounded',
+      icon: 'lucide:camera',
       label: 'Scan',
       to: '/patient/scan'
     },
     {
-      icon: 'lets-icons:message-light',
+      icon: 'lucide:message-square',
       label: 'Message',
       to: '/patient/messages'
     },
     {
-      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      icon: 'lucide:folder',
       label: 'Records',
       to: '/patient/records'
     }
   ])
 
   const doctorNavItems = computed(() => [
-    { icon: 'mi:home', label: 'Dashboard', to: '/doctor' },
+    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/doctor' },
     {
-      icon: 'material-symbols-light:camera-outline-rounded',
+      icon: 'lucide:camera',
       label: 'Scan',
       to: '/doctor/scan'
     },
     {
-      icon: 'mage:user-circle',
+      icon: 'lucide:user-round',
       label: 'Consultations',
       children: [
-        { icon: 'heroicons:user-group', label: 'Patients', to: '/doctor/users' },
-        { icon: 'heroicons:calendar', label: 'Appointments', to: '/doctor/appointments' }
+        { icon: 'lucide:users', label: 'Patients', to: '/doctor/users' },
+        { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
       ]
     },
     {
-      icon: 'heroicons:user-plus',
+      icon: 'lucide:user-plus',
       label: 'Secretaries',
       to: '/doctor/secretaries'
     },
     {
-      icon: 'lets-icons:message-light',
+      icon: 'lucide:message-square',
       label: 'Message',
       to: '/doctor/messages'
     },
     {
-      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      icon: 'lucide:folder',
       label: 'Records',
       to: '/doctor/records'
     },
     {
-      icon: 'heroicons:credit-card',
+      icon: 'lucide:credit-card',
       label: 'Subscription',
       to: '/doctor/subscription'
     }
   ])
 
   const secretaryNavItems = computed(() => [
-    { icon: 'mi:home', label: 'Dashboard', to: '/secretary' },
+    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/secretary' },
     {
-      icon: 'mage:user-circle',
+      icon: 'lucide:user-round',
       label: 'Consultations',
       children: [
-        { icon: 'heroicons:user-group', label: 'Patients', to: '/secretary/users' },
-        { icon: 'heroicons:calendar', label: 'Appointments', to: '/secretary/appointments' }
+        { icon: 'lucide:users', label: 'Patients', to: '/secretary/users' },
+        { icon: 'lucide:calendar', label: 'Appointments', to: '/secretary/appointments' }
       ]
     },
     {
-      icon: 'lets-icons:message-light',
+      icon: 'lucide:message-square',
       label: 'Message',
       to: '/secretary/messages'
     },
     {
-      icon: 'material-symbols-light:folder-copy-outline-rounded',
+      icon: 'lucide:folder',
       label: 'Records',
       to: '/secretary/records'
     }

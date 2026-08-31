@@ -8,13 +8,13 @@
     >
       <template #actions>
         <!-- Status Filter Tabs -->
-        <div class="flex rounded-xl border border-primary/20 bg-primary/5 p-1">
+        <div class="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
           <button 
             v-for="tab in tabs" 
             :key="tab.value"
             @click="activeTab = tab.value; fetchPayments()"
-            class="rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer"
-            :class="activeTab === tab.value ? 'bg-primary text-white shadow-sm' : 'text-primary/70 hover:text-primary hover:bg-primary/10'"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+            :class="activeTab === tab.value ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
           >
             {{ tab.label }}
           </button>

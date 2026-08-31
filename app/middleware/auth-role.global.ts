@@ -36,6 +36,21 @@ export default defineNuxtRouteMiddleware((to, from) => {
     return navigateTo(`/${role.value || 'auth/login'}`)
   }
 
+  // Doctor subscription check for scan routes
+  if (role.value === 'doctor' && path.startsWith('/doctor/scan')) {
+    const { canExecuteScan, fetchSubscription } = useDoctorSubscription()
+    
+    // In client-side navigation, ensure subscription status is resolved
+    if (import.meta.client) {
+      // Async verify subscription
+      fetchSubscription().then(() => {
+        if (!canExecuteScan.value) {
+          navigateTo('/doctor/subscription?required=scan')
+        }
+      })
+    }
+  }
+
   if (isSecretaryRoute && role.value !== 'secretary') {
     return navigateTo(`/${role.value || 'auth/login'}`)
   }

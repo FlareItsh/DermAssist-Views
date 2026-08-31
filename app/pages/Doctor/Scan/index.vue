@@ -1,8 +1,13 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, onMounted } from 'vue'
   const { currentDiagnosis, isScanned, isProceededToResults, resetScanner } = useDiagnosis()
+  const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
+
+  onMounted(async () => {
+    await fetchSubscription()
+  })
 
   const discardAndStartNew = () => {
     if (import.meta.client) {
@@ -30,8 +35,44 @@
 <template>
   <div class="flex h-full gap-5">
     <div class="min-w-0 flex-1">
+      <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
+      <div
+        v-if="!isLoadingSubscription && !canExecuteScan"
+        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden"
+      >
+        <div class="absolute -top-32 -right-32 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="bg-primary/10 text-primary h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-primary/20">
+          <Icon name="lucide:lock" class="text-4xl" />
+        </div>
+
+        <AppBadge color="primary" variant="subtle" class="mb-3 uppercase tracking-wider text-xs font-bold px-3 py-1">
+          Feature Upgrade Required
+        </AppBadge>
+
+        <h2 class="text-2xl md:text-3xl font-black text-foreground tracking-tight max-w-md">
+          Unlock Doctor AI Skin Scanner
+        </h2>
+
+        <p class="text-sm font-medium text-muted-foreground mt-3 max-w-lg leading-relaxed">
+          Your current subscription plan does not include Full Doctor AI Scan Execution. Upgrade your plan to perform live patient scans and instant AI dermatological assessments.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center gap-3 mt-8">
+          <AppButton
+            size="lg"
+            variant="solid"
+            to="/doctor/subscription"
+            class="flex items-center gap-2 px-8 py-3.5 shadow-lg shadow-primary/20"
+          >
+            <Icon name="lucide:sparkles" class="text-lg" />
+            <span>Upgrade Subscription Plan</span>
+          </AppButton>
+        </div>
+      </div>
+
       <!-- Active Assessment Pending Card -->
-      <div v-if="currentDiagnosis && isScanned && isProceededToResults" class="bg-white rounded-[2.5rem] p-10 border border-amber-200/80 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden">
+      <div v-else-if="currentDiagnosis && isScanned && isProceededToResults" class="bg-white rounded-[2.5rem] p-10 border border-amber-200/80 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden">
         <div class="absolute -top-32 -right-32 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="bg-amber-100/80 text-amber-700 h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-xs border border-amber-200/60">

@@ -13,17 +13,17 @@
     switch (props.type) {
       case 'error':
         return {
-          wrapper: 'border-red-500/20 bg-red-500/5',
-          iconWrapper: 'bg-red-500/10 text-red-500',
-          icon: props.icon || 'solar:danger-circle-bold',
-          title: 'text-red-500',
-          desc: 'text-red-700/80'
+          wrapper: 'border-destructive/20 bg-destructive/5',
+          iconWrapper: 'bg-destructive/10 text-destructive',
+          icon: props.icon || 'lucide:alert-circle',
+          title: 'text-destructive',
+          desc: 'text-destructive/80'
         }
       case 'success':
         return {
           wrapper: 'border-green-500/20 bg-green-500/5',
           iconWrapper: 'bg-green-500/10 text-green-500',
-          icon: props.icon || 'solar:check-circle-bold',
+          icon: props.icon || 'lucide:check-circle-2',
           title: 'text-green-500',
           desc: 'text-green-700/80'
         }
@@ -31,7 +31,7 @@
         return {
           wrapper: 'border-blue-500/20 bg-blue-500/5',
           iconWrapper: 'bg-blue-500/10 text-blue-500',
-          icon: props.icon || 'solar:info-circle-bold',
+          icon: props.icon || 'lucide:info',
           title: 'text-blue-500',
           desc: 'text-blue-700/80'
         }
@@ -40,7 +40,7 @@
         return {
           wrapper: 'border-amber-500/20 bg-amber-500/5',
           iconWrapper: 'bg-amber-500/10 text-amber-500',
-          icon: props.icon || 'solar:danger-triangle-bold',
+          icon: props.icon || 'lucide:alert-triangle',
           title: 'text-amber-600 dark:text-amber-500',
           desc: 'text-amber-700/80'
         }

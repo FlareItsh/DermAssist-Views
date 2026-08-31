@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
-import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
@@ -20,11 +20,21 @@ const modalState = ref({
   title: '',
   description: '',
   actionText: '',
-  actionVariant: 'solid',
+  actionVariant: 'solid' as 'solid' | 'outline' | 'ghost' | 'destructive',
   onConfirm: () => { }
 })
 
-const categories = Object.keys(DISEASE_DATABASE)
+const categories = [
+  'Eczema',
+  'Melanoma',
+  'Basal Cell Carcinoma',
+  'Melanocytic Nevi',
+  'Benign Keratosis',
+  'Psoriasis',
+  'Seborrheic Keratoses',
+  'Tinea Ringworm Candidiasis',
+  'Warts Molluscum'
+]
 
 const fetchDataset = async () => {
   isLoading.value = true
@@ -32,6 +42,7 @@ const fetchDataset = async () => {
     datasets.value = await datasetService.getDataset()
   } catch (e) {
     console.error('Failed to fetch dataset', e)
+    toast.error('Failed to load dataset gallery.')
   } finally {
     isLoading.value = false
   }
@@ -53,16 +64,10 @@ const uploadImage = async () => {
     showUploadModal.value = false
     uploadFile.value = null
     uploadCategory.value = ''
+    toast.success('Image successfully added to dataset.')
   } catch (e) {
     console.error('Upload failed', e)
-    modalState.value = {
-      isOpen: true,
-      title: 'Upload Failed',
-      description: 'There was an error uploading the image. Please try again.',
-      actionText: 'Close',
-      actionVariant: 'solid',
-      onConfirm: () => { modalState.value.isOpen = false }
-    }
+    toast.error('Failed to upload image.')
   } finally {
     isUploading.value = false
   }
@@ -80,16 +85,10 @@ const deleteImage = (url: string) => {
       try {
         await datasetService.deleteImage(url)
         await fetchDataset()
+        toast.success('Image removed from dataset.')
       } catch (e) {
         console.error('Failed to delete image', e)
-        modalState.value = {
-          isOpen: true,
-          title: 'Delete Failed',
-          description: 'Failed to delete the image.',
-          actionText: 'Close',
-          actionVariant: 'solid',
-          onConfirm: () => { modalState.value.isOpen = false }
-        }
+        toast.error('Failed to delete image.')
       }
     }
   }
@@ -156,7 +155,7 @@ onMounted(() => {
           <h2 class="text-xl font-semibold text-gray-800 capitalize">{{ dataset.category }} <span
               class="text-sm font-normal text-gray-500 ml-2">({{ dataset.images.length }} images)</span></h2>
           <AppButton variant="outline" size="sm" @click="downloadZip(dataset.category)" class="flex items-center gap-2">
-            <Icon name="material-symbols:download" />
+            <Icon name="lucide:download" size="16" />
             Download Category
           </AppButton>
         </div>
@@ -164,13 +163,13 @@ onMounted(() => {
         <div class="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div v-for="(url, idx) in dataset.images" :key="idx"
             class="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-            <img :src="url"
-              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+            <NuxtImg :src="url"
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
             <div
               class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
               <button @click="deleteImage(url)"
-                class="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transform hover:scale-110 transition-all shadow-lg">
-                <Icon name="material-symbols:delete-outline" class="text-xl" />
+                class="bg-destructive text-white p-2 rounded-full hover:opacity-90 transform hover:scale-110 transition-all shadow-lg">
+                <Icon name="lucide:trash-2" class="text-xl" />
               </button>
             </div>
           </div>
@@ -183,7 +182,7 @@ onMounted(() => {
       class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
       <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
         <button @click="showUploadModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <Icon name="material-symbols:close" class="text-2xl" />
+          <Icon name="lucide:x" class="text-xl" />
         </button>
 
         <h2 class="text-2xl font-bold mb-6 text-gray-900">Upload to Dataset</h2>
@@ -210,7 +209,7 @@ onMounted(() => {
           <AppButton :disabled="!uploadFile || !uploadCategory || isUploading" @click="uploadImage"
             class="min-w-[100px]">
             <span v-if="isUploading">
-              <Icon name="material-symbols:sync" class="animate-spin" />
+              <Icon name="lucide:loader-2" class="animate-spin" />
             </span>
             <span v-else>Upload</span>
           </AppButton>

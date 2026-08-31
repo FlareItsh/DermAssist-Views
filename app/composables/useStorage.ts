@@ -46,7 +46,13 @@ export const useStorage = () => {
       cleanPath = cleanPath.substring(8)
     }
 
-    // Always route through the Nuxt proxy endpoint /storage/...
+    // If storageBase is configured (e.g. http://localhost:8000/storage), use it
+    if (storageBase) {
+      const base = storageBase.endsWith('/') ? storageBase.slice(0, -1) : storageBase
+      return `${base}/${cleanPath}`
+    }
+
+    // Otherwise route through the Nuxt proxy endpoint /storage/...
     return `/storage/${cleanPath}`
   }
 

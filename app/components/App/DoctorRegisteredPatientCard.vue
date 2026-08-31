@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { userService } from '~/api/user/UserService'
 import { useStorage } from '~/composables/useStorage'
+import { toast } from 'vue-sonner'
 
 const props = defineProps<{
   patient: any
@@ -63,9 +64,11 @@ const handleEnable = async () => {
   isActionLoading.value = true
   try {
     await userService.enablePatient(props.patient.uuid)
+    toast.success('Patient account activated.')
     emit('refresh')
   } catch (e) {
     console.error(e)
+    toast.error('Failed to activate patient account.')
   } finally {
     isActionLoading.value = false
   }
@@ -75,10 +78,12 @@ const confirmDisable = async () => {
   isActionLoading.value = true
   try {
     await userService.disablePatient(props.patient.uuid)
+    toast.success('Patient account deactivated.')
     showDisableModal.value = false
     emit('refresh')
   } catch (e) {
     console.error(e)
+    toast.error('Failed to deactivate patient account.')
   } finally {
     isActionLoading.value = false
   }
@@ -88,10 +93,12 @@ const confirmDelete = async () => {
   isActionLoading.value = true
   try {
     await userService.deleteDoctorPatient(props.patient.uuid)
+    toast.success('Patient account deleted.')
     showDeleteModal.value = false
     emit('refresh')
   } catch (e) {
     console.error(e)
+    toast.error('Failed to delete patient account.')
   } finally {
     isActionLoading.value = false
   }
@@ -119,11 +126,14 @@ const handleSchedule = async () => {
       action: scheduleAction.value || 'delete',
       scheduled_at: dateTimeStr
     })
+    toast.success('Auto-action scheduled successfully.')
     isScheduling.value = false
     emit('refresh')
   } catch (e: any) {
     console.error('Failed to schedule action:', e)
-    scheduleError.value = e?.data?.message || e?.response?._data?.message || 'Failed to schedule auto-deletion.'
+    const err = e?.data?.message || e?.response?._data?.message || 'Failed to schedule auto-deletion.'
+    scheduleError.value = err
+    toast.error(err)
   } finally {
     isActionLoading.value = false
   }
@@ -133,9 +143,11 @@ const handleCancelSchedule = async () => {
   isActionLoading.value = true
   try {
     await userService.cancelScheduledAction(props.patient.uuid)
+    toast.success('Scheduled auto-action canceled.')
     emit('refresh')
   } catch (e) {
     console.error(e)
+    toast.error('Failed to cancel scheduled action.')
   } finally {
     isActionLoading.value = false
   }
