@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { doctorSecretaryService } from '~/api/doctorSecretary/DoctorSecretaryService'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
@@ -84,13 +85,12 @@ const handleCreateSecretary = async () => {
       email: form.email,
       password: form.password
     })
-    successMessage.value = 'Secretary account registered successfully.'
+    toast.success('Secretary account registered successfully.')
     await refresh()
-    setTimeout(() => {
-      showAddModal.value = false
-    }, 1200)
+    showAddModal.value = false
   } catch (err: any) {
     errorMessage.value = err.message || 'Failed to create secretary account.'
+    toast.error(err.message || 'Failed to create secretary account.')
   } finally {
     isSubmitting.value = false
   }
@@ -115,11 +115,13 @@ const handleDeleteSecretary = async () => {
     isDeleting.value = true
     deleteError.value = ''
     await doctorSecretaryService.delete(selectedSecretary.value.uuid)
+    toast.success('Secretary account removed successfully.')
     showDeleteModal.value = false
     selectedSecretary.value = null
     await refresh()
   } catch (err: any) {
     deleteError.value = err.message || 'Failed to remove secretary.'
+    toast.error(err.message || 'Failed to remove secretary.')
   } finally {
     isDeleting.value = false
   }

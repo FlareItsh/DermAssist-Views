@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
-import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
+import { toast } from 'vue-sonner'
 
 definePageMeta({
   layout: 'dashboard-sidebar-layout'
@@ -20,11 +20,21 @@ const modalState = ref({
   title: '',
   description: '',
   actionText: '',
-  actionVariant: 'solid',
+  actionVariant: 'solid' as 'solid' | 'outline' | 'ghost' | 'destructive',
   onConfirm: () => { }
 })
 
-const categories = Object.keys(DISEASE_DATABASE)
+const categories = [
+  'Eczema',
+  'Melanoma',
+  'Basal Cell Carcinoma',
+  'Melanocytic Nevi',
+  'Benign Keratosis',
+  'Psoriasis',
+  'Seborrheic Keratoses',
+  'Tinea Ringworm Candidiasis',
+  'Warts Molluscum'
+]
 
 const fetchDataset = async () => {
   isLoading.value = true
@@ -32,6 +42,7 @@ const fetchDataset = async () => {
     datasets.value = await datasetService.getDataset()
   } catch (e) {
     console.error('Failed to fetch dataset', e)
+    toast.error('Failed to load dataset gallery.')
   } finally {
     isLoading.value = false
   }
@@ -53,16 +64,10 @@ const uploadImage = async () => {
     showUploadModal.value = false
     uploadFile.value = null
     uploadCategory.value = ''
+    toast.success('Image successfully added to dataset.')
   } catch (e) {
     console.error('Upload failed', e)
-    modalState.value = {
-      isOpen: true,
-      title: 'Upload Failed',
-      description: 'There was an error uploading the image. Please try again.',
-      actionText: 'Close',
-      actionVariant: 'solid',
-      onConfirm: () => { modalState.value.isOpen = false }
-    }
+    toast.error('Failed to upload image.')
   } finally {
     isUploading.value = false
   }
@@ -80,16 +85,10 @@ const deleteImage = (url: string) => {
       try {
         await datasetService.deleteImage(url)
         await fetchDataset()
+        toast.success('Image removed from dataset.')
       } catch (e) {
         console.error('Failed to delete image', e)
-        modalState.value = {
-          isOpen: true,
-          title: 'Delete Failed',
-          description: 'Failed to delete the image.',
-          actionText: 'Close',
-          actionVariant: 'solid',
-          onConfirm: () => { modalState.value.isOpen = false }
-        }
+        toast.error('Failed to delete image.')
       }
     }
   }

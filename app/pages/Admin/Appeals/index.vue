@@ -1,10 +1,22 @@
 <script setup lang="ts">
+  import { toast } from 'vue-sonner'
+
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
 
-  const { sortedAppeals, isLoadingAppeals, appealsError, fetchAppeals, markAppealsSeen, filterStatus, resolveAppeal, restoreAppeal } =
+  const { sortedAppeals, isLoadingAppeals, appealsError, fetchAppeals, markAppealsSeen, filterStatus, resolveAppeal: originalResolve, restoreAppeal: originalRestore } =
     useAdminAppeals()
+
+  const resolveAppeal = (uuid: string) => {
+    originalResolve(uuid)
+    toast.success('Appeal resolved successfully.')
+  }
+
+  const restoreAppeal = (uuid: string) => {
+    originalRestore(uuid)
+    toast.info('Appeal restored to pending status.')
+  }
 
   const getDoctorName = (appeal: any) => {
     const first = appeal.user?.first_name?.trim()
