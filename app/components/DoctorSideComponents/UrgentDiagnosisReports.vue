@@ -41,10 +41,11 @@ const filteredRecords = computed(() => {
           is-urgent
         >
           <template #image>
-            <img 
+            <NuxtImg 
               v-if="record.diagnosis_image" 
               :src="getStorageUrl(record.diagnosis_image)" 
               class="h-10 w-10 rounded-lg object-cover border border-white/20"
+              loading="lazy"
             />
           </template>
         </AppRecordFolder>

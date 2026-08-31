@@ -105,7 +105,7 @@ const goToChat = (uuid: string) => {
 
             <div class="flex items-center gap-4">
               <div v-if="appt.avatar" class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50 shrink-0">
-                <img :src="appt.avatar" class="h-full w-full object-cover" />
+                <NuxtImg :src="appt.avatar" class="h-full w-full object-cover" loading="lazy" />
               </div>
               <div v-else class="h-14 w-14 flex items-center justify-center rounded-2xl border-2 border-primary/20 bg-primary/5 text-primary font-bold text-base shrink-0">
                 {{ getInitials(appt.patientName) }}

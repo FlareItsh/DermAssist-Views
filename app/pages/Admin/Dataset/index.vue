@@ -164,8 +164,8 @@ onMounted(() => {
         <div class="p-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div v-for="(url, idx) in dataset.images" :key="idx"
             class="relative group aspect-square rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
-            <img :src="url"
-              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" />
+            <NuxtImg :src="url"
+              class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" loading="lazy" />
             <div
               class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
               <button @click="deleteImage(url)"
