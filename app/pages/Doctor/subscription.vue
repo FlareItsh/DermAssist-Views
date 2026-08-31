@@ -224,26 +224,29 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
       </div>
 
       <!-- Billing Cycle Toggle -->
-      <div class="inline-flex items-center p-1 bg-muted/20 rounded-2xl border border-sidebar-border self-start md:self-auto">
-        <AppButton
-          :variant="billingCycle === 'monthly' ? 'solid' : 'ghost'"
-          size="sm"
-          rounded="both"
+      <div class="inline-flex items-center p-1 bg-card rounded-2xl border border-sidebar-border shadow-xs self-start md:self-auto">
+        <button
+          type="button"
           @click="billingCycle = 'monthly'"
+          class="px-4 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+          :class="billingCycle === 'monthly' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'"
         >
           Monthly Billing
-        </AppButton>
-        <AppButton
-          :variant="billingCycle === 'annual' ? 'solid' : 'ghost'"
-          size="sm"
-          rounded="both"
+        </button>
+        <button
+          type="button"
           @click="billingCycle = 'annual'"
+          class="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+          :class="billingCycle === 'annual' ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'"
         >
           Annual Billing
-          <AppBadge color="primary" size="xs" variant="subtle" class="ml-1.5">
+          <span
+            class="px-1.5 py-0.5 rounded-md text-[10px] font-bold tracking-tight"
+            :class="billingCycle === 'annual' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-primary/10 text-primary'"
+          >
             Save ~17%
-          </AppBadge>
-        </AppButton>
+          </span>
+        </button>
       </div>
     </div>
 
