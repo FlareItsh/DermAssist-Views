@@ -35,6 +35,18 @@ const filteredAppointments = computed(() => {
   )
 })
 
+const appointmentsPerPage = 5
+const appointmentCurrentPage = ref(1)
+
+const paginatedAppointments = computed(() => {
+  const start = (appointmentCurrentPage.value - 1) * appointmentsPerPage
+  return filteredAppointments.value.slice(start, start + appointmentsPerPage)
+})
+
+watch([searchQuery, activeTab], () => {
+  appointmentCurrentPage.value = 1
+})
+
 const getInitials = (name: string): string => {
   if (!name) return ''
   const cleanName = name.replace(/^Dr\.\s+/i, '')
@@ -80,7 +92,7 @@ const goToChat = (uuid: string) => {
       </div>
       <div v-else class="flex flex-col gap-4">
         <div 
-          v-for="appt in filteredAppointments" 
+          v-for="appt in paginatedAppointments" 
           :key="appt.id"
           class="bg-card rounded-3xl border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-all group"
         >
@@ -125,6 +137,15 @@ const goToChat = (uuid: string) => {
               <Icon name="material-symbols:edit-document-outline" class="text-2xl" />
             </AppButton>
           </div>
+        </div>
+
+        <div class="bg-card border border-sidebar-border rounded-2xl overflow-hidden">
+          <AppPagination
+            v-model:currentPage="appointmentCurrentPage"
+            :total-items="filteredAppointments.length"
+            :per-page="appointmentsPerPage"
+            item-label="appointments"
+          />
         </div>
       </div>
     </div>
