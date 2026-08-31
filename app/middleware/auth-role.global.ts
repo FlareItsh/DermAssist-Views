@@ -38,13 +38,13 @@ export default defineNuxtRouteMiddleware((to, from) => {
 
   // Doctor subscription check for scan routes
   if (role.value === 'doctor' && path.startsWith('/doctor/scan')) {
-    const { isSubscribed, fetchSubscription } = useDoctorSubscription()
+    const { canExecuteScan, fetchSubscription } = useDoctorSubscription()
     
     // In client-side navigation, ensure subscription status is resolved
     if (import.meta.client) {
       // Async verify subscription
       fetchSubscription().then(() => {
-        if (!isSubscribed.value) {
+        if (!canExecuteScan.value) {
           navigateTo('/doctor/subscription?required=scan')
         }
       })

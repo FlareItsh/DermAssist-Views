@@ -82,6 +82,7 @@
       children: [
         { icon: 'lucide:bar-chart-3', label: 'Dashboard', to: '/admin/subscriptions' },
         { icon: 'lucide:sliders', label: 'Plan Builder', to: '/admin/subscriptions/plans' },
+        { icon: 'lucide:sparkles', label: 'Features Manager', to: '/admin/subscriptions/features' },
         { icon: 'lucide:receipt', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]

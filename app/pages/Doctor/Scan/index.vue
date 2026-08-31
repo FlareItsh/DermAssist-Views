@@ -1,7 +1,7 @@
 <script setup lang="ts">
   import { ref, onMounted } from 'vue'
   const { currentDiagnosis, isScanned, isProceededToResults, resetScanner } = useDiagnosis()
-  const { isSubscribed, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
+  const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
 
@@ -35,9 +35,9 @@
 <template>
   <div class="flex h-full gap-5">
     <div class="min-w-0 flex-1">
-      <!-- Unsubscribed Doctor Paywall Card -->
+      <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
       <div
-        v-if="!isLoadingSubscription && !isSubscribed"
+        v-if="!isLoadingSubscription && !canExecuteScan"
         class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden"
       >
         <div class="absolute -top-32 -right-32 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -47,7 +47,7 @@
         </div>
 
         <AppBadge color="primary" variant="subtle" class="mb-3 uppercase tracking-wider text-xs font-bold px-3 py-1">
-          Subscription Required
+          Feature Upgrade Required
         </AppBadge>
 
         <h2 class="text-2xl md:text-3xl font-black text-foreground tracking-tight max-w-md">
@@ -55,7 +55,7 @@
         </h2>
 
         <p class="text-sm font-medium text-muted-foreground mt-3 max-w-lg leading-relaxed">
-          Full Doctor AI Scan Execution and Clinical Recommendations require an active Doctor Subscription. Upgrade your plan to perform live patient scans and instant AI dermatological assessments.
+          Your current subscription plan does not include Full Doctor AI Scan Execution. Upgrade your plan to perform live patient scans and instant AI dermatological assessments.
         </p>
 
         <div class="flex flex-col sm:flex-row items-center gap-3 mt-8">
@@ -66,7 +66,7 @@
             class="flex items-center gap-2 px-8 py-3.5 shadow-lg shadow-primary/20"
           >
             <Icon name="lucide:sparkles" class="text-lg" />
-            <span>View Subscription Plans</span>
+            <span>Upgrade Subscription Plan</span>
           </AppButton>
         </div>
       </div>

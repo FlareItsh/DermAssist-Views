@@ -12,6 +12,20 @@ export const useDoctorSubscription = () => {
     return status === 'active' || status === 'trialing'
   })
 
+  const planFeatures = computed(() => {
+    return currentSubscription.value?.plan?.features || {}
+  })
+
+  const canExecuteScan = computed(() => {
+    if (!isSubscribed.value) return false
+    return Boolean(planFeatures.value?.can_execute_scan)
+  })
+
+  const hasFeature = (featureKey: string) => {
+    if (!isSubscribed.value) return false
+    return Boolean(planFeatures.value?.[featureKey])
+  }
+
   const planName = computed(() => {
     return currentSubscription.value?.plan?.name || 'Free / Unsubscribed'
   })
@@ -45,6 +59,9 @@ export const useDoctorSubscription = () => {
     currentSubscription,
     isLoadingSubscription,
     isSubscribed,
+    planFeatures,
+    canExecuteScan,
+    hasFeature,
     planName,
     fetchSubscription
   }

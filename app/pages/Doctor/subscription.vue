@@ -171,10 +171,30 @@ const formatTierLabel = (tierType?: string) => {
   }
 }
 
-const extractFeatureItems = (features: any): string[] => {
-  if (!features) return []
+const extractFeatureItems = (planOrFeatures: any): string[] => {
+  if (!planOrFeatures) return []
 
   const items: string[] = []
+
+  // If passed the whole plan object with normalized plan_features
+  if (planOrFeatures.plan_features && Array.isArray(planOrFeatures.plan_features)) {
+    planOrFeatures.plan_features.forEach((pf: any) => {
+      if (pf.is_included && pf.name) {
+        items.push(pf.name)
+      }
+    })
+
+    const customList = planOrFeatures.features?.custom_list
+    if (Array.isArray(customList) && customList.length > 0) {
+      items.push(...customList)
+    }
+
+    if (items.length > 0) {
+      return items
+    }
+  }
+
+  const features = planOrFeatures.features || planOrFeatures
 
   if (Array.isArray(features)) {
     return features.filter((f) => typeof f === 'string')
@@ -346,7 +366,7 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
               <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />
               <span><strong>{{ plan.max_clinics ? plan.max_clinics : 'Unlimited' }}</strong> Clinic Branches</span>
             </li>
-            <li v-for="(feat, idx) in extractFeatureItems(plan.features)" :key="idx" class="flex items-center gap-2">
+            <li v-for="(feat, idx) in extractFeatureItems(plan)" :key="idx" class="flex items-center gap-2">
               <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />
               <span>{{ feat }}</span>
             </li>

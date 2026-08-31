@@ -18,7 +18,7 @@
           class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
           :class="currentTab === 'dashboard' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
         >
-          <Icon name="heroicons:chart-bar" class="text-sm" />
+          <Icon name="lucide:bar-chart-3" class="text-sm" />
           Dashboard
         </NuxtLink>
         <NuxtLink
@@ -26,15 +26,23 @@
           class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
           :class="currentTab === 'plans' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
         >
-          <Icon name="heroicons:adjustments-horizontal" class="text-sm" />
+          <Icon name="lucide:sliders" class="text-sm" />
           Plan Builder
+        </NuxtLink>
+        <NuxtLink
+          to="/admin/subscriptions/features"
+          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          :class="currentTab === 'features' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
+        >
+          <Icon name="lucide:sparkles" class="text-sm" />
+          Features
         </NuxtLink>
         <NuxtLink
           to="/admin/subscriptions/payments"
           class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
           :class="currentTab === 'payments' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
         >
-          <Icon name="heroicons:receipt-percent" class="text-sm" />
+          <Icon name="lucide:receipt" class="text-sm" />
           Payments
         </NuxtLink>
         <NuxtLink
@@ -42,7 +50,7 @@
           class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
           :class="currentTab === 'coupons' ? 'bg-white text-gray-950 shadow-sm' : 'text-gray-500 hover:text-gray-900'"
         >
-          <Icon name="heroicons:ticket" class="text-sm" />
+          <Icon name="lucide:ticket" class="text-sm" />
           Coupons
         </NuxtLink>
       </div>
