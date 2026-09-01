@@ -184,22 +184,23 @@ const handleDeleteSecretary = async () => {
           <AppSearch v-model="searchValue" rounded="rounded-full shadow-sm overflow-hidden" text="text-secondary" width="w-fit" />
         </div>
         <button
+          v-if="canHaveSecretary || filteredSecretaries.length > 0"
           @click="openAddModal"
           class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm cursor-pointer"
         >
-          <Icon name="heroicons:user-plus" class="w-4 h-4" />
+          <Icon :name="canHaveSecretary ? 'heroicons:user-plus' : 'lucide:arrow-up-right'" class="w-4 h-4" />
           <span>{{ canHaveSecretary ? 'Add Secretary' : 'Upgrade Plan' }}</span>
         </button>
       </div>
     </div>
 
-    <!-- Upgrade Feature Banner -->
-    <div v-if="!canHaveSecretary && !pending" class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+    <!-- Upgrade Feature Banner (Only when doctor has existing secretaries from past plan but is now expired/unsubscribed) -->
+    <div v-if="!canHaveSecretary && filteredSecretaries.length > 0 && !pending" class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
       <div class="flex items-center gap-3">
         <Icon name="lucide:shield-alert" class="w-5 h-5 text-amber-600 shrink-0" />
         <div>
-          <p class="text-xs font-bold">Secretary Management Plan Required</p>
-          <p class="text-xs text-amber-800">Your current subscription tier does not include secretary account access. Upgrade to an Individual Doctor Plan with Secretary or Multi-Clinic Plan.</p>
+          <p class="text-xs font-bold">Secretary Management Inactive</p>
+          <p class="text-xs text-amber-800">Your current plan does not include active secretary account access. Upgrade to re-enable secretary management.</p>
         </div>
       </div>
       <NuxtLink to="/doctor/subscription?required=secretary" class="shrink-0 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
@@ -231,8 +232,81 @@ const handleDeleteSecretary = async () => {
       <Icon name="svg-spinners:180-ring-with-bg" class="text-3xl" />
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="filteredSecretaries.length === 0" class="text-muted-foreground p-12 text-center border border-dashed rounded-2xl bg-card/50">
+    <!-- Premium Feature Locked / Paywall Showcase (When Doctor lacks Secretary plan and has 0 secretaries) -->
+    <div 
+      v-else-if="!canHaveSecretary && filteredSecretaries.length === 0" 
+      class="rounded-3xl border border-border/80 bg-card p-8 md:p-12 shadow-xs text-center flex flex-col items-center justify-center max-w-3xl mx-auto my-auto"
+    >
+      <div class="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 text-primary shadow-xs">
+        <Icon name="lucide:users-round" class="w-8 h-8" />
+      </div>
+
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 mb-3">
+        <Icon name="lucide:sparkles" class="w-3.5 h-3.5" />
+        Individual Doctor (with Secretary) Feature
+      </span>
+
+      <h2 class="text-2xl font-bold tracking-tight text-foreground mb-2">
+        Unlock Dedicated Secretary Management
+      </h2>
+      <p class="text-sm text-muted-foreground max-w-xl mb-8 leading-relaxed">
+        Streamline your clinic operations by delegating appointment bookings, patient queues, and schedule management to a dedicated secretary account.
+      </p>
+
+      <!-- Benefit Highlights Cards -->
+      <div class="grid sm:grid-cols-3 gap-4 w-full text-left mb-8">
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:shield-check" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Dedicated Staff Login</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Secure, role-restricted credentials created specifically for clinic front-desk staff.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:calendar-check" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Queue & Bookings</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Allow your secretary to schedule, reschedule, and manage patient appointments in real time.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:folder-heart" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Patient Coordination</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Effortlessly look up patient consultation history and incoming appointment requests.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+        <NuxtLink
+          to="/doctor/subscription?required=secretary"
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-xl text-sm font-bold shadow-xs transition cursor-pointer"
+        >
+          <Icon name="lucide:arrow-up-right" class="w-4 h-4" />
+          <span>Upgrade to Secretary Plan (₱1,499/mo)</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/doctor/subscription"
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-border bg-card hover:bg-muted/20 px-5 py-3 rounded-xl text-sm font-bold text-foreground transition cursor-pointer"
+        >
+          <span>View All Plans</span>
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Empty State (When Doctor HAS permission but has not added any secretaries yet) -->
+    <div v-else-if="filteredSecretaries.length === 0" class="text-muted-foreground p-12 text-center border border-dashed border-border rounded-2xl bg-card/50">
       <Icon name="heroicons:user-group" class="mx-auto mb-3 text-5xl opacity-30" />
       <h3 class="text-base font-semibold text-foreground mb-1">No Secretaries Found</h3>
       <p class="text-sm text-muted-foreground mb-4">
