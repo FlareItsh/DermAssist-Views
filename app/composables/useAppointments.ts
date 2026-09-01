@@ -19,6 +19,11 @@ export interface Appointment {
   completed_at?: string
 }
 
+// Global shared polling state for appointments
+let appointmentPollingTimer: any = null
+let isAppointmentListenerBound = false
+let activeAppointmentFetch: Promise<void> | null = null
+
 export const useAppointments = () => {
   const userUuid = useCookie('user_uuid')
   const userRole = useCookie('user_role')
@@ -45,82 +50,87 @@ export const useAppointments = () => {
       return
     }
     
-    if (pending.value) return
+    // Reuse in-flight request if already pending
+    if (activeAppointmentFetch) return activeAppointmentFetch
+
     pending.value = true
-    try {
-      const res = await appointmentService.list()
-      if (res) {
-        const role = userRole.value
-
-        const mapPerson = (appt: any) => {
-          const doctorName = appt.doctor ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}` : 'Unknown Doctor'
-          const patientName = appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : 'Unknown Patient'
-          const currentRole = (userRole.value || useCookie('user_role').value || '')?.toString().toLowerCase()
-          return currentRole === 'doctor' ? patientName : doctorName
-        }
-
-        const mapAppt = (appt: any) => {
-          let date = ''
-          let time = ''
-          if (appt.scheduled_at) {
-            // Strip 'Z' or offset to treat the date as local time
-            const localDateTimeStr = appt.scheduled_at.replace(/Z|(\+\d{2}:\d{2})$/i, '')
-            const dateObj = new Date(localDateTimeStr)
-            const year = dateObj.getFullYear()
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0')
-            const day = String(dateObj.getDate()).padStart(2, '0')
-            date = `${year}-${month}-${day}`
-            time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    activeAppointmentFetch = (async () => {
+      try {
+        const res = await appointmentService.list()
+        if (res) {
+          const mapPerson = (appt: any) => {
+            const doctorName = appt.doctor ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}` : 'Unknown Doctor'
+            const patientName = appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : 'Unknown Patient'
+            const currentRole = (userRole.value || useCookie('user_role').value || '')?.toString().toLowerCase()
+            return currentRole === 'doctor' ? patientName : doctorName
           }
-          return {
-            id: appt.uuid,
-            date,
-            time,
-            raw_scheduled_at: appt.scheduled_at,
-            raw_scheduled_end_at: appt.scheduled_end_at,
-            doctor: mapPerson(appt),
-            doctor_id: appt.doctor_id,
-            doctor_uuid: appt.doctor?.uuid,
-            patient_id: appt.patient_id,
-            patient_uuid: appt.patient?.uuid,
-            patient: appt.patient,
-            created_at: appt.created_at,
-            info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
-            diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
-            location: appt.location,
-            purpose: appt.purpose,
-            status: appt.status,
-            conversation_uuid: appt.conversation_uuid,
-            completed_at: appt.completed_at || appt.updated_at
+
+          const mapAppt = (appt: any) => {
+            let date = ''
+            let time = ''
+            if (appt.scheduled_at) {
+              // Strip 'Z' or offset to treat the date as local time
+              const localDateTimeStr = appt.scheduled_at.replace(/Z|(\+\d{2}:\d{2})$/i, '')
+              const dateObj = new Date(localDateTimeStr)
+              const year = dateObj.getFullYear()
+              const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+              const day = String(dateObj.getDate()).padStart(2, '0')
+              date = `${year}-${month}-${day}`
+              time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }
+            return {
+              id: appt.uuid,
+              date,
+              time,
+              raw_scheduled_at: appt.scheduled_at,
+              raw_scheduled_end_at: appt.scheduled_end_at,
+              doctor: mapPerson(appt),
+              doctor_id: appt.doctor_id,
+              doctor_uuid: appt.doctor?.uuid,
+              patient_id: appt.patient_id,
+              patient_uuid: appt.patient?.uuid,
+              patient: appt.patient,
+              created_at: appt.created_at,
+              info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+              diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
+              location: appt.location,
+              purpose: appt.purpose,
+              status: appt.status,
+              conversation_uuid: appt.conversation_uuid,
+              completed_at: appt.completed_at || appt.updated_at
+            }
           }
+
+          appointments.value = res
+            .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
+            .map(mapAppt)
+
+          pendingAppointments.value = res
+            .filter((appt: any) => appt.status === 'pending')
+            .map(mapAppt)
+
+          declinedAppointments.value = res
+            .filter((appt: any) => appt.status === 'declined')
+            .map((appt: any) => ({
+              id: appt.uuid,
+              doctor: mapPerson(appt),
+              info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+              conversation_uuid: appt.conversation_uuid
+            }))
+
+          completedAppointments.value = res
+            .filter((appt: any) => appt.status === 'completed')
+            .map(mapAppt)
         }
-
-        appointments.value = res
-          .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
-          .map(mapAppt)
-
-        pendingAppointments.value = res
-          .filter((appt: any) => appt.status === 'pending')
-          .map(mapAppt)
-
-        declinedAppointments.value = res
-          .filter((appt: any) => appt.status === 'declined')
-          .map((appt: any) => ({
-            id: appt.uuid,
-            doctor: mapPerson(appt),
-            info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
-            conversation_uuid: appt.conversation_uuid
-          }))
-
-        completedAppointments.value = res
-          .filter((appt: any) => appt.status === 'completed')
-          .map(mapAppt)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        pending.value = false
+        activeAppointmentFetch = null
       }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      pending.value = false
-    }
+    })()
+
+    return activeAppointmentFetch
   }
 
   const isApptTimeConflicting = (dateStr: string, startTimeStr: string, endTimeStr?: string, excludeUuid?: string): boolean => {
@@ -171,14 +181,26 @@ export const useAppointments = () => {
     }
   })
 
-  // Fetch immediately and poll every 10 seconds for reactivity
-  let polling: any = null
+  // Singleton Polling: Starts only ONE global interval regardless of how many components call useAppointments()
   if (import.meta.client) {
-    fetchAppointments()
-    polling = setInterval(fetchAppointments, 10000)
-    onUnmounted(() => {
-      if (polling) clearInterval(polling)
-    })
+    if (!appointmentPollingTimer) {
+      fetchAppointments()
+      appointmentPollingTimer = setInterval(() => {
+        // Only poll if tab is visible and user is logged in
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          fetchAppointments()
+        }
+      }, 10000)
+    }
+
+    if (!isAppointmentListenerBound && typeof document !== 'undefined') {
+      isAppointmentListenerBound = true
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          fetchAppointments()
+        }
+      })
+    }
   }
 
   return {
