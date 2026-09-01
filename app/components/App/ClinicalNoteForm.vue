@@ -296,6 +296,52 @@
     noFollowUp.value = false
   }
 
+  const setQuickInterval = (days: number) => {
+    const target = new Date()
+    target.setDate(target.getDate() + days)
+    const y = target.getFullYear()
+    const m = String(target.getMonth() + 1).padStart(2, '0')
+    const d = String(target.getDate()).padStart(2, '0')
+    followUpDateOnly.value = `${y}-${m}-${d}`
+    noFollowUp.value = false
+  }
+
+  const formattedSelectedDate = computed(() => {
+    if (!followUpDateOnly.value) return null
+    try {
+      const [y, m, d] = followUpDateOnly.value.split('-').map(Number)
+      const dateObj = new Date(y, m - 1, d)
+      return dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    } catch {
+      return followUpDateOnly.value
+    }
+  })
+
+  const matchedDutyShift = computed(() => {
+    if (!followUpDateOnly.value) return null
+    return getDutyClinicForDateAndTime(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)
+  })
+
+  const quickInstructions = [
+    'Re-evaluate skin lesion and response to treatment',
+    'Review laboratory & pathology biopsy results',
+    'Evaluate treatment progress & medication tolerance',
+    'Routine skin check & healing progress'
+  ]
+
+  const applyQuickInstruction = (inst: string) => {
+    if (!note.follow_up_instructions) {
+      note.follow_up_instructions = inst
+    } else {
+      note.follow_up_instructions = `${note.follow_up_instructions}; ${inst}`
+    }
+  }
+
   const findConversationUuid = (value: any): string | undefined => {
     if (!value || typeof value !== 'object') return undefined
     if (typeof value.conversation_uuid === 'string') return value.conversation_uuid
@@ -610,56 +656,168 @@
             ></textarea>
           </div>
 
-          <div ref="followUpSectionRef" class="flex flex-col gap-2.5 sm:col-span-2 p-5 rounded-2xl border transition-all" :class="followUpError ? 'bg-red-50/40 border-red-300 ring-2 ring-red-200' : 'bg-gray-50/50 border-gray-100'">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label class="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-2">
-                <Icon name="material-symbols:calendar-clock-outline" class="text-primary text-base" />
-                Set Next Appointment Date & Time
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-bold text-gray-600 hover:text-gray-900 transition-colors bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-xs">
-                <input
-                  type="checkbox"
-                  v-model="noFollowUp"
-                  class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                />
-                <span>No follow-up appointment required</span>
-              </label>
-            </div>
-
-            <!-- Date & Time Selection -->
-            <div v-if="!noFollowUp" class="grid gap-4 bg-white p-4 rounded-xl border border-gray-200 shadow-xs mt-1 overflow-visible xl:grid-cols-[400px_minmax(260px,1fr)]">
-              <div class="relative z-30 flex w-full justify-center overflow-visible xl:block">
-                <PatientSideComponentsCalendar
-                  :min-date="getTodayStr()"
-                  :blocked-slots="blockedSlots"
-                  :show-manage-blocks-link="true"
-                  :show-appointment-details-panel="false"
-                  @date-selected="handleFollowUpDateSelected"
-                />
+          <div ref="followUpSectionRef" class="flex flex-col gap-4 sm:col-span-2 p-6 rounded-3xl border transition-all shadow-xs" 
+            :class="followUpError ? 'bg-red-50/40 border-red-300 ring-2 ring-red-200' : 'bg-card border-border/80'">
+            
+            <!-- Section Header Bar -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Icon name="heroicons:calendar-days" class="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-foreground">Follow-Up Consultation Schedule</h4>
+                  <p class="text-xs text-muted-foreground">Book the patient's next clinical visit and auto-match clinic duty shifts.</p>
+                </div>
               </div>
 
-              <div class="flex min-w-0 flex-col justify-center gap-4 rounded-2xl bg-gray-50/80 p-4 border border-gray-100">
-                <div>
-                  <label class="mb-2 block text-sm font-bold text-gray-500">Selected Date</label>
-                  <div class="rounded-xl border border-gray-200 bg-white p-3 font-semibold text-indigo-600">
-                    {{ followUpDateOnly || 'Please select a date from the calendar' }}
+              <!-- Follow-Up Toggle Switch -->
+              <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-foreground/5 border border-border shrink-0">
+                <button
+                  type="button"
+                  @click="noFollowUp = false"
+                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  :class="!noFollowUp ? 'bg-white text-primary shadow-xs' : 'text-muted-foreground hover:text-foreground'"
+                >
+                  <Icon name="heroicons:check-circle" class="w-3.5 h-3.5" />
+                  <span>Schedule</span>
+                </button>
+                <button
+                  type="button"
+                  @click="noFollowUp = true"
+                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  :class="noFollowUp ? 'bg-white text-foreground/80 shadow-xs' : 'text-muted-foreground hover:text-foreground'"
+                >
+                  <Icon name="heroicons:no-symbol" class="w-3.5 h-3.5" />
+                  <span>Not Required</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- When Follow-up is Enabled -->
+            <template v-if="!noFollowUp">
+              <!-- Quick Interval Shortcuts -->
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mr-1">
+                  <Icon name="heroicons:bolt" class="w-3.5 h-3.5 text-amber-500" />
+                  Quick Intervals:
+                </span>
+                <button
+                  v-for="preset in [
+                    { label: '+1 Week', days: 7 },
+                    { label: '+2 Weeks', days: 14 },
+                    { label: '+3 Weeks', days: 21 },
+                    { label: '+1 Month', days: 30 },
+                    { label: '+2 Months', days: 60 }
+                  ]"
+                  :key="preset.days"
+                  type="button"
+                  @click="setQuickInterval(preset.days)"
+                  class="px-3 py-1.5 rounded-xl text-xs font-bold bg-foreground/5 hover:bg-primary/10 hover:text-primary border border-border/80 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                >
+                  {{ preset.label }}
+                </button>
+              </div>
+
+              <!-- Top Row: Calendar (Left) & Date Summary + Clinic Station (Right) -->
+              <div class="grid gap-5 lg:grid-cols-12 items-start bg-foreground/[0.02] p-4 sm:p-5 rounded-2xl border border-border/60">
+                <!-- Left: Calendar (6 cols) -->
+                <div class="lg:col-span-6 flex flex-col justify-center overflow-visible bg-card p-4 rounded-2xl border border-border/80 shadow-2xs space-y-3">
+                  <div class="flex items-center justify-between border-b border-border/60 pb-2">
+                    <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Icon name="heroicons:calendar" class="w-4 h-4 text-primary" />
+                      Select Date
+                    </span>
+                    <span class="text-[11px] text-muted-foreground">Click a date below</span>
+                  </div>
+                  <div class="flex justify-center overflow-visible">
+                    <PatientSideComponentsCalendar
+                      :min-date="getTodayStr()"
+                      :blocked-slots="blockedSlots"
+                      :show-manage-blocks-link="true"
+                      :show-appointment-details-panel="false"
+                      @date-selected="handleFollowUpDateSelected"
+                    />
                   </div>
                 </div>
 
-                <div class="my-2">
-                  <AppTimeRangePicker
-                    v-model:start-time="followUpTimeOnly"
-                    v-model:end-time="followUpEndTimeOnly"
-                    :blocked-slots="dateBlockedSlots"
-                    :existing-appointments="dateExistingAppts"
-                    label="Follow-Up Appointment Time"
-                  />
+                <!-- Right: Date Summary & Clinic Branch Station (6 cols) -->
+                <div class="lg:col-span-6 space-y-4">
+                  <!-- Selected Date & Duty Station Status Badge -->
+                  <div class="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+                    <div class="flex items-center justify-between">
+                      <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Target Consultation Date</span>
+                      <span v-if="followUpDateOnly" class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full font-mono">
+                        {{ followUpDateOnly }}
+                      </span>
+                    </div>
+
+                    <div v-if="formattedSelectedDate" class="flex items-center gap-2.5 text-foreground font-bold text-base">
+                      <Icon name="heroicons:calendar-days" class="w-5 h-5 text-primary shrink-0" />
+                      <span>{{ formattedSelectedDate }}</span>
+                    </div>
+                    <div v-else class="flex items-center gap-2 text-muted-foreground text-xs italic">
+                      <Icon name="heroicons:cursor-arrow-rays" class="w-4 h-4 text-primary shrink-0 animate-bounce" />
+                      <span>Pick a date from the calendar or use the quick intervals</span>
+                    </div>
+
+                    <!-- Matched Duty Shift Badge -->
+                    <div v-if="matchedDutyShift" class="pt-2 border-t border-border/60 flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                      <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+                      <span>Duty Shift: <strong>{{ matchedDutyShift.clinic?.name || matchedDutyShift.location_name }}</strong> ({{ matchedDutyShift.start_time.slice(0, 5) }} - {{ matchedDutyShift.end_time.slice(0, 5) }})</span>
+                    </div>
+                  </div>
+
+                  <!-- Clinic / Location Selector -->
+                  <div class="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
+                    <div class="flex items-center justify-between">
+                      <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Icon name="heroicons:building-office-2" class="w-4 h-4 text-primary" />
+                        Clinic Station / Location
+                      </label>
+                      <span v-if="wasLocationAutofilled" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Icon name="heroicons:sparkles" class="w-3 h-3 text-emerald-600" />
+                        Autofilled from Duty Preset
+                      </span>
+                    </div>
+
+                    <select
+                      v-if="clinics.length > 0"
+                      v-model="followUpLocation"
+                      class="w-full rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2.5 text-xs outline-none focus:border-primary font-bold text-foreground cursor-pointer"
+                    >
+                      <option value="" disabled>-- Select a Clinic Location --</option>
+                      <option v-for="c in clinics" :key="c.id" :value="c.name">
+                        {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                      </option>
+                      <option value="__custom__">+ Other / Custom Location</option>
+                    </select>
+
+                    <input
+                      v-if="clinics.length === 0 || followUpLocation === '__custom__'"
+                      type="text"
+                      v-model="customFollowUpLocation"
+                      placeholder="e.g. SkinCare Clinic, Room 402"
+                      class="w-full rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2.5 text-xs outline-none focus:border-primary font-medium"
+                    />
+                  </div>
                 </div>
+              </div>
+
+              <!-- Full-Width Bottom Row: Spacious Consultation Time Window -->
+              <div class="p-5 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+                <AppTimeRangePicker
+                  v-model:start-time="followUpTimeOnly"
+                  v-model:end-time="followUpEndTimeOnly"
+                  :blocked-slots="dateBlockedSlots"
+                  :existing-appointments="dateExistingAppts"
+                  label="Consultation Time Window"
+                />
 
                 <Transition name="fade-scale">
                   <div
                     v-if="followUpEndTimeOnly <= followUpTimeOnly"
-                    class="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                    class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
                     <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
                     <p class="font-bold">End time must be after start time.</p>
@@ -669,7 +827,7 @@
                 <Transition name="fade-scale">
                   <div
                     v-if="!showSuccess && isFollowUpConflict"
-                    class="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                    class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
                     <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
                     <div>
@@ -678,61 +836,40 @@
                     </div>
                   </div>
                 </Transition>
+              </div>
 
-                <!-- Follow-Up Clinic / Location Selector -->
-                <div class="mt-2 space-y-1.5">
-                  <div class="flex items-center justify-between">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Clinic / Location</label>
-                    <span v-if="wasLocationAutofilled" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Icon name="heroicons:sparkles" class="w-3 h-3 text-emerald-600" />
-                      Autofilled from Duty Preset
-                    </span>
-                  </div>
-
-                  <select
-                    v-if="clinics.length > 0"
-                    v-model="followUpLocation"
-                    class="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-xs outline-none focus:border-indigo-500 font-semibold text-gray-800 cursor-pointer"
-                  >
-                    <option value="" disabled>-- Select a Clinic Location --</option>
-                    <option v-for="c in clinics" :key="c.id" :value="c.name">
-                      {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
-                    </option>
-                    <option value="__custom__">+ Other / Custom Location</option>
-                  </select>
-
-                  <input
-                    v-if="clinics.length === 0 || followUpLocation === '__custom__'"
-                    type="text"
-                    v-model="customFollowUpLocation"
-                    placeholder="e.g. SkinCare Clinic, Rm 302"
-                    class="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-xs outline-none focus:border-indigo-500 font-medium"
-                  />
+              <!-- Blocked date / away warning banner -->
+              <div v-if="dateBlockedSlots.length > 0" class="text-xs font-bold text-amber-900 bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-2.5 shadow-2xs">
+                <Icon name="material-symbols:warning-outline-rounded" class="text-lg text-amber-600 shrink-0 mt-0.5" />
+                <div class="flex flex-col gap-0.5">
+                  <span>
+                    {{ isSelectedDateFullyBlocked ? 'Full Day Marked as Away / Unavailable on your schedule' : 'Away / Unavailable schedule set on this date:' }}
+                  </span>
+                  <span v-if="!isSelectedDateFullyBlocked" class="text-[11px] text-amber-700 font-semibold">
+                    Blocked ranges: 
+                    <template v-for="(slot, idx) in dateBlockedSlots" :key="idx">
+                      {{ idx > 0 ? ', ' : '' }}{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}
+                    </template>
+                  </span>
                 </div>
               </div>
-            </div>
+            </template>
 
-            <!-- Blocked date / away notice -->
-            <div v-if="!noFollowUp && dateBlockedSlots.length > 0" class="mt-1 text-xs font-bold text-amber-900 bg-amber-50/90 border border-amber-200/80 rounded-xl p-3 flex items-start gap-2 shadow-2xs">
-              <Icon name="material-symbols:warning-outline-rounded" class="text-base text-amber-600 shrink-0 mt-0.5" />
-              <div class="flex flex-col gap-0.5">
-                <span>
-                  {{ isSelectedDateFullyBlocked ? 'Full Day Marked as Away / Unavailable on your schedule' : 'Away / Unavailable schedule set on this date:' }}
-                </span>
-                <span v-if="!isSelectedDateFullyBlocked" class="text-[11px] text-amber-700 font-semibold">
-                  Blocked ranges: 
-                  <template v-for="(slot, idx) in dateBlockedSlots" :key="idx">
-                    {{ idx > 0 ? ', ' : '' }}{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}
-                  </template>
-                </span>
-              </div>
-            </div>
-            <div v-else-if="noFollowUp" class="p-3 bg-white/60 rounded-xl border border-dashed border-gray-200 text-xs font-semibold text-gray-400 italic">
-              No follow-up date will be scheduled for this assessment.
+            <!-- Disabled follow up state -->
+            <div v-else class="p-6 bg-foreground/[0.02] rounded-2xl border border-dashed border-border text-center space-y-2">
+              <Icon name="heroicons:calendar-days" class="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
+              <p class="text-xs font-semibold text-muted-foreground">No follow-up appointment will be scheduled for this consultation.</p>
+              <button
+                type="button"
+                @click="noFollowUp = false"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition cursor-pointer"
+              >
+                Enable Follow-Up Scheduling
+              </button>
             </div>
 
             <!-- Follow up validation error -->
-            <div v-if="followUpError" class="mt-1 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div v-if="followUpError" class="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
               <div class="flex items-center gap-2">
                 <Icon name="material-symbols:warning-outline-rounded" class="text-base text-red-500 shrink-0" />
                 <span>{{ followUpError }}</span>
@@ -746,16 +883,34 @@
                 Save Diagnosis (No Account Required)
               </button>
             </div>
-          </div>
 
-          <div class="flex flex-col gap-2 sm:col-span-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Follow-up Instructions</label>
-            <input
-              type="text"
-              v-model="note.follow_up_instructions"
-              placeholder="When to return, what to monitor..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-amber-500 transition-all outline-none"
-            />
+            <!-- Follow-up Instructions with Quick Suggestion Chips -->
+            <div class="space-y-2 pt-2 border-t border-border/60">
+              <div class="flex items-center justify-between">
+                <label class="text-xs font-bold uppercase tracking-wider text-gray-700">Follow-up Instructions & Objectives</label>
+                <span class="text-[11px] text-muted-foreground italic">Visible on patient reminder</span>
+              </div>
+
+              <!-- Suggestion Chips -->
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button
+                  v-for="chip in quickInstructions"
+                  :key="chip"
+                  type="button"
+                  @click="applyQuickInstruction(chip)"
+                  class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-foreground/5 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer border border-border/60"
+                >
+                  + {{ chip }}
+                </button>
+              </div>
+
+              <input
+                type="text"
+                v-model="note.follow_up_instructions"
+                placeholder="e.g. When to return, what symptoms to monitor, biopsy review..."
+                class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-amber-500 transition-all outline-none"
+              />
+            </div>
           </div>
         </div>
       </section>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+import { doctorSubscriptionService, type DoctorSubscription, type DoctorPlan } from '~/api/subscription/DoctorSubscriptionService'
 import { userService } from '~/api/user/UserService'
 
 definePageMeta({
@@ -46,16 +47,66 @@ const form = reactive({
   prcNumber: ''
 })
 
+// Subscription state
+const mySubscription = ref<DoctorSubscription | null>(null)
+const allDoctorPlans = ref<DoctorPlan[]>([])
+const isSubLoading = ref(false)
+
+const fetchSubscriptionInfo = async () => {
+  isSubLoading.value = true
+  try {
+    const [subRes, plansRes] = await Promise.all([
+      doctorSubscriptionService.getMySubscription(),
+      doctorSubscriptionService.getPlans()
+    ])
+    mySubscription.value = subRes.data?.subscription || null
+    allDoctorPlans.value = plansRes.data || []
+  } catch (e) {
+    console.error('Failed to load subscription info in profile:', e)
+  } finally {
+    isSubLoading.value = false
+  }
+}
+
 onMounted(async () => {
-  await fetchRegions()
-  await fetchAvailabilities()
-  await fetchClinics(true)
+  await Promise.all([
+    fetchRegions(),
+    fetchAvailabilities(),
+    fetchClinics(true),
+    fetchSubscriptionInfo()
+  ])
 })
 
 const doctorUuid = useCookie('user_uuid').value
 const availabilities = ref<any[]>([])
 const isAvailLoading = ref(false)
 const isAddLoading = ref(false)
+const scheduleViewMode = ref<'cards' | 'timetable'>('cards')
+
+// Inner Sidebar Tabs
+type SettingsTab = 'profile' | 'clinics' | 'schedule' | 'subscription' | 'security'
+const activeTab = ref<SettingsTab>('profile')
+
+const navTabs = [
+  { id: 'profile' as SettingsTab, label: 'Profile & Bio', desc: 'Personal info & practice address', icon: 'heroicons:user-circle' },
+  { id: 'clinics' as SettingsTab, label: 'Clinic Branches', desc: 'Locations & hospital clinics', icon: 'heroicons:building-office-2' },
+  { id: 'schedule' as SettingsTab, label: 'Duty & Away Presets', desc: 'Working hours & blockouts', icon: 'heroicons:calendar-days' },
+  { id: 'subscription' as SettingsTab, label: 'Subscription & Limits', desc: 'Plan status, seats & billing', icon: 'heroicons:credit-card' },
+  { id: 'security' as SettingsTab, label: 'Account & Security', desc: 'Verification & session', icon: 'heroicons:shield-check' }
+]
+
+const route = useRoute()
+watch(() => route.query.tab, (newTab) => {
+  if (newTab && typeof newTab === 'string') {
+    activeTab.value = newTab as SettingsTab
+  }
+}, { immediate: true })
+
+watch(() => route.hash, (hash) => {
+  if (hash === '#blocked-dates') {
+    activeTab.value = 'schedule'
+  }
+}, { immediate: true })
 
 // Clinic Management
 const { clinics, fetchClinics, addClinic, removeClinic } = useDoctorClinics()
@@ -391,16 +442,18 @@ const logout = () => {
 </script>
 
 <template>
-  <div class="max-w-5xl">
-    <div class="mb-4 flex items-center justify-between">
+  <div class="space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold">Doctor Profile</h1>
-        <p class="text-foreground/60 mt-2">Manage your professional and personal information.</p>
+        <h1 class="text-2xl sm:text-3xl font-bold text-foreground">Doctor Settings</h1>
+        <p class="text-foreground/60 text-sm mt-1">Manage your professional profile, clinic branches, schedule presets, and subscription.</p>
       </div>
+
       <div v-if="user?.doctor_verification?.status === 'verified'"
-        class="flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-2xl border border-primary/20">
-        <Icon name="heroicons:shield-check-20-solid" size="20" />
-        <span class="text-sm font-bold uppercase tracking-wider">Verified Professional</span>
+        class="inline-flex items-center gap-2 bg-primary/10 text-primary px-3.5 py-1.5 rounded-2xl border border-primary/20 shrink-0">
+        <Icon name="heroicons:shield-check-20-solid" size="18" />
+        <span class="text-xs font-bold uppercase tracking-wider">Verified Professional</span>
       </div>
     </div>
 
@@ -410,196 +463,229 @@ const logout = () => {
       title="Profile Setup Required"
       type="error"
     >
-      Your profile is incomplete. Please fill out the following fields to complete registration: 
+      Your profile is incomplete. Please fill out the following fields: 
       <span class="font-bold underline">{{ missingDoctorFields.join(', ') }}</span>.
     </AppAlert>
 
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-3">
-      <!-- Left: Profile Preview -->
-      <div class="lg:col-span-1">
-        <div class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm">
-          <div class="relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-1 border-2 border-primary/20">
+    <!-- Inner Sidebar Layout Container -->
+    <div class="flex flex-col lg:flex-row gap-6 items-start">
+      <!-- Left Inner Sidebar (Compact & Sleek) -->
+      <aside class="w-full lg:w-64 shrink-0 space-y-3">
+        <!-- Doctor Quick Identity Card -->
+        <div class="bg-card border border-border rounded-2xl p-4 text-center shadow-xs">
+          <div class="relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full bg-linear-to-br from-primary/20 to-primary/5 p-0.5 border border-primary/20">
             <template v-if="user?.avatar_path">
               <NuxtImg :src="getStorageUrl(user.avatar_path)" class="h-full w-full rounded-full object-cover" placeholder />
             </template>
-            <div v-else class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-4xl font-bold text-primary">
+            <div v-else class="flex h-full w-full items-center justify-center rounded-full bg-sidebar/60 text-xl font-bold text-primary">
               Dr. {{ form.last_name?.charAt(0) }}
             </div>
-            <button class="absolute bottom-0 right-0 z-10 bg-primary p-2 rounded-full text-white shadow-lg hover:bg-primary-hover transition-colors">
-              <Icon name="heroicons:camera-20-solid" size="16" />
+            <button class="absolute bottom-0 right-0 z-10 bg-primary p-1 rounded-full text-white shadow-md hover:bg-primary/90 transition cursor-pointer">
+              <Icon name="heroicons:camera-20-solid" size="11" />
             </button>
           </div>
-          <h2 class="text-xl font-bold">Dr. {{ form.first_name }} {{ form.last_name }}</h2>
-          <p class="text-foreground/60 text-sm italic">{{ form.email }}</p>
+          <h2 class="text-sm font-bold text-foreground truncate">Dr. {{ form.first_name }} {{ form.last_name }}</h2>
+          <p class="text-muted-foreground text-[11px] italic truncate">{{ form.email }}</p>
 
-          <div class="mt-6 flex flex-col gap-2">
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-foreground/50">Profile Setup</span>
-              <AppProfileStatusBadge
-                :is-complete="user?.doctor_verification?.status === 'verified'"
-                :is-declined="user?.doctor_verification?.status === 'declined'"
-                :is-pending="user?.doctor_verification?.status === 'pending'" />
-            </div>
-            <div v-if="user?.prcNumber || user?.doctor_verification" class="bg-foreground/5 rounded-xl p-3 text-left">
-              <span class="text-foreground/40 text-[10px] font-bold uppercase block mb-1">PRC License No.</span>
-              <span class="text-sm font-mono">{{ user?.prcNumber || user?.doctor_verification?.prcNumber }}</span>
-            </div>
-
-
+          <div class="mt-3 pt-3 border-t border-border/60 flex items-center justify-between text-[11px]">
+            <span class="text-muted-foreground font-medium">Verification</span>
+            <AppProfileStatusBadge
+              :is-complete="user?.doctor_verification?.status === 'verified'"
+              :is-declined="user?.doctor_verification?.status === 'declined'"
+              :is-pending="user?.doctor_verification?.status === 'pending'" />
           </div>
         </div>
-      </div>
 
-      <!-- Right: Form -->
-      <div class="lg:col-span-2">
-        <div class="bg-sidebar border-sidebar-border rounded-3xl border p-8 shadow-sm">
-            <form @submit.prevent="submitProfile" class="flex flex-col gap-6">
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">First Name</label>
-                  <input v-model="form.first_name" type="text"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                    placeholder="Enter first name" />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Last Name</label>
-                  <input v-model="form.last_name" type="text"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                    placeholder="Enter last name" />
-                </div>
-              </div>
+        <!-- Inner Navigation Menu -->
+        <div class="bg-card border border-border rounded-2xl p-2 shadow-xs space-y-1">
+          <button
+            v-for="tab in navTabs"
+            :key="tab.id"
+            type="button"
+            @click="activeTab = tab.id"
+            class="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer group"
+            :class="activeTab === tab.id 
+              ? 'bg-primary text-primary-foreground font-bold shadow-2xs' 
+              : 'hover:bg-foreground/5 text-foreground/70 hover:text-foreground font-medium'"
+          >
+            <div
+              class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+              :class="activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-foreground/5 text-foreground/60 group-hover:bg-foreground/10 group-hover:text-foreground'"
+            >
+              <Icon :name="tab.icon" class="w-3.5 h-3.5" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <span class="text-xs block leading-tight truncate">{{ tab.label }}</span>
+            </div>
+            <Icon 
+              name="heroicons:chevron-right" 
+              class="w-3.5 h-3.5 shrink-0 transition-transform opacity-40 group-hover:translate-x-0.5" 
+              :class="activeTab === tab.id ? 'opacity-100' : ''"
+            />
+          </button>
+        </div>
+      </aside>
 
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5 text-foreground">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Email Address</label>
-                  <input v-model="form.email" type="email" disabled
-                    class="bg-foreground/5 border-sidebar-border w-full rounded-2xl border px-4 py-3 outline-none transition-all opacity-60 cursor-not-allowed" />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Affiliation</label>
-                  <input v-model="form.affiliation" type="text"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                    placeholder="Enter affiliation" />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">PRC Number</label>
-                  <input v-model="form.prcNumber" type="text"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                    placeholder="Enter PRC license number" />
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Age</label>
-                  <input v-model="form.age" type="number"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                    placeholder="Your age" />
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Gender</label>
-                  <select v-model="form.gender"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none">
-                    <option value="" disabled>Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Region</label>
-                  <select v-model="codes.region"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none">
-                    <option value="" disabled>Select Region</option>
-                    <option v-for="r in regions" :key="r.code" :value="r.code">{{ r.name }}</option>
-                  </select>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Province</label>
-                  <select v-model="codes.province" :disabled="!provinces.length"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
-                    <option value="" disabled>{{ provinces.length ? 'Select Province' : 'N/A' }}</option>
-                    <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">City / Municipality</label>
-                  <select v-model="codes.city" :disabled="!cities.length"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
-                    <option value="" disabled>Select City</option>
-                    <option v-for="c in cities" :key="c.code" :value="c.code">{{ c.name }}</option>
-                  </select>
-                </div>
-                <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 ml-1 text-sm font-medium">Barangay</label>
-                  <select v-model="codes.barangay" :disabled="!barangays.length"
-                    class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all appearance-none disabled:opacity-50">
-                    <option value="" disabled>Select Barangay</option>
-                    <option v-for="b in barangays" :key="b.code" :value="b.code">{{ b.name }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 ml-1 text-sm font-medium">Street Address / Clinic Name</label>
-                <input v-model="form.street" type="text"
-                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
-                  placeholder="House No., Street Name, Clinic/Hospital" />
-              </div>
-
-              <div class="mt-4 flex items-center justify-between">
-                <div v-if="isSuccess" class="flex items-center gap-2 text-green-500">
-                  <Icon name="heroicons:check-circle" size="20" />
-                  <span class="text-sm font-medium">Doctor profile updated!</span>
-                </div>
-                <div v-if="!isSuccess"></div>
-
-                <AppButton type="submit" :loading="isLoading" class="min-w-[140px]">
-                  Save Profile
-                </AppButton>
-              </div>
-            </form>
+      <!-- Right Main Content Panel (Expanded) -->
+      <main class="flex-1 min-w-0">
+        <!-- 1. PROFILE & BIO TAB -->
+        <div v-if="activeTab === 'profile'" class="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-300">
+          <div>
+            <h2 class="text-xl font-bold text-foreground">Doctor Profile Information</h2>
+            <p class="text-muted-foreground text-xs mt-1">Update your professional profile details, affiliation, and clinical practice address.</p>
           </div>
 
-        <!-- My Clinic Locations Section -->
-        <div class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+          <div class="h-px bg-border"></div>
+
+          <form @submit.prevent="submitProfile" class="flex flex-col gap-6">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">First Name</label>
+                <input v-model="form.first_name" type="text"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                  placeholder="Enter first name" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Last Name</label>
+                <input v-model="form.last_name" type="text"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                  placeholder="Enter last name" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5 text-foreground">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Email Address</label>
+                <input v-model="form.email" type="email" disabled
+                  class="bg-foreground/5 border-border w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium opacity-60 cursor-not-allowed" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Affiliation</label>
+                <input v-model="form.affiliation" type="text"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                  placeholder="e.g. Philippine Dermatological Society" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">PRC License Number</label>
+                <input v-model="form.prcNumber" type="text"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                  placeholder="Enter PRC license number" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Age</label>
+                <input v-model="form.age" type="number"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                  placeholder="Your age" />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Gender</label>
+                <select v-model="form.gender"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all appearance-none cursor-pointer">
+                  <option value="" disabled>Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Region</label>
+                <select v-model="codes.region"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all appearance-none cursor-pointer">
+                  <option value="" disabled>Select Region</option>
+                  <option v-for="r in regions" :key="r.code" :value="r.code">{{ r.name }}</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Province</label>
+                <select v-model="codes.province" :disabled="!provinces.length"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all appearance-none disabled:opacity-50 cursor-pointer">
+                  <option value="" disabled>{{ provinces.length ? 'Select Province' : 'N/A' }}</option>
+                  <option v-for="p in provinces" :key="p.code" :value="p.code">{{ p.name }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">City / Municipality</label>
+                <select v-model="codes.city" :disabled="!cities.length"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all appearance-none disabled:opacity-50 cursor-pointer">
+                  <option value="" disabled>Select City</option>
+                  <option v-for="c in cities" :key="c.code" :value="c.code">{{ c.name }}</option>
+                </select>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Barangay</label>
+                <select v-model="codes.barangay" :disabled="!barangays.length"
+                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all appearance-none disabled:opacity-50 cursor-pointer">
+                  <option value="" disabled>Select Barangay</option>
+                  <option v-for="b in barangays" :key="b.code" :value="b.code">{{ b.name }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex flex-col gap-1.5">
+              <label class="text-foreground/70 text-xs font-bold uppercase tracking-wider">Street Address / Practice Location</label>
+              <input v-model="form.street" type="text"
+                class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none text-sm font-medium transition-all"
+                placeholder="House No., Street Name, Clinic/Hospital Rm" />
+            </div>
+
+            <div class="mt-4 flex items-center justify-between pt-2 border-t border-border">
+              <div v-if="isSuccess" class="flex items-center gap-2 text-emerald-600 font-bold text-sm">
+                <Icon name="heroicons:check-circle" size="20" />
+                <span>Doctor profile updated successfully!</span>
+              </div>
+              <div v-else></div>
+
+              <AppButton type="submit" :loading="isLoading" class="min-w-[140px]">
+                Save Profile
+              </AppButton>
+            </div>
+          </form>
+        </div>
+
+        <!-- 2. CLINIC BRANCHES TAB -->
+        <div v-else-if="activeTab === 'clinics'" class="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-300">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 class="text-xl font-bold text-foreground">My Clinic Locations</h2>
-              <p class="text-foreground/60 text-sm mt-1">Register and manage the physical clinics and hospital branches where you hold clinic hours.</p>
+              <h2 class="text-xl font-bold text-foreground">My Clinic Branches</h2>
+              <p class="text-muted-foreground text-xs mt-1">Register and manage physical clinics and hospitals where you practice.</p>
             </div>
             <button
               type="button"
               @click="showAddClinicModal = true"
-              class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer shrink-0"
+              class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
             >
               <Icon name="heroicons:plus" class="w-4 h-4" />
               <span>Add Clinic Branch</span>
             </button>
           </div>
 
-          <div class="h-px bg-sidebar-border my-6"></div>
+          <div class="h-px bg-border"></div>
 
           <!-- Clinics List -->
-          <div v-if="!clinics.length" class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
-            <Icon name="heroicons:building-office-2" class="text-foreground/30 text-4xl mb-2 mx-auto" />
-            <p class="text-foreground/50 text-sm">No clinic branches registered yet. Click "Add Clinic Branch" to register your practice location.</p>
+          <div v-if="!clinics.length" class="border border-dashed border-border rounded-2xl p-10 text-center bg-foreground/[0.02]">
+            <Icon name="heroicons:building-office-2" class="text-foreground/30 text-5xl mb-3 mx-auto" />
+            <h4 class="text-sm font-bold text-foreground">No clinic branches registered yet</h4>
+            <p class="text-muted-foreground text-xs mt-1 max-w-sm mx-auto">Click "Add Clinic Branch" above to register your first clinic or hospital location.</p>
           </div>
-          <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+          <div v-else class="grid gap-4 sm:grid-cols-2">
             <div
               v-for="clinic in clinics"
               :key="clinic.uuid || clinic.id"
-              class="p-4 rounded-2xl border border-sidebar-border bg-card/60 hover:border-border transition flex flex-col justify-between gap-3 shadow-xs"
+              class="p-5 rounded-2xl border border-border bg-foreground/[0.02] hover:border-primary/40 transition flex flex-col justify-between gap-4 shadow-2xs group"
             >
-              <div class="flex items-start justify-between gap-2">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <Icon name="heroicons:building-office-2" class="w-5 h-5" />
                   </div>
                   <div>
@@ -610,136 +696,148 @@ const logout = () => {
                 <button
                   type="button"
                   @click="handleDeleteClinic(clinic.uuid)"
-                  class="text-foreground/30 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-500/10 transition cursor-pointer shrink-0"
+                  class="text-muted-foreground hover:text-red-500 p-1.5 rounded-xl hover:bg-red-500/10 transition cursor-pointer shrink-0"
                   title="Remove Clinic"
                 >
                   <Icon name="heroicons:trash" class="w-4 h-4" />
                 </button>
               </div>
 
-              <div class="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-sidebar-border/60">
-                <span class="inline-flex items-center gap-1">
-                  <Icon name="heroicons:phone" class="w-3 h-3" />
-                  {{ clinic.phone || 'No phone' }}
+              <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/60">
+                <span class="inline-flex items-center gap-1.5">
+                  <Icon name="heroicons:phone" class="w-3.5 h-3.5 text-primary" />
+                  {{ clinic.phone || 'No phone set' }}
                 </span>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-                  Active Branch
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Active
                 </span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Clinic Hours & Schedule Presets Section -->
-        <div id="blocked-dates" class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+        <!-- 3. DUTY & AWAY PRESETS TAB -->
+        <div v-else-if="activeTab === 'schedule'" id="blocked-dates" class="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-300">
           <div>
-            <h2 class="text-xl font-bold">Clinic Hours & Schedule Presets</h2>
-            <p class="text-foreground/60 text-sm mt-1">Preset the clinic locations where you are on duty on specific dates, or set blocked/away periods.</p>
+            <h2 class="text-xl font-bold text-foreground">Duty Schedule & Away Presets</h2>
+            <p class="text-muted-foreground text-xs mt-1">Preset the clinic locations where you are on duty on specific dates, or set blocked/away periods.</p>
           </div>
 
-          <!-- Divider -->
-          <div class="h-px bg-sidebar-border my-6"></div>
+          <div class="h-px bg-border"></div>
 
           <!-- Add Schedule / Availability Form -->
           <form @submit.prevent="addAvailability" class="flex flex-col gap-5">
             <!-- Schedule Type Tabs -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
               <button
                 type="button"
                 @click="scheduleType = 'duty'"
-                class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border"
-                :class="scheduleType === 'duty' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-xs' : 'bg-foreground/5 text-foreground/60 border-transparent hover:bg-foreground/10'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+                :class="scheduleType === 'duty' 
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-2xs' 
+                  : 'bg-foreground/5 border-transparent text-foreground/60 hover:text-foreground'"
               >
-                <Icon name="heroicons:building-office" class="w-4 h-4 text-emerald-600" />
+                <Icon name="heroicons:building-office-2" class="w-4 h-4 text-emerald-600" />
                 <span>🏥 Clinic Duty Hours</span>
               </button>
 
               <button
                 type="button"
                 @click="scheduleType = 'away'"
-                class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border"
-                :class="scheduleType === 'away' ? 'bg-red-50 text-red-700 border-red-300 shadow-xs' : 'bg-foreground/5 text-foreground/60 border-transparent hover:bg-foreground/10'"
+                class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border"
+                :class="scheduleType === 'away' 
+                  ? 'bg-rose-50 border-rose-300 text-rose-800 shadow-2xs' 
+                  : 'bg-foreground/5 border-transparent text-foreground/60 hover:text-foreground'"
               >
-                <Icon name="heroicons:no-symbol" class="w-4 h-4 text-red-600" />
+                <Icon name="heroicons:no-symbol" class="w-4 h-4 text-rose-600" />
                 <span>🚫 Blocked / Away Period</span>
               </button>
             </div>
 
-            <!-- Clinic Location Dropdown (when Duty selected) -->
-            <div v-if="scheduleType === 'duty'" class="flex flex-col gap-1.5 p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50">
-              <label class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                <Icon name="heroicons:map-pin" class="w-4 h-4 text-emerald-600" />
-                <span>Select Clinic Location for this Shift</span>
-              </label>
-              
-              <select
-                v-if="clinics.length > 0"
-                v-model="selectedClinicId"
-                class="bg-white border-emerald-200 focus:border-emerald-500 w-full rounded-xl border px-3.5 py-2.5 outline-none transition-all text-sm font-medium text-foreground"
-              >
-                <option :value="null">-- Select a registered clinic branch --</option>
-                <option v-for="c in clinics" :key="c.id" :value="c.id">
-                  {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
-                </option>
-              </select>
+            <!-- Clinic Selector (Shown for Duty hours) -->
+            <div v-if="scheduleType === 'duty'" class="space-y-1.5">
+              <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Select Clinic Location *</label>
+              <div class="grid sm:grid-cols-2 gap-3">
+                <select
+                  v-if="clinics.length > 0"
+                  v-model="selectedClinicId"
+                  class="w-full rounded-2xl border border-border bg-foreground/5 px-4 py-3 text-sm font-semibold outline-none focus:border-primary cursor-pointer"
+                >
+                  <option :value="null" disabled>-- Choose a registered clinic branch --</option>
+                  <option v-for="c in clinics" :key="c.id" :value="c.id">
+                    {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                  </option>
+                </select>
 
-              <input
-                v-if="!selectedClinicId"
-                v-model="customLocation"
-                type="text"
-                placeholder="Or type a custom clinic / hospital name..."
-                class="bg-white border-emerald-200 focus:border-emerald-500 w-full rounded-xl border px-3.5 py-2.5 outline-none transition-all text-sm mt-1"
-              />
-            </div>
-
-            <!-- Block whole day toggle (when Away selected) -->
-            <label v-if="scheduleType === 'away'" class="flex items-center gap-3 cursor-pointer group w-fit">
-              <div
-                @click="blockWholeDay = !blockWholeDay"
-                class="relative h-5 w-9 rounded-full transition-colors duration-200"
-                :class="blockWholeDay ? 'bg-red-500' : 'bg-foreground/20'"
-              >
-                <span
-                  class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
-                  :class="blockWholeDay ? 'translate-x-4' : 'translate-x-0'"
+                <input
+                  v-if="clinics.length === 0 || !selectedClinicId"
+                  v-model="customLocation"
+                  type="text"
+                  placeholder="Or type clinic name / room..."
+                  class="w-full rounded-2xl border border-border bg-foreground/5 px-4 py-3 text-sm outline-none focus:border-primary font-medium"
                 />
               </div>
-              <span class="text-sm font-medium text-foreground/70 group-hover:text-foreground transition-colors">
-                Block entire day
-              </span>
-              <span v-if="blockWholeDay" class="text-xs font-semibold text-red-500 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                All day (00:00 – 23:59)
-              </span>
-            </label>
+            </div>
 
-            <div class="flex flex-col gap-4">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 ml-1 text-sm font-medium">Date</label>
-                <input v-model="availForm.available_date" type="date" :min="new Date().toISOString().split('T')[0]" required
-                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all text-sm" />
+            <!-- Date and Times Row -->
+            <div class="grid sm:grid-cols-3 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Date *</label>
+                <input
+                  v-model="availForm.available_date"
+                  type="date"
+                  required
+                  class="w-full rounded-2xl border border-border bg-foreground/5 px-4 py-3 text-sm outline-none focus:border-primary font-medium"
+                />
               </div>
-              <div class="mt-2">
-                <AppTimeRangePicker
-                  v-model:start-time="availForm.start_time"
-                  v-model:end-time="availForm.end_time"
-                  :label="scheduleType === 'duty' ? 'Clinic Duty Hours' : 'Blockout Hours Range'"
+
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Start Time</label>
+                <input
+                  v-model="availForm.start_time"
+                  type="time"
                   :disabled="scheduleType === 'away' && blockWholeDay"
+                  class="w-full rounded-2xl border border-border bg-foreground/5 px-4 py-3 text-sm outline-none focus:border-primary font-medium disabled:opacity-50"
+                />
+              </div>
+
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold uppercase tracking-wider text-gray-500">End Time</label>
+                <input
+                  v-model="availForm.end_time"
+                  type="time"
+                  :disabled="scheduleType === 'away' && blockWholeDay"
+                  class="w-full rounded-2xl border border-border bg-foreground/5 px-4 py-3 text-sm outline-none focus:border-primary font-medium disabled:opacity-50"
                 />
               </div>
             </div>
 
-            <div class="flex items-center justify-between mt-2">
-              <div>
-                <p v-if="availSuccessMsg" class="text-green-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
-                  <Icon name="heroicons:check-circle" size="18" />
-                  {{ availSuccessMsg }}
-                </p>
-                <p v-if="availErrorMsg" class="text-red-500 text-sm font-medium flex items-center gap-1.5 animate-in slide-in-from-top-1">
-                  <Icon name="heroicons:exclamation-circle" size="18" />
-                  {{ availErrorMsg }}
-                </p>
-              </div>
+            <!-- Block whole day checkbox (Away only) -->
+            <div v-if="scheduleType === 'away'" class="flex items-center gap-2">
+              <input
+                id="block-whole-day"
+                v-model="blockWholeDay"
+                type="checkbox"
+                class="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+              />
+              <label for="block-whole-day" class="text-xs font-bold text-foreground/80 cursor-pointer select-none">
+                Block out the entire day (Unavailable all day)
+              </label>
+            </div>
 
+            <!-- Status / Alert Messages -->
+            <div v-if="availSuccessMsg" class="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-700 flex items-center gap-2">
+              <Icon name="heroicons:check-circle" class="w-4 h-4" />
+              <span>{{ availSuccessMsg }}</span>
+            </div>
+
+            <div v-if="availErrorMsg" class="p-3 rounded-2xl bg-red-50 border border-red-200 text-xs font-bold text-red-600 flex items-center gap-2">
+              <Icon name="heroicons:exclamation-circle" class="w-4 h-4" />
+              <span>{{ availErrorMsg }}</span>
+            </div>
+
+            <div class="flex items-center justify-between pt-2">
+              <div></div>
               <AppButton type="submit" :loading="isAddLoading" class="min-w-[150px]">
                 {{ scheduleType === 'duty' ? 'Add Duty Schedule' : 'Block Out Date' }}
               </AppButton>
@@ -747,175 +845,410 @@ const logout = () => {
           </form>
 
           <!-- Divider -->
-          <div class="h-px bg-sidebar-border my-6"></div>
+          <div class="h-px bg-border"></div>
 
-          <!-- Existing Slots -->
+          <!-- Existing Slots & Timetable Preview -->
           <div>
-            <h3 class="text-md font-semibold text-foreground/80 mb-4">Your Preset Schedules & Away Periods</h3>
-            
-            <div v-if="isAvailLoading" class="flex flex-col gap-3">
-              <div v-for="i in 2" :key="i" class="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse"></div>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <h3 class="text-md font-bold text-foreground">Your Preset Schedules & Timetable</h3>
+              
+              <div class="flex items-center gap-1 bg-foreground/5 p-1 rounded-xl border border-border">
+                <button
+                  type="button"
+                  @click="scheduleViewMode = 'cards'"
+                  class="flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  :class="scheduleViewMode === 'cards' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'"
+                >
+                  <Icon name="lucide:layout-list" class="w-3.5 h-3.5" />
+                  List Cards
+                </button>
+                <button
+                  type="button"
+                  @click="scheduleViewMode = 'timetable'"
+                  class="flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer"
+                  :class="scheduleViewMode === 'timetable' ? 'bg-card text-foreground shadow-2xs' : 'text-muted-foreground hover:text-foreground'"
+                >
+                  <Icon name="lucide:calendar-range" class="w-3.5 h-3.5" />
+                  Weekly Timetable
+                </button>
+              </div>
             </div>
 
-            <div v-else-if="!availabilities.length" 
-              class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
-              <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2 mx-auto" />
-              <p class="text-foreground/50 text-sm">No schedule presets set. You are currently marked as available every day for new patient referrals.</p>
+            <!-- Timetable Mode -->
+            <div v-if="scheduleViewMode === 'timetable'" class="rounded-2xl overflow-hidden border border-border">
+              <AppWeeklyTimetable />
             </div>
 
-            <div v-else class="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
-              <div v-for="slot in availabilities" :key="slot.uuid"
-                class="flex items-center justify-between p-4 rounded-2xl border border-sidebar-border bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-all">
-                <div class="flex items-center gap-4">
+            <!-- Cards Mode -->
+            <template v-else>
+              <div v-if="isAvailLoading" class="flex flex-col gap-3">
+                <div v-for="i in 2" :key="i" class="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse"></div>
+              </div>
+
+              <div v-else-if="!availabilities.length" 
+                class="border border-dashed border-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
+                <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2 mx-auto" />
+                <p class="text-muted-foreground text-sm">No schedule presets set. You are currently marked as available every day for new patient referrals.</p>
+              </div>
+
+              <div v-else class="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
+                <div v-for="slot in availabilities" :key="slot.uuid"
+                  class="flex items-center justify-between p-4 rounded-2xl border border-border bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-all">
+                  <div class="flex items-center gap-4">
+                    <div 
+                      class="p-2.5 rounded-xl shrink-0"
+                      :class="slot.is_available ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'"
+                    >
+                      <Icon :name="slot.is_available ? 'heroicons:building-office-2' : 'heroicons:calendar'" size="20" />
+                    </div>
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <p class="text-sm font-bold text-foreground">
+                          {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
+                        </p>
+                        <span 
+                          class="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                          :class="slot.is_available ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'"
+                        >
+                          {{ slot.is_available ? (slot.clinic?.name || slot.location_name || 'Clinic Duty') : 'Blocked / Away' }}
+                        </span>
+                      </div>
+                      <p class="text-xs text-foreground/60 mt-0.5">
+                        {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                        <span v-if="slot.clinic?.address" class="text-foreground/40 ml-1">• {{ slot.clinic.address }}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-3">
+                    <button @click="deleteAvailability(slot.uuid)"
+                      class="text-foreground/40 hover:text-red-500 p-2 rounded-xl hover:bg-red-500/5 transition-all cursor-pointer"
+                      title="Remove Period">
+                      <Icon name="heroicons:trash" size="18" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- 4. SUBSCRIPTION & LIMITS TAB -->
+        <div v-else-if="activeTab === 'subscription'" class="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-300">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-foreground">Subscription & Practice Plan</h2>
+              <p class="text-muted-foreground text-xs mt-1">Review your active subscription plan, seat quotas, and capacity limits.</p>
+            </div>
+
+            <AppButton
+              to="/Doctor/subscription"
+              variant="solid"
+              size="sm"
+            >
+              <span>Manage Plans</span>
+              <Icon name="heroicons:arrow-right" size="14" class="ml-1.5" />
+            </AppButton>
+          </div>
+
+          <div class="h-px bg-border"></div>
+
+          <!-- Loading State -->
+          <div v-if="isSubLoading" class="space-y-4">
+            <div class="h-32 rounded-2xl bg-foreground/5 animate-pulse"></div>
+            <div class="h-44 rounded-2xl bg-foreground/5 animate-pulse"></div>
+          </div>
+
+          <div v-else class="space-y-6">
+            <!-- Current Plan Card -->
+            <div 
+              class="p-6 rounded-3xl border transition-all"
+              :class="mySubscription?.status === 'active' 
+                ? 'bg-emerald-50/40 border-emerald-200/80 shadow-2xs' 
+                : 'bg-foreground/[0.02] border-border'"
+            >
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
                   <div 
-                    class="p-2.5 rounded-xl shrink-0"
-                    :class="slot.is_available ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'"
+                    class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs"
+                    :class="mySubscription?.status === 'active' ? 'bg-emerald-600 text-white' : 'bg-foreground/10 text-foreground/70'"
                   >
-                    <Icon :name="slot.is_available ? 'heroicons:building-office-2' : 'heroicons:calendar'" size="20" />
+                    <Icon :name="mySubscription?.status === 'active' ? 'heroicons:shield-check' : 'heroicons:credit-card'" class="w-6 h-6" />
                   </div>
                   <div>
                     <div class="flex items-center gap-2">
-                      <p class="text-sm font-bold text-foreground">
-                        {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
-                      </p>
+                      <h3 class="text-base sm:text-lg font-bold text-foreground">
+                        {{ mySubscription?.plan?.name || 'No Active Subscription' }}
+                      </h3>
                       <span 
-                        class="text-[11px] font-bold px-2 py-0.5 rounded-full border"
-                        :class="slot.is_available ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'"
+                        class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border"
+                        :class="mySubscription?.status === 'active' 
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                          : 'bg-gray-100 text-gray-700 border-gray-300'"
                       >
-                        {{ slot.is_available ? (slot.clinic?.name || slot.location_name || 'Clinic Duty') : 'Blocked / Away' }}
+                        {{ mySubscription?.status || 'Inactive' }}
                       </span>
                     </div>
-                    <p class="text-xs text-foreground/60 mt-0.5">
-                      {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
-                      <span v-if="slot.clinic?.address" class="text-foreground/40 ml-1">• {{ slot.clinic.address }}</span>
+                    <p class="text-xs text-muted-foreground mt-0.5">
+                      <template v-if="mySubscription?.status === 'active'">
+                        Billed {{ mySubscription.billing_cycle }} • Valid through {{ new Date(mySubscription.ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
+                      </template>
+                      <template v-else>
+                        Subscribe to an official doctor plan to unlock scanning & practice features.
+                      </template>
                     </p>
                   </div>
                 </div>
 
-                <div class="flex items-center gap-3">
-                  <button @click="deleteAvailability(slot.uuid)"
-                    class="text-foreground/40 hover:text-red-500 p-2 rounded-xl hover:bg-red-500/5 transition-all cursor-pointer"
-                    title="Remove Period">
-                    <Icon name="heroicons:trash" size="18" />
-                  </button>
+                <div v-if="mySubscription?.status === 'active'" class="text-right shrink-0">
+                  <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Rate</span>
+                  <span class="text-lg font-extrabold text-foreground">
+                    ₱{{ (mySubscription.billing_cycle === 'annual' ? mySubscription.plan?.price_annual : mySubscription.plan?.price_monthly)?.toLocaleString() }}
+                  </span>
+                  <span class="text-xs text-muted-foreground font-medium"> / {{ mySubscription.billing_cycle === 'annual' ? 'yr' : 'mo' }}</span>
+                </div>
+              </div>
+
+              <!-- Plan Quotas & Capabilities Grid -->
+              <div class="mt-6 pt-5 border-t border-border/60 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="p-3 rounded-2xl bg-card border border-border/80 text-center">
+                  <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Clinic Branches</span>
+                  <span class="text-sm font-bold text-foreground mt-0.5 block">
+                    {{ mySubscription?.plan?.max_clinics ?? 1 }} Branch{{ (mySubscription?.plan?.max_clinics ?? 1) > 1 ? 'es' : '' }}
+                  </span>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-card border border-border/80 text-center">
+                  <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Doctor Seats</span>
+                  <span class="text-sm font-bold text-foreground mt-0.5 block">
+                    {{ mySubscription?.plan?.max_doctors ?? 1 }} Seat{{ (mySubscription?.plan?.max_doctors ?? 1) > 1 ? 's' : '' }}
+                  </span>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-card border border-border/80 text-center">
+                  <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Secretaries</span>
+                  <span class="text-sm font-bold text-foreground mt-0.5 block">
+                    {{ mySubscription?.plan?.max_secretaries ? `${mySubscription.plan.max_secretaries} Seats` : 'None' }}
+                  </span>
+                </div>
+
+                <div class="p-3 rounded-2xl bg-card border border-border/80 text-center">
+                  <span class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">AI Diagnostics</span>
+                  <span class="text-sm font-bold text-emerald-600 mt-0.5 block">
+                    Included
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Add Clinic Modal -->
-        <Teleport to="body">
-          <div v-if="showAddClinicModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-            <div class="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                    <Icon name="heroicons:building-office-2" class="w-5 h-5" />
+            <!-- Upgrade Recommendation Card -->
+            <div class="p-6 sm:p-7 rounded-3xl bg-linear-to-br from-indigo-900 via-indigo-950 to-slate-950 text-white shadow-xl relative overflow-hidden">
+              <div class="absolute top-0 right-0 -mt-8 -mr-8 w-44 h-44 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+              
+              <div class="relative z-10 space-y-4">
+                <div class="flex items-center gap-2 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+                  <Icon name="heroicons:sparkles" class="w-4 h-4 text-amber-400" />
+                  <span>Expand Your Clinical Practice</span>
+                </div>
+
+                <div>
+                  <h3 class="text-xl sm:text-2xl font-black text-white leading-tight">
+                    Upgrade to Team & Multi-Clinic Plans
+                  </h3>
+                  <p class="text-indigo-200/80 text-xs sm:text-sm mt-1 max-w-xl leading-relaxed">
+                    Scale your clinical operations by delegating appointment queues to secretaries and inviting associate dermatologists to collaborate under your clinic license.
+                  </p>
+                </div>
+
+                <!-- Feature Highlights -->
+                <div class="grid sm:grid-cols-3 gap-3 pt-2">
+                  <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/10 flex items-start gap-2.5">
+                    <Icon name="heroicons:user-group" class="w-4 h-4 text-indigo-300 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 class="text-xs font-bold text-white">Multi-Doctor Pool</h5>
+                      <p class="text-[11px] text-indigo-200/70 mt-0.5">Share plan quota with colleague doctors.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 class="text-lg font-bold text-foreground">Add Clinic Branch</h3>
-                    <p class="text-xs text-muted-foreground">Register a new clinic location where you practice.</p>
+
+                  <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/10 flex items-start gap-2.5">
+                    <Icon name="heroicons:user-plus" class="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 class="text-xs font-bold text-white">Clinic Secretary</h5>
+                      <p class="text-[11px] text-indigo-200/70 mt-0.5">Delegate intake & queue management.</p>
+                    </div>
                   </div>
-                </div>
-                <button @click="showAddClinicModal = false" class="text-muted-foreground hover:text-foreground p-1 rounded-xl cursor-pointer">
-                  <Icon name="heroicons:x-mark" class="w-5 h-5" />
-                </button>
-              </div>
 
-              <form @submit.prevent="handleCreateClinic" class="space-y-4">
-                <div v-if="clinicError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-600">
-                  {{ clinicError }}
-                </div>
-
-                <div class="space-y-1.5">
-                  <label class="text-xs font-bold text-foreground">Clinic / Hospital Name *</label>
-                  <input
-                    v-model="clinicForm.name"
-                    type="text"
-                    required
-                    placeholder="e.g. St. Luke's Medical Center - Rm 402"
-                    class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div class="space-y-1.5">
-                  <label class="text-xs font-bold text-foreground">Address / Floor & Room</label>
-                  <input
-                    v-model="clinicForm.address"
-                    type="text"
-                    placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
-                    class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div class="grid sm:grid-cols-2 gap-3">
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-foreground">Contact Phone</label>
-                    <input
-                      v-model="clinicForm.phone"
-                      type="text"
-                      placeholder="e.g. +63 917 123 4567"
-                      class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-                    />
-                  </div>
-                  <div class="space-y-1.5">
-                    <label class="text-xs font-bold text-foreground">Clinic Email</label>
-                    <input
-                      v-model="clinicForm.email"
-                      type="email"
-                      placeholder="e.g. clinic@derma.com"
-                      class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
-                    />
+                  <div class="p-3 rounded-2xl bg-white/10 backdrop-blur-xs border border-white/10 flex items-start gap-2.5">
+                    <Icon name="heroicons:building-office-2" class="w-4 h-4 text-emerald-300 shrink-0 mt-0.5" />
+                    <div>
+                      <h5 class="text-xs font-bold text-white">Multi-Branch</h5>
+                      <p class="text-[11px] text-indigo-200/70 mt-0.5">Practice across multiple hospitals.</p>
+                    </div>
                   </div>
                 </div>
 
-                <div class="flex items-center justify-end gap-3 pt-2">
-                  <button
-                    type="button"
-                    @click="showAddClinicModal = false"
-                    class="px-4 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-foreground/5 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
+                <!-- Action Button -->
+                <div class="pt-3 flex items-center justify-between">
+                  <span class="text-xs text-indigo-300/80">Automated activation via PayMongo & GCash/Cards.</span>
+                  
                   <AppButton
-                    type="submit"
-                    :loading="isClinicSubmitting"
-                    class="px-5 py-2 text-xs font-bold"
+                    to="/Doctor/subscription"
+                    variant="solid"
+                    class="bg-white text-indigo-950 hover:bg-indigo-50 font-extrabold px-5 py-2.5 rounded-2xl shadow-lg cursor-pointer"
                   >
-                    Save Clinic
+                    <span>View Upgrade Plans</span>
+                    <Icon name="heroicons:arrow-right" class="w-4 h-4 ml-1.5" />
                   </AppButton>
                 </div>
-              </form>
-            </div>
-          </div>
-        </Teleport>
-
-        <!-- Subscription & Billing Section -->
-        <div class="border-sidebar-border bg-card rounded-2xl border p-6 space-y-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-              <div class="bg-primary/10 text-primary p-3 rounded-2xl">
-                <Icon name="heroicons:credit-card" size="24" />
-              </div>
-              <div>
-                <h2 class="text-lg font-bold text-foreground">Subscription & Billing</h2>
-                <p class="text-xs text-foreground/60">Manage your subscription plan, tier limits, and billing history.</p>
               </div>
             </div>
-
-            <AppButton
-              to="/doctor/subscription"
-              variant="solid"
-              size="sm"
-            >
-              <span>Manage Subscription</span>
-              <Icon name="heroicons:arrow-right" size="14" class="ml-1.5" />
-            </AppButton>
           </div>
         </div>
-      </div>
+
+        <!-- 5. ACCOUNT & SECURITY TAB -->
+        <div v-else-if="activeTab === 'security'" class="bg-card border border-border rounded-3xl p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-300">
+          <div>
+            <h2 class="text-xl font-bold text-foreground">Account & Security</h2>
+            <p class="text-muted-foreground text-xs mt-1">Manage your credentials, professional verification, and active session.</p>
+          </div>
+
+          <div class="h-px bg-border"></div>
+
+          <div class="space-y-4">
+            <!-- Verification Card -->
+            <div class="p-5 rounded-2xl border border-border bg-foreground/[0.02] flex items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Icon name="heroicons:shield-check" class="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-foreground">Medical Board Verification</h4>
+                  <p class="text-xs text-muted-foreground mt-0.5">PRC: <span class="font-mono font-bold">{{ user?.prcNumber || user?.doctor_verification?.prcNumber || 'Not submitted' }}</span></p>
+                </div>
+              </div>
+              <AppProfileStatusBadge
+                :is-complete="user?.doctor_verification?.status === 'verified'"
+                :is-declined="user?.doctor_verification?.status === 'declined'"
+                :is-pending="user?.doctor_verification?.status === 'pending'" />
+            </div>
+
+            <!-- Sign Out Row -->
+            <div class="p-5 rounded-2xl border border-red-200/60 bg-red-50/40 flex items-center justify-between gap-4">
+              <div>
+                <h4 class="text-sm font-bold text-red-900">Sign Out</h4>
+                <p class="text-xs text-red-600/80 mt-0.5">Terminate your current session on this device.</p>
+              </div>
+
+              <button
+                type="button"
+                @click="isLogoutModalOpen = true"
+                class="px-4 py-2 rounded-xl text-xs font-bold text-red-600 bg-red-100 hover:bg-red-200 transition cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
+
+    <!-- Add Clinic Modal -->
+    <Teleport to="body">
+      <div v-if="showAddClinicModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+        <div class="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                <Icon name="heroicons:building-office-2" class="w-5 h-5" />
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-foreground">Add Clinic Branch</h3>
+                <p class="text-xs text-muted-foreground">Register a new clinic location where you practice.</p>
+              </div>
+            </div>
+            <button @click="showAddClinicModal = false" class="text-muted-foreground hover:text-foreground p-1 rounded-xl cursor-pointer">
+              <Icon name="heroicons:x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <form @submit.prevent="handleCreateClinic" class="space-y-4">
+            <div v-if="clinicError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-600">
+              {{ clinicError }}
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-foreground">Clinic / Hospital Name *</label>
+              <input
+                v-model="clinicForm.name"
+                type="text"
+                required
+                placeholder="e.g. St. Luke's Medical Center - Rm 402"
+                class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-foreground">Address / Floor & Room</label>
+              <input
+                v-model="clinicForm.address"
+                type="text"
+                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
+                class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold text-foreground">Contact Phone</label>
+                <input
+                  v-model="clinicForm.phone"
+                  type="text"
+                  placeholder="e.g. +63 917 123 4567"
+                  class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-xs font-bold text-foreground">Clinic Email</label>
+                <input
+                  v-model="clinicForm.email"
+                  type="email"
+                  placeholder="e.g. clinic@derma.com"
+                  class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                @click="showAddClinicModal = false"
+                class="px-4 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-foreground/5 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <AppButton
+                type="submit"
+                :loading="isClinicSubmitting"
+                class="px-5 py-2 text-xs font-bold"
+              >
+                Save Clinic
+              </AppButton>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Logout Modal -->
+    <AppModalConfirm
+      v-if="isLogoutModalOpen"
+      title="Confirm Sign Out"
+      message="Are you sure you want to log out of your doctor account?"
+      confirm-text="Log Out"
+      confirm-variant="danger"
+      @confirm="logout"
+      @cancel="isLogoutModalOpen = false"
+    />
   </div>
 </template>
 
