@@ -66,6 +66,7 @@
               <td class="px-5 py-4 text-xs font-medium space-y-0.5">
                 <div class="text-gray-700">Doctors: <span class="font-mono text-gray-500">{{ plan.max_doctors ?? 'Unlimited' }}</span></div>
                 <div class="text-gray-700">Clinics: <span class="font-mono text-gray-500">{{ plan.max_clinics ?? 'Unlimited' }}</span></div>
+                <div class="text-gray-700">Secretaries: <span class="font-mono text-gray-500">{{ plan.max_secretaries !== null && plan.max_secretaries !== undefined ? plan.max_secretaries : 'Unlimited' }}</span></div>
               </td>
               <td class="px-5 py-4">
                 <button 
@@ -74,7 +75,7 @@
                   :class="plan.is_active ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-gray-100 text-gray-500 border border-gray-200'"
                 >
                   <span class="h-1.5 w-1.5 rounded-full" :class="plan.is_active ? 'bg-emerald-500' : 'bg-gray-400'"></span>
-                  {{ plan.is_active ? 'Active' : 'Inactive' }}
+                  {{ plan.is_active ? 'Active' : 'Disabled' }}
                 </button>
               </td>
               <td class="px-5 py-4 text-right space-x-2">
@@ -93,7 +94,7 @@
 
     <!-- Create / Edit Plan Dialog Modal -->
     <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
-      <div class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 class="text-lg font-black text-gray-950">{{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}</h3>
           <button @click="showModal = false" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
@@ -127,14 +128,18 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Max Doctors (Seats)</label>
-              <input v-model.number="form.max_doctors" type="number" placeholder="Leave empty for unlimited" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition" />
+              <input v-model.number="form.max_doctors" type="number" min="1" placeholder="Empty = Unltd" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition" />
             </div>
             <div>
               <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Max Clinics (Branches)</label>
-              <input v-model.number="form.max_clinics" type="number" placeholder="Leave empty for unlimited" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition" />
+              <input v-model.number="form.max_clinics" type="number" min="1" placeholder="Empty = Unltd" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition" />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">Max Secretaries (Seats)</label>
+              <input v-model.number="form.max_secretaries" type="number" min="0" placeholder="0 = None" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 focus:bg-white focus:border-primary/30 focus:ring-4 focus:ring-primary/10 outline-none transition" />
             </div>
           </div>
 
@@ -240,6 +245,7 @@ const form = ref<Plan>({
   price_annual: 0,
   max_doctors: null,
   max_clinics: null,
+  max_secretaries: null,
   trial_period_days: 0,
   grace_period_days: 3,
   is_active: true,
@@ -293,6 +299,7 @@ const openCreateModal = () => {
     price_annual: 9990,
     max_doctors: 1,
     max_clinics: 1,
+    max_secretaries: 0,
     trial_period_days: 14,
     grace_period_days: 3,
     is_active: true,

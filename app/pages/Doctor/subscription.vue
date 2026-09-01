@@ -64,6 +64,10 @@ onMounted(async () => {
     bannerAlert.type = 'info'
     bannerAlert.title = 'Subscription Required'
     bannerAlert.description = 'An active subscription plan is required to access Doctor AI Skin Scanning and Clinical Diagnostics.'
+  } else if (requiredFeature === 'secretary') {
+    bannerAlert.type = 'info'
+    bannerAlert.title = 'Secretary Plan Required'
+    bannerAlert.description = 'A subscription plan with secretary account support (such as Individual Doctor Plan with Secretary or Multi-Clinic Plan) is required to register and manage secretary accounts.'
   }
 
   // Handle return redirect from gateway payment
@@ -365,6 +369,14 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             <li class="flex items-center gap-2">
               <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />
               <span><strong>{{ plan.max_clinics ? plan.max_clinics : 'Unlimited' }}</strong> Clinic Branches</span>
+            </li>
+            <li v-if="plan.max_secretaries !== undefined && plan.max_secretaries !== null && plan.max_secretaries > 0" class="flex items-center gap-2">
+              <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />
+              <span><strong>{{ plan.max_secretaries }}</strong> Secretary Account{{ plan.max_secretaries > 1 ? 's' : '' }}</span>
+            </li>
+            <li v-else-if="plan.max_secretaries === null" class="flex items-center gap-2">
+              <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />
+              <span><strong>Unlimited</strong> Secretary Accounts</span>
             </li>
             <li v-for="(feat, idx) in extractFeatureItems(plan)" :key="idx" class="flex items-center gap-2">
               <Icon name="heroicons:check-circle" class="w-4 h-4 text-primary shrink-0" />

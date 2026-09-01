@@ -7,6 +7,11 @@ definePageMeta({
 })
 
 const { getStorageUrl } = useStorage()
+const { isSubscribed, hasFeature, subscription, fetchSubscription } = useDoctorSubscription()
+
+onMounted(async () => {
+  await fetchSubscription()
+})
 
 // Fetch doctor's secretaries list
 const { data: response, refresh, pending } = doctorSecretaryService.useList()
@@ -14,6 +19,24 @@ const { data: response, refresh, pending } = doctorSecretaryService.useList()
 const secretaries = computed(() => {
   const res = response.value as any
   return res?.data ?? (Array.isArray(res) ? res : [])
+})
+
+const canHaveSecretary = computed(() => {
+  if (!isSubscribed.value) return false
+  const plan = subscription.value?.plan
+  if (!plan) return false
+  return hasFeature('can_have_secretary') || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
+})
+
+const maxSecretaries = computed(() => {
+  if (!isSubscribed.value) return 0
+  return subscription.value?.plan?.max_secretaries ?? null
+})
+
+const isLimitReached = computed(() => {
+  if (!canHaveSecretary.value) return true
+  if (maxSecretaries.value === null) return false
+  return secretaries.value.length >= maxSecretaries.value
 })
 
 // Search functionality
@@ -46,6 +69,14 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const openAddModal = () => {
+  if (!canHaveSecretary.value) {
+    navigateTo('/doctor/subscription?required=secretary')
+    return
+  }
+  if (isLimitReached.value) {
+    toast.error(`You have reached your plan limit of ${maxSecretaries.value} secretary account(s). Please upgrade to add more.`)
+    return
+  }
   form.firstName = ''
   form.middleName = ''
   form.lastName = ''
@@ -133,8 +164,19 @@ const handleDeleteSecretary = async () => {
     <!-- Header Section -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-foreground">Manage Secretaries</h1>
-        <p class="text-sm text-muted-foreground">Register and manage secretary accounts linked to your clinic.</p>
+        <div class="flex items-center gap-2.5">
+          <h1 class="text-2xl font-bold text-foreground">Manage Secretaries</h1>
+          <!-- Quota Badge -->
+          <span 
+            v-if="canHaveSecretary"
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border"
+            :class="isLimitReached ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full" :class="isLimitReached ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+            {{ secretaries.length }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Seats Used
+          </span>
+        </div>
+        <p class="text-sm text-muted-foreground mt-0.5">Register and manage secretary accounts linked to your clinic.</p>
       </div>
 
       <div class="flex items-center gap-3">
@@ -146,9 +188,39 @@ const handleDeleteSecretary = async () => {
           class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm cursor-pointer"
         >
           <Icon name="heroicons:user-plus" class="w-4 h-4" />
-          <span>Add Secretary</span>
+          <span>{{ canHaveSecretary ? 'Add Secretary' : 'Upgrade Plan' }}</span>
         </button>
       </div>
+    </div>
+
+    <!-- Upgrade Feature Banner -->
+    <div v-if="!canHaveSecretary && !pending" class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-3">
+        <Icon name="lucide:shield-alert" class="w-5 h-5 text-amber-600 shrink-0" />
+        <div>
+          <p class="text-xs font-bold">Secretary Management Plan Required</p>
+          <p class="text-xs text-amber-800">Your current subscription tier does not include secretary account access. Upgrade to an Individual Doctor Plan with Secretary or Multi-Clinic Plan.</p>
+        </div>
+      </div>
+      <NuxtLink to="/doctor/subscription?required=secretary" class="shrink-0 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
+        <Icon name="lucide:arrow-up-right" class="w-3.5 h-3.5" />
+        <span>Upgrade Subscription</span>
+      </NuxtLink>
+    </div>
+
+    <!-- Limit Reached Notice Banner -->
+    <div v-else-if="canHaveSecretary && isLimitReached && !pending" class="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-3">
+        <Icon name="lucide:info" class="w-5 h-5 text-blue-600 shrink-0" />
+        <div>
+          <p class="text-xs font-bold">Secretary Seat Quota Reached</p>
+          <p class="text-xs text-blue-800">You are currently using all {{ maxSecretaries }} of {{ maxSecretaries }} secretary seats allowed on your plan.</p>
+        </div>
+      </div>
+      <NuxtLink to="/doctor/subscription" class="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
+        <Icon name="lucide:arrow-up-right" class="w-3.5 h-3.5" />
+        <span>Expand Seats</span>
+      </NuxtLink>
     </div>
 
     <!-- Divider -->
