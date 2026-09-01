@@ -56,8 +56,20 @@
   const followUpDateOnly = ref('')
   const followUpTimeOnly = ref('09:00')
   const followUpEndTimeOnly = ref('10:00')
+  const followUpLocation = ref('')
+  const customFollowUpLocation = ref('')
+  const wasLocationAutofilled = ref(false)
   const followUpError = ref<string | null>(null)
   const followUpSectionRef = ref<HTMLElement | null>(null)
+
+  const { clinics, fetchClinics } = useDoctorClinics()
+
+  const effectiveFollowUpLocation = computed(() => {
+    if (followUpLocation.value === '__custom__') {
+      return customFollowUpLocation.value.trim()
+    }
+    return followUpLocation.value.trim()
+  })
 
   watch(followUpTimeOnly, (newStart) => {
     if (!newStart) return
@@ -122,6 +134,12 @@
         if (parsed.followUpEndTimeOnly) {
           followUpEndTimeOnly.value = parsed.followUpEndTimeOnly
         }
+        if (parsed.followUpLocation) {
+          followUpLocation.value = parsed.followUpLocation
+        }
+        if (parsed.customFollowUpLocation) {
+          customFollowUpLocation.value = parsed.customFollowUpLocation
+        }
         if (note.value.follow_up_date) {
           parseFollowUpDate(note.value.follow_up_date)
         }
@@ -135,6 +153,7 @@
   }
 
   onMounted(async () => {
+    await fetchClinics()
     if (props.skipLoad) {
       loadDraftIfExists()
       isLoaded.value = true
@@ -163,7 +182,7 @@
 
   // Auto-save draft on note changes
   watch(
-    [note, noFollowUp, followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly],
+    [note, noFollowUp, followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly, followUpLocation, customFollowUpLocation],
     () => {
       if (!isLoaded.value) return
       try {
@@ -172,7 +191,9 @@
           noFollowUp: noFollowUp.value,
           followUpDateOnly: followUpDateOnly.value,
           followUpTimeOnly: followUpTimeOnly.value,
-          followUpEndTimeOnly: followUpEndTimeOnly.value
+          followUpEndTimeOnly: followUpEndTimeOnly.value,
+          followUpLocation: followUpLocation.value,
+          customFollowUpLocation: customFollowUpLocation.value
         }
         localStorage.setItem(storageKey.value, JSON.stringify(draftData))
       } catch (e) {
@@ -182,9 +203,33 @@
     { deep: true }
   )
 
-  const { blockedSlots, isTimeBlockedOnDate, isTimeRangeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+  const { blockedSlots, isTimeBlockedOnDate, isTimeRangeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate, getDutyClinicForDateAndTime } = useBlockedDates()
   const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
+
+  // Smart autofill clinic location from duty preset when date & time change
+  watch([followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly], ([date, start, end]) => {
+    if (!date || !start) return
+    const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
+    if (matchedDuty) {
+      const loc = matchedDuty.clinic?.name || matchedDuty.location_name
+      if (loc) {
+        followUpLocation.value = loc
+        customFollowUpLocation.value = ''
+        wasLocationAutofilled.value = true
+        return
+      }
+    }
+
+    // If no duty schedule found and followUpLocation was previously autofilled or empty
+    if (wasLocationAutofilled.value || !followUpLocation.value) {
+      if (clinics.value.length > 0) {
+        followUpLocation.value = clinics.value[0].name
+        customFollowUpLocation.value = ''
+      }
+      wasLocationAutofilled.value = false
+    }
+  }, { immediate: true })
 
   const availableTimeSlots = [
     { value: '08:00', label: '08:00 AM' },
@@ -368,7 +413,7 @@
           const scheduled = await userService.scheduleAppointmentForPatient(patientUuid.value, {
             scheduled_at: `${followUpDateOnly.value} ${followUpTimeOnly.value}:00`,
             scheduled_end_at: `${followUpDateOnly.value} ${followUpEndTimeOnly.value}:00`,
-            location: 'Doctor Clinic',
+            location: effectiveFollowUpLocation.value || 'Doctor Clinic',
             purpose: note.value.follow_up_instructions || 'Follow-up appointment for diagnosis assessment'
           })
           didScheduleFollowUp = true
@@ -633,6 +678,37 @@
                     </div>
                   </div>
                 </Transition>
+
+                <!-- Follow-Up Clinic / Location Selector -->
+                <div class="mt-2 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-gray-500">Clinic / Location</label>
+                    <span v-if="wasLocationAutofilled" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Icon name="heroicons:sparkles" class="w-3 h-3 text-emerald-600" />
+                      Autofilled from Duty Preset
+                    </span>
+                  </div>
+
+                  <select
+                    v-if="clinics.length > 0"
+                    v-model="followUpLocation"
+                    class="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-xs outline-none focus:border-indigo-500 font-semibold text-gray-800 cursor-pointer"
+                  >
+                    <option value="" disabled>-- Select a Clinic Location --</option>
+                    <option v-for="c in clinics" :key="c.id" :value="c.name">
+                      {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                    </option>
+                    <option value="__custom__">+ Other / Custom Location</option>
+                  </select>
+
+                  <input
+                    v-if="clinics.length === 0 || followUpLocation === '__custom__'"
+                    type="text"
+                    v-model="customFollowUpLocation"
+                    placeholder="e.g. SkinCare Clinic, Rm 302"
+                    class="w-full rounded-xl border border-gray-200 bg-white p-2.5 text-xs outline-none focus:border-indigo-500 font-medium"
+                  />
+                </div>
               </div>
             </div>
 

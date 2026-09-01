@@ -49,17 +49,69 @@ const form = reactive({
 onMounted(async () => {
   await fetchRegions()
   await fetchAvailabilities()
+  await fetchClinics(true)
 })
 
 const doctorUuid = useCookie('user_uuid').value
 const availabilities = ref<any[]>([])
 const isAvailLoading = ref(false)
 const isAddLoading = ref(false)
+
+// Clinic Management
+const { clinics, fetchClinics, addClinic, removeClinic } = useDoctorClinics()
+const showAddClinicModal = ref(false)
+const isClinicSubmitting = ref(false)
+const clinicForm = reactive({
+  name: '',
+  address: '',
+  phone: '',
+  email: ''
+})
+const clinicError = ref('')
+
+const handleCreateClinic = async () => {
+  if (!clinicForm.name.trim()) {
+    clinicError.value = 'Clinic name is required.'
+    return
+  }
+  isClinicSubmitting.value = true
+  clinicError.value = ''
+  try {
+    await addClinic({
+      name: clinicForm.name.trim(),
+      address: clinicForm.address.trim() || null,
+      phone: clinicForm.phone.trim() || null,
+      email: clinicForm.email.trim() || null
+    })
+    showAddClinicModal.value = false
+    clinicForm.name = ''
+    clinicForm.address = ''
+    clinicForm.phone = ''
+    clinicForm.email = ''
+  } catch (err: any) {
+    clinicError.value = err.data?.message || err.message || 'Failed to add clinic branch.'
+  } finally {
+    isClinicSubmitting.value = false
+  }
+}
+
+const handleDeleteClinic = async (uuid: string) => {
+  if (!confirm('Are you sure you want to remove this clinic branch?')) return
+  try {
+    await removeClinic(uuid)
+  } catch (err: any) {
+    alert(err.data?.message || err.message || 'Failed to delete clinic branch.')
+  }
+}
+
+// Schedule Availability Form
+const scheduleType = ref<'duty' | 'away'>('duty') // 'duty' for clinic schedule, 'away' for blocked
+const selectedClinicId = ref<number | null>(null)
+const customLocation = ref('')
 const availForm = reactive({
   available_date: '',
   start_time: '09:00',
-  end_time: '17:00',
-  is_available: false
+  end_time: '17:00'
 })
 const blockWholeDay = ref(false)
 const availSuccessMsg = ref('')
@@ -100,10 +152,10 @@ const addAvailability = async () => {
     return
   }
 
-  const startTime = (blockWholeDay.value ? '00:00' : (availForm.start_time || '00:00')).slice(0, 5)
-  const endTime = (blockWholeDay.value ? '23:59' : (availForm.end_time || '23:59')).slice(0, 5)
+  const startTime = (scheduleType.value === 'away' && blockWholeDay.value ? '00:00' : (availForm.start_time || '00:00')).slice(0, 5)
+  const endTime = (scheduleType.value === 'away' && blockWholeDay.value ? '23:59' : (availForm.end_time || '23:59')).slice(0, 5)
 
-  if (!blockWholeDay.value && startTime >= endTime) {
+  if (startTime >= endTime) {
     availErrorMsg.value = 'Start time must be before end time.'
     return
   }
@@ -112,17 +164,27 @@ const addAvailability = async () => {
   availErrorMsg.value = ''
   availSuccessMsg.value = ''
   try {
+    const isAvailable = scheduleType.value === 'duty'
+    let locName: string | null = null
+    if (isAvailable) {
+      const matched = clinics.value.find(c => c.id === selectedClinicId.value)
+      locName = matched ? matched.name : (customLocation.value.trim() || 'Clinic Duty')
+    } else {
+      locName = 'Blocked / Away Period'
+    }
+
     await doctorAvailabilityService.createForDoctor(doctorUuid, {
       available_date: availForm.available_date,
       start_time: startTime,
       end_time: endTime,
-      is_available: 0 // Explicitly 0 to mark as Blocked / Away!
+      is_available: isAvailable ? 1 : 0,
+      clinic_id: isAvailable ? selectedClinicId.value : null,
+      location_name: locName
     })
-    availSuccessMsg.value = 'Blocked/Away period added successfully!'
+    availSuccessMsg.value = isAvailable ? 'Clinic Duty Schedule added successfully!' : 'Blocked / Away period added successfully!'
     availForm.available_date = ''
     availForm.start_time = '09:00'
     availForm.end_time = '17:00'
-    availForm.is_available = false
     blockWholeDay.value = false
     await fetchAvailabilities()
     await fetchBlockedSlots()
@@ -505,22 +567,133 @@ const logout = () => {
             </form>
           </div>
 
-        <!-- Availability Section -->
+        <!-- My Clinic Locations Section -->
+        <div class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-foreground">My Clinic Locations</h2>
+              <p class="text-foreground/60 text-sm mt-1">Register and manage the physical clinics and hospital branches where you hold clinic hours.</p>
+            </div>
+            <button
+              type="button"
+              @click="showAddClinicModal = true"
+              class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm cursor-pointer shrink-0"
+            >
+              <Icon name="heroicons:plus" class="w-4 h-4" />
+              <span>Add Clinic Branch</span>
+            </button>
+          </div>
+
+          <div class="h-px bg-sidebar-border my-6"></div>
+
+          <!-- Clinics List -->
+          <div v-if="!clinics.length" class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
+            <Icon name="heroicons:building-office-2" class="text-foreground/30 text-4xl mb-2 mx-auto" />
+            <p class="text-foreground/50 text-sm">No clinic branches registered yet. Click "Add Clinic Branch" to register your practice location.</p>
+          </div>
+          <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+              v-for="clinic in clinics"
+              :key="clinic.uuid || clinic.id"
+              class="p-4 rounded-2xl border border-sidebar-border bg-card/60 hover:border-border transition flex flex-col justify-between gap-3 shadow-xs"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <Icon name="heroicons:building-office-2" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-foreground line-clamp-1">{{ clinic.name }}</h4>
+                    <p v-if="clinic.address" class="text-xs text-muted-foreground line-clamp-1 mt-0.5">{{ clinic.address }}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="handleDeleteClinic(clinic.uuid)"
+                  class="text-foreground/30 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-500/10 transition cursor-pointer shrink-0"
+                  title="Remove Clinic"
+                >
+                  <Icon name="heroicons:trash" class="w-4 h-4" />
+                </button>
+              </div>
+
+              <div class="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-sidebar-border/60">
+                <span class="inline-flex items-center gap-1">
+                  <Icon name="heroicons:phone" class="w-3 h-3" />
+                  {{ clinic.phone || 'No phone' }}
+                </span>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
+                  Active Branch
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Clinic Hours & Schedule Presets Section -->
         <div id="blocked-dates" class="bg-sidebar border-sidebar-border rounded-xl border p-8 shadow-sm mt-8 animate-in fade-in duration-500">
           <div>
-            <h2 class="text-xl font-bold">Clinic Hours & Away Settings</h2>
-            <p class="text-foreground/60 text-sm mt-1">By default, you are available every day. Set specific dates and times you will be away/unavailable below.</p>
+            <h2 class="text-xl font-bold">Clinic Hours & Schedule Presets</h2>
+            <p class="text-foreground/60 text-sm mt-1">Preset the clinic locations where you are on duty on specific dates, or set blocked/away periods.</p>
           </div>
 
           <!-- Divider -->
           <div class="h-px bg-sidebar-border my-6"></div>
 
-          <!-- Add Availability Form -->
-          <form @submit.prevent="addAvailability" class="flex flex-col gap-4">
-            <h3 class="text-md font-semibold text-foreground/80">Add Blocked / Away Period</h3>
+          <!-- Add Schedule / Availability Form -->
+          <form @submit.prevent="addAvailability" class="flex flex-col gap-5">
+            <!-- Schedule Type Tabs -->
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                @click="scheduleType = 'duty'"
+                class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border"
+                :class="scheduleType === 'duty' ? 'bg-emerald-50 text-emerald-700 border-emerald-300 shadow-xs' : 'bg-foreground/5 text-foreground/60 border-transparent hover:bg-foreground/10'"
+              >
+                <Icon name="heroicons:building-office" class="w-4 h-4 text-emerald-600" />
+                <span>🏥 Clinic Duty Hours</span>
+              </button>
 
-            <!-- Block whole day toggle -->
-            <label class="flex items-center gap-3 cursor-pointer group w-fit">
+              <button
+                type="button"
+                @click="scheduleType = 'away'"
+                class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer border"
+                :class="scheduleType === 'away' ? 'bg-red-50 text-red-700 border-red-300 shadow-xs' : 'bg-foreground/5 text-foreground/60 border-transparent hover:bg-foreground/10'"
+              >
+                <Icon name="heroicons:no-symbol" class="w-4 h-4 text-red-600" />
+                <span>🚫 Blocked / Away Period</span>
+              </button>
+            </div>
+
+            <!-- Clinic Location Dropdown (when Duty selected) -->
+            <div v-if="scheduleType === 'duty'" class="flex flex-col gap-1.5 p-4 rounded-2xl border border-emerald-200 bg-emerald-50/50">
+              <label class="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                <Icon name="heroicons:map-pin" class="w-4 h-4 text-emerald-600" />
+                <span>Select Clinic Location for this Shift</span>
+              </label>
+              
+              <select
+                v-if="clinics.length > 0"
+                v-model="selectedClinicId"
+                class="bg-white border-emerald-200 focus:border-emerald-500 w-full rounded-xl border px-3.5 py-2.5 outline-none transition-all text-sm font-medium text-foreground"
+              >
+                <option :value="null">-- Select a registered clinic branch --</option>
+                <option v-for="c in clinics" :key="c.id" :value="c.id">
+                  {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                </option>
+              </select>
+
+              <input
+                v-if="!selectedClinicId"
+                v-model="customLocation"
+                type="text"
+                placeholder="Or type a custom clinic / hospital name..."
+                class="bg-white border-emerald-200 focus:border-emerald-500 w-full rounded-xl border px-3.5 py-2.5 outline-none transition-all text-sm mt-1"
+              />
+            </div>
+
+            <!-- Block whole day toggle (when Away selected) -->
+            <label v-if="scheduleType === 'away'" class="flex items-center gap-3 cursor-pointer group w-fit">
               <div
                 @click="blockWholeDay = !blockWholeDay"
                 class="relative h-5 w-9 rounded-full transition-colors duration-200"
@@ -549,8 +722,8 @@ const logout = () => {
                 <AppTimeRangePicker
                   v-model:start-time="availForm.start_time"
                   v-model:end-time="availForm.end_time"
-                  label="Blockout Hours Range"
-                  :disabled="blockWholeDay"
+                  :label="scheduleType === 'duty' ? 'Clinic Duty Hours' : 'Blockout Hours Range'"
+                  :disabled="scheduleType === 'away' && blockWholeDay"
                 />
               </div>
             </div>
@@ -567,8 +740,8 @@ const logout = () => {
                 </p>
               </div>
 
-              <AppButton type="submit" :loading="isAddLoading" class="min-w-[140px]">
-                Block Out Date
+              <AppButton type="submit" :loading="isAddLoading" class="min-w-[150px]">
+                {{ scheduleType === 'duty' ? 'Add Duty Schedule' : 'Block Out Date' }}
               </AppButton>
             </div>
           </form>
@@ -578,7 +751,7 @@ const logout = () => {
 
           <!-- Existing Slots -->
           <div>
-            <h3 class="text-md font-semibold text-foreground/80 mb-4">Your Blocked / Away Dates</h3>
+            <h3 class="text-md font-semibold text-foreground/80 mb-4">Your Preset Schedules & Away Periods</h3>
             
             <div v-if="isAvailLoading" class="flex flex-col gap-3">
               <div v-for="i in 2" :key="i" class="h-16 w-full rounded-2xl bg-foreground/5 animate-pulse"></div>
@@ -586,35 +759,43 @@ const logout = () => {
 
             <div v-else-if="!availabilities.length" 
               class="border border-dashed border-sidebar-border rounded-2xl p-8 text-center bg-foreground/[0.02]">
-              <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2" />
-              <p class="text-foreground/50 text-sm">No blocked dates set. You are currently marked as available every day for new patient referrals.</p>
+              <Icon name="heroicons:calendar-days" class="text-foreground/30 text-4xl mb-2 mx-auto" />
+              <p class="text-foreground/50 text-sm">No schedule presets set. You are currently marked as available every day for new patient referrals.</p>
             </div>
 
-            <div v-else class="flex flex-col gap-3 max-h-[300px] overflow-y-auto pr-1">
+            <div v-else class="flex flex-col gap-3 max-h-[350px] overflow-y-auto pr-1">
               <div v-for="slot in availabilities" :key="slot.uuid"
                 class="flex items-center justify-between p-4 rounded-2xl border border-sidebar-border bg-foreground/[0.02] hover:bg-foreground/[0.04] transition-all">
                 <div class="flex items-center gap-4">
-                  <div class="bg-red-500/10 text-red-500 p-2.5 rounded-xl">
-                    <Icon name="heroicons:calendar" size="20" />
+                  <div 
+                    class="p-2.5 rounded-xl shrink-0"
+                    :class="slot.is_available ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-500'"
+                  >
+                    <Icon :name="slot.is_available ? 'heroicons:building-office-2' : 'heroicons:calendar'" size="20" />
                   </div>
                   <div>
-                    <p class="text-sm font-bold text-foreground">
-                      {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
-                    </p>
+                    <div class="flex items-center gap-2">
+                      <p class="text-sm font-bold text-foreground">
+                        {{ new Date(slot.available_date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) }}
+                      </p>
+                      <span 
+                        class="text-[11px] font-bold px-2 py-0.5 rounded-full border"
+                        :class="slot.is_available ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'"
+                      >
+                        {{ slot.is_available ? (slot.clinic?.name || slot.location_name || 'Clinic Duty') : 'Blocked / Away' }}
+                      </span>
+                    </div>
                     <p class="text-xs text-foreground/60 mt-0.5">
                       {{ formatTime(slot.start_time) }} - {{ formatTime(slot.end_time) }}
+                      <span v-if="slot.clinic?.address" class="text-foreground/40 ml-1">• {{ slot.clinic.address }}</span>
                     </p>
                   </div>
                 </div>
 
                 <div class="flex items-center gap-3">
-                  <span class="bg-red-500/10 text-red-500 border border-red-500/20 text-xs font-semibold px-3 py-1 rounded-full">
-                    Blocked / Away
-                  </span>
-                  
                   <button @click="deleteAvailability(slot.uuid)"
                     class="text-foreground/40 hover:text-red-500 p-2 rounded-xl hover:bg-red-500/5 transition-all cursor-pointer"
-                    title="Remove Blocked Period">
+                    title="Remove Period">
                     <Icon name="heroicons:trash" size="18" />
                   </button>
                 </div>
@@ -622,6 +803,93 @@ const logout = () => {
             </div>
           </div>
         </div>
+
+        <!-- Add Clinic Modal -->
+        <Teleport to="body">
+          <div v-if="showAddClinicModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+            <div class="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Icon name="heroicons:building-office-2" class="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-bold text-foreground">Add Clinic Branch</h3>
+                    <p class="text-xs text-muted-foreground">Register a new clinic location where you practice.</p>
+                  </div>
+                </div>
+                <button @click="showAddClinicModal = false" class="text-muted-foreground hover:text-foreground p-1 rounded-xl cursor-pointer">
+                  <Icon name="heroicons:x-mark" class="w-5 h-5" />
+                </button>
+              </div>
+
+              <form @submit.prevent="handleCreateClinic" class="space-y-4">
+                <div v-if="clinicError" class="p-3 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-600">
+                  {{ clinicError }}
+                </div>
+
+                <div class="space-y-1.5">
+                  <label class="text-xs font-bold text-foreground">Clinic / Hospital Name *</label>
+                  <input
+                    v-model="clinicForm.name"
+                    type="text"
+                    required
+                    placeholder="e.g. St. Luke's Medical Center - Rm 402"
+                    class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div class="space-y-1.5">
+                  <label class="text-xs font-bold text-foreground">Address / Floor & Room</label>
+                  <input
+                    v-model="clinicForm.address"
+                    type="text"
+                    placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
+                    class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div class="grid sm:grid-cols-2 gap-3">
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-foreground">Contact Phone</label>
+                    <input
+                      v-model="clinicForm.phone"
+                      type="text"
+                      placeholder="e.g. +63 917 123 4567"
+                      class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div class="space-y-1.5">
+                    <label class="text-xs font-bold text-foreground">Clinic Email</label>
+                    <input
+                      v-model="clinicForm.email"
+                      type="email"
+                      placeholder="e.g. clinic@derma.com"
+                      class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    @click="showAddClinicModal = false"
+                    class="px-4 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-foreground/5 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <AppButton
+                    type="submit"
+                    :loading="isClinicSubmitting"
+                    class="px-5 py-2 text-xs font-bold"
+                  >
+                    Save Clinic
+                  </AppButton>
+                </div>
+              </form>
+            </div>
+          </div>
+        </Teleport>
 
         <!-- Subscription & Billing Section -->
         <div class="border-sidebar-border bg-card rounded-2xl border p-6 space-y-4">
