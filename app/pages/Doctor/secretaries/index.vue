@@ -7,10 +7,10 @@ definePageMeta({
 })
 
 const { getStorageUrl } = useStorage()
-const { isSubscribed, hasFeature, subscription, fetchSubscription } = useDoctorSubscription()
+const { isSubscribed, hasFeature, subscription, currentSubscription, canHaveSecretary: subscriptionCanHaveSecretary, maxSecretaries: subscriptionMaxSecretaries, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
 
 onMounted(async () => {
-  await fetchSubscription()
+  await fetchSubscription(true)
 })
 
 // Fetch doctor's secretaries list
@@ -22,15 +22,18 @@ const secretaries = computed(() => {
 })
 
 const canHaveSecretary = computed(() => {
+  if (subscriptionCanHaveSecretary.value) return true
   if (!isSubscribed.value) return false
-  const plan = subscription.value?.plan
+  const plan = currentSubscription.value?.plan || subscription.value?.plan
   if (!plan) return false
-  return hasFeature('can_have_secretary') || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
+  const features = (plan.features || {}) as Record<string, any>
+  return Boolean(features?.can_have_secretary) || hasFeature('can_have_secretary') || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
 })
 
 const maxSecretaries = computed(() => {
   if (!isSubscribed.value) return 0
-  return subscription.value?.plan?.max_secretaries ?? null
+  const plan = currentSubscription.value?.plan || subscription.value?.plan
+  return plan?.max_secretaries ?? subscriptionMaxSecretaries.value ?? null
 })
 
 const isLimitReached = computed(() => {
@@ -228,7 +231,7 @@ const handleDeleteSecretary = async () => {
     <div class="h-px w-full bg-border/60"></div>
 
     <!-- Loading State -->
-    <div v-if="pending" class="flex justify-center items-center p-12 text-muted-foreground">
+    <div v-if="pending || isLoadingSubscription" class="flex justify-center items-center p-12 text-muted-foreground">
       <Icon name="svg-spinners:180-ring-with-bg" class="text-3xl" />
     </div>
 
