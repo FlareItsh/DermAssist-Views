@@ -76,6 +76,13 @@ onMounted(async () => {
             doctorBookedAppts.value = docAppts
           }
         }
+
+        if (appt.scheduled_at) {
+          const p = parseAppointmentDateTime(appt.scheduled_at)
+          selectedDate.value = p.date
+        } else if (!selectedDate.value) {
+          selectedDate.value = getTodayStr()
+        }
       }
     } catch (e) {
       console.error('Failed to load target doctor schedule details:', e)
@@ -301,6 +308,7 @@ const confirmSchedule = async () => {
           <!-- Left side: Calendar -->
           <div class="p-6">
             <PatientSideComponentsCalendar
+              :selected-date="selectedDate"
               :blocked-slots="blockedSlots"
               :duty-slots="dutySlots"
               :show-manage-blocks-link="true"

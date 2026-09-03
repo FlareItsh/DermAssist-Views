@@ -2,6 +2,7 @@
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { userService } from '~/api/user/UserService'
+  import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
 
   const props = defineProps<{
@@ -204,7 +205,20 @@
     { deep: true }
   )
 
-  const { blockedSlots, isTimeBlockedOnDate, isTimeRangeBlockedOnDate, isWholeDayBlocked, getBlockedTimesForDate, getDutyClinicForDateAndTime } = useBlockedDates()
+  const {
+    blockedSlots,
+    dutySlots,
+    isTimeBlockedOnDate,
+    isTimeRangeBlockedOnDate,
+    isWholeDayBlocked,
+    getBlockedTimesForDate,
+    getDutySlotsForDate,
+    getDutyClinicForDateAndTime,
+    hasDutyOnDate,
+    isTimeRangeWithinDutyHours,
+    getDutyRangesLabel,
+    findEarliestAvailableSlot,
+  } = useBlockedDates()
   const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
@@ -251,27 +265,48 @@
     return getBlockedTimesForDate(followUpDateOnly.value)
   })
 
+  const dateDutySlots = computed(() => {
+    if (!followUpDateOnly.value) return []
+    return getDutySlotsForDate(followUpDateOnly.value)
+  })
+
+  const hasNoDutyOnFollowUpDate = computed(() => {
+    if (!followUpDateOnly.value) return false
+    return !hasDutyOnDate(followUpDateOnly.value)
+  })
+
+  const isFollowUpOutsideDutyHours = computed(() => {
+    if (!followUpDateOnly.value || !followUpTimeOnly.value || !followUpEndTimeOnly.value) return false
+    return !isTimeRangeWithinDutyHours(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)
+  })
+
+  const dutyRangesLabel = computed(() => {
+    if (!followUpDateOnly.value) return ''
+    return getDutyRangesLabel(followUpDateOnly.value)
+  })
+
   const dateExistingAppts = computed(() => {
     if (!followUpDateOnly.value) return []
     return appointments.value
-      .filter((appt) => appt.date === followUpDateOnly.value && appt.id !== (scheduledFollowUpUuid.value || props.appointmentUuid) && appt.raw_scheduled_at)
+      .filter((appt) => {
+        const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
+        return p.date === followUpDateOnly.value && appt.id !== (scheduledFollowUpUuid.value || props.appointmentUuid) && (appt.raw_scheduled_at || appt.scheduled_at)
+      })
       .map((appt) => {
-        const startObj = new Date(appt.raw_scheduled_at!.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-        const startH = String(startObj.getHours()).padStart(2, '0')
-        const startM = String(startObj.getMinutes()).padStart(2, '0')
-
-        let endH = String((startObj.getHours() + 1) % 24).padStart(2, '0')
-        let endM = startM
-        if (appt.raw_scheduled_end_at) {
-          const endObj = new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-          endH = String(endObj.getHours()).padStart(2, '0')
-          endM = String(endObj.getMinutes()).padStart(2, '0')
+        const startP = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at)
+        let endH = String((Number(startP.startH) + 1) % 24).padStart(2, '0')
+        let endM = startP.startM
+        const rawEnd = appt.raw_scheduled_end_at || appt.scheduled_end_at
+        if (rawEnd) {
+          const endP = parseAppointmentDateTime(rawEnd)
+          endH = endP.startH
+          endM = endP.startM
         }
 
         return {
-          start_time: `${startH}:${startM}`,
+          start_time: `${startP.startH}:${startP.startM}`,
           end_time: `${endH}:${endM}`,
-          label: appt.doctor || 'Booked Appointment'
+          label: appt.doctor || 'Booked Patient'
         }
       })
   })
@@ -295,6 +330,17 @@
   const handleFollowUpDateSelected = (date: string) => {
     followUpDateOnly.value = date
     noFollowUp.value = false
+
+    const earliestSlot = findEarliestAvailableSlot(date, 60, dateExistingAppts.value)
+    if (earliestSlot) {
+      followUpTimeOnly.value = earliestSlot.start
+      followUpEndTimeOnly.value = earliestSlot.end
+    } else {
+      const dayDuties = getDutySlotsForDate(date)
+      if (dayDuties.length > 0) {
+        followUpTimeOnly.value = dayDuties[0].start_time.slice(0, 5)
+      }
+    }
   }
 
   const setQuickInterval = (days: number) => {
@@ -303,8 +349,7 @@
     const y = target.getFullYear()
     const m = String(target.getMonth() + 1).padStart(2, '0')
     const d = String(target.getDate()).padStart(2, '0')
-    followUpDateOnly.value = `${y}-${m}-${d}`
-    noFollowUp.value = false
+    handleFollowUpDateSelected(`${y}-${m}-${d}`)
   }
 
   const formattedSelectedDate = computed(() => {
@@ -522,6 +567,20 @@
   }
 
   const handleSaveClick = async () => {
+    if (!noFollowUp.value && followUpDateOnly.value) {
+      if (hasNoDutyOnFollowUpDate.value) {
+        toast.error('Cannot schedule follow-up: You have no scheduled duty hours on this date.')
+        return
+      }
+      if (isFollowUpOutsideDutyHours.value) {
+        toast.error(`Cannot schedule follow-up: Time is outside your duty hours (${dutyRangesLabel.value}).`)
+        return
+      }
+      if (isFollowUpConflict.value) {
+        toast.error('Cannot schedule follow-up: The selected time conflicts with an existing appointment.')
+        return
+      }
+    }
     isExplicitSaveRequested.value = true
     try {
       await saveNote()
@@ -734,7 +793,9 @@
                   <div class="flex justify-center overflow-visible">
                     <PatientSideComponentsCalendar
                       :min-date="getTodayStr()"
+                      :selected-date="followUpDateOnly"
                       :blocked-slots="blockedSlots"
+                      :duty-slots="dutySlots"
                       :show-manage-blocks-link="true"
                       :show-appointment-details-panel="false"
                       @date-selected="handleFollowUpDateSelected"
@@ -811,6 +872,7 @@
                   v-model:start-time="followUpTimeOnly"
                   v-model:end-time="followUpEndTimeOnly"
                   :blocked-slots="dateBlockedSlots"
+                  :duty-slots="dateDutySlots"
                   :existing-appointments="dateExistingAppts"
                   label="Consultation Time Window"
                 />
@@ -822,6 +884,34 @@
                   >
                     <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
                     <p class="font-bold">End time must be after start time.</p>
+                  </div>
+                </Transition>
+
+                <!-- Off-Duty on date warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="followUpDateOnly && hasNoDutyOnFollowUpDate"
+                    class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon name="material-symbols:block-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <div>
+                      <p class="font-bold">Doctor is Off-Duty on this date</p>
+                      <p class="text-red-500 mt-0.5">You have no scheduled duty hours on this date. Please select an available date from the calendar.</p>
+                    </div>
+                  </div>
+                </Transition>
+
+                <!-- Outside Duty Hours warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="followUpDateOnly && !hasNoDutyOnFollowUpDate && isFollowUpOutsideDutyHours"
+                    class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <div>
+                      <p class="font-bold">Outside Doctor's Duty Hours</p>
+                      <p class="text-red-500 mt-0.5">Appointments must be scheduled during your active duty hours on this date: <strong>{{ dutyRangesLabel }}</strong>.</p>
+                    </div>
                   </div>
                 </Transition>
 

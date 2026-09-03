@@ -11,6 +11,8 @@
   const props = withDefaults(defineProps<{
     /** Earliest selectable date in YYYY-MM-DD format. Defaults to today. */
     minDate?: string
+    /** Initially or externally selected date in YYYY-MM-DD format. */
+    selectedDate?: string
     /** Blocked/away slots for the logged-in doctor. When provided, blocked dates are visually marked and disabled. */
     blockedSlots?: BlockedSlot[]
     /** Doctor duty shifts. When provided, dates with no duty shifts are visually marked as off-duty. */
@@ -27,6 +29,7 @@
       const day = String(d.getDate()).padStart(2, '0')
       return `${year}-${month}-${day}`
     },
+    selectedDate: '',
     blockedSlots: () => [],
     dutySlots: () => [],
     showManageBlocksLink: false,
@@ -187,8 +190,20 @@
 
   const emit = defineEmits(['dateSelected'])
 
-  const selectedDay = ref<string | null>(null)
+  const selectedDay = ref<string | null>(props.selectedDate || null)
   const hoveredDate = ref<string | null>(null)
+
+  watch(() => props.selectedDate, (newVal) => {
+    if (newVal) {
+      selectedDay.value = newVal
+      const d = new Date(newVal + 'T00:00:00')
+      if (!isNaN(d.getTime())) {
+        currentDate.value = new Date(d.getFullYear(), d.getMonth(), 1)
+      }
+    } else if (newVal === '') {
+      selectedDay.value = null
+    }
+  }, { immediate: true })
 
   const appointmentsForDay = computed(() => {
     if (!selectedDay.value) return []
@@ -206,6 +221,7 @@
 
   onClickOutside(calendarRef, () => {
     if (!props.showAppointmentDetailsPanel) return
+    if (props.selectedDate) return
     selectedDay.value = null
   })
 
