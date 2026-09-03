@@ -32,6 +32,27 @@ export interface ClinicDoctorItem {
   }
 }
 
+export interface OwnerInfo {
+  id: number
+  uuid: string
+  first_name: string
+  last_name: string
+  full_name: string
+  email: string
+  prc_number?: string
+  affiliation?: string
+  avatar_path?: string
+  plan_name?: string
+}
+
+export interface SponsoringClinicInfo {
+  id: number
+  uuid: string
+  name: string
+  address?: string
+  role: string
+}
+
 export interface CandidateDoctor {
   id: number
   uuid: string
@@ -45,7 +66,14 @@ export interface CandidateDoctor {
 export class DoctorClinicDoctorService extends BaseService {
   private resource = '/doctor/clinic-doctors'
 
-  async getClinicDoctors(): Promise<{ status: string; seat_usage: SeatUsage; data: ClinicDoctorItem[] }> {
+  async getClinicDoctors(): Promise<{
+    status: string
+    is_owner: boolean
+    owner: OwnerInfo | null
+    sponsoring_clinic: SponsoringClinicInfo | null
+    seat_usage: SeatUsage
+    data: ClinicDoctorItem[]
+  }> {
     return await this.request(this.resource, 'GET')
   }
 

@@ -2,11 +2,16 @@ import {
   doctorClinicDoctorService,
   type ClinicDoctorItem,
   type SeatUsage,
-  type CandidateDoctor
+  type CandidateDoctor,
+  type OwnerInfo,
+  type SponsoringClinicInfo
 } from '~/api/doctorClinicDoctor/DoctorClinicDoctorService'
 
 const clinicDoctors = ref<ClinicDoctorItem[]>([])
 const seatUsage = ref<SeatUsage | null>(null)
+const isOwner = ref(true)
+const clinicOwner = ref<OwnerInfo | null>(null)
+const sponsoringClinic = ref<SponsoringClinicInfo | null>(null)
 const isLoading = ref(false)
 const isLoaded = ref(false)
 
@@ -20,6 +25,9 @@ export const useDoctorClinicDoctors = () => {
       if (res?.status === 'success') {
         clinicDoctors.value = res.data || []
         seatUsage.value = res.seat_usage || null
+        isOwner.value = res.is_owner ?? true
+        clinicOwner.value = res.owner || null
+        sponsoringClinic.value = res.sponsoring_clinic || null
         isLoaded.value = true
       }
     } catch (err) {
@@ -64,6 +72,9 @@ export const useDoctorClinicDoctors = () => {
   return {
     clinicDoctors,
     seatUsage,
+    isOwner,
+    clinicOwner,
+    sponsoringClinic,
     isLoading,
     isLoaded,
     fetchClinicDoctors,

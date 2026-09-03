@@ -335,7 +335,7 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shrink-0 self-start sm:self-auto shadow-2xs"
       >
         <Icon name="lucide:building" class="w-4 h-4" />
-        <span>View Clinic</span>
+        <span>View Clinic & Doctor Team</span>
       </NuxtLink>
     </div>
 
@@ -451,12 +451,21 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
           </AppButton>
 
           <NuxtLink
-            v-if="currentSubscription?.plan?.uuid === plan.uuid && (plan.max_doctors && plan.max_doctors > 1)"
+            v-if="currentSubscription?.plan?.uuid === plan.uuid && (plan.max_doctors && plan.max_doctors > 1) && !isInherited"
             to="/doctor/profile?tab=clinics#seats"
-            class="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/90 transition shadow-2xs"
+            class="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/90 transition shadow-2xs cursor-pointer"
           >
             <Icon name="lucide:user-plus" class="w-4 h-4" />
             <span>Manage Doctor Seats</span>
+          </NuxtLink>
+
+          <NuxtLink
+            v-else-if="currentSubscription?.plan?.uuid === plan.uuid && isInherited"
+            to="/doctor/profile?tab=clinics#seats"
+            class="w-full py-2 px-3 rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+          >
+            <Icon name="lucide:users" class="w-4 h-4" />
+            <span>View Doctor Team</span>
           </NuxtLink>
         </div>
       </div>
