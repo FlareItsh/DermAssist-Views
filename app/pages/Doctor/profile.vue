@@ -73,6 +73,7 @@ onMounted(async () => {
     fetchRegions(),
     fetchAvailabilities(),
     fetchClinics(true),
+    fetchClinicDoctors(true),
     fetchSubscriptionInfo()
   ])
 })
@@ -105,6 +106,8 @@ watch(() => route.query.tab, (newTab) => {
 watch(() => route.hash, (hash) => {
   if (hash === '#blocked-dates') {
     activeTab.value = 'schedule'
+  } else if (hash === '#seats') {
+    activeTab.value = 'clinics'
   }
 }, { immediate: true })
 
@@ -152,6 +155,110 @@ const handleDeleteClinic = async (uuid: string) => {
     await removeClinic(uuid)
   } catch (err: any) {
     alert(err.data?.message || err.message || 'Failed to delete clinic branch.')
+  }
+}
+
+// Multi-Doctor Clinic Seat Management
+const {
+  clinicDoctors,
+  seatUsage,
+  fetchClinicDoctors,
+  searchCandidates,
+  assignDoctor,
+  removeDoctor
+} = useDoctorClinicDoctors()
+
+const showAssignDoctorModal = ref(false)
+const isAssigningDoctor = ref(false)
+const assignDoctorError = ref('')
+const doctorSearchQuery = ref('')
+const doctorSearchResults = ref<any[]>([])
+const isSearchingDoctors = ref(false)
+const selectedCandidate = ref<any | null>(null)
+
+const assignDoctorForm = reactive({
+  clinic_id: null as number | null,
+  role: 'associate'
+})
+
+let searchTimeout: any = null
+const handleDoctorSearch = (val: string) => {
+  doctorSearchQuery.value = val
+  clearTimeout(searchTimeout)
+  if (!val || val.trim().length < 2) {
+    doctorSearchResults.value = []
+    return
+  }
+  isSearchingDoctors.value = true
+  searchTimeout = setTimeout(async () => {
+    try {
+      doctorSearchResults.value = await searchCandidates(val)
+    } finally {
+      isSearchingDoctors.value = false
+    }
+  }, 300)
+}
+
+const selectCandidateDoctor = (cand: any) => {
+  selectedCandidate.value = cand
+  doctorSearchQuery.value = cand.full_name
+  doctorSearchResults.value = []
+}
+
+const clearCandidateDoctor = () => {
+  selectedCandidate.value = null
+  doctorSearchQuery.value = ''
+  doctorSearchResults.value = []
+}
+
+const openAssignDoctorModal = () => {
+  assignDoctorError.value = ''
+  selectedCandidate.value = null
+  doctorSearchQuery.value = ''
+  doctorSearchResults.value = []
+  assignDoctorForm.role = 'associate'
+  assignDoctorForm.clinic_id = clinics.value.length > 0 ? (clinics.value[0].id as number) : null
+  showAssignDoctorModal.value = true
+}
+
+const handleAssignDoctor = async () => {
+  if (!assignDoctorForm.clinic_id) {
+    assignDoctorError.value = 'Please select a clinic branch.'
+    return
+  }
+  if (!selectedCandidate.value && !doctorSearchQuery.value.trim()) {
+    assignDoctorError.value = 'Please search and select a doctor or enter doctor email.'
+    return
+  }
+
+  isAssigningDoctor.value = true
+  assignDoctorError.value = ''
+  try {
+    const payload: any = {
+      clinic_id: assignDoctorForm.clinic_id,
+      role: assignDoctorForm.role
+    }
+    if (selectedCandidate.value) {
+      payload.doctor_id = selectedCandidate.value.id
+    } else {
+      payload.email = doctorSearchQuery.value.trim()
+    }
+    await assignDoctor(payload)
+    showAssignDoctorModal.value = false
+    clearCandidateDoctor()
+  } catch (err: any) {
+    assignDoctorError.value = err.data?.message || err.message || 'Failed to assign doctor to clinic seat.'
+  } finally {
+    isAssigningDoctor.value = false
+  }
+}
+
+const handleRemoveDoctorSeat = async (pivotId: number, doctorName: string) => {
+  if (!confirm(`Are you sure you want to revoke the doctor seat for ${doctorName}? Their access will be unlinked, but their past records will remain intact.`)) return
+  try {
+    await removeDoctor(pivotId)
+  } catch (err: any) {
+    alert(err.data?.message || err.message || 'Failed to remove doctor seat.')
   }
 }
 
@@ -714,6 +821,153 @@ const logout = () => {
               </div>
             </div>
           </div>
+
+          <!-- DOCTOR SEATS & ASSOCIATE DOCTORS SECTION -->
+          <div id="seats" class="pt-6 border-t border-border space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-lg font-bold text-foreground">Doctor Seats & Clinic Associates</h3>
+                  <span
+                    v-if="seatUsage?.max_doctors && seatUsage.max_doctors > 1"
+                    class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20"
+                  >
+                    Multi-Doctor Plan
+                  </span>
+                </div>
+                <p class="text-muted-foreground text-xs mt-1">
+                  Assign licensed dermatologists to your clinic seats to share AI scans, consultations, and practice features.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                @click="openAssignDoctorModal"
+                :disabled="!clinics.length || (seatUsage && !seatUsage.can_add)"
+                class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+              >
+                <Icon name="lucide:user-plus" class="w-4 h-4" />
+                <span>Assign Associate Doctor</span>
+              </button>
+            </div>
+
+            <!-- Seat Quota Banner -->
+            <div class="p-5 rounded-2xl border border-border bg-foreground/[0.02] flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="space-y-1.5 flex-1">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="font-bold text-foreground flex items-center gap-2">
+                    <Icon name="lucide:users" class="w-4 h-4 text-primary" />
+                    Doctor Seat Pool Allocation
+                  </span>
+                  <span class="font-bold text-primary">
+                    {{ seatUsage?.used_seats ?? 1 }} / {{ seatUsage?.max_doctors ?? (mySubscription?.plan?.max_doctors || '1') }} Seats Used
+                  </span>
+                </div>
+                <!-- Progress Bar -->
+                <div class="w-full h-2.5 rounded-full bg-foreground/10 overflow-hidden">
+                  <div
+                    class="h-full bg-primary rounded-full transition-all duration-500"
+                    :style="{
+                      width: seatUsage?.max_doctors
+                        ? `${Math.min(100, Math.round(((seatUsage.used_seats || 1) / seatUsage.max_doctors) * 100))}%`
+                        : '10%'
+                    }"
+                  ></div>
+                </div>
+                <div class="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>1 Owner (You) + {{ (seatUsage?.used_seats || 1) - 1 }} Associate{{ (seatUsage?.used_seats || 1) - 1 === 1 ? '' : 's' }}</span>
+                  <span v-if="seatUsage?.available_seats !== null" class="font-semibold text-emerald-600">
+                    {{ seatUsage?.available_seats }} seat{{ seatUsage?.available_seats === 1 ? '' : 's' }} available
+                  </span>
+                  <span v-else class="font-semibold text-emerald-600">Unlimited seats available</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Warning if single doctor plan -->
+            <div
+              v-if="seatUsage && seatUsage.max_doctors === 1"
+              class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-center justify-between gap-3"
+            >
+              <div class="flex items-center gap-2.5">
+                <Icon name="lucide:info" class="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>Your current plan only supports 1 doctor seat. Upgrade to the <strong>Clinic Group Plan</strong> to add up to 10 doctors.</span>
+              </div>
+              <NuxtLink
+                to="/doctor/subscription"
+                class="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-bold text-xs hover:bg-amber-700 transition shrink-0"
+              >
+                Upgrade Plan
+              </NuxtLink>
+            </div>
+
+            <!-- Warning if no clinics registered yet -->
+            <div
+              v-else-if="!clinics.length"
+              class="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs flex items-center gap-2.5"
+            >
+              <Icon name="lucide:info" class="w-5 h-5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <span>Please add at least one clinic branch above before assigning associate doctors to clinic seats.</span>
+            </div>
+
+            <!-- Associate Doctors List -->
+            <div v-if="!clinicDoctors.length" class="border border-dashed border-border rounded-2xl p-8 text-center bg-foreground/[0.01]">
+              <Icon name="lucide:users" class="text-foreground/30 text-4xl mb-2 mx-auto" />
+              <h4 class="text-sm font-bold text-foreground">No associate doctors added yet</h4>
+              <p class="text-muted-foreground text-xs mt-1 max-w-md mx-auto">
+                Invite associate dermatologists or resident doctors to join your clinic branch. They will automatically inherit your subscription features.
+              </p>
+            </div>
+
+            <div v-else class="grid gap-4 sm:grid-cols-2">
+              <div
+                v-for="assoc in clinicDoctors"
+                :key="assoc.pivot_id"
+                class="p-5 rounded-2xl border border-border bg-foreground/[0.02] hover:border-primary/40 transition flex flex-col justify-between gap-4 shadow-2xs"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0 uppercase">
+                      {{ (assoc.doctor.first_name?.[0] || 'D') + (assoc.doctor.last_name?.[0] || 'R') }}
+                    </div>
+                    <div class="min-w-0">
+                      <h4 class="text-sm font-bold text-foreground truncate">
+                        Dr. {{ assoc.doctor.full_name }}
+                      </h4>
+                      <p class="text-xs text-muted-foreground truncate">{{ assoc.doctor.email }}</p>
+                      <p v-if="assoc.doctor.prc_number" class="text-[11px] font-mono text-foreground/60 mt-0.5">
+                        PRC: {{ assoc.doctor.prc_number }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="handleRemoveDoctorSeat(assoc.pivot_id, assoc.doctor.full_name)"
+                    class="text-muted-foreground hover:text-red-500 p-1.5 rounded-xl hover:bg-red-500/10 transition cursor-pointer shrink-0"
+                    title="Revoke Doctor Seat"
+                  >
+                    <Icon name="lucide:trash-2" class="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div class="flex items-center justify-between text-xs text-muted-foreground pt-3 border-t border-border/60">
+                  <span class="inline-flex items-center gap-1.5 font-medium text-foreground truncate max-w-[60%]">
+                    <Icon name="lucide:building-2" class="w-3.5 h-3.5 text-primary shrink-0" />
+                    {{ assoc.clinic.name }}
+                  </span>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-foreground/10 text-foreground capitalize">
+                      {{ assoc.role }}
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      Active
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 3. DUTY & AWAY PRESETS TAB -->
@@ -1232,6 +1486,151 @@ const logout = () => {
                 class="px-5 py-2 text-xs font-bold"
               >
                 Save Clinic
+              </AppButton>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Assign Doctor to Seat Modal -->
+    <Teleport to="body">
+      <div v-if="showAssignDoctorModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
+        <div class="bg-card border border-border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                <Icon name="lucide:user-plus" class="w-5 h-5" />
+              </div>
+              <div>
+                <h3 class="text-lg font-bold text-foreground">Assign Associate Doctor</h3>
+                <p class="text-xs text-muted-foreground">Add a doctor to your clinic subscription seat pool.</p>
+              </div>
+            </div>
+            <button @click="showAssignDoctorModal = false" class="text-muted-foreground hover:text-foreground p-1 rounded-xl cursor-pointer">
+              <Icon name="lucide:x" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <form @submit.prevent="handleAssignDoctor" class="space-y-4">
+            <div v-if="assignDoctorError" class="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs font-semibold text-red-600 dark:text-red-400">
+              {{ assignDoctorError }}
+            </div>
+
+            <!-- Clinic Branch Selection -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-foreground">Select Clinic Branch *</label>
+              <select
+                v-model="assignDoctorForm.clinic_id"
+                required
+                class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary cursor-pointer text-foreground"
+              >
+                <option :value="null" disabled>-- Choose clinic branch --</option>
+                <option v-for="c in clinics" :key="c.id" :value="c.id">
+                  {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Doctor Search / Selection -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-foreground">Find Doctor (by Name, Email, or PRC Number) *</label>
+              
+              <!-- If doctor selected -->
+              <div v-if="selectedCandidate" class="p-3 rounded-xl border border-primary/40 bg-primary/5 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="w-8 h-8 rounded-lg bg-primary/20 text-primary flex items-center justify-center font-bold text-xs shrink-0 uppercase">
+                    {{ (selectedCandidate.full_name?.[0] || 'D') }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-foreground truncate">Dr. {{ selectedCandidate.full_name }}</p>
+                    <p class="text-[11px] text-muted-foreground truncate">{{ selectedCandidate.email }} {{ selectedCandidate.prc_number ? `• PRC: ${selectedCandidate.prc_number}` : '' }}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="clearCandidateDoctor"
+                  class="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-foreground/10 cursor-pointer"
+                  title="Change doctor"
+                >
+                  <Icon name="lucide:x" class="w-4 h-4" />
+                </button>
+              </div>
+
+              <!-- Search input if not selected -->
+              <div v-else class="relative">
+                <div class="relative">
+                  <input
+                    :value="doctorSearchQuery"
+                    @input="handleDoctorSearch(($event.target as HTMLInputElement).value)"
+                    type="text"
+                    placeholder="Type name, email, or PRC license..."
+                    class="w-full rounded-xl border border-border bg-foreground/5 pl-9 pr-4 py-2.5 text-sm outline-none focus:border-primary text-foreground"
+                  />
+                  <Icon name="lucide:search" class="w-4 h-4 absolute left-3 top-3 text-muted-foreground" />
+                  <Icon v-if="isSearchingDoctors" name="lucide:loader-2" class="w-4 h-4 absolute right-3 top-3 animate-spin text-primary" />
+                </div>
+
+                <!-- Autocomplete Dropdown -->
+                <div
+                  v-if="doctorSearchResults.length > 0"
+                  class="absolute left-0 right-0 top-full mt-1.5 z-20 bg-card border border-border rounded-2xl shadow-xl max-h-48 overflow-y-auto divide-y divide-border/60"
+                >
+                  <button
+                    v-for="cand in doctorSearchResults"
+                    :key="cand.id"
+                    type="button"
+                    @click="selectCandidateDoctor(cand)"
+                    class="w-full p-3 text-left hover:bg-foreground/5 transition flex items-center justify-between gap-3 cursor-pointer"
+                  >
+                    <div class="min-w-0">
+                      <p class="text-xs font-bold text-foreground truncate">Dr. {{ cand.full_name }}</p>
+                      <p class="text-[11px] text-muted-foreground truncate">{{ cand.email }}</p>
+                    </div>
+                    <span v-if="cand.prc_number" class="text-[10px] font-mono px-2 py-0.5 rounded bg-foreground/5 text-foreground/70 shrink-0">
+                      {{ cand.prc_number }}
+                    </span>
+                  </button>
+                </div>
+
+                <div v-else-if="doctorSearchQuery.length >= 2 && !isSearchingDoctors && doctorSearchResults.length === 0" class="mt-1 text-[11px] text-muted-foreground">
+                  No registered doctor found. You can enter their full email address to assign them directly.
+                </div>
+              </div>
+            </div>
+
+            <!-- Role Selector -->
+            <div class="space-y-1.5">
+              <label class="text-xs font-bold text-foreground">Clinic Seat Role</label>
+              <select
+                v-model="assignDoctorForm.role"
+                class="w-full rounded-xl border border-border bg-foreground/5 px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-primary cursor-pointer text-foreground"
+              >
+                <option value="associate">Associate Dermatologist</option>
+                <option value="resident">Resident Physician</option>
+                <option value="consultant">Consultant Specialist</option>
+              </select>
+            </div>
+
+            <div class="p-3 rounded-xl bg-primary/5 border border-primary/10 text-[11px] text-foreground/80 flex items-start gap-2">
+              <Icon name="lucide:sparkles" class="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <span>Assigned doctors will immediately inherit full AI scanning, teleconsultation, and clinical report generation privileges under your active subscription plan.</span>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                @click="showAssignDoctorModal = false"
+                class="px-4 py-2 rounded-xl text-xs font-semibold text-foreground/70 hover:bg-foreground/5 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <AppButton
+                type="submit"
+                :loading="isAssigningDoctor"
+                class="px-5 py-2 text-xs font-bold"
+              >
+                Confirm & Assign Seat
               </AppButton>
             </div>
           </form>

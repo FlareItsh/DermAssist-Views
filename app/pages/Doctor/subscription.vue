@@ -385,7 +385,7 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
           </ul>
         </div>
 
-        <div class="pt-6">
+        <div class="pt-6 space-y-2">
           <AppButton
             :variant="currentSubscription?.plan?.uuid === plan.uuid ? 'ghost' : 'solid'"
             block
@@ -394,6 +394,15 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
           >
             {{ currentSubscription?.plan?.uuid === plan.uuid ? 'Current Active Plan' : 'Subscribe Now' }}
           </AppButton>
+
+          <NuxtLink
+            v-if="currentSubscription?.plan?.uuid === plan.uuid && (plan.max_doctors && plan.max_doctors > 1)"
+            to="/doctor/profile?tab=clinics#seats"
+            class="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/90 transition shadow-2xs"
+          >
+            <Icon name="lucide:user-plus" class="w-4 h-4" />
+            <span>Manage Doctor Seats</span>
+          </NuxtLink>
         </div>
       </div>
     </div>
