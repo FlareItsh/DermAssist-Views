@@ -2,6 +2,7 @@
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { userService } from '~/api/user/UserService'
+  import { toast } from 'vue-sonner'
 
   const props = defineProps<{
     appointmentUuid?: string
@@ -503,7 +504,7 @@
       }, 3000)
     } catch (e) {
       console.error('Failed to save clinical note', e)
-      alert('Failed to save clinical note. Please try again.')
+      toast.error('Failed to save clinical note. Please try again.')
     } finally {
       isSaving.value = false
     }

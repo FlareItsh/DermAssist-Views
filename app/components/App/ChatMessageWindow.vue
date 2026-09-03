@@ -3,6 +3,7 @@
   import { conversationService } from '~/api/conversation/ConversationService'
   import { messageService } from '~/api/message/MessageService'
   import { userService } from '~/api/user/UserService'
+  import { toast } from 'vue-sonner'
 
   interface MessageSender {
     id: string
@@ -142,7 +143,7 @@
   const addFiles = (files: File[]) => {
     const validFiles = files.filter(file => {
       if (file.size > 15 * 1024 * 1024) {
-        alert(`${file.name} is too large. Maximum size is 15MB.`)
+        toast.error(`"${file.name}" is too large. Maximum allowed file size is 15MB.`)
         return false
       }
       return true

@@ -35,9 +35,18 @@
 <template>
   <div class="flex h-full gap-5">
     <div class="min-w-0 flex-1">
+      <!-- Loading Subscription State -->
+      <div
+        v-if="isLoadingSubscription"
+        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px]"
+      >
+        <Icon name="svg-spinners:ring-resize" class="h-10 w-10 text-primary animate-spin mb-4" />
+        <p class="text-sm font-medium text-muted-foreground">Checking subscription access...</p>
+      </div>
+
       <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
       <div
-        v-if="!isLoadingSubscription && !canExecuteScan"
+        v-else-if="!canExecuteScan"
         class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden"
       >
         <div class="absolute -top-32 -right-32 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -122,20 +131,16 @@
     </div>
 
     <!-- Confirm Discard Modal -->
-    <AppModal v-model="showConfirmDiscard" title="Discard Active Scan?" description="This will wipe the current scan result and unsaved notes so you can start a new scan." size="sm">
-      <div class="py-2 text-sm text-gray-600 font-medium">
-        Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone.
-      </div>
-      <template #footer>
-        <div class="flex items-center justify-end gap-3 w-full">
-          <AppButton variant="ghost" class="rounded-xl px-5 font-bold text-gray-500" @click="showConfirmDiscard = false">
-            Cancel
-          </AppButton>
-          <AppButton variant="solid" class="bg-red-600 hover:bg-red-700 text-white rounded-xl px-5 font-bold" @click="discardAndStartNew">
-            Discard & Start New
-          </AppButton>
-        </div>
-      </template>
-    </AppModal>
+    <AppModalConfirmation
+      v-model="showConfirmDiscard"
+      title="Discard Active Scan?"
+      description="Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone."
+      icon="lucide:trash-2"
+      icon-color="danger"
+      confirm-text="Discard & Start New"
+      cancel-text="Cancel"
+      confirm-variant="destructive"
+      @confirm="discardAndStartNew"
+    />
   </div>
 </template>

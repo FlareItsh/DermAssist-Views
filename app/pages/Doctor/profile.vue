@@ -6,6 +6,7 @@
     type DoctorPlan
   } from '~/api/subscription/DoctorSubscriptionService'
   import { userService } from '~/api/user/UserService'
+  import { toast } from 'vue-sonner'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -172,6 +173,10 @@
   })
   const clinicError = ref('')
 
+  const clinicToDelete = ref<any>(null)
+  const showDeleteClinicModal = ref(false)
+  const isDeletingClinic = ref(false)
+
   const handleCreateClinic = async () => {
     if (!clinicForm.name.trim()) {
       clinicError.value = 'Clinic name is required.'
@@ -186,6 +191,7 @@
         phone: clinicForm.phone.trim() || null,
         email: clinicForm.email.trim() || null
       })
+      toast.success(`Clinic "${clinicForm.name.trim()}" added successfully.`)
       showAddClinicModal.value = false
       clinicForm.name = ''
       clinicForm.address = ''
@@ -193,17 +199,29 @@
       clinicForm.email = ''
     } catch (err: any) {
       clinicError.value = err.data?.message || err.message || 'Failed to add clinic branch.'
+      toast.error(clinicError.value)
     } finally {
       isClinicSubmitting.value = false
     }
   }
 
-  const handleDeleteClinic = async (uuid: string) => {
-    if (!confirm('Are you sure you want to remove this clinic branch?')) return
+  const confirmDeleteClinic = (clinic: any) => {
+    clinicToDelete.value = clinic
+    showDeleteClinicModal.value = true
+  }
+
+  const executeDeleteClinic = async () => {
+    if (!clinicToDelete.value) return
+    isDeletingClinic.value = true
     try {
-      await removeClinic(uuid)
+      await removeClinic(clinicToDelete.value.uuid || clinicToDelete.value.id)
+      toast.success('Clinic location removed successfully.')
+      showDeleteClinicModal.value = false
+      clinicToDelete.value = null
     } catch (err: any) {
-      alert(err.data?.message || err.message || 'Failed to delete clinic branch.')
+      toast.error(err.data?.message || err.message || 'Failed to delete clinic branch.')
+    } finally {
+      isDeletingClinic.value = false
     }
   }
 
@@ -296,27 +314,39 @@
         payload.email = doctorSearchQuery.value.trim()
       }
       await assignDoctor(payload)
+      toast.success('Associate doctor assigned to clinic seat successfully.')
       showAssignDoctorModal.value = false
       clearCandidateDoctor()
     } catch (err: any) {
       assignDoctorError.value =
         err.data?.message || err.message || 'Failed to assign doctor to clinic seat.'
+      toast.error(assignDoctorError.value)
     } finally {
       isAssigningDoctor.value = false
     }
   }
 
-  const handleRemoveDoctorSeat = async (pivotId: number, doctorName: string) => {
-    if (
-      !confirm(
-        `Are you sure you want to revoke the doctor seat for ${doctorName}? Their access will be unlinked, but their past records will remain intact.`
-      )
-    )
-      return
+  const doctorSeatToRevoke = ref<{ pivotId: number; name: string } | null>(null)
+  const showRevokeSeatModal = ref(false)
+  const isRevokingSeat = ref(false)
+
+  const confirmRevokeDoctorSeat = (pivotId: number, doctorName: string) => {
+    doctorSeatToRevoke.value = { pivotId, name: doctorName }
+    showRevokeSeatModal.value = true
+  }
+
+  const executeRevokeDoctorSeat = async () => {
+    if (!doctorSeatToRevoke.value) return
+    isRevokingSeat.value = true
     try {
-      await removeDoctor(pivotId)
+      await removeDoctor(doctorSeatToRevoke.value.pivotId)
+      toast.success(`Doctor seat for Dr. ${doctorSeatToRevoke.value.name} has been revoked.`)
+      showRevokeSeatModal.value = false
+      doctorSeatToRevoke.value = null
     } catch (err: any) {
-      alert(err.data?.message || err.message || 'Failed to remove doctor seat.')
+      toast.error(err.data?.message || err.message || 'Failed to remove doctor seat.')
+    } finally {
+      isRevokingSeat.value = false
     }
   }
 
@@ -1123,7 +1153,7 @@
                 <button
                   v-if="clinic.is_owner !== false"
                   type="button"
-                  @click="handleDeleteClinic(clinic.uuid)"
+                  @click="confirmDeleteClinic(clinic)"
                   class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
                   title="Remove Clinic"
                 >
@@ -1560,7 +1590,7 @@
 
                     <button
                       type="button"
-                      @click="handleRemoveDoctorSeat(assoc.pivot_id, assoc.doctor.full_name)"
+                      @click="confirmRevokeDoctorSeat(assoc.pivot_id, assoc.doctor.full_name)"
                       class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
                       title="Revoke Doctor Seat"
                     >
@@ -2796,13 +2826,42 @@
       </div>
     </Teleport>
 
+    <!-- Confirmation Modal: Delete Clinic Location -->
+    <AppModalConfirmation
+      v-model="showDeleteClinicModal"
+      title="Delete Clinic Location?"
+      :description="`Are you sure you want to remove &quot;${clinicToDelete?.name || 'this clinic'}&quot;? Doctors and schedules associated with this location will be unlinked.`"
+      icon="lucide:trash-2"
+      icon-color="danger"
+      confirm-text="Yes, Delete Clinic"
+      cancel-text="Keep Clinic"
+      confirm-variant="destructive"
+      :loading="isDeletingClinic"
+      @confirm="executeDeleteClinic"
+    />
+
+    <!-- Confirmation Modal: Revoke Doctor Seat -->
+    <AppModalConfirmation
+      v-model="showRevokeSeatModal"
+      title="Revoke Doctor Seat?"
+      :description="`Are you sure you want to revoke the doctor seat for Dr. ${doctorSeatToRevoke?.name || 'this doctor'}? Their multi-doctor access will be unlinked, but their past records and history will remain intact.`"
+      icon="lucide:user-x"
+      icon-color="danger"
+      confirm-text="Revoke Seat"
+      cancel-text="Cancel"
+      confirm-variant="destructive"
+      :loading="isRevokingSeat"
+      @confirm="executeRevokeDoctorSeat"
+    />
+
     <!-- Logout Modal -->
-    <AppModalConfirm
+    <AppModalConfirmation
       v-if="isLogoutModalOpen"
       title="Confirm Sign Out"
-      message="Are you sure you want to log out of your doctor account?"
+      description="Are you sure you want to log out of your doctor account?"
+      icon="ic:round-log-out"
       confirm-text="Log Out"
-      confirm-variant="danger"
+      confirm-variant="destructive"
       @confirm="logout"
       @cancel="isLogoutModalOpen = false"
     />
