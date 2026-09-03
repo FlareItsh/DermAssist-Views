@@ -38,6 +38,10 @@ const paginatedInvoices = computed(() => {
   return invoices.value.slice(start, start + invoicesPerPage)
 })
 
+const isInherited = ref(false)
+const associateCoverage = ref<any | null>(null)
+const directSubscription = ref<any | null>(null)
+
 const fetchSubscriptionData = async () => {
   isLoading.value = true
   try {
@@ -47,7 +51,10 @@ const fetchSubscriptionData = async () => {
     ])
     plans.value = plansRes.data || []
     currentSubscription.value = subRes.data?.subscription || null
+    directSubscription.value = subRes.data?.direct_subscription || null
     invoices.value = subRes.data?.invoices || []
+    isInherited.value = Boolean(subRes.data?.is_inherited)
+    associateCoverage.value = subRes.data?.associate_coverage || null
   } catch (e: any) {
     console.error('Failed to load subscription details:', e)
   } finally {
@@ -290,6 +297,48 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
       :description="bannerAlert.description"
     />
 
+    <!-- Dual Coverage / Associate Notice Banner -->
+    <div
+      v-if="associateCoverage"
+      class="rounded-3xl border border-indigo-500/20 bg-indigo-500/5 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+    >
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+          <Icon name="lucide:building-2" class="w-5 h-5" />
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h4 class="text-sm font-bold text-foreground">
+              Clinic Associate Coverage
+            </h4>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 capitalize">
+              {{ associateCoverage.role }}
+            </span>
+            <span v-if="isInherited" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+              Active Coverage
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Stationed at <strong class="text-foreground">{{ associateCoverage.clinic_name }}</strong> • Sponsored by <strong class="text-foreground">Dr. {{ associateCoverage.owner_name }}</strong> under their {{ associateCoverage.plan_name }}.
+          </p>
+          <p v-if="directSubscription && isInherited" class="text-[11px] text-muted-foreground mt-1">
+            Note: You also hold a personal {{ directSubscription.plan?.name || 'subscription' }}. Your active status is automatically upgraded to Dr. {{ associateCoverage.owner_name }}'s {{ associateCoverage.plan_name }} to grant you full multi-doctor clinical privileges.
+          </p>
+          <p v-else-if="!isInherited" class="text-[11px] text-muted-foreground mt-1">
+            You hold your own personal active plan, and you are also covered with shared clinic capabilities under this clinic branch.
+          </p>
+        </div>
+      </div>
+
+      <NuxtLink
+        to="/doctor/profile?tab=clinics"
+        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shrink-0 self-start sm:self-auto shadow-2xs"
+      >
+        <Icon name="lucide:building" class="w-4 h-4" />
+        <span>View Clinic</span>
+      </NuxtLink>
+    </div>
+
     <!-- Active Subscription Banner -->
     <div v-if="currentSubscription" class="rounded-3xl border border-primary/20 bg-card p-6 shadow-sm">
       <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -299,16 +348,22 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             <AppBadge :color="getBadgeColor(currentSubscription.status)" variant="subtle" size="sm">
               {{ currentSubscription.status }}
             </AppBadge>
+            <span v-if="isInherited" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+              Sponsored by Clinic
+            </span>
           </div>
           <h2 class="text-xl font-bold text-foreground">
             {{ currentSubscription.plan?.name || 'Standard Tier' }}
             <span class="text-sm font-normal text-muted-foreground">({{ currentSubscription.billing_cycle }})</span>
           </h2>
-          <p class="text-xs text-muted-foreground">
+          <p v-if="!isInherited" class="text-xs text-muted-foreground">
             Valid until {{ new Date(currentSubscription.ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}
           </p>
+          <p v-else class="text-xs text-muted-foreground">
+            Active via Clinic Seat Membership • Billing managed by Clinic Owner
+          </p>
         </div>
-        <div class="flex items-center gap-3">
+        <div v-if="!isInherited" class="flex items-center gap-3">
           <AppButton
             variant="solid"
             size="md"
