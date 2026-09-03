@@ -450,14 +450,16 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             {{ currentSubscription?.plan?.uuid === plan.uuid ? 'Current Active Plan' : 'Subscribe Now' }}
           </AppButton>
 
-          <NuxtLink
+          <AppButton
             v-if="currentSubscription?.plan?.uuid === plan.uuid && (plan.max_doctors && plan.max_doctors > 1) && !isInherited"
             to="/doctor/profile?tab=clinics#seats"
-            class="w-full py-2 px-3 rounded-xl bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary/90 transition shadow-2xs cursor-pointer"
+            variant="solid"
+            size="sm"
+            block
           >
-            <Icon name="lucide:user-plus" class="w-4 h-4" />
+            <Icon name="lucide:user-plus" class="w-4 h-4 mr-1" />
             <span>Manage Doctor Seats</span>
-          </NuxtLink>
+          </AppButton>
 
           <NuxtLink
             v-else-if="currentSubscription?.plan?.uuid === plan.uuid && isInherited"

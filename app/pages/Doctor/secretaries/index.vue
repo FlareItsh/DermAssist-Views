@@ -186,14 +186,15 @@ const handleDeleteSecretary = async () => {
         <div class="relative shrink-0">
           <AppSearch v-model="searchValue" rounded="rounded-full shadow-sm overflow-hidden" text="text-secondary" width="w-fit" />
         </div>
-        <button
+        <AppButton
           v-if="canHaveSecretary || filteredSecretaries.length > 0"
+          variant="solid"
+          size="md"
           @click="openAddModal"
-          class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm cursor-pointer"
         >
-          <Icon :name="canHaveSecretary ? 'heroicons:user-plus' : 'lucide:arrow-up-right'" class="w-4 h-4" />
+          <Icon :name="canHaveSecretary ? 'heroicons:user-plus' : 'lucide:arrow-up-right'" class="w-4 h-4 mr-1" />
           <span>{{ canHaveSecretary ? 'Add Secretary' : 'Upgrade Plan' }}</span>
-        </button>
+        </AppButton>
       </div>
     </div>
 
@@ -463,21 +464,23 @@ const handleDeleteSecretary = async () => {
             </div>
 
             <div class="pt-3 flex items-center justify-end gap-2">
-              <button
+              <AppButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 @click="showAddModal = false"
-                class="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground rounded-xl transition cursor-pointer"
               >
                 Cancel
-              </button>
-              <button
+              </AppButton>
+              <AppButton
                 type="submit"
+                variant="solid"
+                size="sm"
+                :loading="isSubmitting"
                 :disabled="isSubmitting"
-                class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-medium transition cursor-pointer disabled:opacity-50"
               >
-                <Icon v-if="isSubmitting" name="svg-spinners:180-ring-with-bg" class="w-3.5 h-3.5" />
                 <span>{{ isSubmitting ? 'Registering...' : 'Register Secretary' }}</span>
-              </button>
+              </AppButton>
             </div>
           </form>
         </div>

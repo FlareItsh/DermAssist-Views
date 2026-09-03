@@ -1024,18 +1024,18 @@
                 }}
               </p>
             </div>
-            <button
+            <AppButton
               v-if="isOwner"
-              type="button"
+              variant="solid"
+              size="sm"
               @click="showAddClinicModal = true"
-              class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold shadow-xs transition"
             >
               <Icon
                 name="heroicons:plus"
-                class="h-4 w-4"
+                class="h-4 w-4 mr-1"
               />
               <span>Add Clinic</span>
-            </button>
+            </AppButton>
           </div>
 
           <div class="bg-border h-px"></div>
@@ -1401,18 +1401,18 @@
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  @click="openAssignDoctorModal"
+                <AppButton
+                  variant="solid"
+                  size="sm"
                   :disabled="!clinics.length || (seatUsage && !seatUsage.can_add)"
-                  class="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
+                  @click="openAssignDoctorModal"
                 >
                   <Icon
                     name="lucide:user-plus"
-                    class="h-4 w-4"
+                    class="h-4 w-4 mr-1"
                   />
                   <span>Assign Associate Doctor</span>
-                </button>
+                </AppButton>
               </div>
 
               <!-- Seat Quota Banner -->
@@ -2546,17 +2546,19 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
+              <AppButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 @click="showAddClinicModal = false"
-                class="text-foreground/70 hover:bg-foreground/5 cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold"
               >
                 Cancel
-              </button>
+              </AppButton>
               <AppButton
                 type="submit"
+                variant="solid"
+                size="sm"
                 :loading="isClinicSubmitting"
-                class="px-5 py-2 text-xs font-bold"
               >
                 Save Clinic
               </AppButton>
@@ -2772,17 +2774,19 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
-              <button
+              <AppButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 @click="showAssignDoctorModal = false"
-                class="text-foreground/70 hover:bg-foreground/5 cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold"
               >
                 Cancel
-              </button>
+              </AppButton>
               <AppButton
                 type="submit"
+                variant="solid"
+                size="sm"
                 :loading="isAssigningDoctor"
-                class="px-5 py-2 text-xs font-bold"
               >
                 Confirm & Assign Seat
               </AppButton>

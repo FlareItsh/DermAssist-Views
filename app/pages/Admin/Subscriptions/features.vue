@@ -7,13 +7,14 @@
       current-tab="features"
     >
       <template #actions>
-        <button 
+        <AppButton 
           @click="openCreateModal"
-          class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-primary-dark cursor-pointer"
+          variant="solid"
+          size="sm"
         >
-          <Icon name="lucide:plus" class="text-sm" />
+          <Icon name="lucide:plus" class="text-sm mr-1" />
           Create Feature
-        </button>
+        </AppButton>
       </template>
     </AdminSideComponentsSubscriptionNavHeader>
 
