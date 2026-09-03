@@ -7,13 +7,14 @@
       current-tab="coupons"
     >
       <template #actions>
-        <button 
+        <AppButton 
           @click="showModal = true"
-          class="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-primary-dark"
+          variant="solid"
+          size="sm"
         >
-          <Icon name="lucide:plus" class="text-sm" />
+          <Icon name="lucide:plus" class="text-sm mr-1" />
           Create Coupon
-        </button>
+        </AppButton>
       </template>
     </AdminSideComponentsSubscriptionNavHeader>
 

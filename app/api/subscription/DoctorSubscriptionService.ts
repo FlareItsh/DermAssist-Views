@@ -8,6 +8,7 @@ export interface DoctorPlan {
   price_annual: number
   max_doctors: number | null
   max_clinics: number | null
+  max_secretaries?: number | null
   support_level?: string
   features: Record<string, any> | string[] | any
   is_active: boolean

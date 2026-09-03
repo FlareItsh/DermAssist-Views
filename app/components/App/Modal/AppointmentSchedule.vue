@@ -29,8 +29,16 @@ const selectedDate = ref('')
 const scheduleTime = ref('09:00')
 const scheduleEndTime = ref('10:00')
 const scheduleLocation = ref('')
+const customLocationInput = ref('')
 const isScheduling = ref(false)
 const errorMessage = ref<string | null>(null)
+const wasAutofilled = ref(false)
+
+const { clinics, fetchClinics } = useDoctorClinics()
+
+onMounted(async () => {
+  await fetchClinics()
+})
 
 // Auto-sync end time when start time changes if end time <= start time
 watch(scheduleTime, (newStart) => {
@@ -42,8 +50,32 @@ watch(scheduleTime, (newStart) => {
 
 // ─── Appointments & Blocked dates ───────────────────────────────────────────
 
-const { blockedSlots, isTimeRangeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate } = useBlockedDates()
+const { blockedSlots, isTimeRangeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate, getDutyClinicForDateAndTime } = useBlockedDates()
 const { appointments, isApptTimeConflicting } = useAppointments()
+
+// Smart autofill clinic location from duty preset when date & time change
+watch([selectedDate, scheduleTime, scheduleEndTime], ([date, start, end]) => {
+  if (!date || !start) return
+  const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
+  if (matchedDuty) {
+    const loc = matchedDuty.clinic?.name || matchedDuty.location_name
+    if (loc) {
+      scheduleLocation.value = loc
+      customLocationInput.value = ''
+      wasAutofilled.value = true
+      return
+    }
+  }
+
+  // If no duty schedule found and scheduleLocation was previously autofilled or empty
+  if (wasAutofilled.value || !scheduleLocation.value) {
+    if (clinics.value.length > 0) {
+      scheduleLocation.value = clinics.value[0].name
+      customLocationInput.value = ''
+    }
+    wasAutofilled.value = false
+  }
+}, { immediate: true })
 
 const handleDateSelected = (date: string) => {
   selectedDate.value = date
@@ -118,9 +150,16 @@ const blockedRangesLabel = computed(() => {
     .join(', ')
 })
 
+const effectiveLocation = computed(() => {
+  if (scheduleLocation.value === '__custom__') {
+    return customLocationInput.value.trim()
+  }
+  return scheduleLocation.value.trim()
+})
+
 const confirmSchedule = async () => {
   errorMessage.value = null
-  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value || !scheduleLocation.value) return
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value || !effectiveLocation.value) return
   if (isSelectedTimeBlocked.value || isTimeRangeInvalid.value || isApptConflict.value) return
   isScheduling.value = true
   try {
@@ -131,14 +170,14 @@ const confirmSchedule = async () => {
       await appointmentService.proposeReschedule(props.appointmentUuid, {
         scheduled_at: dateTime,
         scheduled_end_at: endDateTime,
-        location: scheduleLocation.value
+        location: effectiveLocation.value
       })
     } else {
       await appointmentService.update(props.appointmentUuid, {
         status: 'scheduled',
         scheduled_at: dateTime,
         scheduled_end_at: endDateTime,
-        location: scheduleLocation.value
+        location: effectiveLocation.value
       })
     }
 
@@ -252,21 +291,44 @@ const confirmSchedule = async () => {
               </Transition>
             </div>
 
+            <!-- Clinic / Location Selector -->
             <div class="mb-8">
-              <label class="mb-2 block text-sm font-bold text-gray-500">Clinic / Location</label>
-              <input
-                type="text"
-                v-model="scheduleLocation"
-                placeholder="e.g. SkinCare Clinic, Rm 302"
-                class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500"
-              />
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-bold text-gray-500">Clinic / Location</label>
+                <span v-if="wasAutofilled" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Icon name="heroicons:sparkles" class="w-3 h-3 text-emerald-600" />
+                  Autofilled from Duty Preset
+                </span>
+              </div>
+
+              <div class="space-y-2">
+                <select
+                  v-if="clinics.length > 0"
+                  v-model="scheduleLocation"
+                  class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500 text-sm font-medium text-foreground cursor-pointer"
+                >
+                  <option value="" disabled>-- Select a Clinic Location --</option>
+                  <option v-for="c in clinics" :key="c.id" :value="c.name">
+                    {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                  </option>
+                  <option value="__custom__">+ Other / Custom Location</option>
+                </select>
+
+                <input
+                  v-if="clinics.length === 0 || scheduleLocation === '__custom__'"
+                  type="text"
+                  v-model="customLocationInput"
+                  placeholder="e.g. SkinCare Clinic, Rm 302"
+                  class="w-full rounded-xl border border-gray-200 bg-white p-3 outline-none focus:border-indigo-500 text-sm"
+                />
+              </div>
             </div>
 
             <div class="mt-auto flex flex-col gap-3">
               <AppButton
                 variant="solid"
                 class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
-                :disabled="!selectedDate || !scheduleTime || !scheduleEndTime || !scheduleLocation || isScheduling || isSelectedTimeBlocked || isTimeRangeInvalid || isApptConflict"
+                :disabled="!selectedDate || !scheduleTime || !scheduleEndTime || !effectiveLocation || isScheduling || isSelectedTimeBlocked || isTimeRangeInvalid || isApptConflict"
                 @click="confirmSchedule"
               >
                 <template v-if="isScheduling">

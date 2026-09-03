@@ -21,6 +21,19 @@ export const useDoctorSubscription = () => {
     return Boolean(planFeatures.value?.can_execute_scan)
   })
 
+  const canHaveSecretary = computed(() => {
+    if (!isSubscribed.value) return false
+    const plan = currentSubscription.value?.plan
+    if (!plan) return false
+    const features = (plan.features || {}) as Record<string, any>
+    return Boolean(features?.can_have_secretary) || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
+  })
+
+  const maxSecretaries = computed(() => {
+    if (!isSubscribed.value) return 0
+    return currentSubscription.value?.plan?.max_secretaries ?? null
+  })
+
   const hasFeature = (featureKey: string) => {
     if (!isSubscribed.value) return false
     return Boolean(planFeatures.value?.[featureKey])
@@ -33,7 +46,7 @@ export const useDoctorSubscription = () => {
   const fetchSubscription = async (force = false) => {
     // Cache for 30 seconds unless forced
     const now = Date.now()
-    if (!force && lastFetchedAt.value && now - lastFetchedAt.value < 30000 && currentSubscription.value !== undefined) {
+    if (!force && lastFetchedAt.value && now - lastFetchedAt.value < 30000 && currentSubscription.value !== null) {
       return currentSubscription.value
     }
 
@@ -56,11 +69,14 @@ export const useDoctorSubscription = () => {
   }
 
   return {
+    subscription: currentSubscription,
     currentSubscription,
     isLoadingSubscription,
     isSubscribed,
     planFeatures,
     canExecuteScan,
+    canHaveSecretary,
+    maxSecretaries,
     hasFeature,
     planName,
     fetchSubscription

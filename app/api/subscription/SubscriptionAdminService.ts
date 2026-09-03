@@ -9,6 +9,7 @@ export interface Plan {
   price_annual: number
   max_doctors?: number | null
   max_clinics?: number | null
+  max_secretaries?: number | null
   features?: Record<string, boolean>
   trial_period_days?: number
   grace_period_days?: number

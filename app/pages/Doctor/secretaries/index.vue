@@ -7,6 +7,11 @@ definePageMeta({
 })
 
 const { getStorageUrl } = useStorage()
+const { isSubscribed, hasFeature, subscription, currentSubscription, canHaveSecretary: subscriptionCanHaveSecretary, maxSecretaries: subscriptionMaxSecretaries, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
+
+onMounted(async () => {
+  await fetchSubscription(true)
+})
 
 // Fetch doctor's secretaries list
 const { data: response, refresh, pending } = doctorSecretaryService.useList()
@@ -14,6 +19,27 @@ const { data: response, refresh, pending } = doctorSecretaryService.useList()
 const secretaries = computed(() => {
   const res = response.value as any
   return res?.data ?? (Array.isArray(res) ? res : [])
+})
+
+const canHaveSecretary = computed(() => {
+  if (subscriptionCanHaveSecretary.value) return true
+  if (!isSubscribed.value) return false
+  const plan = currentSubscription.value?.plan || subscription.value?.plan
+  if (!plan) return false
+  const features = (plan.features || {}) as Record<string, any>
+  return Boolean(features?.can_have_secretary) || hasFeature('can_have_secretary') || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
+})
+
+const maxSecretaries = computed(() => {
+  if (!isSubscribed.value) return 0
+  const plan = currentSubscription.value?.plan || subscription.value?.plan
+  return plan?.max_secretaries ?? subscriptionMaxSecretaries.value ?? null
+})
+
+const isLimitReached = computed(() => {
+  if (!canHaveSecretary.value) return true
+  if (maxSecretaries.value === null) return false
+  return secretaries.value.length >= maxSecretaries.value
 })
 
 // Search functionality
@@ -46,6 +72,14 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const openAddModal = () => {
+  if (!canHaveSecretary.value) {
+    navigateTo('/doctor/subscription?required=secretary')
+    return
+  }
+  if (isLimitReached.value) {
+    toast.error(`You have reached your plan limit of ${maxSecretaries.value} secretary account(s). Please upgrade to add more.`)
+    return
+  }
   form.firstName = ''
   form.middleName = ''
   form.lastName = ''
@@ -133,34 +167,150 @@ const handleDeleteSecretary = async () => {
     <!-- Header Section -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold text-foreground">Manage Secretaries</h1>
-        <p class="text-sm text-muted-foreground">Register and manage secretary accounts linked to your clinic.</p>
+        <div class="flex items-center gap-2.5">
+          <h1 class="text-2xl font-bold text-foreground">Manage Secretaries</h1>
+          <!-- Quota Badge -->
+          <span 
+            v-if="canHaveSecretary"
+            class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border"
+            :class="isLimitReached ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full" :class="isLimitReached ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+            {{ secretaries.length }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Seats Used
+          </span>
+        </div>
+        <p class="text-sm text-muted-foreground mt-0.5">Register and manage secretary accounts linked to your clinic.</p>
       </div>
 
       <div class="flex items-center gap-3">
         <div class="relative shrink-0">
           <AppSearch v-model="searchValue" rounded="rounded-full shadow-sm overflow-hidden" text="text-secondary" width="w-fit" />
         </div>
-        <button
+        <AppButton
+          v-if="canHaveSecretary || filteredSecretaries.length > 0"
+          variant="solid"
+          size="md"
           @click="openAddModal"
-          class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm cursor-pointer"
         >
-          <Icon name="heroicons:user-plus" class="w-4 h-4" />
-          <span>Add Secretary</span>
-        </button>
+          <Icon :name="canHaveSecretary ? 'heroicons:user-plus' : 'lucide:arrow-up-right'" class="w-4 h-4 mr-1" />
+          <span>{{ canHaveSecretary ? 'Add Secretary' : 'Upgrade Plan' }}</span>
+        </AppButton>
       </div>
+    </div>
+
+    <!-- Upgrade Feature Banner (Only when doctor has existing secretaries from past plan but is now expired/unsubscribed) -->
+    <div v-if="!canHaveSecretary && filteredSecretaries.length > 0 && !pending" class="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-3">
+        <Icon name="lucide:shield-alert" class="w-5 h-5 text-amber-600 shrink-0" />
+        <div>
+          <p class="text-xs font-bold">Secretary Management Inactive</p>
+          <p class="text-xs text-amber-800">Your current plan does not include active secretary account access. Upgrade to re-enable secretary management.</p>
+        </div>
+      </div>
+      <NuxtLink to="/doctor/subscription?required=secretary" class="shrink-0 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
+        <Icon name="lucide:arrow-up-right" class="w-3.5 h-3.5" />
+        <span>Upgrade Subscription</span>
+      </NuxtLink>
+    </div>
+
+    <!-- Limit Reached Notice Banner -->
+    <div v-else-if="canHaveSecretary && isLimitReached && !pending" class="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-3">
+        <Icon name="lucide:info" class="w-5 h-5 text-blue-600 shrink-0" />
+        <div>
+          <p class="text-xs font-bold">Secretary Seat Quota Reached</p>
+          <p class="text-xs text-blue-800">You are currently using all {{ maxSecretaries }} of {{ maxSecretaries }} secretary seats allowed on your plan.</p>
+        </div>
+      </div>
+      <NuxtLink to="/doctor/subscription" class="shrink-0 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700 transition inline-flex items-center gap-1.5 cursor-pointer shadow-xs">
+        <Icon name="lucide:arrow-up-right" class="w-3.5 h-3.5" />
+        <span>Expand Seats</span>
+      </NuxtLink>
     </div>
 
     <!-- Divider -->
     <div class="h-px w-full bg-border/60"></div>
 
     <!-- Loading State -->
-    <div v-if="pending" class="flex justify-center items-center p-12 text-muted-foreground">
+    <div v-if="pending || isLoadingSubscription" class="flex justify-center items-center p-12 text-muted-foreground">
       <Icon name="svg-spinners:180-ring-with-bg" class="text-3xl" />
     </div>
 
-    <!-- Empty State -->
-    <div v-else-if="filteredSecretaries.length === 0" class="text-muted-foreground p-12 text-center border border-dashed rounded-2xl bg-card/50">
+    <!-- Premium Feature Locked / Paywall Showcase (When Doctor lacks Secretary plan and has 0 secretaries) -->
+    <div 
+      v-else-if="!canHaveSecretary && filteredSecretaries.length === 0" 
+      class="rounded-3xl border border-border/80 bg-card p-8 md:p-12 shadow-xs text-center flex flex-col items-center justify-center max-w-3xl mx-auto my-auto"
+    >
+      <div class="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-5 text-primary shadow-xs">
+        <Icon name="lucide:users-round" class="w-8 h-8" />
+      </div>
+
+      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20 mb-3">
+        <Icon name="lucide:sparkles" class="w-3.5 h-3.5" />
+        Individual Doctor (with Secretary) Feature
+      </span>
+
+      <h2 class="text-2xl font-bold tracking-tight text-foreground mb-2">
+        Unlock Dedicated Secretary Management
+      </h2>
+      <p class="text-sm text-muted-foreground max-w-xl mb-8 leading-relaxed">
+        Streamline your clinic operations by delegating appointment bookings, patient queues, and schedule management to a dedicated secretary account.
+      </p>
+
+      <!-- Benefit Highlights Cards -->
+      <div class="grid sm:grid-cols-3 gap-4 w-full text-left mb-8">
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:shield-check" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Dedicated Staff Login</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Secure, role-restricted credentials created specifically for clinic front-desk staff.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:calendar-check" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Queue & Bookings</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Allow your secretary to schedule, reschedule, and manage patient appointments in real time.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl border border-sidebar-border bg-muted/10 space-y-1.5">
+          <div class="w-8 h-8 rounded-xl bg-primary/10 flex items-center justify-center text-primary mb-2">
+            <Icon name="lucide:folder-heart" class="w-4 h-4" />
+          </div>
+          <h4 class="text-xs font-bold text-foreground">Patient Coordination</h4>
+          <p class="text-[11px] text-muted-foreground leading-normal">
+            Effortlessly look up patient consultation history and incoming appointment requests.
+          </p>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+        <NuxtLink
+          to="/doctor/subscription?required=secretary"
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-6 py-3 rounded-xl text-sm font-bold shadow-xs transition cursor-pointer"
+        >
+          <Icon name="lucide:arrow-up-right" class="w-4 h-4" />
+          <span>Upgrade to Secretary Plan (₱1,499/mo)</span>
+        </NuxtLink>
+
+        <NuxtLink
+          to="/doctor/subscription"
+          class="w-full sm:w-auto inline-flex items-center justify-center gap-2 border border-border bg-card hover:bg-muted/20 px-5 py-3 rounded-xl text-sm font-bold text-foreground transition cursor-pointer"
+        >
+          <span>View All Plans</span>
+        </NuxtLink>
+      </div>
+    </div>
+
+    <!-- Empty State (When Doctor HAS permission but has not added any secretaries yet) -->
+    <div v-else-if="filteredSecretaries.length === 0" class="text-muted-foreground p-12 text-center border border-dashed border-border rounded-2xl bg-card/50">
       <Icon name="heroicons:user-group" class="mx-auto mb-3 text-5xl opacity-30" />
       <h3 class="text-base font-semibold text-foreground mb-1">No Secretaries Found</h3>
       <p class="text-sm text-muted-foreground mb-4">
@@ -314,21 +464,23 @@ const handleDeleteSecretary = async () => {
             </div>
 
             <div class="pt-3 flex items-center justify-end gap-2">
-              <button
+              <AppButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 @click="showAddModal = false"
-                class="px-4 py-2 text-xs font-medium text-muted-foreground hover:text-foreground rounded-xl transition cursor-pointer"
               >
                 Cancel
-              </button>
-              <button
+              </AppButton>
+              <AppButton
                 type="submit"
+                variant="solid"
+                size="sm"
+                :loading="isSubmitting"
                 :disabled="isSubmitting"
-                class="inline-flex items-center gap-2 bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl text-xs font-medium transition cursor-pointer disabled:opacity-50"
               >
-                <Icon v-if="isSubmitting" name="svg-spinners:180-ring-with-bg" class="w-3.5 h-3.5" />
                 <span>{{ isSubmitting ? 'Registering...' : 'Register Secretary' }}</span>
-              </button>
+              </AppButton>
             </div>
           </form>
         </div>
