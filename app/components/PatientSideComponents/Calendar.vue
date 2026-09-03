@@ -3,6 +3,7 @@
   import { onClickOutside } from '@vueuse/core'
 
   import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import type { BlockedSlot } from '~/composables/useBlockedDates'
 
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
@@ -12,6 +13,8 @@
     minDate?: string
     /** Blocked/away slots for the logged-in doctor. When provided, blocked dates are visually marked and disabled. */
     blockedSlots?: BlockedSlot[]
+    /** Doctor duty shifts. When provided, dates with no duty shifts are visually marked as off-duty. */
+    dutySlots?: BlockedSlot[]
     /** When true, renders a "Manage Blocked Dates" link that navigates to the doctor profile page. */
     showManageBlocksLink?: boolean
     /** When false, clicking appointment dates only selects the date and appointment details stay hover-only. */
@@ -25,6 +28,7 @@
       return `${year}-${month}-${day}`
     },
     blockedSlots: () => [],
+    dutySlots: () => [],
     showManageBlocksLink: false,
     showAppointmentDetailsPanel: true,
   })
@@ -80,10 +84,8 @@
   const formatAppointmentTimeRange = (appt: any): string => {
     const formatRawTime = (raw?: string) => {
       if (!raw) return ''
-      const localDateTimeStr = raw.replace(/Z|(\+\d{2}:\d{2})$/i, '')
-      const date = new Date(localDateTimeStr)
-      if (Number.isNaN(date.getTime())) return ''
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const p = parseAppointmentDateTime(raw)
+      return p.time || ''
     }
 
     const start = appt.time || formatRawTime(appt.raw_scheduled_at)
@@ -128,6 +130,39 @@
           return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
         }
         if (s.start_time <= '00:01' && s.end_time >= '23:58') return 'All day'
+        return `${fmt(s.start_time)} – ${fmt(s.end_time)}`
+      })
+      .join(', ')
+  }
+
+  /**
+   * Returns all active duty shifts for a given YYYY-MM-DD date.
+   */
+  const getDutySlotsForDate = (dateStr: string): BlockedSlot[] => {
+    if (!props.dutySlots?.length) return []
+    return props.dutySlots.filter(
+      (slot) => slot.available_date?.slice(0, 10) === dateStr && (Number(slot.is_available) === 1 || slot.is_available === true)
+    )
+  }
+
+  /** Returns true if doctor has duty slots configured but none on this date. */
+  const isDateOffDuty = (day: number): boolean => {
+    if (!props.dutySlots || props.dutySlots.length === 0) return false
+    return getDutySlotsForDate(dateStringFor(day)).length === 0
+  }
+
+  /** Human-readable label for duty hours on a date. */
+  const dutyRangeLabel = (day: number): string => {
+    const slots = getDutySlotsForDate(dateStringFor(day))
+    if (!slots.length) return 'Off-Duty'
+    return slots
+      .map((s) => {
+        const fmt = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          const ampm = h >= 12 ? 'PM' : 'AM'
+          const hour = h % 12 || 12
+          return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+        }
         return `${fmt(s.start_time)} – ${fmt(s.end_time)}`
       })
       .join(', ')
@@ -355,11 +390,13 @@
                 ? 'cursor-not-allowed bg-red-50 text-red-300 ring-1 ring-red-200'
                 : selectedDay === dateStringFor(date)
                   ? 'bg-secondary text-white cursor-pointer shadow-md'
-                  : isDateBlocked(date)
-                    ? 'cursor-pointer text-foreground hover:bg-primary/10 ring-1 ring-red-300'
-                    : isToday(date)
-                      ? 'cursor-pointer text-primary ring-2 ring-primary/40 hover:bg-primary/10'
-                      : 'text-foreground cursor-pointer hover:bg-primary/10'
+                  : isDateOffDuty(date)
+                    ? 'cursor-pointer bg-gray-50/70 text-gray-400 ring-1 ring-gray-200 hover:bg-gray-100/80'
+                    : isDateBlocked(date)
+                      ? 'cursor-pointer text-foreground hover:bg-primary/10 ring-1 ring-red-300'
+                      : isToday(date)
+                        ? 'cursor-pointer text-primary ring-2 ring-primary/40 hover:bg-primary/10'
+                        : 'text-foreground cursor-pointer hover:bg-primary/10'
           ]"
         >
           {{ date }}
@@ -390,6 +427,23 @@
               </div>
               <p class="text-red-200 text-[10px] font-semibold">
                 {{ isWholeDayBlocked(date) ? 'Entire day blocked' : blockedRangeLabel(date) }}
+              </p>
+            </div>
+          </Transition>
+
+          <!-- Off-Duty date tooltip -->
+          <Transition name="fade-scale">
+            <div
+              v-if="hoveredDate === dateStringFor(date) && isDateOffDuty(date) && !isPast(date) && !isDateBlocked(date)"
+              class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none w-48 bg-gray-900/95 text-white p-2.5 rounded-xl shadow-2xl border border-gray-700/60 backdrop-blur-md text-left text-xs"
+            >
+              <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900/95 rotate-45 border-r border-b border-gray-700/60" />
+              <div class="flex items-center gap-1.5 mb-1">
+                <Icon name="material-symbols:event-busy-rounded" class="text-gray-300 text-sm shrink-0" />
+                <p class="font-bold text-gray-100 text-xs">Off-Duty</p>
+              </div>
+              <p class="text-gray-300 text-[10px] font-medium">
+                No scheduled duty hours on this date.
               </p>
             </div>
           </Transition>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { appointmentService } from '~/api/appointment/AppointmentService'
+import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -79,7 +80,18 @@ watch(scheduleTime, (newStart) => {
 
 // ─── Blocked dates & Duty Presets ───────────────────────────────────────────
 
-const { blockedSlots, isTimeRangeBlockedOnDate, getBlockedTimesForDate, getDutyClinicForDateAndTime } = useBlockedDates()
+const {
+  blockedSlots,
+  dutySlots,
+  isTimeRangeBlockedOnDate,
+  getBlockedTimesForDate,
+  getDutySlotsForDate,
+  getDutyClinicForDateAndTime,
+  hasDutyOnDate,
+  isTimeRangeWithinDutyHours,
+  getDutyRangesLabel,
+  findEarliestAvailableSlot,
+} = useBlockedDates()
 
 // Smart autofill clinic location from duty preset when date & time change
 watch([selectedDate, scheduleTime, scheduleEndTime], ([date, start, end]) => {
@@ -110,29 +122,74 @@ const blockedSlotsForDate = computed(() => {
   return getBlockedTimesForDate(selectedDate.value)
 })
 
+const dutySlotsForDate = computed(() => {
+  if (!selectedDate.value) return []
+  return getDutySlotsForDate(selectedDate.value)
+})
+
 const existingApptSlotsForDate = computed(() => {
   if (!selectedDate.value) return []
   return appointments.value
-    .filter((appt) => appt.date === selectedDate.value && appt.raw_scheduled_at)
+    .filter((appt) => {
+      const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
+      return p.date === selectedDate.value && (appt.raw_scheduled_at || appt.scheduled_at)
+    })
     .map((appt) => {
-      const startObj = new Date(appt.raw_scheduled_at!.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-      const startH = String(startObj.getHours()).padStart(2, '0')
-      const startM = String(startObj.getMinutes()).padStart(2, '0')
-
-      let endH = String((startObj.getHours() + 1) % 24).padStart(2, '0')
-      let endM = startM
-      if (appt.raw_scheduled_end_at) {
-        const endObj = new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-        endH = String(endObj.getHours()).padStart(2, '0')
-        endM = String(endObj.getMinutes()).padStart(2, '0')
+      const startP = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at)
+      let endH = String((Number(startP.startH) + 1) % 24).padStart(2, '0')
+      let endM = startP.startM
+      const rawEnd = appt.raw_scheduled_end_at || appt.scheduled_end_at
+      if (rawEnd) {
+        const endP = parseAppointmentDateTime(rawEnd)
+        endH = endP.startH
+        endM = endP.startM
       }
 
       return {
-        start_time: `${startH}:${startM}`,
+        start_time: `${startP.startH}:${startP.startM}`,
         end_time: `${endH}:${endM}`,
-        label: appt.doctor || 'Booked Appointment'
+        label: appt.doctor || 'Booked Patient'
       }
     })
+})
+
+// When selectedDate changes, smart-default to earliest conflict-free slot on this date
+watch(selectedDate, (newDate) => {
+  if (!newDate) return
+  const earliestSlot = findEarliestAvailableSlot(newDate, 60, existingApptSlotsForDate.value)
+  if (earliestSlot) {
+    scheduleTime.value = earliestSlot.start
+    scheduleEndTime.value = earliestSlot.end
+  } else {
+    const dayDuties = getDutySlotsForDate(newDate)
+    if (dayDuties.length > 0) {
+      scheduleTime.value = dayDuties[0].start_time.slice(0, 5)
+    }
+  }
+})
+
+/**
+ * True when the doctor has no duty hours scheduled on this date.
+ */
+const hasNoDutyOnDate = computed(() => {
+  if (!selectedDate.value) return false
+  return !hasDutyOnDate(selectedDate.value)
+})
+
+/**
+ * True when the selected time range is outside the doctor's duty hours.
+ */
+const isOutsideDutyHours = computed(() => {
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value) return false
+  return !isTimeRangeWithinDutyHours(selectedDate.value, scheduleTime.value, scheduleEndTime.value)
+})
+
+/**
+ * Human-readable label for doctor's duty hours on the selected date.
+ */
+const dutyRangesLabel = computed(() => {
+  if (!selectedDate.value) return ''
+  return getDutyRangesLabel(selectedDate.value)
 })
 
 /**
@@ -197,7 +254,9 @@ const isFormValid = computed(
     !!effectiveLocation.value &&
     !!schedulePurpose.value &&
     !isSelectedTimeBlocked.value &&
-    !isTimeRangeInvalid.value
+    !isTimeRangeInvalid.value &&
+    !isOutsideDutyHours.value &&
+    !hasNoDutyOnDate.value
 )
 
 const confirmSchedule = async () => {
@@ -332,6 +391,7 @@ const getInitials = (name: string): string => {
                   v-model:start-time="scheduleTime"
                   v-model:end-time="scheduleEndTime"
                   :blocked-slots="blockedSlotsForDate"
+                  :duty-slots="dutySlotsForDate"
                   :existing-appointments="existingApptSlotsForDate"
                   label="Appointment Time"
                 />
@@ -340,6 +400,38 @@ const getInitials = (name: string): string => {
                 <div v-if="isTimeRangeInvalid" class="mt-2 text-xs font-bold text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200">
                   End time must be after start time.
                 </div>
+
+                <!-- Off-duty warning (Doctor has no duty hours on this date) -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="selectedDate && hasNoDutyOnDate"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon name="material-symbols:block-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <div>
+                      <p class="font-bold">Doctor is Off-Duty on this date</p>
+                      <p class="text-red-500 mt-0.5">
+                        The doctor has no scheduled duty hours on this date. Please select an available date.
+                      </p>
+                    </div>
+                  </div>
+                </Transition>
+
+                <!-- Outside duty hours warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="selectedDate && !hasNoDutyOnDate && isOutsideDutyHours"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <div>
+                      <p class="font-bold">Outside Doctor's Duty Hours</p>
+                      <p class="text-red-500 mt-0.5">
+                        Appointments must be scheduled during active duty hours on this date: <strong>{{ dutyRangesLabel }}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                </Transition>
 
                 <!-- Blocked time warning -->
                 <Transition name="fade-scale">
@@ -352,6 +444,7 @@ const getInitials = (name: string): string => {
                       <p class="font-bold">This time is blocked</p>
                       <p class="text-red-500 mt-0.5">
                         Blocked on this date: <strong>{{ blockedRangesLabel }}</strong>.
+                        Please choose a different time.
                       </p>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
 const props = withDefaults(defineProps<{
   compact?: boolean
@@ -29,24 +30,21 @@ onMounted(async () => {
 const weekOffset = ref(0)
 const selectedClinicId = ref<number | 'all'>('all')
 
-const startOfWeek = computed(() => {
-  const now = new Date()
-  const day = now.getDay() // 0 = Sunday, 1 = Monday...
-  const diff = now.getDate() - day + (day === 0 ? -6 : 1) // Monday as start of week
-  const monday = new Date(now.setDate(diff))
-  monday.setHours(0, 0, 0, 0)
-  monday.setDate(monday.getDate() + (weekOffset.value * 7))
-  return monday
-})
-
+// Compute 7 days for the displayed week (Monday to Sunday)
 const weekDays = computed(() => {
-  const days = []
-  const start = new Date(startOfWeek.value)
-  const todayStr = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const currentDayOfWeek = now.getDay() // 0 is Sunday, 1 is Monday...
+  const distanceToMonday = (currentDayOfWeek + 6) % 7
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - distanceToMonday + (weekOffset.value * 7))
+  monday.setHours(0, 0, 0, 0)
 
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+  const days = []
   for (let i = 0; i < 7; i++) {
-    const d = new Date(start)
-    d.setDate(start.getDate() + i)
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
@@ -143,23 +141,26 @@ const getBlockedSlotsForDay = (dateStr: string) => {
 
 // Filtered Appointments for the week
 const getAppointmentsForDay = (dateStr: string) => {
+  const dayDuties = getDutySlotsForDay(dateStr)
+
   return appointments.value
     .filter(a => {
-      const matchDate = (a.date || '').slice(0, 10) === dateStr
-      const isScheduled = a.status === 'scheduled' || a.raw_scheduled_at
+      const p = parseAppointmentDateTime(a.raw_scheduled_at || a.scheduled_at || a.date)
+      const matchDate = p.date === dateStr || (a.date || '').slice(0, 10) === dateStr
+      const isScheduled = a.status === 'scheduled' || a.raw_scheduled_at || a.scheduled_at
       return matchDate && isScheduled
     })
     .map(a => {
       let startTime = '09:00'
       let endTime = '10:00'
 
-      if (a.raw_scheduled_at) {
-        const d = new Date(a.raw_scheduled_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-        startTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      if (a.raw_scheduled_at || a.scheduled_at) {
+        const p = parseAppointmentDateTime(a.raw_scheduled_at || a.scheduled_at)
+        startTime = `${p.startH}:${p.startM}`
       }
-      if (a.raw_scheduled_end_at) {
-        const d = new Date(a.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-        endTime = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+      if (a.raw_scheduled_end_at || a.scheduled_end_at) {
+        const p = parseAppointmentDateTime(a.raw_scheduled_end_at || a.scheduled_end_at)
+        endTime = `${p.startH}:${p.startM}`
       } else {
         const [h, m] = startTime.split(':').map(Number)
         endTime = `${String((h + 1) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`
@@ -170,12 +171,24 @@ const getAppointmentsForDay = (dateStr: string) => {
       const topPct = (topMins / totalDayMinutes) * 100
       const heightPct = (durationMins / totalDayMinutes) * 100
 
+      // Check if this appointment falls inside any duty shift on this date
+      const matchingDuty = dayDuties.find(d => {
+        const dutyStart = timeToMinutesFromStart(d.start_time)
+        const dutyEnd = timeToMinutesFromStart(d.end_time)
+        return topMins >= dutyStart - 5 && (topMins + durationMins) <= dutyEnd + 5
+      })
+
+      // If it starts at or near the top of the duty shift, inset it slightly so duty header stays visible
+      const startsAtDutyTop = !!matchingDuty && Math.abs(topMins - timeToMinutesFromStart(matchingDuty.start_time)) < 20
+
       return {
         ...a,
         startTime,
         endTime,
         topPct,
         heightPct,
+        isInsideDuty: !!matchingDuty,
+        startsAtDutyTop,
         patientName: a.doctor || 'Patient Consultation'
       }
     })
@@ -357,27 +370,32 @@ const handleApptClick = (appt: any) => {
               </p>
             </div>
 
-            <!-- Layer 3: Booked Patient Appointments (Indigo card) -->
+            <!-- Layer 3: Booked Patient Appointments (Rendered inside duty zone) -->
             <div
               v-for="appt in getAppointmentsForDay(day.dateStr)"
               :key="appt.id || appt.uuid"
               @click="handleApptClick(appt)"
-              class="absolute left-1.5 right-1.5 rounded-2xl bg-indigo-600 text-white p-2.5 shadow-md z-10 overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:bg-indigo-700"
-              :style="{ top: `${appt.topPct}%`, height: `${appt.heightPct}%` }"
+              class="absolute rounded-xl bg-indigo-600 text-white p-2 shadow-md z-10 overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:bg-indigo-700 border border-indigo-400/50"
+              :class="appt.isInsideDuty ? 'left-2.5 right-2.5 ring-2 ring-emerald-500/40' : 'left-1.5 right-1.5'"
+              :style="{
+                top: appt.startsAtDutyTop ? `calc(${appt.topPct}% + 28px)` : `calc(${appt.topPct}% + 2px)`,
+                height: appt.startsAtDutyTop ? `calc(${appt.heightPct}% - 30px)` : `calc(${appt.heightPct}% - 4px)`,
+                minHeight: '36px'
+              }"
             >
               <div class="flex items-center justify-between gap-1">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  <div class="w-5 h-5 rounded-full bg-white/20 text-[10px] font-bold flex items-center justify-center shrink-0">
+                  <div class="w-4 h-4 rounded-full bg-white/20 text-[9px] font-bold flex items-center justify-center shrink-0">
                     {{ (appt.patientName || 'P')[0] }}
                   </div>
-                  <span class="text-xs font-bold truncate leading-tight">
+                  <span class="text-[11px] font-bold truncate leading-tight">
                     {{ appt.patientName }}
                   </span>
                 </div>
                 <Icon name="heroicons:chat-bubble-left-right" class="w-3.5 h-3.5 opacity-80 shrink-0" />
               </div>
 
-              <div class="flex items-center justify-between text-[10px] text-indigo-100 font-medium mt-1">
+              <div class="flex items-center justify-between text-[9px] text-indigo-100 font-medium mt-0.5">
                 <span>{{ appt.startTime }} - {{ appt.endTime }}</span>
                 <span v-if="appt.location" class="truncate opacity-90 max-w-[80px]">📍 {{ appt.location }}</span>
               </div>
