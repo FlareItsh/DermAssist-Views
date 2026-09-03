@@ -109,7 +109,7 @@
     {
       id: 'profile' as SettingsTab,
       label: 'Profile & Credentials',
-      desc: 'Personal details, affiliation & PRC license',
+      desc: 'Personal details & PRC license',
       icon: 'heroicons:user-circle'
     },
     {
@@ -313,8 +313,8 @@
       } else {
         payload.email = doctorSearchQuery.value.trim()
       }
-      await assignDoctor(payload)
-      toast.success('Associate doctor assigned to clinic seat successfully.')
+      const res = await assignDoctor(payload)
+      toast.success(res?.message || 'Invitation sent to doctor successfully.')
       showAssignDoctorModal.value = false
       clearCandidateDoctor()
     } catch (err: any) {
@@ -797,7 +797,7 @@
           <div>
             <h2 class="text-foreground text-xl font-bold">Doctor Profile & Credentials</h2>
             <p class="text-muted-foreground mt-1 text-xs">
-              Manage your professional credentials, medical affiliation, PRC license, and practice address.
+              Manage your professional credentials, PRC license, and practice address.
             </p>
           </div>
 
@@ -842,17 +842,6 @@
                   type="email"
                   disabled
                   class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-60 outline-none"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Affiliation</label
-                >
-                <input
-                  v-model="form.affiliation"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="e.g. Philippine Dermatological Society"
                 />
               </div>
               <div class="flex flex-col gap-1.5">
@@ -1397,6 +1386,13 @@
                         {{ assoc.clinic.name }}
                       </span>
                       <span
+                        v-if="assoc.status === 'pending'"
+                        class="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                      >
+                        Invitation Pending
+                      </span>
+                      <span
+                        v-else
                         class="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"
                       >
                         Active Associate
@@ -1620,6 +1616,13 @@
                         {{ assoc.role }}
                       </span>
                       <span
+                        v-if="assoc.status === 'pending'"
+                        class="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                      >
+                        Invitation Pending
+                      </span>
+                      <span
+                        v-else
                         class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"
                       >
                         Active
@@ -2300,16 +2303,18 @@
                       <span>View Doctor Team</span>
                     </button>
 
-                    <NuxtLink
+                    <AppButton
                       to="/Doctor/subscription"
-                      class="flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-extrabold text-indigo-950 shadow-md transition hover:bg-indigo-50"
+                      variant="solid"
+                      size="sm"
+                      class="font-bold shadow-md"
                     >
                       <span>Explore Solo Plans</span>
                       <Icon
                         name="heroicons:arrow-right"
-                        class="h-4 w-4"
+                        class="ml-1.5 h-4 w-4"
                       />
-                    </NuxtLink>
+                    </AppButton>
                   </div>
                 </div>
               </div>
@@ -2402,7 +2407,8 @@
                   <AppButton
                     to="/Doctor/subscription"
                     variant="solid"
-                    class="cursor-pointer rounded-2xl bg-white px-5 py-2.5 font-extrabold text-indigo-950 shadow-lg hover:bg-indigo-50"
+                    size="md"
+                    class="font-bold shadow-lg"
                   >
                     <span>View Upgrade Plans</span>
                     <Icon
@@ -2798,8 +2804,8 @@
                 class="text-primary mt-0.5 h-4 w-4 shrink-0"
               />
               <span
-                >Assigned doctors will immediately inherit full AI scanning, teleconsultation, and
-                clinical report generation privileges under your active subscription plan.</span
+                >An invitation will be sent to the doctor. Upon acceptance, they will inherit full AI scanning, teleconsultation, and
+                clinical documentation privileges under your active subscription plan.</span
               >
             </div>
 
@@ -2818,7 +2824,7 @@
                 size="sm"
                 :loading="isAssigningDoctor"
               >
-                Confirm & Assign Seat
+                Send Invitation
               </AppButton>
             </div>
           </form>

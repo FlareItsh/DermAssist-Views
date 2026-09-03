@@ -4,10 +4,12 @@ import {
   type SeatUsage,
   type CandidateDoctor,
   type OwnerInfo,
-  type SponsoringClinicInfo
+  type SponsoringClinicInfo,
+  type ClinicDoctorInvitation
 } from '~/api/doctorClinicDoctor/DoctorClinicDoctorService'
 
 const clinicDoctors = ref<ClinicDoctorItem[]>([])
+const pendingInvitations = ref<ClinicDoctorInvitation[]>([])
 const seatUsage = ref<SeatUsage | null>(null)
 const isOwner = ref(true)
 const clinicOwner = ref<OwnerInfo | null>(null)
@@ -37,6 +39,18 @@ export const useDoctorClinicDoctors = () => {
     }
 
     return clinicDoctors.value
+  }
+
+  const fetchPendingInvitations = async (): Promise<ClinicDoctorInvitation[]> => {
+    try {
+      const res = await doctorClinicDoctorService.getInvitations()
+      if (res?.status === 'success') {
+        pendingInvitations.value = res.data || []
+      }
+    } catch (err) {
+      console.error('Failed to fetch clinic doctor invitations:', err)
+    }
+    return pendingInvitations.value
   }
 
   const searchCandidates = async (query: string): Promise<CandidateDoctor[]> => {
@@ -69,8 +83,23 @@ export const useDoctorClinicDoctors = () => {
     return res
   }
 
+  const acceptInvitation = async (pivotId: number) => {
+    const res = await doctorClinicDoctorService.acceptInvitation(pivotId)
+    await fetchPendingInvitations()
+    await fetchClinicDoctors(true)
+    return res
+  }
+
+  const declineInvitation = async (pivotId: number) => {
+    const res = await doctorClinicDoctorService.declineInvitation(pivotId)
+    await fetchPendingInvitations()
+    await fetchClinicDoctors(true)
+    return res
+  }
+
   return {
     clinicDoctors,
+    pendingInvitations,
     seatUsage,
     isOwner,
     clinicOwner,
@@ -78,8 +107,11 @@ export const useDoctorClinicDoctors = () => {
     isLoading,
     isLoaded,
     fetchClinicDoctors,
+    fetchPendingInvitations,
     searchCandidates,
     assignDoctor,
     removeDoctor,
+    acceptInvitation,
+    declineInvitation,
   }
 }

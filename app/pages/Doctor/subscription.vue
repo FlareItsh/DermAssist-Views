@@ -330,13 +330,15 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
         </div>
       </div>
 
-      <NuxtLink
+      <AppButton
         to="/doctor/profile?tab=clinics"
-        class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition shrink-0 self-start sm:self-auto shadow-2xs"
+        variant="solid"
+        size="sm"
+        class="shrink-0 self-start sm:self-auto shadow-xs"
       >
-        <Icon name="lucide:building" class="w-4 h-4" />
+        <Icon name="lucide:building" class="w-4 h-4 mr-1.5" />
         <span>View Clinic & Doctor Team</span>
-      </NuxtLink>
+      </AppButton>
     </div>
 
     <!-- Active Subscription Banner -->
@@ -461,14 +463,16 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             <span>Manage Doctor Seats</span>
           </AppButton>
 
-          <NuxtLink
+          <AppButton
             v-else-if="currentSubscription?.plan?.uuid === plan.uuid && isInherited"
             to="/doctor/profile?tab=clinics#seats"
-            class="w-full py-2 px-3 rounded-xl bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/50 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-indigo-100 transition shadow-2xs cursor-pointer"
+            variant="outline"
+            size="sm"
+            block
           >
-            <Icon name="lucide:users" class="w-4 h-4" />
+            <Icon name="lucide:users" class="w-4 h-4 mr-1.5" />
             <span>View Doctor Team</span>
-          </NuxtLink>
+          </AppButton>
         </div>
       </div>
     </div>
