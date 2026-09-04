@@ -54,7 +54,7 @@
     follow_up_instructions: ''
   })
 
-  const noFollowUp = ref(false)
+  const noFollowUp = ref(true)
   const followUpDateOnly = ref('')
   const followUpTimeOnly = ref('09:00')
   const followUpEndTimeOnly = ref('10:00')
@@ -82,6 +82,7 @@
 
   const parseFollowUpDate = (val: string) => {
     if (!val) {
+      noFollowUp.value = true
       return
     }
     noFollowUp.value = false
@@ -125,7 +126,14 @@
           note.value = { ...note.value, ...parsed.note }
         }
         if (typeof parsed.noFollowUp === 'boolean') {
-          noFollowUp.value = parsed.noFollowUp
+          // If no follow-up date was selected, ensure it defaults to not required
+          if (!parsed.followUpDateOnly && !note.value.follow_up_date) {
+            noFollowUp.value = true
+          } else {
+            noFollowUp.value = parsed.noFollowUp
+          }
+        } else {
+          noFollowUp.value = true
         }
         if (parsed.followUpDateOnly) {
           followUpDateOnly.value = parsed.followUpDateOnly
@@ -146,7 +154,7 @@
           parseFollowUpDate(note.value.follow_up_date)
         }
       } else {
-        noFollowUp.value = false
+        noFollowUp.value = true
         followUpDateOnly.value = ''
       }
     } catch (e) {
