@@ -77,7 +77,13 @@
   })
 
   // --- Appointments (both doctor and patient) ---
-  const { appointments, pendingAppointments, declinedAppointments, completedAppointments, fetchAppointments } = useAppointments()
+  const {
+    appointments,
+    pendingAppointments,
+    declinedAppointments,
+    completedAppointments,
+    fetchAppointments
+  } = useAppointments()
 
   // --- Conversations / Messages (real data via composable) ---
   const { conversations, totalUnreadCount } = useConversations()
@@ -116,7 +122,10 @@
    */
   const stripSystemTags = (message: string): string => {
     return message
-      .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY|APPOINTMENT_SCHEDULED|APPOINTMENT_DECLINED|APPOINTMENT_COMPLETED):[^\]]+\]/g, '')
+      .replace(
+        /\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY|APPOINTMENT_SCHEDULED|APPOINTMENT_DECLINED|APPOINTMENT_COMPLETED):[^\]]+\]/g,
+        ''
+      )
       .replace(/<[^>]*>/g, '')
       .trim()
   }
@@ -153,16 +162,22 @@
   }
 
   // Refresh on route change
-  watch(() => route.fullPath, () => {
-    refresh()
-    if (userRole.value === 'admin') refreshAppeals()
-    if (userRole.value === 'doctor' || userRole.value === 'patient') fetchAppointments()
-  })
+  watch(
+    () => route.fullPath,
+    () => {
+      refresh()
+      if (userRole.value === 'admin') refreshAppeals()
+      if (userRole.value === 'doctor' || userRole.value === 'patient') fetchAppointments()
+    }
+  )
 
-  const { data: appealsData, refresh: refreshAppeals } = appealService.useList({}, {
-    immediate: userRole.value === 'admin',
-    key: 'admin-appeals'
-  })
+  const { data: appealsData, refresh: refreshAppeals } = appealService.useList(
+    {},
+    {
+      immediate: userRole.value === 'admin',
+      key: 'admin-appeals'
+    }
+  )
 
   const {
     notifications,
@@ -171,10 +186,13 @@
     readNotifs,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,
-    profileRoute
+    profileRoute,
+    refreshProfile
   } = useAppNotifications()
 
-  const isProfileIncomplete = computed(() => isPatientProfileIncomplete.value || isDoctorProfileIncomplete.value)
+  const isProfileIncomplete = computed(
+    () => isPatientProfileIncomplete.value || isDoctorProfileIncomplete.value
+  )
 
   const isSearchVisible = computed(() => {
     if (userRole.value === 'admin') return false
@@ -254,7 +272,7 @@
 
 <template>
   <nav aria-label="Quick Actions">
-    <ul class="flex items-center gap-5 list-none m-0 p-0">
+    <ul class="m-0 flex list-none items-center gap-5 p-0">
       <li v-if="isSearchVisible">
         <AppSearch
           v-model="searchQuery"
@@ -269,7 +287,10 @@
         class="relative"
         ref="messageRef"
       >
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
           @click="toggleMessages"
           class="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full p-1 transition-all active:scale-95"
           :class="isMessagesOpen ? 'bg-secondary text-white shadow-lg' : 'bg-card hover:bg-primary'"
@@ -284,8 +305,12 @@
             v-if="totalUnreadCount > 0"
             class="absolute top-2 right-2 flex h-4 w-4 items-center justify-center"
           >
-            <span class="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"></span>
-            <span class="bg-primary relative inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[8px] font-black text-white">
+            <span
+              class="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+            ></span>
+            <span
+              class="bg-primary relative inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[8px] font-black text-white"
+            >
               {{ totalUnreadCount > 9 ? '9+' : totalUnreadCount }}
             </span>
           </span>
@@ -309,7 +334,8 @@
                 <span
                   v-if="totalUnreadCount > 0"
                   class="bg-primary/10 text-primary rounded-full px-2 py-1 text-xs font-bold"
-                >{{ totalUnreadCount }} Unread</span>
+                  >{{ totalUnreadCount }} Unread</span
+                >
                 <NuxtLink
                   :to="messagesBasePath"
                   @click="isMessagesOpen = false"
@@ -334,8 +360,14 @@
                 />
                 <p>No conversations yet</p>
               </div>
-              <ul v-else class="list-none m-0 p-0">
-                <li v-for="conv in conversations" :key="conv.id">
+              <ul
+                v-else
+                class="m-0 list-none p-0"
+              >
+                <li
+                  v-for="conv in conversations"
+                  :key="conv.id"
+                >
                   <button
                     class="hover:bg-foreground/10 border-border/30 group flex w-full cursor-pointer gap-4 border-b p-4 text-left transition-colors last:border-0"
                     :class="conv.unread_count > 0 ? 'bg-primary/5' : ''"
@@ -343,7 +375,9 @@
                   >
                     <!-- Avatar -->
                     <div class="relative shrink-0">
-                      <div class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full ring-2 ring-transparent transition-all group-hover:ring-primary/30">
+                      <div
+                        class="group-hover:ring-primary/30 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full ring-2 ring-transparent transition-all"
+                      >
                         <img
                           v-if="getConversationPartnerAvatar(conv)"
                           :src="getConversationPartnerAvatar(conv)!"
@@ -361,7 +395,8 @@
                       <span
                         v-if="conv.unread_count > 0"
                         class="bg-primary absolute right-0 bottom-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[7px] font-black text-white"
-                      >{{ conv.unread_count > 9 ? '9+' : conv.unread_count }}</span>
+                        >{{ conv.unread_count > 9 ? '9+' : conv.unread_count }}</span
+                      >
                     </div>
                     <!-- Content -->
                     <div class="min-w-0 flex-1">
@@ -369,17 +404,37 @@
                         <h4
                           class="text-foreground truncate pr-2 text-sm"
                           :class="conv.unread_count > 0 ? 'font-black' : 'font-semibold'"
-                        >{{ getConversationPartnerName(conv) }}</h4>
-                        <span class="text-muted-foreground shrink-0 text-[10px] font-semibold uppercase tracking-wider">
-                          {{ conv.latest_message ? formatRelativeTime(conv.latest_message.created_at) : '' }}
+                        >
+                          {{ getConversationPartnerName(conv) }}
+                        </h4>
+                        <span
+                          class="text-muted-foreground shrink-0 text-[10px] font-semibold tracking-wider uppercase"
+                        >
+                          {{
+                            conv.latest_message
+                              ? formatRelativeTime(conv.latest_message.created_at)
+                              : ''
+                          }}
                         </span>
                       </div>
                       <p
                         class="line-clamp-1 text-xs leading-relaxed"
-                        :class="conv.unread_count > 0 ? 'text-foreground font-semibold' : 'text-muted-foreground'"
+                        :class="
+                          conv.unread_count > 0
+                            ? 'text-foreground font-semibold'
+                            : 'text-muted-foreground'
+                        "
                       >
-                        <span v-if="isLatestMessageMine(conv)" class="mr-1 text-foreground/40">You:</span>
-                        {{ conv.latest_message ? (stripSystemTags(conv.latest_message.message) || '📎 Attachment') : 'Start a conversation' }}
+                        <span
+                          v-if="isLatestMessageMine(conv)"
+                          class="text-foreground/40 mr-1"
+                          >You:</span
+                        >
+                        {{
+                          conv.latest_message
+                            ? stripSystemTags(conv.latest_message.message) || '📎 Attachment'
+                            : 'Start a conversation'
+                        }}
                       </p>
                     </div>
                   </button>
@@ -404,7 +459,10 @@
         class="relative"
         ref="notificationRef"
       >
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
           @click="toggleNotifications"
           class="flex h-13 w-13 cursor-pointer items-center justify-center rounded-full p-1 transition-all active:scale-95"
           :class="
@@ -448,7 +506,9 @@
               <button
                 class="text-primary cursor-pointer text-sm font-medium hover:underline"
                 @click="markAllNotificationsRead"
-              >Mark all as read</button>
+              >
+                Mark all as read
+              </button>
             </div>
 
             <div class="custom-scrollbar max-h-[400px] overflow-y-auto">
@@ -462,8 +522,14 @@
                 />
                 <p>No new notifications</p>
               </div>
-              <ul v-else class="list-none m-0 p-0">
-                <li v-for="notif in notifications" :key="notif.id">
+              <ul
+                v-else
+                class="m-0 list-none p-0"
+              >
+                <li
+                  v-for="notif in notifications"
+                  :key="notif.id"
+                >
                   <AppNotificationPreview
                     v-bind="notif"
                     :is-read="readNotifs.includes(notif.id)"
@@ -478,21 +544,32 @@
               <NuxtLink
                 :to="notificationsRoute"
                 @click="isNotificationsOpen = false"
-                class="text-primary-foreground hover:opacity-90 flex w-full cursor-pointer items-center justify-center gap-2 py-1.5 text-sm font-bold transition-opacity"
+                class="text-primary-foreground flex w-full cursor-pointer items-center justify-center gap-2 py-1.5 text-sm font-bold transition-opacity hover:opacity-90"
               >
                 <span>Show All Notifications</span>
-                <Icon name="solar:arrow-right-linear" class="text-base" />
+                <Icon
+                  name="solar:arrow-right-linear"
+                  class="text-base"
+                />
               </NuxtLink>
             </div>
           </div>
         </Transition>
       </li>
 
-      <li v-if="userRole !== 'admin'" class="relative" ref="profileRef">
-        <button 
+      <li
+        v-if="userRole !== 'admin'"
+        class="relative"
+        ref="profileRef"
+      >
+        <button
           @click="toggleProfile"
-          class="block h-14 w-14 overflow-hidden rounded-full border-2 transition-all shadow-md active:scale-95 cursor-pointer"
-          :class="isProfileOpen ? 'border-primary ring-4 ring-primary/10' : 'border-transparent hover:border-primary/30 hover:scale-105'"
+          class="block h-14 w-14 cursor-pointer overflow-hidden rounded-full border-2 shadow-md transition-all active:scale-95"
+          :class="
+            isProfileOpen
+              ? 'border-primary ring-primary/10 ring-4'
+              : 'hover:border-primary/30 border-transparent hover:scale-105'
+          "
         >
           <NuxtImg
             :src="getStorageUrl(userProfile?.avatar_path) || '/images/lp-img.png'"
@@ -506,8 +583,12 @@
           v-if="isProfileIncomplete"
           class="pointer-events-none absolute top-0 right-0 flex h-4 w-4"
         >
-          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
-          <span class="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-red-500"></span>
+          <span
+            class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
+          ></span>
+          <span
+            class="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-red-500"
+          ></span>
         </span>
 
         <!-- Profile Dropdown -->
@@ -525,28 +606,36 @@
           >
             <div class="border-border/10 border-b p-4 pb-3">
               <p class="text-foreground/40 text-[10px] font-bold uppercase">Logged in as</p>
-              <p class="text-sm font-bold truncate">{{ userProfile?.first_name }} {{ userProfile?.last_name }}</p>
-              <p class="text-muted-foreground text-xs truncate">{{ userProfile?.email }}</p>
+              <p class="truncate text-sm font-bold">
+                {{ userProfile?.first_name }} {{ userProfile?.last_name }}
+              </p>
+              <p class="text-muted-foreground truncate text-xs">{{ userProfile?.email }}</p>
             </div>
 
             <div class="p-2">
-              <NuxtLink 
-                :to="profileRoute" 
+              <NuxtLink
+                :to="profileRoute"
                 @click="isProfileOpen = false"
                 class="hover:bg-primary/10 group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
               >
-                <div class="text-primary rounded-xl p-2 transition-colors group-hover:bg-secondary">
-                  <Icon name="material-symbols:settings-outline" size="20" />
+                <div class="text-primary group-hover:bg-secondary rounded-xl p-2 transition-colors">
+                  <Icon
+                    name="material-symbols:settings-outline"
+                    size="20"
+                  />
                 </div>
                 Profile Settings
               </NuxtLink>
 
-              <button 
+              <button
                 @click="triggerLogout"
-                class="hover:bg-destructive/5 group flex w-full items-center gap-3 rounded-2xl group-hover:text-destructive/50 px-4 py-3 text-sm font-medium transition-colors text-destructive"
+                class="hover:bg-destructive/5 group group-hover:text-destructive/50 text-destructive flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
               >
                 <div class="text-destructive rounded-xl p-2 transition-colors">
-                  <Icon name="ic:round-log-out" size="20" />
+                  <Icon
+                    name="ic:round-log-out"
+                    size="20"
+                  />
                 </div>
                 Log Out
               </button>
@@ -560,12 +649,12 @@
       <Transition name="modal">
         <div
           v-if="isLogoutModalOpen"
-          class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-foreground/40"
+          class="bg-foreground/40 fixed inset-0 z-[999] flex items-center justify-center p-4"
           @click.self="isLogoutModalOpen = false"
         >
-          <AppModalLogoutConfirmation 
-            @close="isLogoutModalOpen = false" 
-            @confirm="logout" 
+          <AppModalLogoutConfirmation
+            @close="isLogoutModalOpen = false"
+            @confirm="logout"
           />
         </div>
       </Transition>
@@ -576,8 +665,18 @@
       v-model="isNotificationModalOpen"
       :notification="selectedNotification"
       @close="isNotificationModalOpen = false"
-      @invitation-accepted="() => { refreshProfile(); fetchAppointments(); }"
-      @invitation-declined="() => { refreshProfile(); fetchAppointments(); }"
+      @invitation-accepted="
+        () => {
+          refreshProfile()
+          fetchAppointments()
+        }
+      "
+      @invitation-declined="
+        () => {
+          refreshProfile()
+          fetchAppointments()
+        }
+      "
     />
   </nav>
 </template>

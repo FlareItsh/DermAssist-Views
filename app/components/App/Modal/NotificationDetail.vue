@@ -19,37 +19,69 @@
     (e: 'invitation-declined', pivotId: number): void
   }>()
 
-  const { acceptInvitation, declineInvitation, fetchClinicDoctors } = useDoctorClinicDoctors()
+  const { acceptInvitation, declineInvitation, fetchClinicDoctors, acknowledgeRevocation } =
+    useDoctorClinicDoctors()
   const { fetchSubscription } = useDoctorSubscription()
   const { readNotifs } = useAppNotifications()
 
   const isAccepting = ref(false)
   const isDeclining = ref(false)
+  const isDismissing = ref(false)
 
   const close = () => {
-    if (isAccepting.value || isDeclining.value) return
+    if (isAccepting.value || isDeclining.value || isDismissing.value) return
     emit('update:modelValue', false)
     emit('close')
   }
 
   // Auto-mark notification as read when opened
-  watch(() => props.modelValue, (isOpen) => {
-    if (isOpen && props.notification?.id !== undefined) {
-      const arr = [...(readNotifs.value || [])]
-      if (!arr.includes(props.notification.id)) {
-        arr.push(props.notification.id)
-        readNotifs.value = arr
+  watch(
+    () => props.modelValue,
+    isOpen => {
+      if (isOpen && props.notification?.id !== undefined) {
+        const arr = [...(readNotifs.value || [])]
+        if (!arr.includes(props.notification.id)) {
+          arr.push(props.notification.id)
+          readNotifs.value = arr
+        }
       }
     }
-  })
+  )
 
-  const isInvitation = computed(() => props.notification?.type === 'clinic_invitation' && props.notification?.data)
+  const isInvitation = computed(
+    () => props.notification?.type === 'clinic_invitation' && props.notification?.data
+  )
   const inviteData = computed(() => props.notification?.data)
+
+  const isRevocation = computed(
+    () => props.notification?.type === 'clinic_revocation' && props.notification?.data
+  )
+  const revocationData = computed(() => props.notification?.data)
 
   const formattedRole = computed(() => {
     const role = inviteData.value?.role || 'associate'
     return role.charAt(0).toUpperCase() + role.slice(1)
   })
+
+  const handleDismissRevocation = async () => {
+    if (!revocationData.value?.pivot_id) {
+      close()
+      return
+    }
+    isDismissing.value = true
+    try {
+      await acknowledgeRevocation(revocationData.value.pivot_id)
+      toast.info('Clinic seat removal acknowledged.')
+      await fetchSubscription()
+      await fetchClinicDoctors(true)
+      close()
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Failed to dismiss notice.'
+      toast.error(msg)
+    } finally {
+      isDismissing.value = false
+    }
+  }
 
   const handleAccept = async () => {
     if (!inviteData.value?.pivot_id) return
@@ -132,7 +164,7 @@
             <div class="border-border/40 flex items-center justify-between border-b px-6 py-5">
               <div class="flex items-center gap-3">
                 <div
-                  class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-8 ring-primary/5 bg-primary/10 text-primary"
+                  class="ring-primary/5 bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-8"
                 >
                   <Icon
                     :name="notification.icon || 'solar:bell-bing-bold'"
@@ -140,10 +172,14 @@
                   />
                 </div>
                 <div>
-                  <span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
-                    {{ isInvitation ? 'Doctor Seat Invitation' : (notification.time || 'Notification') }}
+                  <span
+                    class="bg-primary/10 text-primary inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+                  >
+                    {{
+                      isInvitation ? 'Doctor Seat Invitation' : notification.time || 'Notification'
+                    }}
                   </span>
-                  <h3 class="text-foreground text-lg font-black leading-tight">
+                  <h3 class="text-foreground text-lg leading-tight font-black">
                     {{ notification.title }}
                   </h3>
                 </div>
@@ -155,28 +191,34 @@
                 class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-full p-2 transition-colors"
                 aria-label="Close modal"
               >
-                <Icon name="lucide:x" class="text-xl" />
+                <Icon
+                  name="lucide:x"
+                  class="text-xl"
+                />
               </button>
             </div>
 
             <!-- Content Body -->
-            <div class="custom-scrollbar max-h-[70vh] overflow-y-auto p-6 space-y-5">
+            <div class="custom-scrollbar max-h-[70vh] space-y-5 overflow-y-auto p-6">
               <!-- Case 1: Clinic Doctor Invitation -->
               <template v-if="isInvitation">
-                <div class="bg-primary/5 border border-primary/20 rounded-2xl p-4">
+                <div class="bg-primary/5 border-primary/20 rounded-2xl border p-4">
                   <p class="text-foreground text-sm leading-relaxed">
-                    You have been invited to join a clinic group practice as an <strong class="text-primary font-bold">{{ formattedRole }}</strong> doctor.
+                    You have been invited to join a clinic group practice as an
+                    <strong class="text-primary font-bold">{{ formattedRole }}</strong> doctor.
                   </p>
                 </div>
 
                 <!-- Inviting Doctor Profile Box -->
-                <div class="border border-border/60 bg-muted/20 rounded-2xl p-4 flex items-center gap-4">
+                <div
+                  class="border-border/60 bg-muted/20 flex items-center gap-4 rounded-2xl border p-4"
+                >
                   <div class="relative shrink-0">
                     <img
                       v-if="inviteData?.owner_avatar_path"
                       :src="inviteData.owner_avatar_path"
                       :alt="inviteData.owner_first_name"
-                      class="h-14 w-14 rounded-full object-cover border-2 border-primary/20"
+                      class="border-primary/20 h-14 w-14 rounded-full border-2 object-cover"
                     />
                     <div
                       v-else
@@ -186,73 +228,209 @@
                     </div>
                   </div>
                   <div class="min-w-0 flex-1">
-                    <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Invited By (Practice Head)</span>
-                    <h4 class="text-foreground font-black text-base truncate">
+                    <span
+                      class="text-muted-foreground block text-[11px] font-bold tracking-wider uppercase"
+                      >Invited By (Practice Head)</span
+                    >
+                    <h4 class="text-foreground truncate text-base font-black">
                       Dr. {{ inviteData?.owner_first_name }} {{ inviteData?.owner_last_name }}
                     </h4>
-                    <p v-if="inviteData?.owner_prc_number" class="text-xs text-muted-foreground">
+                    <p
+                      v-if="inviteData?.owner_prc_number"
+                      class="text-muted-foreground text-xs"
+                    >
                       PRC: {{ inviteData.owner_prc_number }}
                     </p>
-                    <p class="text-xs text-muted-foreground truncate">
+                    <p class="text-muted-foreground truncate text-xs">
                       {{ inviteData?.owner_email }}
                     </p>
                   </div>
                 </div>
 
                 <!-- Sponsoring Clinic Location -->
-                <div class="border border-border/60 bg-card rounded-2xl p-4 space-y-2">
-                  <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
-                    <Icon name="solar:hospital-bold" class="text-base" />
+                <div class="border-border/60 bg-card space-y-2 rounded-2xl border p-4">
+                  <div
+                    class="text-primary flex items-center gap-2 text-xs font-bold tracking-wider uppercase"
+                  >
+                    <Icon
+                      name="solar:hospital-bold"
+                      class="text-base"
+                    />
                     <span>Clinic Assignment</span>
                   </div>
-                  <h5 class="text-foreground font-bold text-base">
+                  <h5 class="text-foreground text-base font-bold">
                     {{ inviteData?.clinic_name }}
                   </h5>
-                  <p v-if="inviteData?.clinic_address" class="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
-                    <Icon name="solar:map-point-linear" class="text-sm shrink-0 mt-0.5" />
+                  <p
+                    v-if="inviteData?.clinic_address"
+                    class="text-muted-foreground flex items-start gap-1.5 text-xs leading-relaxed"
+                  >
+                    <Icon
+                      name="solar:map-point-linear"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
                     <span>{{ inviteData.clinic_address }}</span>
                   </p>
                 </div>
 
                 <!-- Benefits granted -->
-                <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
-                  <span class="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                <div
+                  class="space-y-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4"
+                >
+                  <span
+                    class="block text-[11px] font-black tracking-wider text-emerald-600 uppercase dark:text-emerald-400"
+                  >
                     Access Granted Upon Acceptance
                   </span>
-                  <ul class="text-xs text-muted-foreground space-y-1.5 list-none m-0 p-0">
+                  <ul class="text-muted-foreground m-0 list-none space-y-1.5 p-0 text-xs">
                     <li class="flex items-center gap-2">
-                      <Icon name="heroicons:check-circle-solid" class="text-emerald-500 text-sm shrink-0" />
+                      <Icon
+                        name="heroicons:check-circle-solid"
+                        class="shrink-0 text-sm text-emerald-500"
+                      />
                       <span>Full Doctor AI Skin Scanner execution privileges</span>
                     </li>
                     <li class="flex items-center gap-2">
-                      <Icon name="heroicons:check-circle-solid" class="text-emerald-500 text-sm shrink-0" />
+                      <Icon
+                        name="heroicons:check-circle-solid"
+                        class="shrink-0 text-sm text-emerald-500"
+                      />
                       <span>Direct patient teleconsultations & appointment management</span>
                     </li>
                     <li class="flex items-center gap-2">
-                      <Icon name="heroicons:check-circle-solid" class="text-emerald-500 text-sm shrink-0" />
+                      <Icon
+                        name="heroicons:check-circle-solid"
+                        class="shrink-0 text-sm text-emerald-500"
+                      />
                       <span>Electronic medical records & clinical notes generation</span>
                     </li>
                   </ul>
                 </div>
               </template>
 
-              <!-- Case 2: General / System / Appointment Notification -->
+              <!-- Case 2: Clinic Revocation Notification -->
+              <template v-else-if="isRevocation">
+                <!-- Revoked Practice Head Info -->
+                <div
+                  class="border-border/60 bg-card flex items-center gap-3.5 rounded-2xl border p-4"
+                >
+                  <div class="relative shrink-0">
+                    <img
+                      v-if="revocationData?.owner_avatar_path"
+                      :src="getStorageUrl(revocationData.owner_avatar_path)"
+                      alt="Clinic Owner Avatar"
+                      class="border-border h-14 w-14 rounded-full border object-cover"
+                    />
+                    <div
+                      v-else
+                      class="bg-destructive/15 text-destructive flex h-14 w-14 items-center justify-center rounded-full text-lg font-black uppercase"
+                    >
+                      {{ (revocationData?.owner_first_name || 'D').charAt(0) }}
+                    </div>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span
+                      class="text-muted-foreground block text-[11px] font-bold tracking-wider uppercase"
+                      >Clinic Owner</span
+                    >
+                    <h4 class="text-foreground truncate text-base font-black">
+                      Dr. {{ revocationData?.owner_first_name }}
+                      {{ revocationData?.owner_last_name }}
+                    </h4>
+                    <p
+                      v-if="revocationData?.owner_prc_number"
+                      class="text-muted-foreground text-xs"
+                    >
+                      PRC: {{ revocationData.owner_prc_number }}
+                    </p>
+                    <p class="text-muted-foreground truncate text-xs">
+                      {{ revocationData?.owner_email }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Clinic Location Info -->
+                <div class="border-border/60 bg-card space-y-2 rounded-2xl border p-4">
+                  <div
+                    class="text-destructive flex items-center gap-2 text-xs font-bold tracking-wider uppercase"
+                  >
+                    <Icon
+                      name="solar:hospital-bold"
+                      class="text-base"
+                    />
+                    <span>Seat Removal</span>
+                  </div>
+                  <h5 class="text-foreground text-base font-bold">
+                    {{ revocationData?.clinic_name }}
+                  </h5>
+                  <p
+                    v-if="revocationData?.clinic_address"
+                    class="text-muted-foreground flex items-start gap-1.5 text-xs leading-relaxed"
+                  >
+                    <Icon
+                      name="solar:map-point-linear"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <span>{{ revocationData.clinic_address }}</span>
+                  </p>
+                </div>
+
+                <!-- Explanatory Notice -->
+                <div class="space-y-2 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                  <span
+                    class="block text-[11px] font-black tracking-wider text-amber-600 uppercase dark:text-amber-400"
+                  >
+                    Access Notice
+                  </span>
+                  <p class="text-muted-foreground text-xs leading-relaxed">
+                    You have been removed from this clinic seat. You will no longer inherit
+                    subscription benefits from Dr. {{ revocationData?.owner_first_name }}
+                    {{ revocationData?.owner_last_name }}'s plan. All of your personal medical
+                    records, consultations, and patient history remain intact.
+                  </p>
+                </div>
+              </template>
+
+              <!-- Case 3: General / System / Appointment Notification -->
               <template v-else>
-                <p class="text-foreground text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                <p class="text-foreground text-sm leading-relaxed whitespace-pre-line sm:text-base">
                   {{ notification.description }}
                 </p>
 
-                <div v-if="notification.time" class="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Icon name="solar:clock-circle-linear" class="text-sm" />
+                <div
+                  v-if="notification.time"
+                  class="text-muted-foreground flex items-center gap-2 text-xs"
+                >
+                  <Icon
+                    name="solar:clock-circle-linear"
+                    class="text-sm"
+                  />
                   <span>{{ notification.time }}</span>
                 </div>
               </template>
             </div>
 
             <!-- Footer Actions -->
-            <div class="border-border/40 bg-muted/20 flex flex-wrap items-center justify-end gap-3 border-t p-5">
+            <div
+              class="border-border/40 bg-muted/20 flex flex-wrap items-center justify-end gap-3 border-t p-5"
+            >
+              <!-- Revocation actions -->
+              <template v-if="isRevocation">
+                <AppButton
+                  variant="solid"
+                  :loading="isDismissing"
+                  @click="handleDismissRevocation"
+                >
+                  <Icon
+                    name="solar:check-circle-bold"
+                    class="mr-1.5 text-base"
+                  />
+                  Acknowledge & Dismiss
+                </AppButton>
+              </template>
+
               <!-- Invitation actions -->
-              <template v-if="isInvitation">
+              <template v-else-if="isInvitation">
                 <AppButton
                   variant="ghost"
                   @click="close"
@@ -267,7 +445,10 @@
                   :disabled="isAccepting"
                   @click="handleDecline"
                 >
-                  <Icon name="solar:close-circle-bold" class="mr-1.5 text-base" />
+                  <Icon
+                    name="solar:close-circle-bold"
+                    class="mr-1.5 text-base"
+                  />
                   Decline
                 </AppButton>
                 <AppButton
@@ -276,7 +457,10 @@
                   :disabled="isDeclining"
                   @click="handleAccept"
                 >
-                  <Icon name="solar:check-circle-bold" class="mr-1.5 text-base" />
+                  <Icon
+                    name="solar:check-circle-bold"
+                    class="mr-1.5 text-base"
+                  />
                   Accept Invitation
                 </AppButton>
               </template>
@@ -295,7 +479,10 @@
                   @click="handleNavigate"
                 >
                   View Details
-                  <Icon name="solar:arrow-right-linear" class="ml-1.5 text-base" />
+                  <Icon
+                    name="solar:arrow-right-linear"
+                    class="ml-1.5 text-base"
+                  />
                 </AppButton>
               </template>
             </div>

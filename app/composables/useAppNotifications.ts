@@ -1,11 +1,17 @@
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useCookie } from '#app'
 import { appealService } from '~/api/appeal/AppealService'
 import { userService } from '~/api/user/UserService'
 
 export interface AppNotification {
   id: string | number
-  type?: 'clinic_invitation' | 'appointment' | 'profile' | 'verification' | 'general'
+  type?:
+    | 'clinic_invitation'
+    | 'clinic_revocation'
+    | 'appointment'
+    | 'profile'
+    | 'verification'
+    | 'general'
   title: string
   description: string
   time: string
@@ -15,29 +21,111 @@ export interface AppNotification {
   data?: any
 }
 
+// Module-level singleton polling state for notifications
+let notificationPollingTimer: any = null
+let isNotificationListenerBound = false
+let isPollingActive = false
+
 export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
 
-  const { appointments, pendingAppointments, declinedAppointments, completedAppointments, fetchAppointments } = useAppointments()
-  const { pendingInvitations, fetchPendingInvitations } = useDoctorClinicDoctors()
+  const {
+    appointments,
+    pendingAppointments,
+    declinedAppointments,
+    completedAppointments,
+    fetchAppointments
+  } = useAppointments()
+  const { pendingInvitations, revokedMemberships, fetchPendingInvitations, acknowledgeRevocation } =
+    useDoctorClinicDoctors()
 
-  if (import.meta.client && userRole.value === 'doctor') {
-    fetchPendingInvitations()
+  const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, {
+    default: () => [],
+    maxAge: 60 * 60 * 24 * 365
+  })
+  const readNotifs = useCookie<(string | number)[]>(`read_notifs_${userUuid.value}`, {
+    default: () => [],
+    maxAge: 60 * 60 * 24 * 365
+  })
+
+  const { data: userProfile, refresh: refreshProfile } = userService.useShow(
+    () => userUuid.value as string,
+    {
+      key: `userProfile-${userUuid.value}`
+    }
+  )
+
+  const { data: appealsData, refresh: refreshAppeals } = appealService.useList(
+    {},
+    {
+      immediate: userRole.value === 'admin',
+      key: 'admin-appeals'
+    }
+  )
+
+  const pollAllNotifications = async () => {
+    if (isPollingActive || !userUuid.value) return
+    isPollingActive = true
+    try {
+      const tasks: Promise<any>[] = []
+
+      // 1. Appointments for doctors and patients
+      tasks.push(fetchAppointments())
+
+      // 2. Doctor specific: Clinic invitations and revocations
+      const currentRole = (userRole.value || useCookie('user_role').value || '')
+        ?.toString()
+        .toLowerCase()
+      if (currentRole === 'doctor') {
+        tasks.push(fetchPendingInvitations())
+      }
+
+      // 3. User profile verification changes
+      tasks.push(refreshProfile())
+
+      // 4. Admin appeals
+      if (currentRole === 'admin') {
+        tasks.push(refreshAppeals())
+      }
+
+      await Promise.allSettled(tasks)
+    } finally {
+      isPollingActive = false
+    }
   }
 
-  const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
-  const readNotifs = useCookie<(string | number)[]>(`read_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
+  // Singleton Polling: Runs an 8-second interval when browser tab is visible
+  if (import.meta.client) {
+    if (!notificationPollingTimer) {
+      pollAllNotifications()
+      notificationPollingTimer = setInterval(() => {
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          pollAllNotifications()
+        }
+      }, 8000)
+    }
 
-  const { data: userProfile, refresh: refreshProfile } = userService.useShow(() => userUuid.value as string, {
-    key: `userProfile-${userUuid.value}`
-  })
+    if (!isNotificationListenerBound && typeof document !== 'undefined') {
+      isNotificationListenerBound = true
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          pollAllNotifications()
+        }
+      })
+    }
+  }
 
-  const { data: appealsData, refresh: refreshAppeals } = appealService.useList({}, {
-    immediate: userRole.value === 'admin',
-    key: 'admin-appeals'
-  })
+  // Watch for session changes
+  watch(
+    () => userUuid.value,
+    newUuid => {
+      if (newUuid) {
+        pollAllNotifications()
+      }
+    }
+  )
 
   const missingPatientFields = computed(() => {
     if (!userProfile.value || userRole.value !== 'patient') return []
@@ -106,9 +194,15 @@ export const useAppNotifications = () => {
   const baseNotifications = computed<AppNotification[]>(() => {
     const list: AppNotification[] = []
 
-    if (userRole.value === 'doctor' && pendingInvitations.value && pendingInvitations.value.length > 0) {
-      pendingInvitations.value.forEach((invite) => {
-        const roleLabel = (invite.role || 'associate').charAt(0).toUpperCase() + (invite.role || 'associate').slice(1)
+    if (
+      userRole.value === 'doctor' &&
+      pendingInvitations.value &&
+      pendingInvitations.value.length > 0
+    ) {
+      pendingInvitations.value.forEach(invite => {
+        const roleLabel =
+          (invite.role || 'associate').charAt(0).toUpperCase() +
+          (invite.role || 'associate').slice(1)
         list.push({
           id: `clinic-invite-${invite.pivot_id}`,
           type: 'clinic_invitation',
@@ -118,6 +212,25 @@ export const useAppNotifications = () => {
           icon: 'solar:user-plus-bold',
           color: 'text-primary',
           data: invite
+        })
+      })
+    }
+
+    if (
+      userRole.value === 'doctor' &&
+      revokedMemberships.value &&
+      revokedMemberships.value.length > 0
+    ) {
+      revokedMemberships.value.forEach(rev => {
+        list.push({
+          id: `clinic-revoked-${rev.pivot_id}`,
+          type: 'clinic_revocation',
+          title: 'Clinic Seat Revoked',
+          description: `Dr. ${rev.owner_first_name} ${rev.owner_last_name} has removed your associate doctor seat from ${rev.clinic_name}. You no longer have access to their Clinic Group Plan.`,
+          time: rev.revoked_at ? formatRelativeTime(rev.revoked_at) : 'Recently',
+          icon: 'solar:user-cross-bold',
+          color: 'text-red-500',
+          data: rev
         })
       })
     }
@@ -146,7 +259,10 @@ export const useAppNotifications = () => {
       })
     }
 
-    if (userRole.value === 'doctor' && userProfile.value?.doctor_verification?.status === 'verified') {
+    if (
+      userRole.value === 'doctor' &&
+      userProfile.value?.doctor_verification?.status === 'verified'
+    ) {
       const verif = userProfile.value.doctor_verification
       list.push({
         id: `approved-${verif.uuid}-${verif.updated_at}`,
@@ -159,13 +275,18 @@ export const useAppNotifications = () => {
       })
     }
 
-    if (userRole.value === 'doctor' && userProfile.value?.doctor_verification?.status === 'declined') {
+    if (
+      userRole.value === 'doctor' &&
+      userProfile.value?.doctor_verification?.status === 'declined'
+    ) {
       const verif = userProfile.value.doctor_verification
       const reason = verif.rejection_reason
       list.push({
         id: `declined-${verif.uuid}-${verif.updated_at}`,
         title: 'Verification Declined',
-        description: reason ? `Reason: ${reason}` : 'Your doctor profile verification was declined. Please review your submission.',
+        description: reason
+          ? `Reason: ${reason}`
+          : 'Your doctor profile verification was declined. Please review your submission.',
         time: 'Action needed',
         icon: 'heroicons:x-circle-solid',
         color: 'text-red-500',
@@ -174,7 +295,7 @@ export const useAppNotifications = () => {
     }
 
     if (userRole.value === 'doctor' && pendingAppointments.value.length > 0) {
-      pendingAppointments.value.forEach((appt) => {
+      pendingAppointments.value.forEach(appt => {
         list.push({
           id: `doctor-appt-request-${appt.id}`,
           title: 'New Appointment Request',
@@ -182,13 +303,15 @@ export const useAppNotifications = () => {
           time: 'Pending',
           icon: 'material-symbols:calendar-add-on-rounded',
           color: 'text-indigo-500',
-          to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}` : '/Doctor/Messages'
+          to: appt.conversation_uuid
+            ? `/Doctor/Messages/${appt.conversation_uuid}`
+            : '/Doctor/Messages'
         })
       })
     }
 
     if (userRole.value === 'doctor' && appointments.value.length > 0) {
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         if (!appt.date) return
         const apptDateTime = appt.date + (appt.time ? `T${appt.time}` : 'T00:00:00')
         const hoursUntil = hoursUntilAppointment(apptDateTime)
@@ -200,7 +323,9 @@ export const useAppNotifications = () => {
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
             color: 'text-amber-500',
-            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}` : '/Doctor/Messages'
+            to: appt.conversation_uuid
+              ? `/Doctor/Messages/${appt.conversation_uuid}`
+              : '/Doctor/Messages'
           })
         }
       })
@@ -208,10 +333,11 @@ export const useAppNotifications = () => {
 
     if (userRole.value === 'doctor' && appointments.value.length > 0) {
       const todayStr = new Date().toISOString().split('T')[0]
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         if (!appt.date) return
         const isPastDate = appt.date < todayStr
-        const isPastTime = appt.date === todayStr && appt.time && new Date(`${appt.date}T${appt.time}`) < new Date()
+        const isPastTime =
+          appt.date === todayStr && appt.time && new Date(`${appt.date}T${appt.time}`) < new Date()
 
         if (isPastDate || isPastTime) {
           list.push({
@@ -221,14 +347,16 @@ export const useAppNotifications = () => {
             time: 'Overdue',
             icon: 'material-symbols:warning-rounded',
             color: 'text-red-500',
-            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}?resolve=1` : '/Doctor/Messages'
+            to: appt.conversation_uuid
+              ? `/Doctor/Messages/${appt.conversation_uuid}?resolve=1`
+              : '/Doctor/Messages'
           })
         }
       })
     }
 
     if (userRole.value === 'patient' && appointments.value.length > 0) {
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         const purposeText = appt.purpose ? ` Purpose: ${appt.purpose}.` : ''
         list.push({
           id: `appt-scheduled-${appt.id}`,
@@ -237,13 +365,15 @@ export const useAppNotifications = () => {
           time: appt.date || 'Upcoming',
           icon: 'material-symbols:calendar-month-rounded',
           color: 'text-indigo-500',
-          to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+          to: appt.conversation_uuid
+            ? `/Patient/Messages/${appt.conversation_uuid}`
+            : '/Patient/Messages'
         })
       })
     }
 
     if (userRole.value === 'patient' && appointments.value.length > 0) {
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         if (!appt.date) return
         const apptDateTime = appt.date + (appt.time ? `T${appt.time}` : 'T00:00:00')
         const hoursUntil = hoursUntilAppointment(apptDateTime)
@@ -255,14 +385,16 @@ export const useAppNotifications = () => {
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
             color: 'text-amber-500',
-            to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+            to: appt.conversation_uuid
+              ? `/Patient/Messages/${appt.conversation_uuid}`
+              : '/Patient/Messages'
           })
         }
       })
     }
 
     if (userRole.value === 'patient' && declinedAppointments.value.length > 0) {
-      declinedAppointments.value.forEach((appt) => {
+      declinedAppointments.value.forEach(appt => {
         list.push({
           id: `appt-declined-${appt.id}`,
           title: 'Appointment Declined',
@@ -270,13 +402,15 @@ export const useAppNotifications = () => {
           time: appt.completed_at ? formatRelativeTime(appt.completed_at) : 'Recently',
           icon: 'material-symbols:cancel-rounded',
           color: 'text-red-500',
-          to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+          to: appt.conversation_uuid
+            ? `/Patient/Messages/${appt.conversation_uuid}`
+            : '/Patient/Messages'
         })
       })
     }
 
     if (userRole.value === 'patient' && completedAppointments.value.length > 0) {
-      completedAppointments.value.forEach((appt) => {
+      completedAppointments.value.forEach(appt => {
         list.push({
           id: `appt-completed-${appt.id}-${appt.completed_at || appt.date}`,
           title: 'Appointment Completed',
@@ -284,13 +418,15 @@ export const useAppNotifications = () => {
           time: appt.completed_at ? formatRelativeTime(appt.completed_at) : 'Completed',
           icon: 'material-symbols:check-circle-rounded',
           color: 'text-green-500',
-          to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+          to: appt.conversation_uuid
+            ? `/Patient/Messages/${appt.conversation_uuid}`
+            : '/Patient/Messages'
         })
       })
     }
 
     if (userRole.value === 'patient' && appointments.value.length > 0) {
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         if (appt.status === 'reschedule_proposed') {
           list.push({
             id: `appt-reschedule-${appt.id}`,
@@ -299,14 +435,16 @@ export const useAppNotifications = () => {
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
             color: 'text-amber-500',
-            to: appt.conversation_uuid ? `/Patient/Messages/${appt.conversation_uuid}` : '/Patient/Messages'
+            to: appt.conversation_uuid
+              ? `/Patient/Messages/${appt.conversation_uuid}`
+              : '/Patient/Messages'
           })
         }
       })
     }
 
     if (userRole.value === 'doctor' && appointments.value.length > 0) {
-      appointments.value.forEach((appt) => {
+      appointments.value.forEach(appt => {
         if (appt.status === 'reschedule_proposed') {
           list.push({
             id: `appt-reschedule-doctor-${appt.id}`,
@@ -315,7 +453,9 @@ export const useAppNotifications = () => {
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
             color: 'text-amber-500',
-            to: appt.conversation_uuid ? `/Doctor/Messages/${appt.conversation_uuid}` : '/Doctor/Messages'
+            to: appt.conversation_uuid
+              ? `/Doctor/Messages/${appt.conversation_uuid}`
+              : '/Doctor/Messages'
           })
         }
       })
@@ -334,10 +474,10 @@ export const useAppNotifications = () => {
         })
       })
     }
-    
+
     return list
   })
-  
+
   const notifications = computed(() => {
     const arr = dismissedNotifs.value || []
     return baseNotifications.value.filter(n => {
@@ -345,7 +485,7 @@ export const useAppNotifications = () => {
       return !arr.includes(n.id)
     })
   })
-  
+
   const unreadNotifications = computed(() => {
     const read = readNotifs.value || []
     return notifications.value.filter(n => {
@@ -370,6 +510,9 @@ export const useAppNotifications = () => {
     missingDoctorFields,
     profileRoute,
     pendingInvitations,
-    fetchPendingInvitations
+    revokedMemberships,
+    fetchPendingInvitations,
+    acknowledgeRevocation,
+    pollAllNotifications
   }
 }

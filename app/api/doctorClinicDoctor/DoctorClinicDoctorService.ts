@@ -81,6 +81,24 @@ export interface ClinicDoctorInvitation {
   owner_avatar_path?: string
 }
 
+export interface ClinicDoctorRevocation {
+  pivot_id: number
+  role: string
+  status: string
+  revoked_at: string
+  clinic_id: number
+  clinic_uuid: string
+  clinic_name: string
+  clinic_address?: string
+  owner_id: number
+  owner_uuid: string
+  owner_first_name: string
+  owner_last_name: string
+  owner_email: string
+  owner_prc_number?: string
+  owner_avatar_path?: string
+}
+
 export class DoctorClinicDoctorService extends BaseService {
   private resource = '/doctor/clinic-doctors'
 
@@ -114,7 +132,11 @@ export class DoctorClinicDoctorService extends BaseService {
     return await this.request(`${this.resource}/${pivotId}`, 'DELETE')
   }
 
-  async getInvitations(): Promise<{ status: string; data: ClinicDoctorInvitation[] }> {
+  async getInvitations(): Promise<{
+    status: string
+    data: ClinicDoctorInvitation[]
+    revocations?: ClinicDoctorRevocation[]
+  }> {
     return await this.request(`${this.resource}/invitations`, 'GET')
   }
 
@@ -125,7 +147,10 @@ export class DoctorClinicDoctorService extends BaseService {
   async declineInvitation(pivotId: number): Promise<any> {
     return await this.request(`${this.resource}/invitations/${pivotId}/decline`, 'POST')
   }
+
+  async dismissRevocation(pivotId: number): Promise<any> {
+    return await this.request(`${this.resource}/revocations/${pivotId}/dismiss`, 'POST')
+  }
 }
 
 export const doctorClinicDoctorService = new DoctorClinicDoctorService()
-

@@ -5,11 +5,13 @@ import {
   type CandidateDoctor,
   type OwnerInfo,
   type SponsoringClinicInfo,
-  type ClinicDoctorInvitation
+  type ClinicDoctorInvitation,
+  type ClinicDoctorRevocation
 } from '~/api/doctorClinicDoctor/DoctorClinicDoctorService'
 
 const clinicDoctors = ref<ClinicDoctorItem[]>([])
 const pendingInvitations = ref<ClinicDoctorInvitation[]>([])
+const revokedMemberships = ref<ClinicDoctorRevocation[]>([])
 const seatUsage = ref<SeatUsage | null>(null)
 const isOwner = ref(true)
 const clinicOwner = ref<OwnerInfo | null>(null)
@@ -46,6 +48,7 @@ export const useDoctorClinicDoctors = () => {
       const res = await doctorClinicDoctorService.getInvitations()
       if (res?.status === 'success') {
         pendingInvitations.value = res.data || []
+        revokedMemberships.value = res.revocations || []
       }
     } catch (err) {
       console.error('Failed to fetch clinic doctor invitations:', err)
@@ -97,9 +100,20 @@ export const useDoctorClinicDoctors = () => {
     return res
   }
 
+  const acknowledgeRevocation = async (pivotId: number) => {
+    try {
+      await doctorClinicDoctorService.dismissRevocation(pivotId)
+    } catch (err) {
+      console.error('Failed to dismiss revocation notice:', err)
+    }
+    revokedMemberships.value = revokedMemberships.value.filter(r => r.pivot_id !== pivotId)
+    await fetchClinicDoctors(true)
+  }
+
   return {
     clinicDoctors,
     pendingInvitations,
+    revokedMemberships,
     seatUsage,
     isOwner,
     clinicOwner,
@@ -113,5 +127,6 @@ export const useDoctorClinicDoctors = () => {
     removeDoctor,
     acceptInvitation,
     declineInvitation,
+    acknowledgeRevocation
   }
 }
