@@ -24,8 +24,8 @@
   --color-destructive: oklch(0.55 0.23 27.325);
   --color-destructive-foreground: oklch(1 0 0);
 
-  --color-border: oklch(0.90 0.01 250);
-  --color-input: oklch(0.90 0.01 250);
+  --color-border: oklch(0.9 0.01 250);
+  --color-input: oklch(0.9 0.01 250);
   --color-ring: oklch(0.55 0.22 258.275);
 
   --color-chart-1: oklch(0.55 0.22 258.275);
@@ -40,7 +40,7 @@
   --color-sidebar-primary-foreground: oklch(1 0 0);
   --color-sidebar-accent: oklch(0.55 0.22 258.275);
   --color-sidebar-accent-foreground: oklch(1 0 0);
-  --color-sidebar-border: oklch(0.90 0.01 250);
+  --color-sidebar-border: oklch(0.9 0.01 250);
   --color-sidebar-ring: oklch(0.55 0.22 258.275);
   --radius: 0.625rem;
 
@@ -62,6 +62,10 @@
 
 body {
   @apply bg-background;
+}
+
+[data-sonner-toaster] {
+  font-family: var(--font-primary), sans-serif;
 }
 
 @layer utilities {
@@ -114,7 +118,6 @@ body {
 }
 
 @keyframes shake {
-
   10%,
   90% {
     transform: translate3d(-1px, 0, 0);

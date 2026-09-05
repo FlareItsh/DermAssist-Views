@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { authService } from '~/api/auth/AuthService'
+  import { toast } from 'vue-sonner'
   definePageMeta({
     layout: 'auth-split-layout'
   })
@@ -292,7 +293,7 @@
       }
     } catch (err) {
       console.error('Error accessing camera:', err)
-      alert('Could not access camera. Please check permissions.')
+      toast.error('Could not access camera. Please check camera permissions in your browser.')
       isCapturing.value = false
     }
   }

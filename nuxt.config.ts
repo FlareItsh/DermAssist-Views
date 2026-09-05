@@ -8,7 +8,7 @@ const apiStoragePath = join(currentDir, '../api/storage/app/public')
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  css: ['./app/assets/css/main.css'],
+  css: ['./app/assets/css/main.css', 'vue-sonner/style.css'],
   vite: {
     plugins: [tailwindcss()]
   },

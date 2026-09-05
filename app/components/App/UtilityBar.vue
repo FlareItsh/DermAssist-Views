@@ -188,8 +188,20 @@
     return visibleRoutes.includes(route.path)
   })
 
+  const selectedNotification = ref<AppNotification | null>(null)
+  const isNotificationModalOpen = ref(false)
+
+  const notificationsRoute = computed(() => {
+    if (userRole.value === 'doctor') return '/doctor/notifications'
+    if (userRole.value === 'patient') return '/patient/notifications'
+    if (userRole.value === 'secretary') return '/secretary/notifications'
+    return '/notifications'
+  })
+
   const handleNotificationClick = (notif: AppNotification) => {
     isNotificationsOpen.value = false
+    selectedNotification.value = notif
+    isNotificationModalOpen.value = true
 
     // Auto-mark as read on click
     if (notif.id !== undefined && notif.id !== null) {
@@ -198,10 +210,6 @@
         arr.push(notif.id)
         readNotifs.value = arr
       }
-    }
-
-    if (notif.to) {
-      navigateTo(notif.to)
     }
   }
 
@@ -467,7 +475,14 @@
             </div>
 
             <div class="bg-primary border-border/50 border-t p-3 text-center">
-              
+              <NuxtLink
+                :to="notificationsRoute"
+                @click="isNotificationsOpen = false"
+                class="text-primary-foreground hover:opacity-90 flex w-full cursor-pointer items-center justify-center gap-2 py-1.5 text-sm font-bold transition-opacity"
+              >
+                <span>Show All Notifications</span>
+                <Icon name="solar:arrow-right-linear" class="text-base" />
+              </NuxtLink>
             </div>
           </div>
         </Transition>
@@ -555,6 +570,15 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Notification Detail Modal -->
+    <AppModalNotificationDetail
+      v-model="isNotificationModalOpen"
+      :notification="selectedNotification"
+      @close="isNotificationModalOpen = false"
+      @invitation-accepted="() => { refreshProfile(); fetchAppointments(); }"
+      @invitation-declined="() => { refreshProfile(); fetchAppointments(); }"
+    />
   </nav>
 </template>
 

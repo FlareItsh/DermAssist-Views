@@ -35,9 +35,63 @@ const errorMessage = ref<string | null>(null)
 const wasAutofilled = ref(false)
 
 const { clinics, fetchClinics } = useDoctorClinics()
+const doctorBookedAppts = ref<any[]>([])
+const currentAppointmentData = ref<any>(null)
+
+// ─── Appointments & Blocked dates ───────────────────────────────────────────
+
+const {
+  blockedSlots,
+  dutySlots,
+  isTimeRangeBlockedOnDate,
+  isWholeDayBlocked: checkWholeDayBlocked,
+  getBlockedTimesForDate,
+  getDutySlotsForDate,
+  getDutyClinicForDateAndTime,
+  hasDutyOnDate,
+  isTimeRangeWithinDutyHours,
+  getDutyRangesLabel,
+  findEarliestAvailableSlot,
+  fetchBlockedSlotsForDoctor,
+} = useBlockedDates()
+const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
 
 onMounted(async () => {
   await fetchClinics()
+
+  if (props.appointmentUuid) {
+    try {
+      const appt = await appointmentService.show(props.appointmentUuid)
+      if (appt) {
+        currentAppointmentData.value = appt
+        const docUuid = appt.doctor?.uuid
+        const docId = appt.doctor_id
+
+        if (docUuid) {
+          await fetchBlockedSlotsForDoctor(docUuid)
+        }
+        if (docId) {
+          const docAppts = await fetchAppointmentsForDoctor(docId)
+          if (docAppts && docAppts.length > 0) {
+            doctorBookedAppts.value = docAppts
+          }
+        }
+
+        if (appt.scheduled_at) {
+          const p = parseAppointmentDateTime(appt.scheduled_at)
+          selectedDate.value = p.date
+        } else if (!selectedDate.value) {
+          selectedDate.value = getTodayStr()
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load target doctor schedule details:', e)
+    }
+  }
+
+  if (selectedDate.value) {
+    handleDateSelected(selectedDate.value)
+  }
 })
 
 // Auto-sync end time when start time changes if end time <= start time
@@ -48,10 +102,12 @@ watch(scheduleTime, (newStart) => {
   scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 })
 
-// ─── Appointments & Blocked dates ───────────────────────────────────────────
-
-const { blockedSlots, isTimeRangeBlockedOnDate, isWholeDayBlocked: checkWholeDayBlocked, getBlockedTimesForDate, getDutyClinicForDateAndTime } = useBlockedDates()
-const { appointments, isApptTimeConflicting } = useAppointments()
+const effectiveAppointmentsList = computed(() => {
+  if (doctorBookedAppts.value.length > 0) {
+    return doctorBookedAppts.value
+  }
+  return appointments.value
+})
 
 // Smart autofill clinic location from duty preset when date & time change
 watch([selectedDate, scheduleTime, scheduleEndTime], ([date, start, end]) => {
@@ -77,38 +133,82 @@ watch([selectedDate, scheduleTime, scheduleEndTime], ([date, start, end]) => {
   }
 }, { immediate: true })
 
-const handleDateSelected = (date: string) => {
-  selectedDate.value = date
-}
-
 const blockedSlotsForDate = computed(() => {
   if (!selectedDate.value) return []
   return getBlockedTimesForDate(selectedDate.value)
 })
 
+const dutySlotsForDate = computed(() => {
+  if (!selectedDate.value) return []
+  return getDutySlotsForDate(selectedDate.value)
+})
+
 const existingApptSlotsForDate = computed(() => {
   if (!selectedDate.value) return []
-  return appointments.value
-    .filter((appt) => appt.date === selectedDate.value && appt.id !== props.appointmentUuid && appt.raw_scheduled_at)
+  return effectiveAppointmentsList.value
+    .filter((appt) => {
+      const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
+      return p.date === selectedDate.value && appt.id !== props.appointmentUuid && (appt.raw_scheduled_at || appt.scheduled_at)
+    })
     .map((appt) => {
-      const startObj = new Date(appt.raw_scheduled_at!.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-      const startH = String(startObj.getHours()).padStart(2, '0')
-      const startM = String(startObj.getMinutes()).padStart(2, '0')
-
-      let endH = String((startObj.getHours() + 1) % 24).padStart(2, '0')
-      let endM = startM
-      if (appt.raw_scheduled_end_at) {
-        const endObj = new Date(appt.raw_scheduled_end_at.replace(/Z|(\+\d{2}:\d{2})$/i, ''))
-        endH = String(endObj.getHours()).padStart(2, '0')
-        endM = String(endObj.getMinutes()).padStart(2, '0')
+      const startP = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at)
+      let endH = String((Number(startP.startH) + 1) % 24).padStart(2, '0')
+      let endM = startP.startM
+      const rawEnd = appt.raw_scheduled_end_at || appt.scheduled_end_at
+      if (rawEnd) {
+        const endP = parseAppointmentDateTime(rawEnd)
+        endH = endP.startH
+        endM = endP.startM
       }
 
       return {
-        start_time: `${startH}:${startM}`,
+        start_time: `${startP.startH}:${startP.startM}`,
         end_time: `${endH}:${endM}`,
-        label: appt.doctor || 'Booked Appointment'
+        label: appt.doctor || 'Booked Patient'
       }
     })
+})
+
+const handleDateSelected = (date: string) => {
+  selectedDate.value = date
+
+  // Smart-default to the earliest conflict-free slot on this date:
+  // Must be strictly within duty hours, not blocked, and not overlapping existing appointments
+  const earliestSlot = findEarliestAvailableSlot(date, 60, existingApptSlotsForDate.value)
+  if (earliestSlot) {
+    scheduleTime.value = earliestSlot.start
+    scheduleEndTime.value = earliestSlot.end
+  } else {
+    // If no 1-hour slot fits, fallback to earliest duty start time
+    const dayDuties = getDutySlotsForDate(date)
+    if (dayDuties.length > 0) {
+      scheduleTime.value = dayDuties[0].start_time.slice(0, 5)
+    }
+  }
+}
+
+/**
+ * True when the doctor has no duty hours scheduled on this date.
+ */
+const hasNoDutyOnDate = computed(() => {
+  if (!selectedDate.value) return false
+  return !hasDutyOnDate(selectedDate.value)
+})
+
+/**
+ * True when the selected time range is outside the doctor's duty hours.
+ */
+const isOutsideDutyHours = computed(() => {
+  if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value) return false
+  return !isTimeRangeWithinDutyHours(selectedDate.value, scheduleTime.value, scheduleEndTime.value)
+})
+
+/**
+ * Human-readable label for doctor's duty hours on the selected date.
+ */
+const dutyRangesLabel = computed(() => {
+  if (!selectedDate.value) return ''
+  return getDutyRangesLabel(selectedDate.value)
 })
 
 /**
@@ -121,7 +221,13 @@ const isSelectedTimeBlocked = computed(() => {
 
 const isApptConflict = computed(() => {
   if (!selectedDate.value || !scheduleTime.value) return false
-  return isApptTimeConflicting(selectedDate.value, scheduleTime.value, scheduleEndTime.value, props.appointmentUuid)
+  return isApptTimeConflicting(
+    selectedDate.value,
+    scheduleTime.value,
+    scheduleEndTime.value,
+    props.appointmentUuid,
+    effectiveAppointmentsList.value
+  )
 })
 
 const isTimeRangeInvalid = computed(() => {
@@ -160,7 +266,7 @@ const effectiveLocation = computed(() => {
 const confirmSchedule = async () => {
   errorMessage.value = null
   if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value || !effectiveLocation.value) return
-  if (isSelectedTimeBlocked.value || isTimeRangeInvalid.value || isApptConflict.value) return
+  if (isSelectedTimeBlocked.value || isTimeRangeInvalid.value || isApptConflict.value || isOutsideDutyHours.value || hasNoDutyOnDate.value) return
   isScheduling.value = true
   try {
     const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
@@ -202,7 +308,9 @@ const confirmSchedule = async () => {
           <!-- Left side: Calendar -->
           <div class="p-6">
             <PatientSideComponentsCalendar
+              :selected-date="selectedDate"
               :blocked-slots="blockedSlots"
+              :duty-slots="dutySlots"
               :show-manage-blocks-link="true"
               :show-appointment-details-panel="!isDoctor"
               @date-selected="handleDateSelected"
@@ -228,6 +336,7 @@ const confirmSchedule = async () => {
                 v-model:start-time="scheduleTime"
                 v-model:end-time="scheduleEndTime"
                 :blocked-slots="blockedSlotsForDate"
+                :duty-slots="dutySlotsForDate"
                 :existing-appointments="existingApptSlotsForDate"
                 label="Appointment Time"
               />
@@ -258,6 +367,38 @@ const confirmSchedule = async () => {
                 <Icon name="material-symbols:warning-rounded" class="text-base text-red-500 shrink-0 mt-0.5" />
                 <span>{{ errorMessage }}</span>
               </div>
+
+              <!-- Off-duty warning (Doctor has no duty hours on this date) -->
+              <Transition name="fade-scale">
+                <div
+                  v-if="selectedDate && hasNoDutyOnDate"
+                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                >
+                  <Icon name="material-symbols:block-rounded" class="mt-0.5 shrink-0 text-sm" />
+                  <div>
+                    <p class="font-bold">Doctor is Off-Duty on this date</p>
+                    <p class="text-red-500 mt-0.5">
+                      The doctor has no scheduled duty hours on this date. Please select an available date from the calendar.
+                    </p>
+                  </div>
+                </div>
+              </Transition>
+
+              <!-- Outside duty hours warning -->
+              <Transition name="fade-scale">
+                <div
+                  v-if="selectedDate && !hasNoDutyOnDate && isOutsideDutyHours"
+                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                >
+                  <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                  <div>
+                    <p class="font-bold">Outside Doctor's Duty Hours</p>
+                    <p class="text-red-500 mt-0.5">
+                      Appointments must be scheduled during active duty hours on this date: <strong>{{ dutyRangesLabel }}</strong>.
+                    </p>
+                  </div>
+                </div>
+              </Transition>
 
               <!-- Blocked time warning -->
               <Transition name="fade-scale">
@@ -328,7 +469,7 @@ const confirmSchedule = async () => {
               <AppButton
                 variant="solid"
                 class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"
-                :disabled="!selectedDate || !scheduleTime || !scheduleEndTime || !effectiveLocation || isScheduling || isSelectedTimeBlocked || isTimeRangeInvalid || isApptConflict"
+                :disabled="!selectedDate || !scheduleTime || !scheduleEndTime || !effectiveLocation || isScheduling || isSelectedTimeBlocked || isTimeRangeInvalid || isApptConflict || isOutsideDutyHours || hasNoDutyOnDate"
                 @click="confirmSchedule"
               >
                 <template v-if="isScheduling">
