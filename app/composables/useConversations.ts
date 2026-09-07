@@ -21,6 +21,11 @@ export interface Conversation {
   updated_at: string
 }
 
+// Global shared polling state
+let conversationPollingTimer: any = null
+let isConversationListenerBound = false
+let activeConversationFetch: Promise<void> | null = null
+
 export const useConversations = () => {
   const userUuid = useCookie('user_uuid')
   const conversations = useState<Conversation[]>('shared_conversations_list', () => [])
@@ -32,19 +37,25 @@ export const useConversations = () => {
       return
     }
 
-    if (pending.value) return
-    pending.value = true
+    // Reuse in-flight request if already pending
+    if (activeConversationFetch) return activeConversationFetch
 
-    try {
-      const res = await conversationService.list()
-      if (res && res.data) {
-        conversations.value = res.data
+    pending.value = true
+    activeConversationFetch = (async () => {
+      try {
+        const res = await conversationService.list()
+        if (res && res.data) {
+          conversations.value = res.data
+        }
+      } catch (e) {
+        console.error('Failed to fetch conversations:', e)
+      } finally {
+        pending.value = false
+        activeConversationFetch = null
       }
-    } catch (e) {
-      console.error('Failed to fetch conversations:', e)
-    } finally {
-      pending.value = false
-    }
+    })()
+
+    return activeConversationFetch
   }
 
   const totalUnreadCount = computed(() => {
@@ -57,14 +68,26 @@ export const useConversations = () => {
     if (newUuid) fetchConversations()
   })
 
-  // Fetch immediately and poll every 5 seconds for reactivity
-  let polling: any = null
+  // Singleton Polling: Starts only ONE global interval regardless of how many components call useConversations()
   if (import.meta.client) {
-    fetchConversations()
-    polling = setInterval(fetchConversations, 5000)
-    onUnmounted(() => {
-      if (polling) clearInterval(polling)
-    })
+    if (!conversationPollingTimer) {
+      fetchConversations()
+      conversationPollingTimer = setInterval(() => {
+        // Only poll if tab is visible and user is logged in
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          fetchConversations()
+        }
+      }, 5000)
+    }
+
+    if (!isConversationListenerBound && typeof document !== 'undefined') {
+      isConversationListenerBound = true
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && userUuid.value) {
+          fetchConversations()
+        }
+      })
+    }
   }
 
   return {

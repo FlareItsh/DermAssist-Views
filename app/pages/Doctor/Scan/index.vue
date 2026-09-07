@@ -1,8 +1,13 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, onMounted } from 'vue'
   const { currentDiagnosis, isScanned, isProceededToResults, resetScanner } = useDiagnosis()
+  const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
+
+  onMounted(async () => {
+    await fetchSubscription()
+  })
 
   const discardAndStartNew = () => {
     if (import.meta.client) {
@@ -30,8 +35,53 @@
 <template>
   <div class="flex h-full gap-5">
     <div class="min-w-0 flex-1">
+      <!-- Loading Subscription State -->
+      <div
+        v-if="isLoadingSubscription"
+        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px]"
+      >
+        <Icon name="svg-spinners:ring-resize" class="h-10 w-10 text-primary animate-spin mb-4" />
+        <p class="text-sm font-medium text-muted-foreground">Checking subscription access...</p>
+      </div>
+
+      <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
+      <div
+        v-else-if="!canExecuteScan"
+        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden"
+      >
+        <div class="absolute -top-32 -right-32 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="bg-primary/10 text-primary h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-primary/20">
+          <Icon name="lucide:lock" class="text-4xl" />
+        </div>
+
+        <AppBadge color="primary" variant="subtle" class="mb-3 uppercase tracking-wider text-xs font-bold px-3 py-1">
+          Feature Upgrade Required
+        </AppBadge>
+
+        <h2 class="text-2xl md:text-3xl font-black text-foreground tracking-tight max-w-md">
+          Unlock Doctor AI Skin Scanner
+        </h2>
+
+        <p class="text-sm font-medium text-muted-foreground mt-3 max-w-lg leading-relaxed">
+          Your current subscription plan does not include Full Doctor AI Scan Execution. Upgrade your plan to perform live patient scans and instant AI dermatological assessments.
+        </p>
+
+        <div class="flex flex-col sm:flex-row items-center gap-3 mt-8">
+          <AppButton
+            size="lg"
+            variant="solid"
+            to="/doctor/subscription"
+            class="flex items-center gap-2 px-8 py-3.5 shadow-lg shadow-primary/20"
+          >
+            <Icon name="lucide:sparkles" class="text-lg" />
+            <span>Upgrade Subscription Plan</span>
+          </AppButton>
+        </div>
+      </div>
+
       <!-- Active Assessment Pending Card -->
-      <div v-if="currentDiagnosis && isScanned && isProceededToResults" class="bg-white rounded-[2.5rem] p-10 border border-amber-200/80 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden">
+      <div v-else-if="currentDiagnosis && isScanned && isProceededToResults" class="bg-white rounded-[2.5rem] p-10 border border-amber-200/80 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden">
         <div class="absolute -top-32 -right-32 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div class="bg-amber-100/80 text-amber-700 h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-xs border border-amber-200/60">
@@ -81,20 +131,16 @@
     </div>
 
     <!-- Confirm Discard Modal -->
-    <AppModal v-model="showConfirmDiscard" title="Discard Active Scan?" description="This will wipe the current scan result and unsaved notes so you can start a new scan." size="sm">
-      <div class="py-2 text-sm text-gray-600 font-medium">
-        Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone.
-      </div>
-      <template #footer>
-        <div class="flex items-center justify-end gap-3 w-full">
-          <AppButton variant="ghost" class="rounded-xl px-5 font-bold text-gray-500" @click="showConfirmDiscard = false">
-            Cancel
-          </AppButton>
-          <AppButton variant="solid" class="bg-red-600 hover:bg-red-700 text-white rounded-xl px-5 font-bold" @click="discardAndStartNew">
-            Discard & Start New
-          </AppButton>
-        </div>
-      </template>
-    </AppModal>
+    <AppModalConfirmation
+      v-model="showConfirmDiscard"
+      title="Discard Active Scan?"
+      description="Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone."
+      icon="lucide:trash-2"
+      icon-color="danger"
+      confirm-text="Discard & Start New"
+      cancel-text="Cancel"
+      confirm-variant="destructive"
+      @confirm="discardAndStartNew"
+    />
   </div>
 </template>

@@ -12,6 +12,7 @@ const props = withDefaults(
     label?: string
     blockedSlots?: Array<{ start_time: string; end_time: string }>
     existingAppointments?: Array<{ start_time: string; end_time: string; label?: string }>
+    dutySlots?: Array<{ start_time: string; end_time: string; location_name?: string }>
   }>(),
   {
     minTime: '07:00',
@@ -20,7 +21,8 @@ const props = withDefaults(
     disabled: false,
     label: '',
     blockedSlots: () => [],
-    existingAppointments: () => []
+    existingAppointments: () => [],
+    dutySlots: undefined
   }
 )
 
@@ -154,6 +156,38 @@ const appointmentVisualRanges = computed(() => {
     .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
 })
 
+const dutyVisualRanges = computed(() => {
+  if (!props.dutySlots || !props.dutySlots.length) return []
+  return props.dutySlots
+    .map((slot) => {
+      const sMins = Math.max(effectiveMinMins.value, timeToMinutes(slot.start_time.slice(0, 5)))
+      const eMins = Math.min(effectiveMaxMins.value, timeToMinutes(slot.end_time.slice(0, 5)))
+      if (eMins <= sMins) return null
+      const leftPct = ((sMins - effectiveMinMins.value) / totalRangeMins.value) * 100
+      const rightPct = 100 - (((eMins - effectiveMinMins.value) / totalRangeMins.value) * 100)
+      return {
+        leftPct: Math.max(0, Math.min(100, leftPct)),
+        rightPct: Math.max(0, Math.min(100, rightPct)),
+        label: `${format12H(slot.start_time)} – ${format12H(slot.end_time)}${slot.location_name ? ' (' + slot.location_name + ')' : ''}`
+      }
+    })
+    .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
+})
+
+const isInsideDuty = computed(() => {
+  if (props.dutySlots === undefined) return true
+  if (!props.dutySlots.length) return false
+  const curStart = startMins.value
+  const curEnd = endMins.value
+  return props.dutySlots.some((slot) => {
+    const dStart = timeToMinutes(slot.start_time.slice(0, 5))
+    const dEnd = timeToMinutes(slot.end_time.slice(0, 5))
+    return curStart >= dStart && curEnd <= dEnd
+  })
+})
+
+const hasDutyConflict = computed(() => props.dutySlots !== undefined && !isInsideDuty.value)
+
 const hasBlockedConflict = computed(() => {
   if (!props.blockedSlots || !props.blockedSlots.length) return false
   const curStart = startMins.value
@@ -176,7 +210,19 @@ const hasApptConflict = computed(() => {
   })
 })
 
-const hasConflict = computed(() => hasBlockedConflict.value || hasApptConflict.value)
+const conflictReason = computed(() => {
+  if (hasDutyConflict.value) {
+    if (props.dutySlots && props.dutySlots.length === 0) {
+      return 'Off-Duty (No Duty Hours)'
+    }
+    return 'Outside Duty Hours'
+  }
+  if (hasBlockedConflict.value) return 'Overlaps Blocked Hours'
+  if (hasApptConflict.value) return 'Overlaps Booked Appointment'
+  return ''
+})
+
+const hasConflict = computed(() => hasBlockedConflict.value || hasApptConflict.value || hasDutyConflict.value)
 
 // ─── Custom Time Inputs (Two-Way Binding) ────────────────────────────────────
 
@@ -486,6 +532,19 @@ const onPointerUp = (e: PointerEvent) => {
           ></div>
         </div>
 
+        <!-- Visually Rendered Active Doctor Duty Windows (Subtle Emerald Tint) -->
+        <div
+          v-for="(d, idx) in dutyVisualRanges"
+          :key="'duty-' + idx"
+          class="absolute top-0 bottom-0 z-5 pointer-events-none rounded-2xl overflow-hidden border border-emerald-500/30 bg-emerald-500/10"
+          :style="{ left: `${d.leftPct}%`, right: `${d.rightPct}%` }"
+          :title="`Duty Hours: ${d.label}`"
+        >
+          <div class="absolute top-1 left-2 text-[9px] font-black uppercase tracking-wider text-emerald-700/70 pointer-events-none">
+            Duty Shift
+          </div>
+        </div>
+
         <!-- Visually Rendered Blocked Slots (Red Striped Overlays on Track) -->
         <div
           v-for="(b, idx) in blockedVisualRanges"
@@ -529,10 +588,13 @@ const onPointerUp = (e: PointerEvent) => {
             <div class="w-0.5 h-3.5 bg-current rounded-full"></div>
           </div>
 
-          <div class="w-full text-center px-4 truncate pointer-events-none flex items-center justify-center gap-1.5">
+          <div class="w-full text-center px-2 truncate pointer-events-none flex items-center justify-center gap-1.5">
             <Icon v-if="hasConflict" name="material-symbols:block-rounded" class="text-white text-sm shrink-0 animate-pulse" />
             <span class="text-[11px] font-extrabold text-white tracking-wide drop-shadow-sm">
               {{ format12H(localStart) }} – {{ format12H(localEnd) }}
+            </span>
+            <span v-if="hasConflict && conflictReason" class="text-[9px] font-extrabold bg-black/40 px-1.5 py-0.5 rounded-full text-red-100 uppercase tracking-tight">
+              {{ conflictReason }}
             </span>
           </div>
 
@@ -550,11 +612,12 @@ const onPointerUp = (e: PointerEvent) => {
         <Transition name="fade">
           <div
             v-if="activeTooltipTime"
-            class="absolute -top-10 left-1/2 -translate-x-1/2 z-40 rounded-xl px-3 py-1 text-xs font-bold text-white shadow-xl flex items-center gap-1.5 border pointer-events-none"
+            class="absolute -top-10 left-1/2 -translate-x-1/2 z-40 rounded-xl px-3 py-1 text-xs font-bold text-white shadow-xl flex items-center gap-1.5 border pointer-events-none whitespace-nowrap"
             :class="hasConflict ? 'bg-red-950 border-red-700' : 'bg-gray-900 border-gray-700'"
           >
             <Icon name="material-symbols:drag-pan-rounded" :class="hasConflict ? 'text-red-400' : 'text-indigo-400'" class="text-sm" />
             <span>{{ activeTooltipTime }}</span>
+            <span v-if="hasConflict && conflictReason" class="text-[10px] text-red-300 font-semibold">({{ conflictReason }})</span>
           </div>
         </Transition>
       </div>

@@ -20,8 +20,8 @@
       :class="[bg && bg.startsWith('bg-') ? bg : 'bg-transparent', width || 'w-full']"
     >
       <Icon
-        name="lets-icons:search-light"
-        :class="[size || 'text-2xl', text]"
+        name="lucide:search"
+        :class="[size || 'text-xl', text || 'text-muted-foreground']"
       />
     </div>
 

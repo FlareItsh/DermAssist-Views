@@ -10,6 +10,7 @@ const { searchQuery } = useSearch()
 
 const showScheduleModal = ref(false)
 const activeTab = ref<'upcoming' | 'history'>('upcoming')
+const viewMode = ref<'list' | 'timetable'>('list')
 
 const filteredAppointments = computed(() => {
   const sourceList = activeTab.value === 'upcoming' ? appointments.value : completedAppointments.value
@@ -35,6 +36,18 @@ const filteredAppointments = computed(() => {
   )
 })
 
+const appointmentsPerPage = 5
+const appointmentCurrentPage = ref(1)
+
+const paginatedAppointments = computed(() => {
+  const start = (appointmentCurrentPage.value - 1) * appointmentsPerPage
+  return filteredAppointments.value.slice(start, start + appointmentsPerPage)
+})
+
+watch([searchQuery, activeTab], () => {
+  appointmentCurrentPage.value = 1
+})
+
 const getInitials = (name: string): string => {
   if (!name) return ''
   const cleanName = name.replace(/^Dr\.\s+/i, '')
@@ -50,22 +63,46 @@ const goToChat = (uuid: string) => {
 
 <template>
   <div class="flex flex-col h-full gap-6 p-6 overflow-hidden">
-    <div class="flex items-center justify-between gap-4">
-      <div class="flex items-center gap-1 bg-gray-100 p-1.5 rounded-2xl border border-gray-200/50">
-        <button
-          @click="activeTab = 'upcoming'"
-          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
-          :class="activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
-        >
-          Upcoming
-        </button>
-        <button
-          @click="activeTab = 'history'"
-          class="px-5 py-2 text-sm font-bold rounded-xl transition-all cursor-pointer"
-          :class="activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm border border-gray-200/20' : 'text-gray-500 hover:text-gray-800'"
-        >
-          History
-        </button>
+    <!-- Top Action Bar -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <!-- View Mode Switcher -->
+        <div class="flex items-center gap-1 bg-gray-100 p-1 rounded-2xl border border-gray-200/50">
+          <button
+            @click="viewMode = 'list'"
+            class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            :class="viewMode === 'list' ? 'bg-white text-indigo-600 shadow-xs border border-gray-200/30' : 'text-gray-500 hover:text-gray-800'"
+          >
+            <Icon name="lucide:list" class="w-3.5 h-3.5" />
+            List View
+          </button>
+          <button
+            @click="viewMode = 'timetable'"
+            class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            :class="viewMode === 'timetable' ? 'bg-white text-indigo-600 shadow-xs border border-gray-200/30' : 'text-gray-500 hover:text-gray-800'"
+          >
+            <Icon name="lucide:calendar-range" class="w-3.5 h-3.5" />
+            Weekly Timetable
+          </button>
+        </div>
+
+        <!-- Upcoming / History (Visible in list view) -->
+        <div v-if="viewMode === 'list'" class="flex items-center gap-1 bg-gray-100 p-1 rounded-2xl border border-gray-200/50">
+          <button
+            @click="activeTab = 'upcoming'"
+            class="px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            :class="activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-xs border border-gray-200/30' : 'text-gray-500 hover:text-gray-800'"
+          >
+            Upcoming
+          </button>
+          <button
+            @click="activeTab = 'history'"
+            class="px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer"
+            :class="activeTab === 'history' ? 'bg-white text-indigo-600 shadow-xs border border-gray-200/30' : 'text-gray-500 hover:text-gray-800'"
+          >
+            History
+          </button>
+        </div>
       </div>
 
       <AppButton variant="soft" rounded="both" @click="showScheduleModal = true">
@@ -74,13 +111,19 @@ const goToChat = (uuid: string) => {
       </AppButton>
     </div>
 
-    <div class="flex-1 overflow-y-auto custom-scrollbar pr-2">
+    <!-- Timetable View -->
+    <div v-if="viewMode === 'timetable'" class="flex-1 min-h-0 overflow-hidden">
+      <AppWeeklyTimetable />
+    </div>
+
+    <!-- List View -->
+    <div v-else class="flex-1 overflow-y-auto custom-scrollbar pr-2">
       <div v-if="filteredAppointments.length === 0" class="text-center py-20 text-muted-foreground italic">
         No appointments found.
       </div>
       <div v-else class="flex flex-col gap-4">
         <div 
-          v-for="appt in filteredAppointments" 
+          v-for="appt in paginatedAppointments" 
           :key="appt.id"
           class="bg-card rounded-3xl border border-gray-100 p-5 flex items-center justify-between hover:shadow-md transition-all group"
         >
@@ -93,7 +136,7 @@ const goToChat = (uuid: string) => {
 
             <div class="flex items-center gap-4">
               <div v-if="appt.avatar" class="h-14 w-14 rounded-2xl overflow-hidden border-2 border-primary/20 bg-gray-50 shrink-0">
-                <img :src="appt.avatar" class="h-full w-full object-cover" />
+                <NuxtImg :src="appt.avatar" class="h-full w-full object-cover" loading="lazy" />
               </div>
               <div v-else class="h-14 w-14 flex items-center justify-center rounded-2xl border-2 border-primary/20 bg-primary/5 text-primary font-bold text-base shrink-0">
                 {{ getInitials(appt.patientName) }}
@@ -125,6 +168,15 @@ const goToChat = (uuid: string) => {
               <Icon name="material-symbols:edit-document-outline" class="text-2xl" />
             </AppButton>
           </div>
+        </div>
+
+        <div class="bg-card border border-sidebar-border rounded-2xl overflow-hidden">
+          <AppPagination
+            v-model:currentPage="appointmentCurrentPage"
+            :total-items="filteredAppointments.length"
+            :per-page="appointmentsPerPage"
+            item-label="appointments"
+          />
         </div>
       </div>
     </div>

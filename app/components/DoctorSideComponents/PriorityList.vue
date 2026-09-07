@@ -73,7 +73,7 @@ const conditionColor = (condition: string) => {
         class="group flex items-center gap-3 rounded-2xl border border-gray-100 bg-background/50 p-3 transition-all hover:border-primary/30 hover:shadow-md">
         <!-- Avatar -->
         <div class="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-200">
-          <img v-if="patient.avatar" :src="patient.avatar" :alt="patient.name" class="h-full w-full object-cover" />
+          <NuxtImg v-if="patient.avatar" :src="patient.avatar" :alt="patient.name" class="h-full w-full object-cover" loading="lazy" />
           <div v-else class="h-full w-full flex items-center justify-center bg-primary/5 text-primary font-bold text-lg">
             {{ getInitials(patient.name) }}
           </div>

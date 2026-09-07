@@ -5,6 +5,8 @@ export interface DoctorAvailabilityPayload {
   start_time: string
   end_time: string
   is_available?: boolean | number
+  clinic_id?: number | null
+  location_name?: string | null
 }
 
 export class DoctorAvailabilityService extends BaseService {

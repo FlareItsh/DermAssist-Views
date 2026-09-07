@@ -581,10 +581,11 @@
       patientLat.value = patLat
       patientLng.value = patLng
 
-      // 2. Fetch all verified doctors
+      // 2. Fetch all verified doctors eligible for recommendations
       const doctorsRes = await userService.list({
         role: 'doctor',
         status: 'verified',
+        recommended_only: 1,
         per_page: 100
       })
       const doctors: any[] = doctorsRes?.data ?? []

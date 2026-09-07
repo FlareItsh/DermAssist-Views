@@ -56,7 +56,7 @@
 
                 <Icon
                   v-if="index < breadcrumbs.length - 1"
-                  name="heroicons:chevron-right-20-solid"
+                  name="lucide:chevron-right"
                   size="14"
                   class="opacity-50"
                 />

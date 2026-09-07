@@ -5,12 +5,14 @@ import { userService } from '~/api/user/UserService'
 
 export interface AppNotification {
   id: string | number
+  type?: 'clinic_invitation' | 'appointment' | 'profile' | 'verification' | 'general'
   title: string
   description: string
   time: string
   icon: string
   color: string
   to?: string
+  data?: any
 }
 
 export const useAppNotifications = () => {
@@ -19,6 +21,11 @@ export const useAppNotifications = () => {
   const userUuid = useCookie('user_uuid')
 
   const { appointments, pendingAppointments, declinedAppointments, completedAppointments, fetchAppointments } = useAppointments()
+  const { pendingInvitations, fetchPendingInvitations } = useDoctorClinicDoctors()
+
+  if (import.meta.client && userRole.value === 'doctor') {
+    fetchPendingInvitations()
+  }
 
   const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
   const readNotifs = useCookie<(string | number)[]>(`read_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
@@ -51,7 +58,6 @@ export const useAppNotifications = () => {
     if (!u.province) fields.push('Province')
     if (!u.age || u.age == 0) fields.push('Age')
     if (!u.gender || u.gender === '') fields.push('Gender')
-    if (!u.affiliation) fields.push('Affiliation')
     if (!(u.prc_number || u.prcNumber)) fields.push('PRC Number')
     return fields
   })
@@ -99,6 +105,22 @@ export const useAppNotifications = () => {
 
   const baseNotifications = computed<AppNotification[]>(() => {
     const list: AppNotification[] = []
+
+    if (userRole.value === 'doctor' && pendingInvitations.value && pendingInvitations.value.length > 0) {
+      pendingInvitations.value.forEach((invite) => {
+        const roleLabel = (invite.role || 'associate').charAt(0).toUpperCase() + (invite.role || 'associate').slice(1)
+        list.push({
+          id: `clinic-invite-${invite.pivot_id}`,
+          type: 'clinic_invitation',
+          title: 'Clinic Seat Invitation',
+          description: `Dr. ${invite.owner_first_name} ${invite.owner_last_name} invited you to join ${invite.clinic_name} as an ${roleLabel} doctor under their Clinic Group Plan.`,
+          time: 'Action needed',
+          icon: 'solar:user-plus-bold',
+          color: 'text-primary',
+          data: invite
+        })
+      })
+    }
 
     if (isPatientProfileIncomplete.value) {
       list.push({
@@ -346,6 +368,8 @@ export const useAppNotifications = () => {
     isDoctorProfileIncomplete,
     missingPatientFields,
     missingDoctorFields,
-    profileRoute
+    profileRoute,
+    pendingInvitations,
+    fetchPendingInvitations
   }
 }

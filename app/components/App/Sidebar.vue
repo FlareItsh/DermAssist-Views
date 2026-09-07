@@ -187,8 +187,8 @@
                     {{ item.label }}
                   </span>
                   <Icon
-                    name="heroicons:chevron-right-20-solid"
-                    size="20"
+                    name="lucide:chevron-right"
+                    size="18"
                     class="text-foreground/50 transition-transform duration-300"
                     :class="{ 'rotate-90': isSubmenuOpen(item.label) }"
                   />
@@ -211,7 +211,7 @@
                     >
                       <Icon
                         :name="child.icon"
-                        size="21"
+                        size="18"
                         class="transition-colors duration-300 group-hover:text-sidebar-accent-foreground"
                         :class="isItemActive(child) ? 'text-sidebar-accent-foreground' : 'text-foreground/40'"
                       />
@@ -243,8 +243,8 @@
         >
           <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full">
             <Icon
-              name="ic:round-log-out"
-              size="34"
+              name="lucide:log-out"
+              size="28"
               class="text-destructive transition-transform duration-300 group-hover:scale-110"
             />
           </div>

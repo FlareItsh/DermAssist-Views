@@ -46,6 +46,7 @@ const fetchAllDoctors = async () => {
     const doctorsRes = await userService.list({
       role: 'doctor',
       status: 'verified',
+      recommended_only: 1,
       per_page: 100
     })
     const doctors: any[] = doctorsRes?.data ?? []

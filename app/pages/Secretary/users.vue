@@ -115,21 +115,8 @@ definePageMeta({
           <div
             v-for="n in 4"
             :key="n"
-            class="md:col-span-2 lg:col-span-2 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white rounded-3xl p-6 border border-gray-100 shadow-xs animate-pulse"
-          >
-            <div class="flex items-center gap-5">
-              <div class="h-20 w-20 rounded-2xl bg-gray-100 shrink-0"></div>
-              <div class="flex flex-col gap-2">
-                <div class="h-5 w-36 bg-gray-100 rounded-lg"></div>
-                <div class="h-3.5 w-24 bg-gray-100 rounded-md"></div>
-                <div class="h-4 w-16 bg-gray-100 rounded-md mt-0.5"></div>
-              </div>
-            </div>
-            <div class="flex items-center gap-3">
-              <div class="h-9 w-20 bg-gray-100 rounded-xl"></div>
-              <div class="h-9 w-20 bg-gray-100 rounded-xl"></div>
-            </div>
-          </div>
+            class="md:col-span-2 lg:col-span-2 bg-gray-50/80 border border-gray-100 rounded-3xl h-[132px] w-full animate-pulse"
+          />
         </div>
         <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 pb-6 pt-1 mb-2">
           <AppDoctorRegisteredPatientCard

@@ -9,16 +9,17 @@
     isRead?: boolean
   }>()
 
-  const componentType = computed(() => props.to ? 'NuxtLink' : 'div')
-  
-  defineEmits(['delete'])
+  defineEmits<{
+    (e: 'click'): void
+    (e: 'delete'): void
+  }>()
 </script>
 
 <template>
-  <component
-    :is="componentType"
-    :to="to"
-    class="hover:bg-secondary/50 border-border/30 group block cursor-pointer border-b p-4 transition-colors last:border-0"
+  <button
+    type="button"
+    @click="$emit('click')"
+    class="hover:bg-secondary/50 border-border/30 group block w-full text-left cursor-pointer border-b p-4 transition-colors last:border-0"
     :class="isRead ? 'bg-foreground/[0.01]' : 'bg-transparent'"
   >
     <div class="flex gap-4">
@@ -44,7 +45,12 @@
               class="text-muted-foreground shrink-0 text-[10px] font-semibold tracking-wider uppercase"
               >{{ time }}</span
             >
-            <button @click.prevent.stop="$emit('delete')" class="text-foreground/30 hover:text-red-500 transition-colors cursor-pointer rounded-full p-0.5 hover:bg-red-500/10">
+            <button
+              type="button"
+              @click.prevent.stop="$emit('delete')"
+              class="text-foreground/30 hover:text-red-500 transition-colors cursor-pointer rounded-full p-0.5 hover:bg-red-500/10"
+              title="Dismiss notification"
+            >
               <Icon name="heroicons:x-mark-20-solid" size="14" />
             </button>
           </div>
@@ -57,5 +63,6 @@
         </p>
       </div>
     </div>
-  </component>
+  </button>
 </template>
+

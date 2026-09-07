@@ -38,7 +38,7 @@
   })
 
   const baseClasses =
-    'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap'
+    'inline-flex items-center justify-center font-semibold tracking-wide transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap'
 
   const roundedClasses: Record<ButtonRounded, string> = {
     both: 'rounded-2xl',
@@ -51,20 +51,22 @@
 
   const variantClasses: Record<ButtonVariant, string> = {
     solid:
-      'bg-primary text-primary-foreground hover:opacity-90 shadow-lg shadow-primary/20 focus:ring-primary',
-    outline: 'border-2 border-primary text-primary hover:bg-primary/10 focus:ring-primary',
-    ghost: 'text-foreground hover:bg-muted hover:text-foreground focus:ring-muted',
-    soft: 'bg-primary/10 text-primary hover:bg-primary/20 focus:ring-primary',
-    link: 'text-primary hover:underline focus:ring-primary !p-0 !min-h-0 !h-auto',
+      'bg-primary text-primary-foreground font-semibold hover:bg-primary-dark active:scale-[0.98] shadow-sm shadow-primary/25 hover:shadow-md hover:shadow-primary/35 focus:ring-primary',
+    outline:
+      'border-2 border-primary bg-transparent text-primary font-semibold hover:bg-primary/10 active:scale-[0.98] focus:ring-primary',
+    ghost:
+      'text-foreground/80 hover:bg-foreground/5 hover:text-foreground font-semibold active:scale-[0.98] focus:ring-primary/20',
+    soft: 'bg-primary/10 text-primary font-semibold hover:bg-primary/20 active:scale-[0.98] focus:ring-primary',
+    link: 'text-primary font-semibold hover:underline focus:ring-primary !p-0 !min-h-0 !h-auto',
     destructive:
-      'bg-destructive text-white hover:opacity-90 shadow-lg shadow-destructive/20 focus:ring-destructive',
+      'bg-destructive text-destructive-foreground font-semibold hover:opacity-90 active:scale-[0.98] shadow-sm shadow-destructive/25 focus:ring-destructive',
     unstyled: ''
   }
 
   const sizeClasses: Record<ButtonSize, string> = {
-    sm: 'px-3 py-1.5 text-sm h-8',
-    md: 'px-5 py-2.5 text-base h-11',
-    lg: 'px-6 py-3 text-lg h-14',
+    sm: 'px-3.5 py-1.5 text-xs font-bold h-8 gap-1.5',
+    md: 'px-5 py-2.5 text-sm font-semibold h-11 gap-2',
+    lg: 'px-6 py-3 text-base font-bold h-13 gap-2.5',
     icon: 'p-2 w-11 h-11', // Square for icons
     unstyled: ''
   }
