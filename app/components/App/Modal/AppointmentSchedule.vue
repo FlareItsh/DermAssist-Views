@@ -1,6 +1,7 @@
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
   const props = withDefaults(
     defineProps<{
@@ -60,7 +61,6 @@
     getDutyRangesLabel,
     findEarliestAvailableSlot,
     fetchBlockedSlotsForDoctor
-  } = useBlockedDates()
   const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
 
   onMounted(async () => {
@@ -106,16 +106,11 @@
     }
 
     if (selectedDate.value) {
-      // Only auto-find earliest slot if we don't have a prefill time — otherwise it would overwrite the patient's requested time
       if (!props.prefillTime) {
         handleDateSelected(selectedDate.value)
-      } else {
-        selectedDate.value = selectedDate.value // keep date, skip slot auto-detect
       }
     }
   })
-
-  // Auto-sync end time when start time changes if end time <= start time
   watch(scheduleTime, newStart => {
     if (!newStart) return
     const [h, m] = newStart.split(':').map(Number)
@@ -467,8 +462,7 @@
                     <p class="font-bold">Outside Doctor's Duty Hours</p>
                     <p class="mt-0.5 text-red-500">
                       Appointments must be scheduled during active duty hours on this date:
-                      <strong>{{ dutyRangesLabel }}</strong
-                      >.
+                      <strong>{{ dutyRangesLabel }}</strong>.
                     </p>
                   </div>
                 </div>

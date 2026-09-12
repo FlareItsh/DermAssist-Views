@@ -94,7 +94,7 @@
     </section>
 
     <!-- Create / Edit Plan Dialog Modal -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
       <div class="w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 class="text-lg font-black text-gray-950">{{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}</h3>

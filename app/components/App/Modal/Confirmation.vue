@@ -76,7 +76,7 @@
         @click.self="close"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/60 transition-opacity"></div>
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"></div>
 
         <!-- Modal Container -->
         <div

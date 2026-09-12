@@ -94,7 +94,6 @@
       navigateTo(props.notification.to)
     }
   }
-
   const userRole = useCookie('user_role')
 
   const updatesRoute = computed(() => {
@@ -127,7 +126,7 @@
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/60 transition-opacity"
+          class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
           @click="close"
         ></div>
 
@@ -141,7 +140,7 @@
           leave-to-class="transform scale-95 opacity-0 translate-y-4"
         >
           <div
-            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl"
+            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-xl"
           >
             <!-- Header bar with icon and close button -->
             <div class="border-border/40 flex items-center justify-between border-b px-6 py-5">
@@ -155,10 +154,10 @@
                   />
                 </div>
                 <div>
-                  <span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider bg-primary/10 text-primary">
+                  <span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
                     {{ isInvitation ? 'Doctor Seat Invitation' : (notification.time || 'Notification') }}
                   </span>
-                  <h3 class="text-foreground text-base sm:text-lg font-semibold leading-tight">
+                  <h3 class="text-foreground text-base sm:text-lg font-bold leading-tight">
                     {{ notification.title }}
                   </h3>
                 </div>
@@ -180,7 +179,7 @@
               <template v-if="isInvitation">
                 <div class="bg-primary/5 border border-primary/20 rounded-2xl p-4">
                   <p class="text-foreground text-sm leading-relaxed">
-                    You have been invited to join a clinic group practice as an <strong class="text-primary font-semibold">{{ formattedRole }}</strong> doctor.
+                    You have been invited to join a clinic group practice as an <strong class="text-primary font-bold">{{ formattedRole }}</strong> doctor.
                   </p>
                 </div>
 
@@ -195,14 +194,14 @@
                     />
                     <div
                       v-else
-                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-semibold uppercase"
+                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold uppercase"
                     >
                       {{ (inviteData?.owner_first_name || 'D').charAt(0) }}
                     </div>
                   </div>
                   <div class="min-w-0 flex-1">
-                    <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">Invited By (Practice Head)</span>
-                    <h4 class="text-foreground font-semibold text-base truncate">
+                    <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Invited By (Practice Head)</span>
+                    <h4 class="text-foreground font-bold text-base truncate">
                       Dr. {{ inviteData?.owner_first_name }} {{ inviteData?.owner_last_name }}
                     </h4>
                     <p v-if="inviteData?.owner_prc_number" class="text-xs text-muted-foreground">
@@ -216,11 +215,11 @@
 
                 <!-- Sponsoring Clinic Location -->
                 <div class="border border-border/60 bg-card rounded-2xl p-4 space-y-2">
-                  <div class="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
+                  <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
                     <Icon name="solar:hospital-bold" class="text-base" />
                     <span>Clinic Assignment</span>
                   </div>
-                  <h5 class="text-foreground font-semibold text-base">
+                  <h5 class="text-foreground font-bold text-base">
                     {{ inviteData?.clinic_name }}
                   </h5>
                   <p v-if="inviteData?.clinic_address" class="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
@@ -231,7 +230,7 @@
 
                 <!-- Benefits granted -->
                 <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
-                  <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                     Access Granted Upon Acceptance
                   </span>
                   <ul class="text-xs text-muted-foreground space-y-1.5 list-none m-0 p-0">
@@ -351,7 +350,6 @@
                   View All Updates
                 </AppButton>
               </template>
-
               <!-- General notification actions -->
               <template v-else>
                 <AppButton
