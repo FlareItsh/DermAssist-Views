@@ -86,7 +86,8 @@
         { icon: 'lucide:receipt', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
-    }
+    },
+    { icon: 'lucide:newspaper', label: 'Patch Notes', to: '/admin/patch-notes' }
   ])
 
   const patientNavItems = computed(() => [

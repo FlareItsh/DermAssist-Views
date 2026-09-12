@@ -412,8 +412,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto p-4"
-        style="background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(4px)"
+        class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto p-4 bg-black/60"
         @click.self="emit('close')"
       >
         <div

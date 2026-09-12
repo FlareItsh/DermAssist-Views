@@ -1,11 +1,12 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useCookie } from '#app'
 import { appealService } from '~/api/appeal/AppealService'
+import { patchNoteService } from '~/api/patchNote/PatchNoteService'
 import { userService } from '~/api/user/UserService'
 
 export interface AppNotification {
   id: string | number
-  type?: 'clinic_invitation' | 'appointment' | 'profile' | 'verification' | 'general'
+  type?: 'clinic_invitation' | 'appointment' | 'profile' | 'verification' | 'general' | 'patch_note'
   title: string
   description: string
   time: string
@@ -15,6 +16,9 @@ export interface AppNotification {
   data?: any
 }
 
+const publishedPatchNotes = ref<any[]>([])
+const isPatchNotesLoaded = ref(false)
+
 export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
@@ -23,8 +27,27 @@ export const useAppNotifications = () => {
   const { appointments, pendingAppointments, declinedAppointments, completedAppointments, fetchAppointments } = useAppointments()
   const { pendingInvitations, fetchPendingInvitations } = useDoctorClinicDoctors()
 
-  if (import.meta.client && userRole.value === 'doctor') {
-    fetchPendingInvitations()
+  const fetchPublishedPatchNotes = async (force = false) => {
+    if (isPatchNotesLoaded.value && !force && publishedPatchNotes.value.length > 0) {
+      return publishedPatchNotes.value
+    }
+    try {
+      const res = await patchNoteService.getPublished()
+      if (res?.status === 'success') {
+        publishedPatchNotes.value = res.data || []
+        isPatchNotesLoaded.value = true
+      }
+    } catch (err) {
+      console.error('Failed to fetch published patch notes:', err)
+    }
+    return publishedPatchNotes.value
+  }
+
+  if (import.meta.client) {
+    if (userRole.value === 'doctor') {
+      fetchPendingInvitations()
+    }
+    fetchPublishedPatchNotes()
   }
 
   const dismissedNotifs = useCookie<(string | number)[]>(`dismissed_notifs_${userUuid.value}`, { default: () => [], maxAge: 60 * 60 * 24 * 365 })
@@ -38,6 +61,7 @@ export const useAppNotifications = () => {
     immediate: userRole.value === 'admin',
     key: 'admin-appeals'
   })
+
 
   const missingPatientFields = computed(() => {
     if (!userProfile.value || userRole.value !== 'patient') return []
@@ -334,7 +358,31 @@ export const useAppNotifications = () => {
         })
       })
     }
-    
+
+    const patchNoteItems: AppNotification[] = []
+    if (publishedPatchNotes.value && publishedPatchNotes.value.length > 0) {
+      publishedPatchNotes.value.forEach((note: any) => {
+        const versionBadge = note.version ? ` [${note.version}]` : ''
+        patchNoteItems.push({
+          id: `patch-note-${note.uuid || note.id}`,
+          type: 'patch_note',
+          title: `Update${versionBadge}: ${note.title}`,
+          description: note.description,
+          time: note.published_at ? formatRelativeTime(note.published_at) : (note.created_at ? formatRelativeTime(note.created_at) : 'New Update'),
+          icon: 'solar:notes-bold-duotone',
+          color: 'text-primary',
+          data: note
+        })
+      })
+    }
+
+    // For patients, latest update appears at the top; for all other roles, append at the end.
+    if (userRole.value === 'patient') {
+      list.unshift(...patchNoteItems)
+    } else {
+      list.push(...patchNoteItems)
+    }
+
     return list
   })
   
@@ -363,6 +411,7 @@ export const useAppNotifications = () => {
     userProfile,
     refreshProfile,
     refreshAppeals,
+    fetchPublishedPatchNotes,
     fetchAppointments,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,

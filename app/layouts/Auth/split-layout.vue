@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-background flex h-screen w-full md:p-20">
-    <div class="flex w-full md:rounded-4xl md:shadow-lg">
-      <div class="bg-card w-full md:w-1/2 md:rounded-l-4xl">
+  <div class="bg-background flex min-h-screen md:h-screen w-full p-3 sm:p-6 md:p-8 lg:p-10">
+    <div class="flex w-full md:rounded-4xl md:shadow-lg overflow-hidden">
+      <div class="bg-card w-full md:w-1/2 md:rounded-l-4xl flex flex-col min-h-0">
         <slot />
       </div>
       <div class="bg-secondary relative hidden md:flex md:w-1/2 md:rounded-r-4xl">

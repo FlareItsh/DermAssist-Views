@@ -45,6 +45,8 @@
 
   const isInvitation = computed(() => props.notification?.type === 'clinic_invitation' && props.notification?.data)
   const inviteData = computed(() => props.notification?.data)
+  const isPatchNote = computed(() => props.notification?.type === 'patch_note' && props.notification?.data)
+  const patchNoteData = computed(() => props.notification?.data)
 
   const formattedRole = computed(() => {
     const role = inviteData.value?.role || 'associate'
@@ -92,6 +94,19 @@
       navigateTo(props.notification.to)
     }
   }
+
+  const userRole = useCookie('user_role')
+
+  const updatesRoute = computed(() => {
+    if (userRole.value === 'doctor') return '/doctor/updates'
+    if (userRole.value === 'patient') return '/patient/updates'
+    return '/updates'
+  })
+
+  const handleViewAllUpdates = () => {
+    close()
+    navigateTo(updatesRoute.value)
+  }
 </script>
 
 <template>
@@ -112,7 +127,7 @@
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          class="fixed inset-0 bg-black/60 transition-opacity"
           @click="close"
         ></div>
 
@@ -126,7 +141,7 @@
           leave-to-class="transform scale-95 opacity-0 translate-y-4"
         >
           <div
-            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-xl"
+            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl"
           >
             <!-- Header bar with icon and close button -->
             <div class="border-border/40 flex items-center justify-between border-b px-6 py-5">
@@ -140,10 +155,10 @@
                   />
                 </div>
                 <div>
-                  <span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/10 text-primary">
+                  <span class="inline-block rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider bg-primary/10 text-primary">
                     {{ isInvitation ? 'Doctor Seat Invitation' : (notification.time || 'Notification') }}
                   </span>
-                  <h3 class="text-foreground text-lg font-black leading-tight">
+                  <h3 class="text-foreground text-base sm:text-lg font-semibold leading-tight">
                     {{ notification.title }}
                   </h3>
                 </div>
@@ -165,7 +180,7 @@
               <template v-if="isInvitation">
                 <div class="bg-primary/5 border border-primary/20 rounded-2xl p-4">
                   <p class="text-foreground text-sm leading-relaxed">
-                    You have been invited to join a clinic group practice as an <strong class="text-primary font-bold">{{ formattedRole }}</strong> doctor.
+                    You have been invited to join a clinic group practice as an <strong class="text-primary font-semibold">{{ formattedRole }}</strong> doctor.
                   </p>
                 </div>
 
@@ -180,14 +195,14 @@
                     />
                     <div
                       v-else
-                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-black uppercase"
+                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-semibold uppercase"
                     >
                       {{ (inviteData?.owner_first_name || 'D').charAt(0) }}
                     </div>
                   </div>
                   <div class="min-w-0 flex-1">
-                    <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Invited By (Practice Head)</span>
-                    <h4 class="text-foreground font-black text-base truncate">
+                    <span class="text-[11px] font-medium text-muted-foreground uppercase tracking-wider block">Invited By (Practice Head)</span>
+                    <h4 class="text-foreground font-semibold text-base truncate">
                       Dr. {{ inviteData?.owner_first_name }} {{ inviteData?.owner_last_name }}
                     </h4>
                     <p v-if="inviteData?.owner_prc_number" class="text-xs text-muted-foreground">
@@ -201,11 +216,11 @@
 
                 <!-- Sponsoring Clinic Location -->
                 <div class="border border-border/60 bg-card rounded-2xl p-4 space-y-2">
-                  <div class="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-wider">
+                  <div class="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
                     <Icon name="solar:hospital-bold" class="text-base" />
                     <span>Clinic Assignment</span>
                   </div>
-                  <h5 class="text-foreground font-bold text-base">
+                  <h5 class="text-foreground font-semibold text-base">
                     {{ inviteData?.clinic_name }}
                   </h5>
                   <p v-if="inviteData?.clinic_address" class="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
@@ -216,7 +231,7 @@
 
                 <!-- Benefits granted -->
                 <div class="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
-                  <span class="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
+                  <span class="text-[11px] font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">
                     Access Granted Upon Acceptance
                   </span>
                   <ul class="text-xs text-muted-foreground space-y-1.5 list-none m-0 p-0">
@@ -236,9 +251,48 @@
                 </div>
               </template>
 
-              <!-- Case 2: General / System / Appointment Notification -->
+              <!-- Case 2: Patch Note Notification -->
+              <template v-else-if="isPatchNote">
+                <div class="bg-primary/5 border border-primary/20 rounded-2xl p-4">
+                  <div class="flex items-center justify-between gap-2 mb-2">
+                    <span v-if="patchNoteData?.version" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/20 font-mono">
+                      <Icon name="solar:tag-bold" class="text-xs" />
+                      {{ patchNoteData.version }}
+                    </span>
+                    <span v-if="notification.time" class="text-xs text-muted-foreground">
+                      {{ notification.time }}
+                    </span>
+                  </div>
+                  <h4 class="text-foreground font-semibold text-base">
+                    {{ patchNoteData?.title }}
+                  </h4>
+                  <p class="text-muted-foreground text-sm leading-relaxed mt-2 whitespace-pre-line font-normal">
+                    {{ patchNoteData?.description }}
+                  </p>
+                </div>
+
+                <!-- Changes / Features list if available -->
+                <div v-if="patchNoteData?.changes && patchNoteData.changes.length > 0" class="rounded-2xl border border-border/60 bg-muted/20 p-4 space-y-2.5">
+                  <div class="flex items-center gap-2 text-primary font-semibold text-xs uppercase tracking-wider">
+                    <Icon name="solar:stars-minimalistic-bold" class="text-sm" />
+                    <span>What's New & Improvements</span>
+                  </div>
+                  <ul class="text-xs text-foreground space-y-2 list-none m-0 p-0">
+                    <li
+                      v-for="(change, idx) in patchNoteData.changes"
+                      :key="idx"
+                      class="flex items-start gap-2"
+                    >
+                      <Icon name="heroicons:check-badge-solid" class="text-primary text-sm shrink-0 mt-0.5" />
+                      <span class="leading-relaxed font-normal">{{ change }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+
+              <!-- Case 3: General / System / Appointment Notification -->
               <template v-else>
-                <p class="text-foreground text-sm sm:text-base leading-relaxed whitespace-pre-line">
+                <p class="text-foreground text-sm sm:text-base leading-relaxed whitespace-pre-line font-normal">
                   {{ notification.description }}
                 </p>
 
@@ -278,6 +332,23 @@
                 >
                   <Icon name="solar:check-circle-bold" class="mr-1.5 text-base" />
                   Accept Invitation
+                </AppButton>
+              </template>
+
+              <!-- Patch note actions -->
+              <template v-else-if="isPatchNote">
+                <AppButton
+                  variant="ghost"
+                  @click="close"
+                >
+                  Close
+                </AppButton>
+                <AppButton
+                  variant="outline"
+                  @click="handleViewAllUpdates"
+                >
+                  <Icon name="solar:notes-bold-duotone" class="mr-1.5 text-base" />
+                  View All Updates
                 </AppButton>
               </template>
 

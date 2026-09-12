@@ -179,7 +179,7 @@ onMounted(() => {
 
     <!-- Upload Modal -->
     <div v-if="showUploadModal"
-      class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
       <div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
         <button @click="showUploadModal = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
           <Icon name="lucide:x" class="text-xl" />
