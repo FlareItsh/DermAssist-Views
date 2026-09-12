@@ -1977,24 +1977,6 @@
                 </AppButton>
               </div>
             </div>
-          </div>
-        </Transition>
-        <!-- Schedule Appointment Modal -->
-        <AppModalAppointmentSchedule
-          v-if="showScheduleModal"
-          :appointment-uuid="schedulingAppointmentUuid"
-          :mode="scheduleMode"
-          :prefill-date="reschedulePrefilledDate"
-          :prefill-time="reschedulePrefilledTime"
-          @close="handleScheduleModalClose"
-          @scheduled="
-            () => {
-              fetchMessages(1)
-              fetchAppointments()
-            }
-          "
-        />
-
         <!-- Complete Appointment Confirmation Modal -->
         <Transition name="modal">
           <div
@@ -2042,6 +2024,22 @@
           </div>
         </Transition>
       </Teleport>
+
+      <!-- Schedule / Propose Reschedule Modal -->
+      <AppModalAppointmentSchedule
+        v-if="showScheduleModal"
+        :appointment-uuid="schedulingAppointmentUuid"
+        :mode="scheduleMode"
+        :prefill-date="reschedulePrefilledDate"
+        :prefill-time="reschedulePrefilledTime"
+        @close="handleScheduleModalClose"
+        @scheduled="
+          () => {
+            fetchMessages(1)
+            fetchAppointments()
+          }
+        "
+      />
 
       <!-- Patient Reschedule Modal -->
       <PatientSideComponentsRescheduleModal

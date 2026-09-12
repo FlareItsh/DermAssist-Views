@@ -132,7 +132,7 @@ export const useAppointments = () => {
         const res = await appointmentService.list()
         if (res) {
           appointments.value = res
-            .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
+            .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
             .map(mapAppt)
 
           pendingAppointments.value = res
@@ -172,7 +172,7 @@ export const useAppointments = () => {
       const res = await appointmentService.list(param)
       if (Array.isArray(res)) {
         return res
-          .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
+          .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
           .map(mapAppt)
       }
     } catch (e) {
