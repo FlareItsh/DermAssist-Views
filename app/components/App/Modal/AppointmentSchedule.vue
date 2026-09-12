@@ -64,95 +64,12 @@
   } = useDoctorDutySchedule()
   const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
 
-  onMounted(async () => {
-    await fetchClinics()
-
-    if (props.appointmentUuid) {
-      try {
-        const appt = await appointmentService.show(props.appointmentUuid)
-        if (appt) {
-          currentAppointmentData.value = appt
-          const docUuid = appt.doctor?.uuid
-          const docId = appt.doctor_id
-
-          if (docUuid) {
-            await fetchBlockedSlotsForDoctor(docUuid)
-          }
-          if (docId) {
-            const docAppts = await fetchAppointmentsForDoctor(docId)
-            if (docAppts && docAppts.length > 0) {
-              doctorBookedAppts.value = docAppts
-            }
-          }
-
-          // Pre-fill from patient reschedule request if provided
-          if (props.prefillDate) {
-            selectedDate.value = props.prefillDate
-            if (props.prefillTime) {
-              scheduleTime.value = props.prefillTime.slice(0, 5)
-              const [h, m] = props.prefillTime.split(':').map(Number)
-              const endHour = (h + 1) % 24
-              scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-            }
-          } else if (appt.scheduled_at) {
-            const p = parseAppointmentDateTime(appt.scheduled_at)
-            selectedDate.value = p.date
-          } else if (!selectedDate.value) {
-            selectedDate.value = getTodayStr()
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load target doctor schedule details:', e)
-      }
-    }
-
-    if (selectedDate.value) {
-      if (!props.prefillTime) {
-        handleDateSelected(selectedDate.value)
-      }
-    }
-  })
-  watch(scheduleTime, newStart => {
-    if (!newStart) return
-    const [h, m] = newStart.split(':').map(Number)
-    const endHour = (h + 1) % 24
-    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  })
-
   const effectiveAppointmentsList = computed(() => {
     if (doctorBookedAppts.value.length > 0) {
       return doctorBookedAppts.value
     }
     return appointments.value
   })
-
-  // Smart autofill clinic location from duty preset when date & time change
-  watch(
-    [selectedDate, scheduleTime, scheduleEndTime],
-    ([date, start, end]) => {
-      if (!date || !start) return
-      const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-      if (matchedDuty) {
-        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-        if (loc) {
-          scheduleLocation.value = loc
-          customLocationInput.value = ''
-          wasAutofilled.value = true
-          return
-        }
-      }
-
-      // If no duty schedule found and scheduleLocation was previously autofilled or empty
-      if (wasAutofilled.value || !scheduleLocation.value) {
-        if (clinics.value.length > 0) {
-          scheduleLocation.value = clinics.value[0].name
-          customLocationInput.value = ''
-        }
-        wasAutofilled.value = false
-      }
-    },
-    { immediate: true }
-  )
 
   const blockedSlotsForDate = computed(() => {
     if (!selectedDate.value) return []
@@ -211,6 +128,90 @@
       }
     }
   }
+
+  onMounted(async () => {
+    await fetchClinics()
+
+    if (props.appointmentUuid) {
+      try {
+        const appt = await appointmentService.show(props.appointmentUuid)
+        if (appt) {
+          currentAppointmentData.value = appt
+          const docUuid = appt.doctor?.uuid
+          const docId = appt.doctor_id
+
+          if (docUuid) {
+            await fetchBlockedSlotsForDoctor(docUuid)
+          }
+          if (docId) {
+            const docAppts = await fetchAppointmentsForDoctor(docId)
+            if (docAppts && docAppts.length > 0) {
+              doctorBookedAppts.value = docAppts
+            }
+          }
+
+          // Pre-fill from patient reschedule request if provided
+          if (props.prefillDate) {
+            selectedDate.value = props.prefillDate
+            if (props.prefillTime) {
+              scheduleTime.value = props.prefillTime.slice(0, 5)
+              const [h, m] = props.prefillTime.split(':').map(Number)
+              const endHour = (h + 1) % 24
+              scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+            }
+          } else if (appt.scheduled_at) {
+            const p = parseAppointmentDateTime(appt.scheduled_at)
+            selectedDate.value = p.date
+          } else if (!selectedDate.value) {
+            selectedDate.value = getTodayStr()
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load target doctor schedule details:', e)
+      }
+    }
+
+    if (selectedDate.value) {
+      if (!props.prefillTime) {
+        handleDateSelected(selectedDate.value)
+      }
+    }
+  })
+
+  watch(scheduleTime, newStart => {
+    if (!newStart) return
+    const [h, m] = newStart.split(':').map(Number)
+    const endHour = (h + 1) % 24
+    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  })
+
+  // Smart autofill clinic location from duty preset when date & time change
+  watch(
+    [selectedDate, scheduleTime, scheduleEndTime],
+    ([date, start, end]) => {
+      if (!date || !start) return
+      const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
+      if (matchedDuty) {
+        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
+        if (loc) {
+          scheduleLocation.value = loc
+          customLocationInput.value = ''
+          wasAutofilled.value = true
+          return
+        }
+      }
+
+      // If no duty schedule found and scheduleLocation was previously autofilled or empty
+      if (wasAutofilled.value || !scheduleLocation.value) {
+        if (clinics.value.length > 0) {
+          scheduleLocation.value = clinics.value[0].name
+          customLocationInput.value = ''
+        }
+        wasAutofilled.value = false
+      }
+    },
+    { immediate: true }
+  )
 
   /**
    * True when the doctor has no duty hours scheduled on this date.
