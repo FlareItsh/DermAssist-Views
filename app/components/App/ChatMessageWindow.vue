@@ -1977,6 +1977,9 @@
                 </AppButton>
               </div>
             </div>
+          </div>
+        </Transition>
+
         <!-- Complete Appointment Confirmation Modal -->
         <Transition name="modal">
           <div
