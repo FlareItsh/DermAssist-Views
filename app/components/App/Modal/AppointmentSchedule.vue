@@ -61,6 +61,7 @@
     getDutyRangesLabel,
     findEarliestAvailableSlot,
     fetchBlockedSlotsForDoctor
+  } = useDoctorDutySchedule()
   const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
 
   onMounted(async () => {
