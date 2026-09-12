@@ -87,7 +87,7 @@
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
     },
-    { icon: 'lucide:newspaper', label: 'Patch Notes', to: '/admin/patch-notes' }
+    { icon: 'lucide:newspaper', label: 'System Updates', to: '/admin/patch-notes' }
   ])
 
   const patientNavItems = computed(() => [
@@ -106,6 +106,11 @@
       icon: 'lucide:folder',
       label: 'Records',
       to: '/patient/records'
+    },
+    {
+      icon: 'lucide:sparkles',
+      label: "What's New",
+      to: '/patient/updates'
     }
   ])
 
@@ -143,6 +148,11 @@
       icon: 'lucide:credit-card',
       label: 'Subscription',
       to: '/doctor/subscription'
+    },
+    {
+      icon: 'lucide:sparkles',
+      label: "What's New",
+      to: '/doctor/updates'
     }
   ])
 

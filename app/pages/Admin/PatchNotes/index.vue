@@ -211,7 +211,7 @@ const formatDate = (dateStr?: string) => {
   <div class="space-y-6">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <h1 class="mt-1 text-2xl sm:text-3xl font-bold text-gray-950">Patch Notes Manager</h1>
+        <h1 class="mt-1 text-2xl sm:text-3xl font-bold text-gray-950">System Updates Manager</h1>
         <p class="mt-1 text-sm text-gray-500 max-w-2xl">
           Publish system announcements, new features, and version changelogs to all doctors and patients.
         </p>
@@ -272,7 +272,7 @@ const formatDate = (dateStr?: string) => {
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search patch notes by title or version..."
+          placeholder="Search system updates by title or version..."
           class="w-full rounded-2xl border border-border/60 bg-card pl-10 pr-4 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-4 focus:ring-primary/10 outline-none transition"
         />
       </div>
@@ -299,16 +299,16 @@ const formatDate = (dateStr?: string) => {
     <section class="space-y-4">
       <div v-if="isLoading" class="rounded-3xl border border-border/60 bg-card p-12 text-center text-muted-foreground">
         <Icon name="svg-spinners:ring-resize" class="mx-auto mb-3 h-7 w-7 text-primary animate-spin" />
-        <p class="text-sm font-semibold">Loading patch notes...</p>
+        <p class="text-sm font-semibold">Loading system updates...</p>
       </div>
 
       <div v-else-if="filteredNotes.length === 0" class="rounded-3xl border border-border/60 bg-card p-12 text-center space-y-3">
         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-3xl bg-muted/40 text-muted-foreground">
           <Icon name="solar:notes-bold-duotone" class="text-3xl" />
         </div>
-        <h3 class="text-base font-semibold text-foreground">No Patch Notes Found</h3>
+        <h3 class="text-base font-semibold text-foreground">No System Updates Found</h3>
         <p class="text-xs text-muted-foreground max-w-sm mx-auto">
-          {{ searchQuery ? 'No patch notes match your current search criteria.' : 'Create your first patch note to announce new features and system updates.' }}
+          {{ searchQuery ? 'No system updates match your current search criteria.' : 'Create your first system update to announce new features and improvements.' }}
         </p>
         <AppButton
           v-if="!searchQuery"
