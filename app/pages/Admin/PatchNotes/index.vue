@@ -410,7 +410,7 @@ const formatDate = (dateStr?: string) => {
     </section>
 
     <!-- Create / Edit Modal -->
-    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+    <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div class="w-full max-w-xl rounded-3xl border border-border/60 bg-card p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar">
         <div class="flex items-center justify-between border-b border-border/40 pb-3">
           <div class="flex items-center gap-3">

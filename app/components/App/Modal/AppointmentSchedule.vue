@@ -61,7 +61,7 @@
     getDutyRangesLabel,
     findEarliestAvailableSlot,
     fetchBlockedSlotsForDoctor
-  } = useDoctorDutySchedule()
+  } = useBlockedDates()
   const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
 
   const effectiveAppointmentsList = computed(() => {
@@ -344,7 +344,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+        class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
         @click.self="emit('close')"
       >
         <div

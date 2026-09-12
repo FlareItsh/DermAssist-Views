@@ -126,7 +126,7 @@
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+          class="fixed inset-0 bg-black/50 transition-opacity"
           @click="close"
         ></div>
 
@@ -140,7 +140,7 @@
           leave-to-class="transform scale-95 opacity-0 translate-y-4"
         >
           <div
-            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-xl"
+            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl"
           >
             <!-- Header bar with icon and close button -->
             <div class="border-border/40 flex items-center justify-between border-b px-6 py-5">

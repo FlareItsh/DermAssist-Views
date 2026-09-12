@@ -362,7 +362,7 @@ export const useAppNotifications = () => {
     const patchNoteItems: AppNotification[] = []
     if (publishedPatchNotes.value && publishedPatchNotes.value.length > 0) {
       publishedPatchNotes.value.forEach((note: any) => {
-        const versionBadge = note.version ? ` [${note.version}]` : ''
+        const versionBadge = note.version ? ` ${note.version}` : ''
         patchNoteItems.push({
           id: `patch-note-${note.uuid || note.id}`,
           type: 'patch_note',

@@ -304,7 +304,7 @@ const getInitials = (name: string): string => {
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+        class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
         @click.self="emit('close')"
       >
         <div class="bg-card border-border flex max-h-[90vh] max-w-5xl flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row">

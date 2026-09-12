@@ -1787,7 +1787,7 @@
         <Transition name="modal">
           <div
             v-if="showDeleteMessageModal"
-            class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
+            class="bg-black/50 fixed inset-0 z-999 flex items-center justify-center p-4"
             @click.self="showDeleteMessageModal = false"
           >
             <div
@@ -1830,7 +1830,7 @@
         <Transition name="modal">
           <div
             v-if="showCancelConfirm"
-            class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
             @click.self="showCancelConfirm = false"
           >
             <div
@@ -1877,7 +1877,7 @@
         <Transition name="modal">
           <div
             v-if="showResolveModal"
-            class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
             @click.self="showResolveModal = false"
           >
             <div
@@ -1939,7 +1939,7 @@
         <Transition name="modal">
           <div
             v-if="showDeleteConversationModal"
-            class="bg-foreground/40 fixed inset-0 z-999 flex items-center justify-center p-4"
+            class="bg-black/50 fixed inset-0 z-999 flex items-center justify-center p-4"
             @click.self="showDeleteConversationModal = false"
           >
             <div
@@ -1984,7 +1984,7 @@
         <Transition name="modal">
           <div
             v-if="showCompleteConfirm"
-            class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
             @click.self="showCompleteConfirm = false"
           >
             <div
