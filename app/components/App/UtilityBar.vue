@@ -3,6 +3,7 @@
   import { authService } from '~/api/auth/AuthService'
   import { userService } from '~/api/user/UserService'
   import { appealService } from '~/api/appeal/AppealService'
+  import type { AppNotification } from '~/composables/useAppNotifications'
 
   const isNotificationsOpen = ref(false)
   const isMessagesOpen = ref(false)
@@ -34,16 +35,6 @@
       isNotificationsOpen.value = false
       isMessagesOpen.value = false
     }
-  }
-
-  interface AppNotification {
-    id: string | number
-    title: string
-    description: string
-    time: string
-    icon: string
-    color: string
-    to?: string
   }
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -91,6 +82,7 @@
   // Determine the messages base path based on role
   const messagesBasePath = computed(() => {
     if (userRole.value === 'doctor') return '/Doctor/Messages'
+    if (userRole.value === 'secretary') return '/Secretary/Messages'
     return '/Patient/Messages'
   })
 
@@ -167,7 +159,12 @@
     () => {
       refresh()
       if (userRole.value === 'admin') refreshAppeals()
-      if (userRole.value === 'doctor' || userRole.value === 'patient') fetchAppointments()
+      if (
+        userRole.value === 'doctor' ||
+        userRole.value === 'patient' ||
+        userRole.value === 'secretary'
+      )
+        fetchAppointments()
     }
   )
 
@@ -186,12 +183,16 @@
     readNotifs,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,
+    isSecretaryProfileIncomplete,
     profileRoute,
     refreshProfile
   } = useAppNotifications()
 
   const isProfileIncomplete = computed(
-    () => isPatientProfileIncomplete.value || isDoctorProfileIncomplete.value
+    () =>
+      isPatientProfileIncomplete.value ||
+      isDoctorProfileIncomplete.value ||
+      isSecretaryProfileIncomplete.value
   )
 
   const isSearchVisible = computed(() => {
@@ -201,9 +202,13 @@
       '/patient',
       '/doctor',
       '/doctor/records',
-      '/doctor/appointments'
+      '/doctor/appointments',
+      '/secretary/appointments',
+      '/secretary/records',
+      '/secretary/users',
+      '/secretary'
     ]
-    return visibleRoutes.includes(route.path)
+    return visibleRoutes.includes(route.path.toLowerCase())
   })
 
   const selectedNotification = ref<AppNotification | null>(null)
