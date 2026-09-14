@@ -88,6 +88,7 @@
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
+  const contributeToDataset = ref(true)
 
   const draftPatientKey = computed(() => 'draft_patient_info_' + (props.diagnosisUuid || 'active'))
 
@@ -750,16 +751,12 @@
               <template v-if="!patientUuid">
                 <button
                   type="button"
-                  @click="openCreateAccountModal"
+                  @click="isPatientModalOpen = true"
                   class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs bg-primary/10 text-primary hover:bg-primary/20"
                 >
                   <Icon name="material-symbols:person-add-rounded" class="text-base" />
                   <span>Create Patient Account</span>
                 </button>
-                <div v-if="highlightCreateAccount" class="inline-flex items-center gap-1 text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-2.5 py-1.5 rounded-xl">
-                  <Icon name="material-symbols:error-outline-rounded" class="text-sm shrink-0" />
-                  <span>Account Required</span>
-                </div>
               </template>
               <div v-else class="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
                 <Icon name="material-symbols:check-circle" class="text-sm" />
@@ -812,6 +809,19 @@
         </div>
       </div>
 
+      <div v-if="props.role === 'doctor'" class="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2 w-fit">
+        <input
+          id="detailed-dataset-checkbox"
+          v-model="contributeToDataset"
+          type="checkbox"
+          class="accent-primary h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer"
+        />
+        <label for="detailed-dataset-checkbox" class="text-xs text-foreground/80 font-normal cursor-pointer select-none leading-tight">
+          <span class="font-medium text-foreground block text-[11px] sm:text-xs">Include in AI Retraining Dataset</span>
+          <span class="text-[10px] text-muted-foreground">Save anonymized scan to admin gallery</span>
+        </label>
+      </div>
+
       <div v-if="props.role === 'doctor'" class="flex flex-col gap-12 mt-12">
         <AppClinicalNoteForm 
           :appointment-uuid="props.appointmentUuid" 
@@ -819,6 +829,7 @@
           :diagnosis-uuid="props.diagnosisUuid || null"
           :skip-load="props.isNewScan" 
           :is-finish-mode="props.isNewScan"
+          :contribute-to-dataset="contributeToDataset"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />

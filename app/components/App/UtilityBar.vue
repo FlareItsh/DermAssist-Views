@@ -17,6 +17,7 @@
     if (isNotificationsOpen.value) {
       isMessagesOpen.value = false
       isProfileOpen.value = false
+      fetchPublishedPatchNotes?.(true)
     }
   }
 
@@ -155,6 +156,7 @@
   // Refresh on route change
   watch(() => route.fullPath, () => {
     refresh()
+    fetchPublishedPatchNotes?.(true)
     if (userRole.value === 'admin') refreshAppeals()
     if (userRole.value === 'doctor' || userRole.value === 'patient') fetchAppointments()
   })
@@ -171,7 +173,8 @@
     readNotifs,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,
-    profileRoute
+    profileRoute,
+    fetchPublishedPatchNotes
   } = useAppNotifications()
 
   const isProfileIncomplete = computed(() => isPatientProfileIncomplete.value || isDoctorProfileIncomplete.value)

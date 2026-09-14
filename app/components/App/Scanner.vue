@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
+  import { toast } from 'vue-sonner'
 
   const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile, patientUuid } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
@@ -10,6 +11,14 @@
   const fileInput = ref<HTMLInputElement | null>(null)
   const isCameraOn = ref(false)
   const uploadQualityWarning = ref<string | null>(null)
+  const agreeToConsent = ref(false)
+  const showTermsModal = ref(false)
+  const termsInitialTab = ref<'terms' | 'privacy'>('terms')
+
+  const openTermsModal = (tab: 'terms' | 'privacy' = 'terms') => {
+    termsInitialTab.value = tab
+    showTermsModal.value = true
+  }
   
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
@@ -171,6 +180,12 @@
 
   const captureAndScan = async () => {
     if (isScanning.value) return
+
+    if (!agreeToConsent.value) {
+      toast.warning('Please review and agree to the Medical Disclaimer & Terms before scanning.')
+      openTermsModal('terms')
+      return
+    }
 
     // Case 1: Scanning a previewed (uploaded or already captured) image
     if (previewImage.value && selectedFile.value) {
@@ -391,9 +406,57 @@
           <div v-if="isScanning" class="absolute inset-0 flex items-center justify-center">
              <div class="h-16 w-16 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
           </div>
-          <AppScannerControls :is-camera-on="isCameraOn || !!previewImage" :is-scanning="isScanning" :has-quality-error="!!qualityError" @toggle-camera="toggleCamera" @trigger-file="triggerFileInput" @scan="captureAndScan" />
+          
+          <div
+            v-if="!isScanning"
+            class="absolute bottom-3 left-2 z-20 flex items-center pointer-events-auto max-w-[calc(100%-23rem)]"
+          >
+            <div class="flex items-center gap-2.5 rounded-2xl border border-white/20 bg-black/30 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md">
+              <input
+                id="scanner-consent-desktop"
+                v-model="agreeToConsent"
+                type="checkbox"
+                class="accent-primary h-4 w-4 shrink-0 rounded border-white/30 cursor-pointer"
+              />
+              <label for="scanner-consent-desktop" class="text-[11px] sm:text-xs text-white/90 select-none cursor-pointer leading-tight">
+                I understand AI results are assistive only and agree to the
+                <button
+                  type="button"
+                  class="text-primary font-bold underline underline-offset-2 hover:opacity-85 cursor-pointer ml-0.5"
+                  @click.stop="openTermsModal('terms')"
+                >
+                  Medical Disclaimer
+                </button>
+                &
+                <button
+                  type="button"
+                  class="text-primary font-bold underline underline-offset-2 hover:opacity-85 cursor-pointer"
+                  @click.stop="openTermsModal('privacy')"
+                >
+                  Privacy Policy
+                </button>.
+              </label>
+            </div>
+          </div>
+
+          <AppScannerControls
+            :is-camera-on="isCameraOn || !!previewImage"
+            :is-scanning="isScanning"
+            :has-quality-error="!!qualityError"
+            :has-consent="agreeToConsent"
+            @toggle-camera="toggleCamera"
+            @trigger-file="triggerFileInput"
+            @scan="captureAndScan"
+          />
         </div>
       </div>
     </div>
+
+    <!-- Terms & Medical Disclaimer Modal -->
+    <AppModalTermsModal
+      v-model="showTermsModal"
+      :initial-tab="termsInitialTab"
+      @accept="agreeToConsent = true"
+    />
   </section>
 </template>

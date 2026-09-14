@@ -3,9 +3,12 @@
     isCameraOn: boolean
     isScanning: boolean
     hasQualityError: boolean
+    hasConsent?: boolean
   }
 
-  const props = defineProps<Props>()
+  const props = withDefaults(defineProps<Props>(), {
+    hasConsent: true
+  })
 
   const emit = defineEmits<{
     (e: 'toggleCamera'): void
@@ -40,9 +43,9 @@
         <!-- Scan Button -->
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="emit('scan')"
-          :disabled="isScanning || hasQualityError || !isCameraOn"
+          :disabled="isScanning || hasQualityError || !isCameraOn || !hasConsent"
           class="flex h-14 w-fit items-center justify-center rounded-r-full bg-white px-8 text-2xl font-bold shadow-lg transition-all hover:bg-gray-100 disabled:opacity-50"
-          :class="{ 'bg-green-50 text-green-700': isCameraOn && !hasQualityError && !isScanning }"
+          :class="{ 'bg-green-50 text-green-700': isCameraOn && !hasQualityError && !isScanning && hasConsent }"
         >
           {{ isScanning ? '...' : 'Scan' }}
           <Icon name="material-symbols-light:camera-outline-rounded" class="ml-2 text-4xl" />

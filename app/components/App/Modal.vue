@@ -37,7 +37,7 @@
         @click.self="close"
       >
         <!-- Overlay -->
-        <div class="fixed inset-0 bg-black/60 transition-opacity"></div>
+        <div class="fixed inset-0 bg-black/50 transition-opacity"></div>
 
         <!-- Modal Container -->
         <div

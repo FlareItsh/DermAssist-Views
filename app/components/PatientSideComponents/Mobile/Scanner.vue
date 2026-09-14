@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from '#app'
+import { toast } from 'vue-sonner'
 import { useDiagnosis } from '~/composables/useDiagnosis'
 import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
 
@@ -22,6 +23,14 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const isCameraOn = ref(false)
 const errorMessage = ref('')
 const uploadQualityWarning = ref<string | null>(null)
+const agreeToConsent = ref(false)
+const showTermsModal = ref(false)
+const termsInitialTab = ref<'terms' | 'privacy'>('terms')
+
+const openTermsModal = (tab: 'terms' | 'privacy' = 'terms') => {
+  termsInitialTab.value = tab
+  showTermsModal.value = true
+}
 
 let stream: MediaStream | null = null
 let qualityCheckInterval: any = null
@@ -231,6 +240,12 @@ const compressImage = (file: File): Promise<Blob> => {
 
 const captureAndDiagnose = async () => {
   if (isScanning.value) return
+
+  if (!agreeToConsent.value) {
+    toast.warning('Please review and agree to the Medical Disclaimer & Terms before scanning.')
+    openTermsModal('terms')
+    return
+  }
 
   // Case 1: Diagnose already loaded file/preview
   if (previewImage.value && selectedFile.value) {
@@ -448,6 +463,36 @@ const statusText = computed(() => {
       </div>
     </div>
 
+    <!-- AI Consent Checkbox Banner -->
+    <div v-if="!isScanning" class="absolute bottom-48 left-4 right-4 z-30 flex justify-center">
+      <div class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/75 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md max-w-sm">
+        <input
+          id="scanner-consent-mobile"
+          v-model="agreeToConsent"
+          type="checkbox"
+          class="accent-primary h-4 w-4 shrink-0 rounded border-white/30 cursor-pointer"
+        />
+        <label for="scanner-consent-mobile" class="text-[10px] text-white/90 select-none cursor-pointer leading-tight">
+          I acknowledge AI results are assistive only and accept the
+          <button
+            type="button"
+            class="text-primary font-bold underline underline-offset-2 hover:opacity-80"
+            @click.stop="openTermsModal('terms')"
+          >
+            Medical Disclaimer
+          </button>
+          &
+          <button
+            type="button"
+            class="text-primary font-bold underline underline-offset-2 hover:opacity-80"
+            @click.stop="openTermsModal('privacy')"
+          >
+            Privacy Policy
+          </button>.
+        </label>
+      </div>
+    </div>
+
     <!-- === BOTTOM CONTROLS (floating above navbar) === -->
     <div class="absolute bottom-0 left-0 right-0 z-30 pb-24 pt-4 px-8">
       <!-- Gradient fade -->
@@ -465,7 +510,7 @@ const statusText = computed(() => {
         <!-- Main shutter / diagnose button -->
         <button
           @click="captureAndDiagnose"
-          :disabled="isScanning || (qualityError !== null && isCameraOn)"
+          :disabled="isScanning || (qualityError !== null && isCameraOn) || !agreeToConsent"
           class="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <div class="h-16 w-16 rounded-full border-4 border-black/10 flex items-center justify-center">
@@ -488,5 +533,12 @@ const statusText = computed(() => {
     <!-- Hidden inputs -->
     <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="handleFileUpload" />
     <canvas ref="canvasRef" class="hidden"></canvas>
+
+    <!-- Terms & Medical Disclaimer Modal -->
+    <AppModalTermsModal
+      v-model="showTermsModal"
+      :initial-tab="termsInitialTab"
+      @accept="agreeToConsent = true"
+    />
   </div>
 </template>
