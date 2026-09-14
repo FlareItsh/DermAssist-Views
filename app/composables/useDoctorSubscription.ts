@@ -1,8 +1,14 @@
 import { computed } from 'vue'
-import { doctorSubscriptionService, type DoctorSubscription } from '~/api/subscription/DoctorSubscriptionService'
+import {
+  doctorSubscriptionService,
+  type DoctorSubscription
+} from '~/api/subscription/DoctorSubscriptionService'
 
 export const useDoctorSubscription = () => {
-  const currentSubscription = useState<DoctorSubscription | null>('doctor-active-subscription', () => null)
+  const currentSubscription = useState<DoctorSubscription | null>(
+    'doctor-active-subscription',
+    () => null
+  )
   const isLoadingSubscription = useState<boolean>('doctor-subscription-loading', () => false)
   const lastFetchedAt = useState<number | null>('doctor-subscription-fetched-at', () => null)
 
@@ -28,7 +34,10 @@ export const useDoctorSubscription = () => {
 
   const maxSecretaries = computed(() => {
     if (!isSubscribed.value) return 0
-    if (currentSubscription.value?.plan_snapshot && currentSubscription.value.plan_snapshot.max_secretaries !== undefined) {
+    if (
+      currentSubscription.value?.plan_snapshot &&
+      currentSubscription.value.plan_snapshot.max_secretaries !== undefined
+    ) {
       return currentSubscription.value.plan_snapshot.max_secretaries
     }
     if (currentSubscription.value?.effective_max_secretaries !== undefined) {
@@ -39,7 +48,10 @@ export const useDoctorSubscription = () => {
 
   const maxClinics = computed(() => {
     if (!isSubscribed.value) return 1
-    if (currentSubscription.value?.plan_snapshot && currentSubscription.value.plan_snapshot.max_clinics !== undefined) {
+    if (
+      currentSubscription.value?.plan_snapshot &&
+      currentSubscription.value.plan_snapshot.max_clinics !== undefined
+    ) {
       return currentSubscription.value.plan_snapshot.max_clinics
     }
     if (currentSubscription.value?.effective_max_clinics !== undefined) {
@@ -50,11 +62,23 @@ export const useDoctorSubscription = () => {
 
   const canHaveSecretary = computed(() => {
     if (!isSubscribed.value) return false
-    return Boolean(planFeatures.value?.can_have_secretary) || maxSecretaries.value === null || (maxSecretaries.value !== undefined && maxSecretaries.value > 0)
+    return (
+      Boolean(planFeatures.value?.can_have_secretary) ||
+      maxSecretaries.value === null ||
+      (maxSecretaries.value !== undefined && maxSecretaries.value > 0)
+    )
   })
 
   const hasPlanUpdate = computed(() => {
     return Boolean(currentSubscription.value?.has_plan_update)
+  })
+
+  const isAutoRenew = computed(() => {
+    return Boolean(currentSubscription.value?.auto_renew)
+  })
+
+  const isPendingCancellation = computed(() => {
+    return Boolean(currentSubscription.value?.is_pending_cancellation)
   })
 
   const hasFeature = (featureKey: string) => {
@@ -73,7 +97,12 @@ export const useDoctorSubscription = () => {
   const fetchSubscription = async (force = false) => {
     // Cache for 30 seconds unless forced
     const now = Date.now()
-    if (!force && lastFetchedAt.value && now - lastFetchedAt.value < 30000 && currentSubscription.value !== null) {
+    if (
+      !force &&
+      lastFetchedAt.value &&
+      now - lastFetchedAt.value < 30000 &&
+      currentSubscription.value !== null
+    ) {
       return currentSubscription.value
     }
 
@@ -106,6 +135,8 @@ export const useDoctorSubscription = () => {
     maxSecretaries,
     maxClinics,
     hasPlanUpdate,
+    isAutoRenew,
+    isPendingCancellation,
     hasFeature,
     planName,
     fetchSubscription

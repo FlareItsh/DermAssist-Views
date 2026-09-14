@@ -17,6 +17,10 @@ export interface DoctorPlan {
 export interface DoctorSubscription {
   uuid: string
   billing_cycle: 'monthly' | 'annual'
+  auto_renew?: boolean
+  is_pending_cancellation?: boolean
+  cancelled_at?: string | null
+  cancellation_reason?: string | null
   status: 'active' | 'trialing' | 'canceled' | 'past_due' | 'expired'
   starts_at: string
   ends_at: string
@@ -61,7 +65,10 @@ export class DoctorSubscriptionService extends BaseService {
     return this.request('/subscription/my-subscription', 'GET')
   }
 
-  async validateCoupon(code: string, amount: number): Promise<{
+  async validateCoupon(
+    code: string,
+    amount: number
+  ): Promise<{
     status: string
     data: {
       code: string
@@ -88,11 +95,46 @@ export class DoctorSubscriptionService extends BaseService {
     })
   }
 
-  async confirmReturnPayment(invoiceUuid: string, provider: string): Promise<{ status: string; message: string; data: any }> {
+  async confirmReturnPayment(
+    invoiceUuid: string,
+    provider: string
+  ): Promise<{ status: string; message: string; data: any }> {
     return this.request('/subscription/confirm-return-payment', 'POST', {
       invoice_uuid: invoiceUuid,
       provider
     })
+  }
+
+  async toggleAutoRenew(autoRenew: boolean): Promise<{
+    status: string
+    message: string
+    data: {
+      subscription: DoctorSubscription
+    }
+  }> {
+    return this.request('/subscription/toggle-auto-renew', 'POST', {
+      auto_renew: autoRenew
+    })
+  }
+
+  async cancelSubscription(payload: { reason: string; feedback?: string }): Promise<{
+    status: string
+    message: string
+    data: {
+      subscription: DoctorSubscription
+    }
+  }> {
+    return this.request('/subscription/cancel', 'POST', payload)
+  }
+
+  async resumeSubscription(): Promise<{
+    status: string
+    message: string
+    data: {
+      subscription: DoctorSubscription
+    }
+  }> {
+    return this.request('/subscription/resume', 'POST')
   }
 }
 
