@@ -6,6 +6,7 @@
     id: string
     error?: string
     placeholder?: string
+    autocomplete?: string
   }>()
 
   defineEmits(['update:modelValue'])
@@ -28,6 +29,7 @@
         :type="inputType"
         :id="id"
         :value="modelValue"
+        :autocomplete="autocomplete || (type === 'password' ? 'new-password' : 'off')"
         @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         class="peer border-input focus:ring-primary focus:border-primary bg-primary/5 block w-full rounded-2xl border pt-6 pb-3.5 text-sm placeholder-transparent shadow-sm transition-all duration-200 focus:ring-2 focus:outline-none"
         :class="[

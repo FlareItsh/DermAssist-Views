@@ -294,7 +294,7 @@ const formatSchedule = (dateString: string) => {
       <Transition name="modal">
         <div
           v-if="showDisableModal"
-          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4 backdrop-blur-xs"
+          class="bg-black/60 fixed inset-0 z-[1000] flex items-center justify-center p-4"
           @click.self="showDisableModal = false"
         >
           <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl text-center">
@@ -335,7 +335,7 @@ const formatSchedule = (dateString: string) => {
       <Transition name="modal">
         <div
           v-if="showDeleteModal"
-          class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4 backdrop-blur-xs"
+          class="bg-black/60 fixed inset-0 z-[1000] flex items-center justify-center p-4"
           @click.self="showDeleteModal = false"
         >
           <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl text-center">

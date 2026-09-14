@@ -1,6 +1,7 @@
 import { computed, watch, ref } from 'vue'
 import { useRoute, useCookie } from '#app'
 import { appealService } from '~/api/appeal/AppealService'
+import { patchNoteService } from '~/api/patchNote/PatchNoteService'
 import { userService } from '~/api/user/UserService'
 import { verificationService } from '~/api/verification/VerificationService'
 import { subscriptionAdminService } from '~/api/subscription/SubscriptionAdminService'
@@ -22,6 +23,7 @@ export interface AppNotification {
     | 'message'
     | 'admin'
     | 'records'
+    | 'patch_note'
     | 'general'
   title: string
   description: string
@@ -36,6 +38,9 @@ export interface AppNotification {
 let notificationPollingTimer: any = null
 let isNotificationListenerBound = false
 let isPollingActive = false
+
+const publishedPatchNotes = ref<any[]>([])
+const isPatchNotesLoaded = ref(false)
 
 export const useAppNotifications = () => {
   const route = useRoute()
@@ -94,6 +99,22 @@ export const useAppNotifications = () => {
       key: 'admin-appeals'
     }
   )
+
+  const fetchPublishedPatchNotes = async (force = false) => {
+    if (isPatchNotesLoaded.value && !force && publishedPatchNotes.value.length > 0) {
+      return publishedPatchNotes.value
+    }
+    try {
+      const res = await patchNoteService.getPublished()
+      if (res?.status === 'success') {
+        publishedPatchNotes.value = res.data || []
+        isPatchNotesLoaded.value = true
+      }
+    } catch (err) {
+      console.error('Failed to fetch published patch notes:', err)
+    }
+    return publishedPatchNotes.value
+  }
 
   const pollAllNotifications = async () => {
     if (isPollingActive || !userUuid.value) return
@@ -161,6 +182,9 @@ export const useAppNotifications = () => {
             .catch(() => {})
         )
       }
+
+      // 7. System updates / patch notes
+      tasks.push(fetchPublishedPatchNotes())
 
       await Promise.allSettled(tasks)
     } finally {
@@ -767,6 +791,34 @@ export const useAppNotifications = () => {
       })
     }
 
+    const patchNoteItems: AppNotification[] = []
+    if (publishedPatchNotes.value && publishedPatchNotes.value.length > 0) {
+      publishedPatchNotes.value.forEach((note: any) => {
+        const versionBadge = note.version ? ` ${note.version}` : ''
+        patchNoteItems.push({
+          id: `patch-note-${note.uuid || note.id}`,
+          type: 'patch_note',
+          title: `Update${versionBadge}: ${note.title}`,
+          description: note.description,
+          time: note.published_at
+            ? formatRelativeTime(note.published_at)
+            : note.created_at
+              ? formatRelativeTime(note.created_at)
+              : 'New Update',
+          icon: 'solar:notes-bold-duotone',
+          color: 'text-primary',
+          data: note
+        })
+      })
+    }
+
+    // For patients, latest update appears at the top; for all other roles, append at the end.
+    if (userRole.value === 'patient') {
+      list.unshift(...patchNoteItems)
+    } else {
+      list.push(...patchNoteItems)
+    }
+
     return list
   })
 
@@ -805,6 +857,7 @@ export const useAppNotifications = () => {
     userProfile,
     refreshProfile,
     refreshAppeals,
+    fetchPublishedPatchNotes,
     fetchAppointments,
     isPatientProfileIncomplete,
     isDoctorProfileIncomplete,

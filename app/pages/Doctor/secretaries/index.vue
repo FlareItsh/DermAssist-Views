@@ -379,7 +379,7 @@ const handleDeleteSecretary = async () => {
 
     <!-- Register Secretary Modal -->
     <Teleport to="body">
-      <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+      <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
         <div class="bg-card border border-border rounded-2xl max-w-md w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200">
           <div class="flex items-center justify-between mb-4">
             <h2 class="text-lg font-bold text-foreground">Register Secretary</h2>
@@ -489,7 +489,7 @@ const handleDeleteSecretary = async () => {
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
-      <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+      <div v-if="showDeleteModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
         <div class="bg-card border border-border rounded-2xl max-w-sm w-full p-6 shadow-xl relative animate-in fade-in zoom-in duration-200 text-center">
           <div class="w-12 h-12 rounded-full bg-red-500/10 text-red-600 dark:text-red-400 mx-auto flex items-center justify-center mb-3">
             <Icon name="heroicons:exclamation-triangle" class="text-2xl" />

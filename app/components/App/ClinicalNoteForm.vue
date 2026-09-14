@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
+  import { datasetService } from '~/api/dataset/DatasetService'
   import { userService } from '~/api/user/UserService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
@@ -11,6 +12,7 @@
     diagnosisUuid?: string | null
     skipLoad?: boolean
     isFinishMode?: boolean
+    contributeToDataset?: boolean
   }>()
 
   const emit = defineEmits<{
@@ -541,6 +543,15 @@
         }
       }
 
+      // Save to AI Retraining Dataset only if the doctor has checked the checkbox
+      if (props.contributeToDataset === true && props.diagnosisUuid) {
+        try {
+          await datasetService.saveFromDiagnosis(props.diagnosisUuid)
+        } catch (datasetErr) {
+          console.error('Failed to save scan to retraining dataset:', datasetErr)
+        }
+      }
+
       // Clear draft after successful save
       try {
         localStorage.removeItem(storageKey.value)
@@ -615,7 +626,7 @@
           <p class="text-sm font-medium text-gray-500 mt-0.5">Official medical documentation and assessment.</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <AppButton type="button" :loading="isSaving" @click="handleSaveClick" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
           <Icon v-if="showSuccess" name="material-symbols:check-circle-rounded" class="text-xl" />
           <Icon v-else-if="!isSaving" name="material-symbols:save-outline-rounded" class="text-xl" />

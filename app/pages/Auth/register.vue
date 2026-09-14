@@ -43,6 +43,19 @@
   })
 
   const isLoading = ref(false)
+  const agreeToTerms = ref(false)
+  const showTermsModal = ref(false)
+  const termsInitialTab = ref<'terms' | 'privacy'>('terms')
+
+  const openTermsModal = (tab: 'terms' | 'privacy') => {
+    termsInitialTab.value = tab
+    showTermsModal.value = true
+  }
+
+  const handleAcceptTerms = () => {
+    agreeToTerms.value = true
+    showTermsModal.value = false
+  }
 
   const touched = reactive({
     firstName: false,
@@ -168,6 +181,7 @@
   // Validation
   const isStep1Valid = computed(() => {
     return (
+      agreeToTerms.value &&
       form.firstName &&
       form.lastName &&
       form.email &&
@@ -197,6 +211,11 @@
         }
       })
 
+      if (!agreeToTerms.value) {
+        toast.warning('Please review and agree to the Terms and Conditions to proceed.')
+        return
+      }
+
       if (!isStep1Valid.value) return
 
       if (role.value === 'doctor') {
@@ -225,6 +244,10 @@
 
     if (currentStep.value === 2 && !isStep2Valid.value) return
     if (currentStep.value === 1 && !isStep1Valid.value) return
+    if (!agreeToTerms.value) {
+      toast.warning('Please agree to the Terms and Conditions and Privacy Policy.')
+      return
+    }
 
     // Reset errors from previous attempt
     errors.general = ''
@@ -339,13 +362,13 @@
 </script>
 
 <template>
-  <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-6 py-4">
+  <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 pb-16">
     <!-- Header/Logo Area -->
-    <div class="mb-8 flex flex-col items-center text-center">
+    <div class="mb-3 flex flex-col items-center text-center">
       <NuxtLink to="/">
         <NuxtImg
           src="/DA_Logo.png"
-          class="h-16"
+          class="h-12 sm:h-14 object-contain"
         />
       </NuxtLink>
     </div>
@@ -404,9 +427,9 @@
           key="step1"
           class="flex w-full flex-col gap-2"
         >
-          <div class="mb-4 text-center">
-            <h1 class="text-foreground text-3xl font-bold tracking-tight">Create your account</h1>
-            <p class="text-foreground/60 mt-2 text-sm">
+          <div class="mb-2 text-center">
+            <h1 class="text-foreground text-2xl sm:text-3xl font-bold tracking-tight">Create your account</h1>
+            <p class="text-foreground/60 mt-1 text-xs sm:text-sm">
               Choose your role and fill in your details.
             </p>
           </div>
@@ -543,6 +566,34 @@
               @blur="markTouched('password_confirmation')"
               @input="markTouched('password_confirmation')"
             />
+          </div>
+
+          <!-- Terms and Conditions Agreement Checkbox -->
+          <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-border/50 bg-muted/20 p-2.5">
+            <input
+              id="agree-terms"
+              v-model="agreeToTerms"
+              type="checkbox"
+              class="accent-primary mt-0.5 h-4 w-4 shrink-0 rounded border-border cursor-pointer"
+            />
+            <label for="agree-terms" class="text-foreground/75 text-[11px] sm:text-xs leading-relaxed select-none cursor-pointer">
+              I have read and agree to the
+              <button
+                type="button"
+                class="text-primary font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                @click.stop="openTermsModal('terms')"
+              >
+                Terms and Conditions
+              </button>
+              and
+              <button
+                type="button"
+                class="text-primary font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                @click.stop="openTermsModal('privacy')"
+              >
+                Privacy Policy
+              </button>.
+            </label>
           </div>
 
           <AppButton
@@ -768,6 +819,13 @@
         </div>
       </transition>
     </div>
+
+    <!-- Terms & Conditions / Privacy Policy Modal -->
+    <AppModalTermsModal
+      v-model="showTermsModal"
+      :initial-tab="termsInitialTab"
+      @accept="handleAcceptTerms"
+    />
   </div>
 </template>
 

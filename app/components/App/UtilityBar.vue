@@ -18,6 +18,7 @@
     if (isNotificationsOpen.value) {
       isMessagesOpen.value = false
       isProfileOpen.value = false
+      fetchPublishedPatchNotes?.(true)
     }
   }
 
@@ -158,6 +159,7 @@
     () => route.fullPath,
     () => {
       refresh()
+      fetchPublishedPatchNotes?.(true)
       if (userRole.value === 'admin') refreshAppeals()
       if (
         userRole.value === 'doctor' ||
@@ -185,7 +187,8 @@
     isDoctorProfileIncomplete,
     isSecretaryProfileIncomplete,
     profileRoute,
-    refreshProfile
+    refreshProfile,
+    fetchPublishedPatchNotes
   } = useAppNotifications()
 
   const isProfileIncomplete = computed(

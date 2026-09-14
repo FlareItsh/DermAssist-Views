@@ -15,6 +15,8 @@ export interface Appointment {
   location?: string
   purpose?: string
   status: string
+  requested_reschedule_date?: string
+  requested_reschedule_time?: string
   conversation_uuid?: string
   completed_at?: string
 }
@@ -104,6 +106,8 @@ export const useAppointments = () => {
       location: appt.location,
       purpose: appt.purpose,
       status: appt.status,
+      requested_reschedule_date: appt.requested_reschedule_date,
+      requested_reschedule_time: appt.requested_reschedule_time,
       conversation_uuid: appt.conversation_uuid,
       completed_at: appt.completed_at || appt.updated_at
     }
@@ -128,7 +132,7 @@ export const useAppointments = () => {
         const res = await appointmentService.list()
         if (res) {
           appointments.value = res
-            .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
+            .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
             .map(mapAppt)
 
           pendingAppointments.value = res
@@ -168,7 +172,7 @@ export const useAppointments = () => {
       const res = await appointmentService.list(param)
       if (Array.isArray(res)) {
         return res
-          .filter((appt: any) => (appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested') && appt.scheduled_at)
+          .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
           .map(mapAppt)
       }
     } catch (e) {

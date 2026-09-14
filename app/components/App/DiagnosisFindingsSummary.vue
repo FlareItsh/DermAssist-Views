@@ -49,13 +49,12 @@
         try {
           if ((currentDiagnosis.value as any).uuid || currentDiagnosis.value.id) {
             const uuid = (currentDiagnosis.value as any).uuid || currentDiagnosis.value.id;
-            await datasetService.saveFromDiagnosis(uuid);
             if (patientUuid.value) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value });
             }
           }
         } catch (e) {
-          console.error('Failed to save to dataset', e);
+          console.error('Failed to update patient on diagnosis', e);
         }
         navigateTo('/Doctor/Scan/Results')
       } else {

@@ -19,6 +19,7 @@
     (e: 'invitation-declined', pivotId: number): void
   }>()
 
+  const { getStorageUrl } = useStorage()
   const { acceptInvitation, declineInvitation, fetchClinicDoctors, acknowledgeRevocation } =
     useDoctorClinicDoctors()
   const { fetchSubscription } = useDoctorSubscription()
@@ -52,6 +53,10 @@
     () => props.notification?.type === 'clinic_invitation' && props.notification?.data
   )
   const inviteData = computed(() => props.notification?.data)
+  const isPatchNote = computed(
+    () => props.notification?.type === 'patch_note' && props.notification?.data
+  )
+  const patchNoteData = computed(() => props.notification?.data)
 
   const isRevocation = computed(
     () => props.notification?.type === 'clinic_revocation' && props.notification?.data
@@ -124,6 +129,18 @@
       navigateTo(props.notification.to)
     }
   }
+  const userRole = useCookie('user_role')
+
+  const updatesRoute = computed(() => {
+    if (userRole.value === 'doctor') return '/doctor/updates'
+    if (userRole.value === 'patient') return '/patient/updates'
+    return '/updates'
+  })
+
+  const handleViewAllUpdates = () => {
+    close()
+    navigateTo(updatesRoute.value)
+  }
 </script>
 
 <template>
@@ -138,31 +155,25 @@
     >
       <div
         v-if="modelValue && notification"
-        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6"
-        aria-modal="true"
-        role="dialog"
+        class="bg-foreground/50 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        @click.self="close"
       >
-        <!-- Backdrop -->
-        <div
-          class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
-          @click="close"
-        ></div>
-
-        <!-- Dialog Card -->
         <Transition
           enter-active-class="transition duration-200 ease-out"
-          enter-from-class="transform scale-95 opacity-0 translate-y-4"
-          enter-to-class="transform scale-100 opacity-100 translate-y-0"
+          enter-from-class="transform scale-95 opacity-0"
+          enter-to-class="transform scale-100 opacity-100"
           leave-active-class="transition duration-150 ease-in"
-          leave-from-class="transform scale-100 opacity-100 translate-y-0"
-          leave-to-class="transform scale-95 opacity-0 translate-y-4"
+          leave-from-class="transform scale-100 opacity-100"
+          leave-to-class="transform scale-95 opacity-0"
         >
           <div
-            class="bg-card border-border/60 relative z-10 w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl backdrop-blur-xl"
+            class="bg-card border-border/80 relative w-full max-w-lg overflow-hidden rounded-3xl border shadow-2xl"
           >
-            <!-- Header bar with icon and close button -->
-            <div class="border-border/40 flex items-center justify-between border-b px-6 py-5">
-              <div class="flex items-center gap-3">
+            <!-- Header -->
+            <div
+              class="border-border/60 bg-muted/30 flex items-start justify-between gap-4 border-b p-6 pb-5"
+            >
+              <div class="flex items-start gap-4">
                 <div
                   class="ring-primary/5 bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-8"
                 >
@@ -222,7 +233,7 @@
                     />
                     <div
                       v-else
-                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-black uppercase"
+                      class="bg-primary/15 text-primary flex h-14 w-14 items-center justify-center rounded-full text-lg font-bold uppercase"
                     >
                       {{ (inviteData?.owner_first_name || 'D').charAt(0) }}
                     </div>
@@ -391,7 +402,68 @@
                 </div>
               </template>
 
-              <!-- Case 3: General / System / Appointment Notification -->
+              <!-- Case 3: Patch Note Notification -->
+              <template v-else-if="isPatchNote">
+                <div class="bg-primary/5 border-primary/20 rounded-2xl border p-4">
+                  <div class="mb-2 flex items-center justify-between gap-2">
+                    <span
+                      v-if="patchNoteData?.version"
+                      class="bg-primary/15 text-primary border-primary/20 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-xs font-medium"
+                    >
+                      <Icon
+                        name="solar:tag-bold"
+                        class="text-xs"
+                      />
+                      {{ patchNoteData.version }}
+                    </span>
+                    <span
+                      v-if="notification.time"
+                      class="text-muted-foreground text-xs"
+                    >
+                      {{ notification.time }}
+                    </span>
+                  </div>
+                  <h4 class="text-foreground text-base font-semibold">
+                    {{ patchNoteData?.title }}
+                  </h4>
+                  <p
+                    class="text-muted-foreground mt-2 text-sm leading-relaxed font-normal whitespace-pre-line"
+                  >
+                    {{ patchNoteData?.description }}
+                  </p>
+                </div>
+
+                <!-- Changes / Features list if available -->
+                <div
+                  v-if="patchNoteData?.changes && patchNoteData.changes.length > 0"
+                  class="border-border/60 bg-muted/20 space-y-2.5 rounded-2xl border p-4"
+                >
+                  <div
+                    class="text-primary flex items-center gap-2 text-xs font-semibold tracking-wider uppercase"
+                  >
+                    <Icon
+                      name="solar:stars-minimalistic-bold"
+                      class="text-sm"
+                    />
+                    <span>What's New & Improvements</span>
+                  </div>
+                  <ul class="text-foreground m-0 list-none space-y-2 p-0 text-xs">
+                    <li
+                      v-for="(change, idx) in patchNoteData.changes"
+                      :key="idx"
+                      class="flex items-start gap-2"
+                    >
+                      <Icon
+                        name="heroicons:check-badge-solid"
+                        class="text-primary mt-0.5 shrink-0 text-sm"
+                      />
+                      <span class="leading-relaxed font-normal">{{ change }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </template>
+
+              <!-- Case 4: General / System / Appointment Notification -->
               <template v-else>
                 <p class="text-foreground text-sm leading-relaxed whitespace-pre-line sm:text-base">
                   {{ notification.description }}
@@ -462,6 +534,26 @@
                     class="mr-1.5 text-base"
                   />
                   Accept Invitation
+                </AppButton>
+              </template>
+
+              <!-- Patch note actions -->
+              <template v-else-if="isPatchNote">
+                <AppButton
+                  variant="ghost"
+                  @click="close"
+                >
+                  Close
+                </AppButton>
+                <AppButton
+                  variant="outline"
+                  @click="handleViewAllUpdates"
+                >
+                  <Icon
+                    name="solar:notes-bold-duotone"
+                    class="mr-1.5 text-base"
+                  />
+                  View All Updates
                 </AppButton>
               </template>
 

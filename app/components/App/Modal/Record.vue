@@ -300,7 +300,7 @@
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="isImageExpanded" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8 backdrop-blur-sm" @click="isImageExpanded = false">
+      <div v-if="isImageExpanded" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8" @click="isImageExpanded = false">
         <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
           @click="isImageExpanded = false"
           class="group absolute top-6 right-6 z-10 rounded-full bg-white/10 p-3 transition-all hover:bg-white/20 active:scale-90"
