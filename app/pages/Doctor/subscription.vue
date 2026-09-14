@@ -355,7 +355,7 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
             </span>
           </div>
           <h2 class="text-xl font-bold text-foreground">
-            {{ currentSubscription.plan?.name || 'Standard Tier' }}
+            {{ currentSubscription.plan_snapshot?.name || currentSubscription.plan?.name || 'Standard Tier' }}
             <span class="text-sm font-normal text-muted-foreground">({{ currentSubscription.billing_cycle }})</span>
           </h2>
           <p v-if="!isInherited" class="text-xs text-muted-foreground">
@@ -375,6 +375,41 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
           </AppButton>
         </div>
       </div>
+    </div>
+
+    <!-- Plan Update Available Notice -->
+    <div
+      v-if="currentSubscription?.has_plan_update && !isInherited"
+      class="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+    >
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+          <Icon name="lucide:sparkles" class="w-5 h-5" />
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h4 class="text-sm font-bold text-foreground">
+              New Plan Updates Available!
+            </h4>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              v{{ currentSubscription.latest_plan_version || 'Latest' }} Available
+            </span>
+          </div>
+          <p class="text-xs text-muted-foreground mt-0.5">
+            Your plan has received new features and quota updates. Your current access remains locked to your original terms until renewal on {{ new Date(currentSubscription.ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }}. You can upgrade / renew now to gain immediate access to the new features!
+          </p>
+        </div>
+      </div>
+
+      <AppButton
+        variant="solid"
+        size="sm"
+        class="shrink-0 self-start sm:self-auto bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+        @click="openCheckout(currentSubscription.plan)"
+      >
+        <Icon name="lucide:arrow-up-circle" class="w-4 h-4 mr-1.5" />
+        <span>Upgrade / Renew to Latest</span>
+      </AppButton>
     </div>
 
     <!-- Loading Skeleton -->
@@ -444,12 +479,15 @@ const getBadgeColor = (status: string): 'success' | 'warning' | 'info' | 'danger
 
         <div class="pt-6 space-y-2">
           <AppButton
-            :variant="currentSubscription?.plan?.uuid === plan.uuid ? 'ghost' : 'solid'"
+            :variant="currentSubscription?.plan?.uuid === plan.uuid && !currentSubscription?.has_plan_update ? 'ghost' : 'solid'"
             block
-            :disabled="currentSubscription?.plan?.uuid === plan.uuid"
+            :disabled="currentSubscription?.plan?.uuid === plan.uuid && !currentSubscription?.has_plan_update"
             @click="openCheckout(plan)"
           >
-            {{ currentSubscription?.plan?.uuid === plan.uuid ? 'Current Active Plan' : 'Subscribe Now' }}
+            {{ currentSubscription?.plan?.uuid === plan.uuid 
+                ? (currentSubscription?.has_plan_update ? 'Upgrade to Latest Version' : 'Current Active Plan') 
+                : 'Subscribe Now' 
+            }}
           </AppButton>
 
           <AppButton

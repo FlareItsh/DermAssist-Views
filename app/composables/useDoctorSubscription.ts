@@ -13,7 +13,12 @@ export const useDoctorSubscription = () => {
   })
 
   const planFeatures = computed(() => {
-    return currentSubscription.value?.plan?.features || {}
+    return (
+      currentSubscription.value?.plan_snapshot?.features ||
+      currentSubscription.value?.effective_features ||
+      currentSubscription.value?.plan?.features ||
+      {}
+    )
   })
 
   const canExecuteScan = computed(() => {
@@ -21,17 +26,35 @@ export const useDoctorSubscription = () => {
     return Boolean(planFeatures.value?.can_execute_scan)
   })
 
-  const canHaveSecretary = computed(() => {
-    if (!isSubscribed.value) return false
-    const plan = currentSubscription.value?.plan
-    if (!plan) return false
-    const features = (plan.features || {}) as Record<string, any>
-    return Boolean(features?.can_have_secretary) || plan.max_secretaries === null || (plan.max_secretaries !== undefined && plan.max_secretaries > 0)
-  })
-
   const maxSecretaries = computed(() => {
     if (!isSubscribed.value) return 0
+    if (currentSubscription.value?.plan_snapshot && currentSubscription.value.plan_snapshot.max_secretaries !== undefined) {
+      return currentSubscription.value.plan_snapshot.max_secretaries
+    }
+    if (currentSubscription.value?.effective_max_secretaries !== undefined) {
+      return currentSubscription.value.effective_max_secretaries
+    }
     return currentSubscription.value?.plan?.max_secretaries ?? null
+  })
+
+  const maxClinics = computed(() => {
+    if (!isSubscribed.value) return 1
+    if (currentSubscription.value?.plan_snapshot && currentSubscription.value.plan_snapshot.max_clinics !== undefined) {
+      return currentSubscription.value.plan_snapshot.max_clinics
+    }
+    if (currentSubscription.value?.effective_max_clinics !== undefined) {
+      return currentSubscription.value.effective_max_clinics
+    }
+    return currentSubscription.value?.plan?.max_clinics ?? 1
+  })
+
+  const canHaveSecretary = computed(() => {
+    if (!isSubscribed.value) return false
+    return Boolean(planFeatures.value?.can_have_secretary) || maxSecretaries.value === null || (maxSecretaries.value !== undefined && maxSecretaries.value > 0)
+  })
+
+  const hasPlanUpdate = computed(() => {
+    return Boolean(currentSubscription.value?.has_plan_update)
   })
 
   const hasFeature = (featureKey: string) => {
@@ -40,7 +63,11 @@ export const useDoctorSubscription = () => {
   }
 
   const planName = computed(() => {
-    return currentSubscription.value?.plan?.name || 'Free / Unsubscribed'
+    return (
+      currentSubscription.value?.plan_snapshot?.name ||
+      currentSubscription.value?.plan?.name ||
+      'Free / Unsubscribed'
+    )
   })
 
   const fetchSubscription = async (force = false) => {
@@ -77,6 +104,8 @@ export const useDoctorSubscription = () => {
     canExecuteScan,
     canHaveSecretary,
     maxSecretaries,
+    maxClinics,
+    hasPlanUpdate,
     hasFeature,
     planName,
     fetchSubscription

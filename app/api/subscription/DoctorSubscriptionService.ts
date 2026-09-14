@@ -21,6 +21,14 @@ export interface DoctorSubscription {
   starts_at: string
   ends_at: string
   plan: DoctorPlan
+  plan_version?: number
+  plan_snapshot?: any
+  effective_features?: Record<string, any>
+  effective_max_clinics?: number | null
+  effective_max_secretaries?: number | null
+  effective_max_doctors?: number | null
+  has_plan_update?: boolean
+  latest_plan_version?: number
 }
 
 export interface PaymentInvoice {
