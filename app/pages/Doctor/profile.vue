@@ -115,7 +115,9 @@
     {
       id: 'clinics' as SettingsTab,
       label: 'Clinics & Doctor Team',
-      desc: isOwner.value ? 'Clinic locations & associate doctor seats' : 'Clinic locations & affiliated doctors',
+      desc: isOwner.value
+        ? 'Clinic locations & associate doctor seats'
+        : 'Clinic locations & affiliated doctors',
       icon: 'heroicons:building-office-2'
     },
     {
@@ -127,7 +129,9 @@
     {
       id: 'subscription' as SettingsTab,
       label: 'Subscription & Plan',
-      desc: isSubInherited.value ? 'Clinic tier & sponsored access' : 'Plan status, quotas & billing',
+      desc: isSubInherited.value
+        ? 'Clinic tier & sponsored access'
+        : 'Plan status, quotas & billing',
       icon: 'heroicons:credit-card'
     },
     {
@@ -1051,7 +1055,7 @@
             >
               <Icon
                 name="heroicons:plus"
-                class="h-4 w-4 mr-1"
+                class="mr-1 h-4 w-4"
               />
               <span>Add Clinic</span>
             </AppButton>
@@ -1192,9 +1196,7 @@
               <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                   <div class="flex items-center gap-2">
-                    <h3 class="text-foreground text-lg font-bold">
-                      Doctor Team & Affiliations
-                    </h3>
+                    <h3 class="text-foreground text-lg font-bold">Doctor Team & Affiliations</h3>
                     <span
                       class="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400"
                     >
@@ -1411,9 +1413,7 @@
               <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
                   <div class="flex items-center gap-2">
-                    <h3 class="text-foreground text-lg font-bold">
-                      Doctor Team & Seat Allocation
-                    </h3>
+                    <h3 class="text-foreground text-lg font-bold">Doctor Team & Seat Allocation</h3>
                     <span
                       v-if="seatUsage?.max_doctors && seatUsage.max_doctors > 1"
                       class="bg-primary/10 text-primary border-primary/20 rounded-full border px-2.5 py-0.5 text-[10px] font-bold"
@@ -1435,7 +1435,7 @@
                 >
                   <Icon
                     name="lucide:user-plus"
-                    class="h-4 w-4 mr-1"
+                    class="mr-1 h-4 w-4"
                   />
                   <span>Assign Associate Doctor</span>
                 </AppButton>
@@ -2085,6 +2085,26 @@
                       >
                         {{ mySubscription?.status || 'Inactive' }}
                       </span>
+                      <span
+                        v-if="
+                          !isSubInherited &&
+                          mySubscription?.status === 'active' &&
+                          mySubscription?.auto_renew
+                        "
+                        class="rounded-full border border-emerald-300 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-emerald-800 uppercase dark:border-emerald-800/50 dark:bg-emerald-950/50 dark:text-emerald-300"
+                      >
+                        Auto-Renew On
+                      </span>
+                      <span
+                        v-else-if="
+                          !isSubInherited &&
+                          mySubscription?.status === 'active' &&
+                          !mySubscription?.auto_renew
+                        "
+                        class="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-800 uppercase dark:border-amber-800/50 dark:bg-amber-950/50 dark:text-amber-300"
+                      >
+                        Auto-Renew Off
+                      </span>
                     </div>
                     <p class="text-muted-foreground mt-0.5 text-xs">
                       <template v-if="isSubInherited">
@@ -2098,7 +2118,12 @@
                         >
                       </template>
                       <template v-else-if="mySubscription?.status === 'active'">
-                        Billed {{ mySubscription.billing_cycle }} • Valid through
+                        Billed {{ mySubscription.billing_cycle }} •
+                        {{
+                          mySubscription.is_pending_cancellation
+                            ? 'Expires on'
+                            : 'Renews / Valid through'
+                        }}
                         {{
                           new Date(mySubscription.ends_at).toLocaleDateString('en-US', {
                             month: 'short',
@@ -2804,8 +2829,9 @@
                 class="text-primary mt-0.5 h-4 w-4 shrink-0"
               />
               <span
-                >An invitation will be sent to the doctor. Upon acceptance, they will inherit full AI scanning, teleconsultation, and
-                clinical documentation privileges under your active subscription plan.</span
+                >An invitation will be sent to the doctor. Upon acceptance, they will inherit full
+                AI scanning, teleconsultation, and clinical documentation privileges under your
+                active subscription plan.</span
               >
             </div>
 
