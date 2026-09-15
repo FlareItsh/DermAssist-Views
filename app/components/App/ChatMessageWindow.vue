@@ -430,12 +430,17 @@
 
   const formatRequestedRescheduleLabel = (appt: any): string => {
     if (!appt?.requested_reschedule_date) return ''
-    const d = new Date(appt.requested_reschedule_date + 'T00:00:00')
-    const dateFmt = d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
+    const rawDate = typeof appt.requested_reschedule_date === 'string'
+      ? appt.requested_reschedule_date.split('T')[0]
+      : appt.requested_reschedule_date
+    const d = new Date(rawDate + 'T00:00:00')
+    const dateFmt = isNaN(d.getTime())
+      ? rawDate
+      : d.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
     if (appt.requested_reschedule_time) {
       const [hStr, mStr] = appt.requested_reschedule_time.split(':')
       const h = parseInt(hStr, 10)
@@ -1516,7 +1521,7 @@
                     <span class="font-bold text-amber-700">Reschedule Requested</span>
                   </div>
                   <p
-                    class="text-sm opacity-90"
+                    class="text-sm opacity-90 leading-relaxed"
                     v-html="
                       msg.message.replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '').trim()
                     "

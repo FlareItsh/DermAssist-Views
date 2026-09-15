@@ -558,14 +558,24 @@
             Resume Auto-Renew
           </AppButton>
           <AppButton
-            variant="outline"
+            v-if="currentSubscription.status === 'expired' || !currentSubscription.is_active"
+            variant="solid"
             size="sm"
             @click="openCheckout(currentSubscription.plan)"
           >
+            <Icon
+              name="lucide:refresh-cw"
+              class="mr-1 h-3.5 w-3.5"
+            />
             Renew Plan
           </AppButton>
           <AppButton
-            v-if="!currentSubscription.is_pending_cancellation && currentSubscription.auto_renew"
+            v-if="
+              currentSubscription.is_active &&
+              currentSubscription.status === 'active' &&
+              !currentSubscription.is_pending_cancellation &&
+              currentSubscription.auto_renew
+            "
             variant="ghost"
             size="sm"
             class="text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
@@ -859,22 +869,32 @@
         <div class="space-y-2 pt-6">
           <AppButton
             :variant="
-              currentSubscription?.plan?.uuid === plan.uuid && !currentSubscription?.has_plan_update
+              currentSubscription?.plan?.uuid === plan.uuid &&
+              currentSubscription?.is_active &&
+              currentSubscription?.status === 'active' &&
+              !currentSubscription?.has_plan_update
                 ? 'ghost'
                 : 'solid'
             "
             block
             :disabled="
-              currentSubscription?.plan?.uuid === plan.uuid && !currentSubscription?.has_plan_update
+              currentSubscription?.plan?.uuid === plan.uuid &&
+              currentSubscription?.is_active &&
+              currentSubscription?.status === 'active' &&
+              !currentSubscription?.has_plan_update
             "
             @click="openCheckout(plan)"
           >
             {{
               currentSubscription?.plan?.uuid === plan.uuid
-                ? currentSubscription?.has_plan_update
-                  ? 'Upgrade to Latest Version'
-                  : 'Current Active Plan'
-                : 'Subscribe Now'
+                ? currentSubscription?.is_active && currentSubscription?.status === 'active'
+                  ? currentSubscription?.has_plan_update
+                    ? 'Upgrade to Latest Version'
+                    : 'Current Active Plan'
+                  : 'Renew Plan'
+                : currentSubscription?.is_active && currentSubscription?.status === 'active'
+                  ? 'Switch to Plan'
+                  : 'Subscribe Now'
             }}
           </AppButton>
 
