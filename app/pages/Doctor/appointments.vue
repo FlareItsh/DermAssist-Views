@@ -181,6 +181,10 @@
       year: 'numeric'
     })
   })
+  const switchToRescheduleTab = () => {
+    viewMode.value = 'list'
+    activeTab.value = 'reschedule'
+  }
 </script>
 
 <template>
@@ -194,250 +198,282 @@
         </p>
       </div>
 
-      <AppButton
-        variant="solid"
-        rounded="both"
-        @click="showScheduleModal = true"
-        class="inline-flex cursor-pointer items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
-      >
-        <Icon
-          name="lucide:calendar-plus"
-          class="text-base"
-        />
-        New Appointment
-      </AppButton>
+      <div class="flex flex-wrap items-center gap-2.5">
+        <!-- Pending Reschedules Reminder Pill (Only in Timetable Mode when there are requests) -->
+        <button
+          v-if="viewMode === 'timetable' && rescheduleRequestsCount > 0"
+          type="button"
+          @click="switchToRescheduleTab"
+          class="inline-flex cursor-pointer items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 shadow-2xs transition hover:bg-amber-100"
+          title="Switch to List to review pending reschedule requests"
+        >
+          <Icon
+            name="lucide:calendar-clock"
+            class="text-sm text-amber-600"
+          />
+          {{ rescheduleRequestsCount }} Reschedule
+          {{ rescheduleRequestsCount > 1 ? 'Requests' : 'Request' }}
+        </button>
+
+        <!-- View Switcher -->
+        <div
+          class="flex items-center gap-1 rounded-2xl border border-gray-200/80 bg-gray-100 p-1 shadow-2xs"
+        >
+          <button
+            type="button"
+            @click="viewMode = 'list'"
+            class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              viewMode === 'list'
+                ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
+            "
+          >
+            <Icon
+              name="lucide:list"
+              class="h-3.5 w-3.5"
+            />
+            List View
+          </button>
+          <button
+            type="button"
+            @click="viewMode = 'timetable'"
+            class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              viewMode === 'timetable'
+                ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
+            "
+          >
+            <Icon
+              name="lucide:calendar-range"
+              class="h-3.5 w-3.5"
+            />
+            Weekly Timetable
+          </button>
+        </div>
+
+        <AppButton
+          variant="solid"
+          rounded="both"
+          @click="showScheduleModal = true"
+          class="inline-flex cursor-pointer items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+        >
+          <Icon
+            name="lucide:calendar-plus"
+            class="text-base"
+          />
+          New Appointment
+        </AppButton>
+      </div>
     </div>
 
-    <!-- Clinical Overview / KPI Triage Cards -->
-    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <!-- Card 1: Today's Appointments -->
-      <button
-        type="button"
-        @click="activeTab = 'today'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'today'
-            ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Today</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:calendar-check-2"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">{{ todayAppointmentsCount }}</div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">{{ todayLabel }}</div>
-      </button>
-
-      <!-- Card 2: Reschedule Requests -->
-      <button
-        type="button"
-        @click="activeTab = 'reschedule'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'reschedule'
-            ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Reschedules</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:calendar-clock"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-2xl font-black text-gray-900">{{ rescheduleRequestsCount }}</span>
-          <span
-            v-if="rescheduleRequestsCount > 0"
-            class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
-          >
-            Needs Action
-          </span>
-        </div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Patient requests</div>
-      </button>
-
-      <!-- Card 3: Upcoming Consultations -->
-      <button
-        type="button"
-        @click="activeTab = 'upcoming'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'upcoming'
-            ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Upcoming</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:calendar-days"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">
-          {{ appointments.filter(a => a.status === 'scheduled').length }}
-        </div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Future bookings</div>
-      </button>
-
-      <!-- Card 4: History / Completed -->
-      <button
-        type="button"
-        @click="activeTab = 'history'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'history'
-            ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">History</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-colors group-hover:bg-emerald-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:check-circle-2"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">{{ completedAppointments.length }}</div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Completed consultations</div>
-      </button>
-    </div>
-
-    <!-- Controls Bar: Tabs & View Switcher -->
-    <div
-      class="flex flex-col justify-between gap-3 border-b border-gray-200/70 pb-3 md:flex-row md:items-center"
-    >
-      <!-- Tab Navigation -->
-      <div class="flex flex-wrap items-center gap-1.5">
+    <!-- List View Controls & KPI Triage (Only in List Mode) -->
+    <template v-if="viewMode === 'list'">
+      <!-- Clinical Overview / KPI Triage Cards -->
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <!-- Card 1: Today's Appointments -->
         <button
           type="button"
           @click="activeTab = 'today'"
-          class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
           :class="
             activeTab === 'today'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
           "
         >
-          Today
-          <span
-            v-if="todayAppointmentsCount > 0"
-            class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
-            :class="
-              activeTab === 'today' ? 'bg-white text-indigo-600' : 'bg-indigo-100 text-indigo-700'
-            "
-          >
-            {{ todayAppointmentsCount }}
-          </span>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Today</span>
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:calendar-check-2"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 text-2xl font-black text-gray-900">{{ todayAppointmentsCount }}</div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">{{ todayLabel }}</div>
         </button>
 
-        <button
-          type="button"
-          @click="activeTab = 'upcoming'"
-          class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
-          :class="
-            activeTab === 'upcoming'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-          "
-        >
-          Upcoming
-        </button>
-
+        <!-- Card 2: Reschedule Requests -->
         <button
           type="button"
           @click="activeTab = 'reschedule'"
-          class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
           :class="
             activeTab === 'reschedule'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
           "
         >
-          Reschedule Requests
-          <span
-            v-if="rescheduleRequestsCount > 0"
-            class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
-            :class="
-              activeTab === 'reschedule' ? 'bg-white text-amber-700' : 'bg-amber-500 text-white'
-            "
-          >
-            {{ rescheduleRequestsCount }}
-          </span>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Reschedules</span
+            >
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:calendar-clock"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-2xl font-black text-gray-900">{{ rescheduleRequestsCount }}</span>
+            <span
+              v-if="rescheduleRequestsCount > 0"
+              class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+            >
+              Needs Action
+            </span>
+          </div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Patient requests</div>
         </button>
 
+        <!-- Card 3: Upcoming Consultations -->
+        <button
+          type="button"
+          @click="activeTab = 'upcoming'"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
+          :class="
+            activeTab === 'upcoming'
+              ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
+          "
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Upcoming</span>
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:calendar-days"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 text-2xl font-black text-gray-900">
+            {{ appointments.filter(a => a.status === 'scheduled').length }}
+          </div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Future bookings</div>
+        </button>
+
+        <!-- Card 4: History / Completed -->
         <button
           type="button"
           @click="activeTab = 'history'"
-          class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
           :class="
             activeTab === 'history'
-              ? 'bg-indigo-600 text-white shadow-xs'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
           "
         >
-          History
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">History</span>
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-colors group-hover:bg-emerald-600 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:check-circle-2"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 text-2xl font-black text-gray-900">
+            {{ completedAppointments.length }}
+          </div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Completed consultations</div>
         </button>
       </div>
 
-      <!-- View Switcher -->
-      <div class="flex items-center gap-1 rounded-2xl border border-gray-200/60 bg-gray-100 p-1">
-        <button
-          type="button"
-          @click="viewMode = 'list'"
-          class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
-          :class="
-            viewMode === 'list'
-              ? 'border border-gray-200/40 bg-white text-indigo-600 shadow-xs'
-              : 'text-gray-500 hover:text-gray-800'
-          "
-        >
-          <Icon
-            name="lucide:list"
-            class="h-3.5 w-3.5"
-          />
-          List View
-        </button>
-        <button
-          type="button"
-          @click="viewMode = 'timetable'"
-          class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
-          :class="
-            viewMode === 'timetable'
-              ? 'border border-gray-200/40 bg-white text-indigo-600 shadow-xs'
-              : 'text-gray-500 hover:text-gray-800'
-          "
-        >
-          <Icon
-            name="lucide:calendar-range"
-            class="h-3.5 w-3.5"
-          />
-          Weekly Timetable
-        </button>
+      <!-- Controls Bar: Tabs & Search Summary -->
+      <div
+        class="flex flex-col justify-between gap-3 border-b border-gray-200/70 pb-3 md:flex-row md:items-center"
+      >
+        <!-- Tab Navigation -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            @click="activeTab = 'today'"
+            class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              activeTab === 'today'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            "
+          >
+            Today
+            <span
+              v-if="todayAppointmentsCount > 0"
+              class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
+              :class="
+                activeTab === 'today' ? 'bg-white text-indigo-600' : 'bg-indigo-100 text-indigo-700'
+              "
+            >
+              {{ todayAppointmentsCount }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'upcoming'"
+            class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              activeTab === 'upcoming'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            "
+          >
+            Upcoming
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'reschedule'"
+            class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              activeTab === 'reschedule'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            "
+          >
+            Reschedule Requests
+            <span
+              v-if="rescheduleRequestsCount > 0"
+              class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
+              :class="
+                activeTab === 'reschedule' ? 'bg-white text-amber-700' : 'bg-amber-500 text-white'
+              "
+            >
+              {{ rescheduleRequestsCount }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click="activeTab = 'history'"
+            class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              activeTab === 'history'
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            "
+          >
+            History
+          </button>
+        </div>
+
+        <div class="text-xs font-semibold text-gray-500">
+          Showing <span class="font-bold text-gray-800">{{ filteredAppointments.length }}</span>
+          {{ filteredAppointments.length === 1 ? 'consultation' : 'consultations' }}
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- Timetable View -->
     <div
