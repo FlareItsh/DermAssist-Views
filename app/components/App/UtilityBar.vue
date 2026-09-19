@@ -206,8 +206,11 @@
       '/doctor',
       '/doctor/records',
       '/doctor/appointments',
+      '/doctor/patients',
+      '/doctor/users',
       '/secretary/appointments',
       '/secretary/records',
+      '/secretary/patients',
       '/secretary/users',
       '/secretary'
     ]

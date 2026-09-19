@@ -5,7 +5,7 @@
 </script>
 
 <template>
-  <div class="flex items-center justify-center min-h-[50vh]">
-    <p class="text-sm text-muted-foreground animate-pulse">Redirecting to patients...</p>
+  <div class="flex min-h-[50vh] items-center justify-center">
+    <p class="text-muted-foreground animate-pulse text-sm">Redirecting to patients...</p>
   </div>
 </template>
