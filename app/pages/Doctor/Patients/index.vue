@@ -53,6 +53,9 @@
 
   onMounted(() => {
     fetchRegisteredPatients()
+    if (!appointments.value.length) {
+      fetchAppointments()
+    }
   })
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -165,7 +168,10 @@
 
       const key = patientUuid || `id_${patientId}`
       const isPrio =
-        (patientUuid && isInPriority(patientUuid)) || (patientId && isInPriority(String(patientId)))
+        (patientUuid && isInPriority(patientUuid)) ||
+        (patientId && isInPriority(String(patientId))) ||
+        (appt.id && isInPriority(appt.id)) ||
+        (appt.uuid && isInPriority(appt.uuid))
 
       if (map.has(key)) {
         const existing = map.get(key)!
@@ -227,6 +233,19 @@
         patient.lastVisit = latest.date ? formatDateTime(latest.date) : patient.lastVisit
         if (latest.info && latest.info !== 'General Appointment') {
           patient.latestCondition = latest.info
+        }
+      }
+
+      // Check priority comprehensively: patient UUID, patient ID, OR any appointment ID / UUID
+      if (!patient.isPriority) {
+        const hasPrioAppt = patient.appointments.some(
+          (a: any) => (a.id && isInPriority(a.id)) || (a.uuid && isInPriority(a.uuid))
+        )
+        const hasPrioPatient =
+          (patient.uuid && isInPriority(patient.uuid)) ||
+          (patient.id && isInPriority(String(patient.id)))
+        if (hasPrioAppt || hasPrioPatient) {
+          patient.isPriority = true
         }
       }
     }
@@ -313,10 +332,20 @@
     if (patient.isPriority) {
       if (patient.uuid) removeFromPriority(patient.uuid)
       if (patient.id) removeFromPriority(String(patient.id))
+      patient.appointments.forEach((a: any) => {
+        if (a.id) removeFromPriority(a.id)
+        if (a.uuid) removeFromPriority(a.uuid)
+      })
       patient.isPriority = false
       toast.info(`Removed ${patient.name} from Priority List.`)
     } else {
       addToPriority(key)
+      if (patient.uuid && key !== patient.uuid) addToPriority(patient.uuid)
+      if (patient.id) addToPriority(String(patient.id))
+      patient.appointments.forEach((a: any) => {
+        if (a.id) addToPriority(a.id)
+        if (a.uuid) addToPriority(a.uuid)
+      })
       patient.isPriority = true
       toast.success(`Marked ${patient.name} as High Priority.`)
     }
