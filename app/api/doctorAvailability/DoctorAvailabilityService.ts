@@ -7,6 +7,7 @@ export interface DoctorAvailabilityPayload {
   is_available?: boolean | number
   clinic_id?: number | null
   location_name?: string | null
+  overwrite?: boolean
 }
 
 export class DoctorAvailabilityService extends BaseService {

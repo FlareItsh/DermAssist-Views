@@ -391,6 +391,40 @@
     }
   }
 
+  const showConflictModal = ref(false)
+  const conflictData = ref<{
+    message?: string
+    overlapping_slots?: any[]
+    affected_appointments?: any[]
+  } | null>(null)
+  const pendingAvailabilityPayload = ref<any>(null)
+  const isOverwriting = ref(false)
+
+  const confirmOverwriteSchedule = async () => {
+    if (!pendingAvailabilityPayload.value || !doctorUuid) return
+    isOverwriting.value = true
+    try {
+      await doctorAvailabilityService.createForDoctor(doctorUuid, {
+        ...pendingAvailabilityPayload.value,
+        overwrite: true
+      })
+      toast.success('Schedule updated! Conflicting hours were overwritten.')
+      showConflictModal.value = false
+      conflictData.value = null
+      pendingAvailabilityPayload.value = null
+      availForm.available_date = ''
+      availForm.start_time = '09:00'
+      availForm.end_time = '17:00'
+      blockWholeDay.value = false
+      await fetchAvailabilities()
+      await fetchBlockedSlots()
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to overwrite schedule.')
+    } finally {
+      isOverwriting.value = false
+    }
+  }
+
   const addAvailability = async () => {
     if (!doctorUuid) {
       availErrorMsg.value = 'Unable to identify your doctor profile. Please sign in again.'
@@ -429,14 +463,16 @@
         locName = 'Blocked / Away Period'
       }
 
-      await doctorAvailabilityService.createForDoctor(doctorUuid, {
+      const payload = {
         available_date: availForm.available_date,
         start_time: startTime,
         end_time: endTime,
         is_available: isAvailable ? 1 : 0,
         clinic_id: isAvailable ? selectedClinicId.value : null,
         location_name: locName
-      })
+      }
+
+      await doctorAvailabilityService.createForDoctor(doctorUuid, payload)
       availSuccessMsg.value = isAvailable
         ? 'Clinic Duty Schedule added successfully!'
         : 'Blocked / Away period added successfully!'
@@ -451,6 +487,25 @@
       }, 3000)
     } catch (e: any) {
       console.error('Failed to add availability:', e)
+      const errStatus = e.status || e.statusCode || e.response?.status
+      if (errStatus === 409 || e.data?.conflict) {
+        conflictData.value = e.data || {}
+        pendingAvailabilityPayload.value = {
+          available_date: availForm.available_date,
+          start_time: startTime,
+          end_time: endTime,
+          is_available: scheduleType.value === 'duty' ? 1 : 0,
+          clinic_id: scheduleType.value === 'duty' ? selectedClinicId.value : null,
+          location_name:
+            scheduleType.value === 'duty'
+              ? clinics.value.find(c => c.id === selectedClinicId.value)?.name ||
+                customLocation.value.trim() ||
+                'Clinic Duty'
+              : 'Blocked / Away Period'
+        }
+        showConflictModal.value = true
+        return
+      }
       availErrorMsg.value = e.data?.message || e.message || 'Failed to add availability.'
     } finally {
       isAddLoading.value = false
@@ -2885,6 +2940,75 @@
       :loading="isRevokingSeat"
       @confirm="executeRevokeDoctorSeat"
     />
+
+    <!-- Schedule Conflict Confirmation Modal -->
+    <AppModalConfirmation
+      v-model="showConflictModal"
+      title="Schedule Conflict Detected"
+      confirm-text="Overwrite Conflicting Schedule"
+      cancel-text="Cancel & Adjust"
+      confirm-variant="solid"
+      icon="lucide:alert-triangle"
+      icon-color="warning"
+      :loading="isOverwriting"
+      @confirm="confirmOverwriteSchedule"
+      @cancel="showConflictModal = false"
+    >
+      <div class="mt-4 space-y-3 text-left">
+        <p class="text-muted-foreground text-xs leading-relaxed">
+          The proposed hours overlap with existing duty or blocked periods on this date:
+        </p>
+
+        <!-- Overlapping slots list -->
+        <div
+          v-if="conflictData?.overlapping_slots?.length"
+          class="border-border bg-foreground/[0.03] space-y-2 rounded-2xl border p-3 text-xs"
+        >
+          <div
+            v-for="(slot, idx) in conflictData.overlapping_slots"
+            :key="idx"
+            class="flex items-center justify-between"
+          >
+            <span class="flex items-center gap-2">
+              <span
+                class="h-2 w-2 rounded-full"
+                :class="slot.is_available ? 'bg-emerald-500' : 'bg-rose-500'"
+              ></span>
+              <strong class="text-foreground font-semibold">{{ slot.clinic_name }}</strong>
+            </span>
+            <span class="text-muted-foreground font-mono font-medium">
+              {{ slot.start_time?.slice(0, 5) }} – {{ slot.end_time?.slice(0, 5) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Warning if patient appointments exist in window -->
+        <div
+          v-if="conflictData?.affected_appointments?.length"
+          class="flex items-start gap-2.5 rounded-2xl border border-amber-300/80 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300"
+        >
+          <Icon
+            name="lucide:alert-circle"
+            class="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <div>
+            <p class="font-bold">
+              {{ conflictData.affected_appointments.length }} Patient Appointment{{
+                conflictData.affected_appointments.length > 1 ? 's' : ''
+              }}
+              Booked
+            </p>
+            <p class="text-[11px] opacity-90">
+              Overwriting will slice/adjust duty hours around these existing bookings.
+            </p>
+          </div>
+        </div>
+
+        <p class="text-muted-foreground text-[11px] leading-relaxed">
+          Would you like to overwrite the conflicting hours, or cancel and adjust your times?
+        </p>
+      </div>
+    </AppModalConfirmation>
 
     <!-- Logout Modal -->
     <AppModalConfirmation
