@@ -44,15 +44,17 @@
 </script>
 
 <template>
-  <div class="flex flex-col">
+  <div class="bg-card flex flex-col rounded-3xl border border-gray-100 p-5 shadow-xs">
     <!-- Header -->
     <div class="mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
-        <h2 class="text-foreground text-xl font-bold">Urgent Patients Diagnosis Reports</h2>
+        <h2 class="text-foreground text-xl font-bold tracking-tight">
+          Urgent Patients Diagnosis Reports
+        </h2>
         <span
           v-if="filteredRecords.length > 0"
-          class="bg-destructive/10 text-destructive inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold"
+          class="bg-destructive/10 text-destructive border-destructive/20 inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-2 text-xs font-bold"
         >
           {{ filteredRecords.length }}
         </span>

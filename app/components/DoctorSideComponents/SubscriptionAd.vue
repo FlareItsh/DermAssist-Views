@@ -1,15 +1,21 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import {
     doctorSubscriptionService,
     type DoctorPlan
   } from '~/api/subscription/DoctorSubscriptionService'
 
+  const userUuid = useCookie('user_uuid')
   const { isSubscribed, currentSubscription, planName, fetchSubscription } = useDoctorSubscription()
 
   const allPlans = ref<DoctorPlan[]>([])
   const isLoading = ref(true)
   const isDismissed = ref(false)
+
+  // Per-user dismissal storage key so dismissing on one account doesn't affect another
+  const dismissKey = computed(
+    () => `dermassist_doctor_sub_ad_dismissed_${userUuid.value || 'guest'}`
+  )
 
   // Highest tier plan in the system
   const highestPlan = computed<DoctorPlan | null>(() => {
@@ -22,10 +28,16 @@
   // Whether user is currently on the highest plan
   const isOnBestPlan = computed(() => {
     if (!isSubscribed.value || !currentSubscription.value) return false
-    const currentTier = currentSubscription.value.plan?.tier_type
+    const currentTier =
+      currentSubscription.value.plan?.tier_type ||
+      currentSubscription.value.plan_snapshot?.tier_type
     if (currentTier === 'clinic_multi_doctor') return true
 
-    const currentPrice = Number(currentSubscription.value.plan?.price_monthly || 0)
+    const currentPrice = Number(
+      currentSubscription.value.plan?.price_monthly ??
+        currentSubscription.value.plan_snapshot?.price_monthly ??
+        0
+    )
     const maxPrice = Number(highestPlan.value?.price_monthly || 0)
     return currentPrice >= maxPrice && maxPrice > 0
   })
@@ -38,13 +50,33 @@
       return allPlans.value.find(p => p.tier_type === 'individual') || allPlans.value[0] || null
     }
 
-    const currentPrice = Number(currentSubscription.value?.plan?.price_monthly || 0)
+    const currentPrice = Number(
+      currentSubscription.value?.plan?.price_monthly ??
+        currentSubscription.value?.plan_snapshot?.price_monthly ??
+        0
+    )
     // Find active plans priced strictly higher than current plan, sorted ascending
     const higherPlans = allPlans.value
       .filter(p => p.is_active && Number(p.price_monthly || 0) > currentPrice)
       .sort((a, b) => Number(a.price_monthly || 0) - Number(b.price_monthly || 0))
 
     return higherPlans[0] || highestPlan.value || null
+  })
+
+  const pitchText = computed(() => {
+    if (!isSubscribed.value) {
+      return 'Unlock AI skin lesion scanning, teleconsultations, and automated patient triage.'
+    }
+    if (recommendedPlan.value?.tier_type === 'clinic_multi_doctor') {
+      return 'Add associate doctors, delegate to multiple clinic branches, and share pooled quotas.'
+    }
+    if (recommendedPlan.value?.tier_type === 'doctor_multi_clinic') {
+      return 'Manage multiple clinic locations, assign duty presets, and register dedicated secretaries.'
+    }
+    if (recommendedPlan.value?.max_secretaries) {
+      return 'Delegate clinic operations to dedicated secretary accounts and export clinical reports.'
+    }
+    return 'Unlock elevated quotas, multi-clinic locations, and premium clinical diagnostics.'
   })
 
   const shouldShowAd = computed(() => {
@@ -58,25 +90,36 @@
   const dismissAd = () => {
     isDismissed.value = true
     try {
-      sessionStorage.setItem('dermassist_doctor_sub_ad_dismissed', 'true')
+      sessionStorage.setItem(dismissKey.value, 'true')
     } catch {}
+  }
+
+  const navigateToSubscription = () => {
+    navigateTo('/doctor/subscription')
   }
 
   const loadData = async () => {
     try {
       isLoading.value = true
       try {
-        if (sessionStorage.getItem('dermassist_doctor_sub_ad_dismissed') === 'true') {
+        if (sessionStorage.getItem(dismissKey.value) === 'true') {
           isDismissed.value = true
+        } else {
+          isDismissed.value = false
         }
       } catch {}
 
       const [, plansRes] = await Promise.all([
-        fetchSubscription(),
+        fetchSubscription(true),
         doctorSubscriptionService.getPlans()
       ])
 
-      allPlans.value = plansRes.data || []
+      const plans = Array.isArray((plansRes as any)?.data)
+        ? (plansRes as any).data
+        : Array.isArray(plansRes)
+          ? plansRes
+          : []
+      allPlans.value = plans
     } catch (e) {
       console.error('Failed to fetch plans for subscription ad:', e)
     } finally {
@@ -88,6 +131,13 @@
     loadData()
   })
 
+  watch(
+    () => userUuid.value,
+    () => {
+      loadData()
+    }
+  )
+
   // Format currency
   const formatCurrency = (val: number | string) => {
     const num = Number(val || 0)
@@ -98,37 +148,48 @@
 <template>
   <div
     v-if="shouldShowAd"
-    class="border-primary/25 from-primary/10 via-card to-background hover:border-primary/40 relative overflow-hidden rounded-3xl border bg-gradient-to-br p-4.5 shadow-sm transition-all hover:shadow-md"
+    role="link"
+    tabindex="0"
+    @click="navigateToSubscription"
+    @keydown.enter="navigateToSubscription"
+    class="group border-primary-light/30 from-primary via-primary to-primary-dark text-primary-foreground shadow-primary/20 hover:shadow-primary/30 relative cursor-pointer overflow-hidden rounded-3xl border bg-gradient-to-br p-5 shadow-lg transition-all duration-300 select-none hover:-translate-y-1 hover:shadow-xl focus:ring-2 focus:ring-white/40 focus:outline-none"
   >
-    <!-- Background subtle glow -->
+    <!-- Background dynamic ambient glows -->
     <div
-      class="bg-primary/10 pointer-events-none absolute -top-10 -right-10 h-32 w-32 rounded-full blur-2xl"
+      class="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-white/15 blur-2xl transition-transform duration-500 group-hover:scale-125"
+    />
+    <div
+      class="bg-secondary/30 pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full blur-xl"
     />
 
     <!-- Header / Dismiss -->
-    <div class="relative flex items-start justify-between gap-2">
-      <div class="flex items-center gap-2">
+    <div class="relative flex items-center justify-between gap-2">
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
         <span
-          class="bg-primary/15 text-primary inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+          class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/20 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-white uppercase shadow-2xs backdrop-blur-xs"
         >
           <Icon
             name="lucide:sparkles"
-            class="h-3.5 w-3.5"
+            class="h-3.5 w-3.5 animate-pulse text-white"
           />
           {{ isSubscribed ? 'Upgrade Opportunity' : 'Practice Growth' }}
         </span>
+
         <span
-          v-if="isSubscribed"
-          class="text-muted-foreground max-w-[120px] truncate text-[11px] font-semibold"
+          v-if="isSubscribed && planName"
+          class="inline-flex max-w-[170px] items-center truncate rounded-lg border border-white/20 bg-black/15 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-xs"
+          :title="`Current plan: ${planName}`"
         >
           {{ planName }}
         </span>
       </div>
 
       <button
-        @click="dismissAd"
+        type="button"
+        @click.stop="dismissAd"
         title="Dismiss for session"
-        class="text-muted-foreground/60 hover:text-foreground rounded-full p-1 transition-colors"
+        aria-label="Dismiss banner"
+        class="relative z-10 rounded-full p-1 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
       >
         <Icon
           name="lucide:x"
@@ -138,57 +199,42 @@
     </div>
 
     <!-- Main pitch -->
-    <div class="relative mt-2.5 flex flex-col gap-1">
-      <h3 class="text-foreground text-sm font-bold tracking-tight">
+    <div class="relative mt-3 flex flex-col gap-1">
+      <h3 class="drop-shadow-2xs text-base font-black tracking-tight text-white transition-colors">
         <template v-if="recommendedPlan"> Level up to {{ recommendedPlan.name }} </template>
         <template v-else> Scale your practice with DermAssist Pro </template>
       </h3>
 
-      <p class="text-muted-foreground text-xs leading-relaxed">
-        <template v-if="!isSubscribed">
-          Unlock AI skin lesion scanning, teleconsultations, and automated patient triage.
-        </template>
-        <template v-else-if="recommendedPlan?.tier_type === 'clinic_multi_doctor'">
-          Add associate doctors, delegate to multiple clinic branches, and share pooled quotas.
-        </template>
-        <template v-else-if="recommendedPlan?.max_secretaries">
-          Delegate clinic operations to dedicated secretary accounts and manage multi-clinic
-          schedules.
-        </template>
-        <template v-else>
-          Unlock elevated quotas, multi-clinic locations, and premium clinical analytics.
-        </template>
+      <p class="text-xs leading-relaxed text-white/90">
+        {{ pitchText }}
       </p>
     </div>
 
     <!-- Highlights & CTA -->
     <div
-      class="border-border/60 relative mt-3.5 flex items-center justify-between gap-3 border-t pt-2"
+      class="relative mt-3.5 flex items-center justify-between gap-3 border-t border-white/20 pt-3"
     >
       <div class="flex flex-col">
-        <span class="text-muted-foreground text-[10px] font-semibold tracking-wider uppercase">
+        <span class="text-[10px] font-bold tracking-wider text-white/75 uppercase">
           {{ recommendedPlan ? 'Starting at' : 'Subscription' }}
         </span>
         <div class="flex items-baseline gap-1">
-          <span class="text-foreground text-sm font-black">
+          <span class="text-lg font-black tracking-tight text-white">
             {{ recommendedPlan ? formatCurrency(recommendedPlan.price_monthly) : 'Plans' }}
           </span>
-          <span class="text-muted-foreground text-[10px] font-medium">/mo</span>
+          <span class="text-[10px] font-semibold text-white/75">/mo</span>
         </div>
       </div>
 
-      <AppButton
-        to="/doctor/subscription"
-        variant="solid"
-        size="sm"
-        class="shrink-0 font-bold shadow-xs hover:shadow-sm"
+      <div
+        class="text-primary inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-black shadow-md transition-all duration-200 group-hover:scale-102 group-hover:bg-white/95 group-hover:shadow-lg"
       >
         <span>{{ isSubscribed ? 'Upgrade Plan' : 'Explore Plans' }}</span>
         <Icon
           name="lucide:arrow-right"
-          class="ml-1 h-3.5 w-3.5"
+          class="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1"
         />
-      </AppButton>
+      </div>
     </div>
   </div>
 </template>

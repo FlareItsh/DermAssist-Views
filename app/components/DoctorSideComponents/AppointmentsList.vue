@@ -43,6 +43,7 @@
               year: 'numeric'
             })
           : 'TBD',
+        time: a.time || '',
         avatar: patientObj?.avatar_path
           ? getStorageUrl(patientObj.avatar_path)
           : a.diagnosis_image
@@ -62,6 +63,30 @@
       p => p.name.toLowerCase().includes(query) || p.condition.toLowerCase().includes(query)
     )
   })
+
+  const getConditionBadge = (condition: string) => {
+    const c = (condition || '').toLowerCase()
+    if (
+      c.includes('melanoma') ||
+      c.includes('herpes') ||
+      c.includes('carcinoma') ||
+      c.includes('urgent')
+    ) {
+      return 'bg-rose-50 text-rose-700 border-rose-200/80'
+    }
+    if (
+      c.includes('eczema') ||
+      c.includes('psoriasis') ||
+      c.includes('dermatitis') ||
+      c.includes('rash')
+    ) {
+      return 'bg-amber-50 text-amber-700 border-amber-200/80'
+    }
+    if (c.includes('acne') || c.includes('fungal') || c.includes('infection')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200/80'
+    }
+    return 'bg-blue-50 text-blue-700 border-blue-200/80'
+  }
 
   const listTitle = computed(() => {
     if (selectedDate.value) {
@@ -144,10 +169,10 @@
     <div class="mb-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
-        <h2 class="text-foreground text-xl font-bold">{{ listTitle }}</h2>
+        <h2 class="text-foreground text-xl font-bold tracking-tight">{{ listTitle }}</h2>
         <span
           v-if="filteredPatients.length > 0"
-          class="bg-primary/10 text-primary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold"
+          class="bg-primary/10 text-primary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-2 text-xs font-bold"
         >
           {{ filteredPatients.length }}
         </span>
@@ -172,11 +197,11 @@
         v-for="patient in filteredPatients"
         :key="patient.id"
         @click="goToChat(patient.conversation_uuid)"
-        class="patient-card group flex w-[160px] flex-shrink-0 cursor-pointer snap-start flex-col transition-transform hover:-translate-y-0.5"
+        class="patient-card group flex w-[172px] flex-shrink-0 cursor-pointer snap-start flex-col transition-all duration-200 hover:-translate-y-1"
       >
-        <!-- Photo -->
+        <!-- Photo with subtle overlay -->
         <div
-          class="border-border/40 relative h-[130px] w-full overflow-hidden rounded-2xl border bg-gray-100"
+          class="border-border/60 group-hover:border-primary/40 relative h-[130px] w-full overflow-hidden rounded-2xl border bg-gray-100 shadow-xs group-hover:shadow-sm"
         >
           <img
             v-if="patient.avatar"
@@ -186,24 +211,42 @@
           />
           <div
             v-else
-            class="bg-primary/5 text-primary flex h-full w-full items-center justify-center text-2xl font-bold"
+            class="from-primary/10 via-primary/5 to-secondary/15 text-primary flex h-full w-full items-center justify-center bg-gradient-to-br text-2xl font-black"
           >
             {{ patient.initials }}
           </div>
+
+          <!-- Time Pill on Top of Photo if available -->
+          <span
+            v-if="patient.time"
+            class="absolute bottom-2 left-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white backdrop-blur-xs"
+          >
+            {{ patient.time }}
+          </span>
         </div>
 
-        <span class="text-muted-foreground mt-1.5 text-[10px] font-medium">{{ patient.date }}</span>
+        <span class="text-muted-foreground mt-2 text-[11px] font-medium">{{ patient.date }}</span>
 
-        <div class="mt-0.5 flex items-center justify-between gap-1">
-          <div class="min-w-0">
-            <p class="text-foreground truncate text-sm font-bold">{{ patient.name }}</p>
-            <p class="text-destructive truncate text-xs font-semibold">{{ patient.condition }}</p>
+        <div class="mt-1 flex items-center justify-between gap-1.5">
+          <div class="min-w-0 flex-1">
+            <p
+              class="text-foreground group-hover:text-primary truncate text-sm font-bold transition-colors"
+            >
+              {{ patient.name }}
+            </p>
+            <span
+              :class="[
+                'py-0.2 inline-block max-w-full truncate rounded-md border px-1.5 text-[10px] font-bold',
+                getConditionBadge(patient.condition)
+              ]"
+            >
+              {{ patient.condition }}
+            </span>
           </div>
-          <div class="flex shrink-0 gap-1">
-            <AppButton
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
+
+          <div class="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
               @click.stop="goToChat(patient.conversation_uuid)"
               title="Message Patient"
               class="hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 transition-colors"
@@ -212,29 +255,26 @@
                 name="mingcute:message-4-line"
                 class="text-secondary text-sm"
               />
-            </AppButton>
-            <AppButton
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
+            </button>
+
+            <button
+              type="button"
               @click.stop="handleTogglePriority(patient)"
-              :title="isPatientInPriority(patient) ? 'Remove from Priority' : 'Add to Priority'"
+              :title="
+                isPatientInPriority(patient) ? 'Remove from Priority List' : 'Mark as High Priority'
+              "
               :class="[
-                'flex h-7 w-7 items-center justify-center rounded-full transition-all',
+                'flex h-7 w-7 items-center justify-center rounded-full transition-all duration-200',
                 isPatientInPriority(patient)
-                  ? 'bg-amber-500 text-white shadow-xs hover:bg-amber-600'
-                  : 'bg-primary hover:bg-primary/80 text-white'
+                  ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-200 hover:bg-amber-600'
+                  : 'bg-gray-100 text-gray-400 hover:bg-amber-50 hover:text-amber-500'
               ]"
             >
               <Icon
-                :name="
-                  isPatientInPriority(patient)
-                    ? 'material-symbols:check-rounded'
-                    : 'fluent:add-12-filled'
-                "
+                :name="isPatientInPriority(patient) ? 'solar:star-bold' : 'solar:star-linear'"
                 class="text-sm"
               />
-            </AppButton>
+            </button>
           </div>
         </div>
       </div>

@@ -533,7 +533,16 @@
               their {{ associateCoverage.plan_name }}.
             </p>
             <p
-              v-if="directSubscription && isInherited"
+              v-if="directSubscription && associateCoverage && !isInherited"
+              class="mt-1 text-[11px] text-gray-500"
+            >
+              Note: You hold an active personal
+              <strong>{{ directSubscription.plan?.name || 'subscription' }}</strong> for your
+              private practice while benefiting from team privileges at
+              {{ associateCoverage.clinic_name }}.
+            </p>
+            <p
+              v-else-if="directSubscription && isInherited"
               class="mt-1 text-[11px] text-gray-500"
             >
               Note: You also hold a personal {{ directSubscription.plan?.name || 'subscription' }}.
@@ -674,7 +683,7 @@
       <!-- Pricing Cards Grid -->
       <div
         v-else
-        class="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3"
+        class="grid grid-cols-1 items-stretch gap-5 sm:grid-cols-2 xl:grid-cols-4"
       >
         <div
           v-for="plan in plans"
@@ -689,7 +698,10 @@
           <div>
             <!-- Most Popular Badge -->
             <div
-              v-if="plan.tier_type === 'professional'"
+              v-if="
+                plan.slug === 'individual-doctor-secretary-plan' ||
+                plan.tier_type === 'professional'
+              "
               class="absolute -top-3 left-1/2 -translate-x-1/2"
             >
               <span
@@ -700,7 +712,7 @@
             </div>
 
             <!-- Card Header -->
-            <div class="flex items-baseline justify-between">
+            <div class="flex items-baseline justify-between gap-2">
               <div>
                 <h3 class="text-base font-black text-gray-900">{{ plan.name }}</h3>
                 <p class="text-[11px] font-semibold text-gray-500">
@@ -712,7 +724,7 @@
                 v-if="currentSubscription?.plan?.uuid === plan.uuid"
                 class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
               >
-                Current
+                {{ isInherited ? 'Clinic Seat' : 'Current' }}
               </span>
             </div>
 
@@ -797,12 +809,16 @@
             >
               {{
                 currentSubscription?.plan?.uuid === plan.uuid
-                  ? currentSubscription?.is_active && currentSubscription?.status === 'active'
-                    ? currentSubscription?.has_plan_update
-                      ? 'Upgrade to Latest Version'
-                      : 'Current Active Plan'
-                    : 'Renew Plan'
-                  : currentSubscription?.is_active && currentSubscription?.status === 'active'
+                  ? isInherited
+                    ? 'Covered via Clinic Seat'
+                    : currentSubscription?.is_active && currentSubscription?.status === 'active'
+                      ? currentSubscription?.has_plan_update
+                        ? 'Upgrade to Latest Version'
+                        : 'Current Active Plan'
+                      : 'Renew Plan'
+                  : currentSubscription?.is_active &&
+                      currentSubscription?.status === 'active' &&
+                      !isInherited
                     ? 'Switch to Plan'
                     : 'Subscribe Now'
               }}

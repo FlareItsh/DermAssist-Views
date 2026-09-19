@@ -194,12 +194,28 @@
     }
   }
 
-  const conditionColor = (condition: string) => {
+  const getConditionBadge = (condition: string) => {
     const c = condition?.toLowerCase() || ''
-    if (c.includes('acne') || c.includes('melanoma') || c.includes('herpes')) {
-      return 'text-destructive font-bold'
+    if (
+      c.includes('melanoma') ||
+      c.includes('herpes') ||
+      c.includes('carcinoma') ||
+      c.includes('urgent')
+    ) {
+      return 'bg-rose-50 text-rose-700 border-rose-200/80'
     }
-    return 'text-amber-500 font-semibold'
+    if (
+      c.includes('eczema') ||
+      c.includes('psoriasis') ||
+      c.includes('dermatitis') ||
+      c.includes('rash')
+    ) {
+      return 'bg-amber-50 text-amber-700 border-amber-200/80'
+    }
+    if (c.includes('acne') || c.includes('fungal') || c.includes('infection')) {
+      return 'bg-purple-50 text-purple-700 border-purple-200/80'
+    }
+    return 'bg-blue-50 text-blue-700 border-blue-200/80'
   }
 </script>
 
@@ -212,10 +228,10 @@
       <div class="flex items-center gap-2.5">
         <div class="bg-secondary h-7 w-1 shrink-0 rounded-full" />
         <div class="flex items-center gap-2">
-          <h2 class="text-foreground text-xl font-bold">Priority List</h2>
+          <h2 class="text-foreground text-xl font-bold tracking-tight">Priority List</h2>
           <span
             v-if="priorityPatients.length > 0"
-            class="bg-primary/10 text-primary inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold"
+            class="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 text-xs font-bold text-amber-600"
           >
             {{ priorityPatients.length }}
           </span>
@@ -248,7 +264,7 @@
           />
           <div
             v-else
-            class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-base font-bold"
+            class="from-primary/10 via-primary/5 to-secondary/15 text-primary flex h-full w-full items-center justify-center bg-gradient-to-br text-sm font-black"
           >
             {{ patient.initials }}
           </div>
@@ -261,9 +277,16 @@
               {{ patient.name }}
             </p>
           </div>
-          <span :class="['truncate text-xs', conditionColor(patient.condition)]">
-            {{ patient.condition }}
-          </span>
+          <div>
+            <span
+              :class="[
+                'py-0.2 inline-block max-w-full truncate rounded-md border px-1.5 text-[10px] font-bold',
+                getConditionBadge(patient.condition)
+              ]"
+            >
+              {{ patient.condition }}
+            </span>
+          </div>
           <div class="text-muted-foreground mt-0.5 flex items-center gap-1 text-[11px] font-medium">
             <Icon
               name="lucide:calendar"
@@ -322,15 +345,15 @@
         v-if="filteredPriority.length === 0"
         class="text-muted-foreground flex flex-col items-center justify-center py-12 text-center"
       >
-        <div class="bg-primary/5 mb-2 flex h-12 w-12 items-center justify-center rounded-full">
+        <div class="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10">
           <Icon
-            name="solar:list-check-bold"
-            class="text-primary/40 text-2xl"
+            name="solar:star-bold"
+            class="text-2xl text-amber-500"
           />
         </div>
-        <p class="text-foreground text-sm font-semibold">No priority patients</p>
-        <p class="text-muted-foreground mt-0.5 max-w-[200px] text-xs">
-          Click the priority (+) icon on any patient or appointment to pin them here.
+        <p class="text-foreground text-sm font-semibold">No priority triage patients</p>
+        <p class="text-muted-foreground mt-0.5 max-w-[210px] text-xs">
+          Click the star (★) icon on any patient or appointment to pin them here.
         </p>
       </div>
     </div>

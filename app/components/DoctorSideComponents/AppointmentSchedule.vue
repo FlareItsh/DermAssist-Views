@@ -170,6 +170,12 @@
     return getBlockedTimesForDate(popoverKey.value)
   })
 
+  const resetToToday = () => {
+    weekOffset.value = 0
+    selectedDate.value = null
+    popoverKey.value = null
+  }
+
   const getCount = (d: Date) => appointmentCountMap.value[toKey(d)] ?? 0
   const isToday = (d: Date) => toKey(d) === toKey(todayDate)
   const isSelected = (d: Date) => toKey(d) === selectedDate.value
@@ -193,49 +199,78 @@
 <template>
   <div
     ref="componentRef"
-    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-6 py-5"
+    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-6 py-5 shadow-sm"
   >
     <div class="flex items-center justify-between">
       <div class="flex flex-col gap-0.5">
-        <h2 class="text-xl font-bold text-white">Patients Appointment Schedule</h2>
-        <span class="text-xs font-medium text-white/40">{{ rangeLabel }}</span>
+        <div class="flex items-center gap-2">
+          <h2 class="text-xl font-bold tracking-tight text-white">Patients Appointment Schedule</h2>
+          <span
+            v-if="selectedDate"
+            class="bg-secondary/35 border-secondary/50 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold text-white"
+          >
+            <span>Filtered: {{ selectedDate }}</span>
+            <button
+              @click.stop="closePopover"
+              class="rounded-full p-0.5 transition-colors hover:bg-white/20"
+              title="Clear date filter"
+            >
+              <Icon
+                name="lucide:x"
+                class="h-3 w-3"
+              />
+            </button>
+          </span>
+        </div>
+        <span class="text-xs font-medium text-white/60">{{ rangeLabel }}</span>
       </div>
-      <div class="flex items-center gap-1.5">
-        <!-- Prev Button with Badge -->
-        <div class="relative">
+
+      <div class="flex items-center gap-2">
+        <button
+          v-if="weekOffset !== 0"
+          @click="resetToToday"
+          type="button"
+          class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
+        >
+          Current Week
+        </button>
+
+        <div class="relative flex items-center">
           <button
             @click="prevWeek"
-            class="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white active:scale-90"
+            class="rounded-full p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+            title="Previous week"
           >
             <Icon
               name="material-symbols:chevron-left-rounded"
               class="text-2xl"
             />
           </button>
-          <div
+          <span
             v-if="behindCount > 0"
-            class="bg-destructive pointer-events-none absolute -top-1 -left-1 flex h-4 min-w-[16px] animate-pulse items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-lg"
+            class="bg-destructive pointer-events-none absolute -top-1 -left-1 flex h-4 min-w-[16px] animate-pulse items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-[#0a1e33]"
           >
             {{ behindCount }}
-          </div>
+          </span>
         </div>
 
-        <div class="relative">
+        <div class="relative flex items-center">
           <button
             @click="nextWeek"
-            class="rounded-full p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white active:scale-90"
+            class="rounded-full p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+            title="Next week"
           >
             <Icon
               name="material-symbols:chevron-right-rounded"
               class="text-2xl"
             />
           </button>
-          <div
+          <span
             v-if="aheadCount > 0"
-            class="bg-destructive pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full p-2 px-1 text-[10px] font-bold text-white shadow-lg"
+            class="bg-destructive pointer-events-none absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white shadow-md ring-2 ring-[#0a1e33]"
           >
             {{ aheadCount }}
-          </div>
+          </span>
         </div>
       </div>
     </div>
