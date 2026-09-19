@@ -303,11 +303,21 @@ export const useAppointments = () => {
     }
   }
 
+  const rescheduleRequests = computed(() =>
+    appointments.value.filter(
+      appt => appt.status === 'reschedule_requested' || appt.status === 'reschedule_proposed'
+    )
+  )
+
+  const rescheduleRequestsCount = computed(() => rescheduleRequests.value.length)
+
   return {
     appointments,
     pendingAppointments,
     declinedAppointments,
     completedAppointments,
+    rescheduleRequests,
+    rescheduleRequestsCount,
     selectedDate,
     pending,
     fetchAppointments,

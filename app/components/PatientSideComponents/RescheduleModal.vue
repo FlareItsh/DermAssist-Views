@@ -345,11 +345,29 @@
 
   interface TimeSlotOption {
     time24: string
+    endTime24: string
     label: string
+    endLabel: string
+    durationLabel: string
     isAvailable: boolean
     isCurrentApptTime?: boolean
     clinicName?: string
   }
+
+  const selectedDateClinic = computed(() => {
+    if (!selectedDate.value) return null
+    const duties = getDutyForDate(selectedDate.value)
+    if (!duties.length) return null
+    const firstDuty = duties[0]
+    return {
+      name: firstDuty.clinic?.name || firstDuty.location_name || 'Clinic Duty',
+      address: firstDuty.clinic?.address || null,
+      phone: firstDuty.clinic?.phone || null,
+      dutyHours: duties
+        .map((d: any) => `${formatTime12H(d.start_time)} – ${formatTime12H(d.end_time)}`)
+        .join(', ')
+    }
+  })
 
   const availableTimeSlots = computed<TimeSlotOption[]>(() => {
     if (!selectedDate.value) return []
@@ -414,12 +432,21 @@
           const hh = String(Math.floor(m / 60)).padStart(2, '0')
           const mm = String(m % 60).padStart(2, '0')
           const time24 = `${hh}:${mm}`
+
+          const endM = m + DURATION_MINS
+          const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+          const endMm = String(endM % 60).padStart(2, '0')
+          const endTime24 = `${endHh}:${endMm}`
+
           const isCurrent = isCurrentSlot(time24)
           const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
 
           slots.push({
             time24,
+            endTime24,
             label: formatTime12H(time24),
+            endLabel: formatTime12H(endTime24),
+            durationLabel: '1 hr',
             isAvailable: isAvail,
             isCurrentApptTime: isCurrent,
             clinicName
@@ -432,12 +459,21 @@
         const hh = String(Math.floor(m / 60)).padStart(2, '0')
         const mm = String(m % 60).padStart(2, '0')
         const time24 = `${hh}:${mm}`
+
+        const endM = m + DURATION_MINS
+        const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+        const endMm = String(endM % 60).padStart(2, '0')
+        const endTime24 = `${endHh}:${endMm}`
+
         const isCurrent = isCurrentSlot(time24)
         const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
 
         slots.push({
           time24,
+          endTime24,
           label: formatTime12H(time24),
+          endLabel: formatTime12H(endTime24),
+          durationLabel: '1 hr',
           isAvailable: isAvail,
           isCurrentApptTime: isCurrent
         })
@@ -489,10 +525,10 @@
         @click.self="emit('close')"
       >
         <div
-          class="bg-card border-border my-auto flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border shadow-2xl"
+          class="bg-card border-border my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
         >
           <!-- Header -->
-          <div class="from-primary shrink-0 bg-gradient-to-br to-indigo-700 px-6 py-5">
+          <div class="from-primary shrink-0 bg-gradient-to-br to-indigo-700 px-6 py-4">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-2.5">
                 <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
@@ -524,46 +560,50 @@
           </div>
 
           <!-- Doctor info strip -->
-          <div class="border-border shrink-0 border-b px-6 pt-4 pb-3">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
-              >
-                <Icon
-                  name="lucide:stethoscope"
-                  class="text-primary text-sm"
-                />
+          <div class="border-border shrink-0 border-b px-6 py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <div
+                  class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                >
+                  <Icon
+                    name="lucide:stethoscope"
+                    class="text-primary text-sm"
+                  />
+                </div>
+                <div>
+                  <p class="text-foreground text-sm font-bold">{{ appointment.doctor }}</p>
+                  <p class="text-muted-foreground text-xs">{{ appointment.info }}</p>
+                </div>
               </div>
-              <div>
-                <p class="text-foreground text-sm font-bold">{{ appointment.doctor }}</p>
-                <p class="text-muted-foreground text-xs">{{ appointment.info }}</p>
-              </div>
+              <span class="text-muted-foreground hidden text-xs font-medium sm:inline-block">
+                Standard Consultation: <strong class="text-foreground font-semibold">1 hour</strong>
+              </span>
             </div>
           </div>
 
-          <!-- Scrollable body -->
-          <div
-            ref="scrollContainer"
-            class="custom-scrollbar flex-1 overflow-y-auto px-6 py-4"
-          >
-            <!-- Loading skeleton -->
+          <!-- Split-Pane Body -->
+          <div class="flex flex-1 flex-col overflow-hidden md:flex-row">
+            <!-- Left Pane: Calendar Selection -->
             <div
-              v-if="isLoading"
-              class="flex animate-pulse flex-col gap-3"
+              class="border-border flex flex-col justify-between overflow-y-auto p-5 md:w-[380px] md:shrink-0 md:border-r"
             >
-              <div class="bg-foreground/10 mb-1 h-5 w-44 rounded-lg"></div>
-              <div class="grid grid-cols-7 gap-y-3">
-                <div
-                  v-for="n in 35"
-                  :key="n"
-                  class="bg-foreground/5 h-9 w-9 place-self-center rounded-full"
-                ></div>
+              <!-- Loading skeleton -->
+              <div
+                v-if="isLoading"
+                class="flex animate-pulse flex-col gap-3 py-4"
+              >
+                <div class="bg-foreground/10 mb-1 h-5 w-44 rounded-lg"></div>
+                <div class="grid grid-cols-7 gap-y-3">
+                  <div
+                    v-for="n in 35"
+                    :key="n"
+                    class="bg-foreground/5 h-9 w-9 place-self-center rounded-full"
+                  ></div>
+                </div>
               </div>
-            </div>
 
-            <template v-else>
-              <!-- Step 1: Date Selection -->
-              <div class="mb-5">
+              <div v-else>
                 <!-- Month navigation -->
                 <div class="mb-3 flex items-center justify-between">
                   <h2 class="text-foreground flex items-center gap-2 text-sm font-bold">
@@ -607,16 +647,19 @@
                   </div>
                 </div>
 
-                <!-- Day-of-week headers -->
-                <div class="mb-1 grid grid-cols-7 gap-y-2 text-center">
-                  <div
-                    v-for="day in daysOfWeek"
-                    :key="day"
-                    class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase"
+                <!-- Day names header -->
+                <div class="mb-1 grid grid-cols-7 text-center">
+                  <span
+                    v-for="d in daysOfWeek"
+                    :key="d"
+                    class="text-muted-foreground text-[11px] font-bold"
                   >
-                    {{ day }}
-                  </div>
+                    {{ d }}
+                  </span>
+                </div>
 
+                <!-- Calendar grid -->
+                <div class="grid grid-cols-7 gap-y-1 text-center">
                   <!-- Empty offset cells -->
                   <div
                     v-for="empty in startingDayOffset"
@@ -769,188 +812,260 @@
                   </div>
                 </div>
 
-                <!-- Legend -->
+                <!-- Calendar Legend -->
                 <div
-                  class="text-muted-foreground border-border/60 mt-3 flex flex-wrap items-center gap-3 border-t pt-2.5 text-[11px]"
+                  class="border-border mt-4 flex flex-wrap items-center justify-center gap-3 border-t pt-3 text-[11px] font-medium text-slate-600 dark:text-slate-400"
                 >
-                  <div
-                    v-if="currentApptDate"
-                    class="flex items-center gap-1.5"
-                  >
-                    <div
-                      class="h-2.5 w-2.5 rounded-full bg-indigo-100 ring-1 ring-indigo-300"
-                    ></div>
-                    <span class="font-medium text-indigo-700">Current Appt Date</span>
-                  </div>
-                  <div
-                    v-if="hasAnyDutyConfigured"
-                    class="flex items-center gap-1.5"
-                  >
-                    <div
-                      class="h-2.5 w-2.5 rounded-full bg-emerald-100 ring-1 ring-emerald-300"
-                    ></div>
-                    <span class="font-medium text-emerald-700">Doctor Available</span>
-                  </div>
-                  <div
-                    v-if="hasAnyDutyConfigured"
-                    class="flex items-center gap-1.5"
-                  >
-                    <div class="h-2.5 w-2.5 rounded-full bg-gray-100 ring-1 ring-gray-200"></div>
-                    <span>Off-Duty</span>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <div class="h-2.5 w-2.5 rounded-full bg-red-100 ring-1 ring-red-300"></div>
-                    <span>Unavailable</span>
-                  </div>
-                  <div class="flex items-center gap-1.5">
-                    <div class="bg-secondary h-2.5 w-2.5 rounded-full"></div>
-                    <span>Your selection</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Step 2: Preferred Time Slot Selection -->
-              <Transition name="slide-up">
-                <div
-                  ref="timeSlotsSection"
-                  v-if="selectedDate"
-                  class="border-border mt-4 border-t pt-4"
-                >
-                  <div class="mb-3 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <Icon
-                        name="lucide:clock"
-                        class="text-primary text-base"
-                      />
-                      <h4 class="text-foreground text-xs font-bold tracking-wider uppercase">
-                        Select Preferred Time
-                      </h4>
-                    </div>
-                    <span
-                      v-if="availableTimeSlots.length > 0"
-                      class="text-muted-foreground text-[11px]"
-                    >
-                      {{ availableTimeSlots.filter(s => s.isAvailable).length }} available
-                    </span>
-                  </div>
-
-                  <!-- Time slots grid -->
-                  <div
-                    v-if="availableTimeSlots.length > 0"
-                    class="grid grid-cols-3 gap-2 sm:grid-cols-4"
-                  >
-                    <button
-                      v-for="slot in availableTimeSlots"
-                      :key="slot.time24"
-                      type="button"
-                      :disabled="!slot.isAvailable || slot.isCurrentApptTime"
-                      @click="selectTimeSlot(slot)"
-                      class="relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-2.5 py-2 text-xs font-semibold transition-all"
-                      :class="[
-                        slot.isCurrentApptTime
-                          ? 'cursor-not-allowed border border-amber-300/80 bg-amber-500/10 text-amber-800 opacity-90'
-                          : !slot.isAvailable
-                            ? 'bg-muted/40 text-muted-foreground/40 cursor-not-allowed border border-transparent line-through'
-                            : selectedTime === slot.time24
-                              ? 'bg-secondary ring-secondary/30 scale-102 font-bold text-white shadow-md ring-2'
-                              : 'bg-foreground/5 text-foreground hover:bg-primary/10 hover:text-primary border-border/70 cursor-pointer border active:scale-95'
-                      ]"
-                    >
-                      <span class="flex items-center gap-1">{{ slot.label }}</span>
-                      <span
-                        v-if="slot.isCurrentApptTime"
-                        class="mt-0.5 rounded-full border border-amber-300/70 bg-amber-100 px-1.5 py-0.5 text-[9px] leading-none font-bold text-amber-800"
-                      >
-                        Current Time
-                      </span>
-                      <span
-                        v-else-if="slot.clinicName"
-                        class="max-w-full truncate text-[9px] font-normal opacity-75"
-                        >{{ slot.clinicName }}</span
-                      >
-                    </button>
-                  </div>
-
-                  <!-- Empty state for time slots -->
-                  <div
-                    v-else
-                    class="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-center text-xs text-amber-700"
-                  >
-                    <Icon
-                      name="lucide:alert-circle"
-                      class="mx-auto mb-1 text-base"
-                    />
-                    <p class="font-medium">No available time slots found for this date.</p>
-                  </div>
-                </div>
-              </Transition>
-            </template>
-          </div>
-
-          <!-- Selection summary pill -->
-          <Transition name="slide-up">
-            <div
-              v-if="selectedDate"
-              class="bg-primary/5 border-primary/15 mx-6 mb-3 flex shrink-0 items-center justify-between gap-3 rounded-2xl border px-4 py-3"
-            >
-              <div class="flex items-center gap-3">
-                <div
-                  class="bg-primary/10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                >
-                  <Icon
-                    name="lucide:calendar-check"
-                    class="text-primary text-lg"
-                  />
-                </div>
-                <div>
-                  <p class="text-primary text-[10px] font-bold tracking-wide uppercase">
-                    Preferred Reschedule
-                  </p>
-                  <p class="text-foreground text-xs leading-tight font-bold">
-                    {{ selectedDateLabel }}
-                  </p>
-                  <p
-                    v-if="selectedTime"
-                    class="text-primary mt-0.5 text-xs font-semibold"
-                  >
-                    at {{ formatTime12H(selectedTime) }}
-                  </p>
-                  <p
-                    v-else
-                    class="text-muted-foreground mt-0.5 text-[11px] italic"
-                  >
-                    Please pick a time slot above
-                  </p>
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+                    Current Appt Date
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Doctor Available
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-gray-300"></span>
+                    Off-Duty
+                  </span>
+                  <span class="flex items-center gap-1.5">
+                    <span class="h-2 w-2 rounded-full bg-red-400"></span>
+                    Unavailable
+                  </span>
                 </div>
               </div>
             </div>
-          </Transition>
 
-          <!-- Footer actions -->
-          <div class="border-border/40 flex shrink-0 flex-col gap-2 border-t px-6 pt-1 pb-5">
-            <AppButton
-              variant="solid"
-              size="md"
-              block
-              :loading="isSubmitting"
-              :disabled="!selectedDate || !selectedTime || isSubmitting"
-              @click="submitReschedule"
+            <!-- Right Pane: Clinic Location Context & Available Time Slots -->
+            <div
+              ref="timeSlotsSection"
+              class="custom-scrollbar bg-muted/10 flex flex-1 flex-col overflow-y-auto p-5"
             >
-              <Icon
-                name="lucide:send"
-                class="mr-1.5 text-sm"
-              />
-              Send Reschedule Request
-            </AppButton>
-            <AppButton
-              variant="ghost"
-              size="md"
-              block
-              :disabled="isSubmitting"
-              @click="emit('close')"
-            >
-              Cancel
-            </AppButton>
+              <template v-if="selectedDate">
+                <!-- Clinic Location Card for Selected Date -->
+                <div
+                  v-if="selectedDateClinic"
+                  class="border-primary/20 bg-primary/5 mb-4 rounded-2xl border p-3.5"
+                >
+                  <div class="flex items-start gap-3">
+                    <div
+                      class="bg-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-xs"
+                    >
+                      <Icon
+                        name="lucide:building-2"
+                        class="text-lg"
+                      />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5">
+                        <span
+                          class="bg-primary/15 text-primary rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                        >
+                          Doctor Practice Location
+                        </span>
+                      </div>
+                      <p class="text-foreground mt-0.5 truncate text-xs font-bold">
+                        {{ selectedDateClinic.name }}
+                      </p>
+                      <p
+                        v-if="selectedDateClinic.address"
+                        class="text-muted-foreground truncate text-[11px]"
+                      >
+                        {{ selectedDateClinic.address }}
+                      </p>
+                      <p
+                        v-if="selectedDateClinic.dutyHours"
+                        class="text-primary mt-1 flex items-center gap-1 text-[10px] font-semibold"
+                      >
+                        <Icon
+                          name="lucide:clock"
+                          class="text-xs"
+                        />
+                        Duty Schedule: {{ selectedDateClinic.dutyHours }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Preferred Time Slot Header -->
+                <div class="mb-3 flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <Icon
+                      name="lucide:clock"
+                      class="text-primary text-base"
+                    />
+                    <h4 class="text-foreground text-xs font-bold tracking-wider uppercase">
+                      Select Preferred Time Slot
+                    </h4>
+                  </div>
+                  <span
+                    v-if="availableTimeSlots.length > 0"
+                    class="text-muted-foreground text-[11px] font-medium"
+                  >
+                    {{ availableTimeSlots.filter(s => s.isAvailable).length }} slots available
+                  </span>
+                </div>
+
+                <!-- Time slots grid -->
+                <div
+                  v-if="availableTimeSlots.length > 0"
+                  class="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+                >
+                  <button
+                    v-for="slot in availableTimeSlots"
+                    :key="slot.time24"
+                    type="button"
+                    :disabled="!slot.isAvailable || slot.isCurrentApptTime"
+                    @click="selectTimeSlot(slot)"
+                    class="relative flex flex-col items-start justify-center gap-1 rounded-xl p-3 text-left transition-all"
+                    :class="[
+                      slot.isCurrentApptTime
+                        ? 'cursor-not-allowed border border-amber-300/80 bg-amber-500/10 text-amber-800 opacity-90'
+                        : !slot.isAvailable
+                          ? 'bg-muted/40 text-muted-foreground/40 cursor-not-allowed border border-transparent line-through'
+                          : selectedTime === slot.time24
+                            ? 'bg-secondary ring-secondary/30 scale-[1.02] font-bold text-white shadow-md ring-2'
+                            : 'bg-card text-foreground hover:bg-primary/10 hover:text-primary border-border/70 cursor-pointer border shadow-xs active:scale-95'
+                    ]"
+                  >
+                    <div class="flex w-full items-center justify-between">
+                      <span class="text-xs font-bold">{{ slot.label }}</span>
+                      <span
+                        class="rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase"
+                        :class="
+                          selectedTime === slot.time24
+                            ? 'bg-white/20 text-white'
+                            : 'bg-muted text-muted-foreground'
+                        "
+                      >
+                        {{ slot.durationLabel }}
+                      </span>
+                    </div>
+                    <span
+                      class="text-[10px]"
+                      :class="
+                        selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'
+                      "
+                    >
+                      until {{ slot.endLabel }}
+                    </span>
+                    <span
+                      v-if="slot.isCurrentApptTime"
+                      class="mt-1 rounded-full border border-amber-300/70 bg-amber-100 px-1.5 py-0.5 text-[9px] leading-none font-bold text-amber-800"
+                    >
+                      Current Time
+                    </span>
+                  </button>
+                </div>
+
+                <!-- Empty state for time slots on date -->
+                <div
+                  v-else
+                  class="my-auto rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6 text-center text-xs text-amber-700"
+                >
+                  <Icon
+                    name="lucide:alert-circle"
+                    class="mx-auto mb-2 text-xl"
+                  />
+                  <p class="font-bold">No Available Time Slots</p>
+                  <p class="mt-1 text-[11px] opacity-80">
+                    All consultation hours for this date are fully booked or blocked. Please select
+                    another date.
+                  </p>
+                </div>
+              </template>
+
+              <!-- Empty state: No date chosen yet -->
+              <div
+                v-else
+                class="my-auto flex flex-col items-center justify-center p-8 text-center"
+              >
+                <div
+                  class="bg-primary/10 text-primary mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
+                >
+                  <Icon
+                    name="lucide:calendar"
+                    class="text-2xl"
+                  />
+                </div>
+                <h4 class="text-foreground text-sm font-bold">Pick a Date to View Slots</h4>
+                <p class="text-muted-foreground mt-1 max-w-xs text-xs">
+                  Select any available date on the calendar to see doctor clinic duty hours and
+                  bookable consultation slots.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Footer Bar -->
+          <div
+            class="border-border/60 bg-card flex shrink-0 flex-col items-center justify-between gap-3 border-t px-6 py-3.5 sm:flex-row"
+          >
+            <!-- Selected Summary -->
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+              >
+                <Icon
+                  name="lucide:calendar-check"
+                  class="text-primary text-base"
+                />
+              </div>
+              <div class="text-left">
+                <p class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase">
+                  Selected Reschedule
+                </p>
+                <p
+                  v-if="selectedDate"
+                  class="text-foreground text-xs leading-tight font-bold"
+                >
+                  {{ selectedDateLabel }}
+                  <span
+                    v-if="selectedTime"
+                    class="text-primary font-semibold"
+                  >
+                    at {{ formatTime12H(selectedTime) }}
+                  </span>
+                  <span
+                    v-if="selectedDateClinic"
+                    class="text-muted-foreground font-normal"
+                  >
+                    ({{ selectedDateClinic.name }})
+                  </span>
+                </p>
+                <p
+                  v-else
+                  class="text-muted-foreground text-xs italic"
+                >
+                  No date selected yet
+                </p>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
+              <AppButton
+                variant="ghost"
+                size="sm"
+                :disabled="isSubmitting"
+                @click="emit('close')"
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                variant="solid"
+                size="sm"
+                :loading="isSubmitting"
+                :disabled="!selectedDate || !selectedTime || isSubmitting"
+                @click="submitReschedule"
+              >
+                <Icon
+                  name="lucide:send"
+                  class="mr-1.5 text-xs"
+                />
+                Send Request
+              </AppButton>
+            </div>
           </div>
         </div>
       </div>
