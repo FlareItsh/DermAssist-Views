@@ -34,6 +34,9 @@
     if (props.appointment?.raw_scheduled_at) {
       return parseAppointmentDateTime(props.appointment.raw_scheduled_at)
     }
+    if (props.appointment?.previous_scheduled_at) {
+      return parseAppointmentDateTime(props.appointment.previous_scheduled_at)
+    }
     if (props.appointment?.date) {
       let startH = '00'
       let startM = '00'
@@ -96,7 +99,17 @@
         doctorBlockedSlots.value = list.filter(
           (s: any) => Number(s.is_available) === 0 || s.is_available === false
         )
+        // Only explicit whole-day blocks (00:00 to 23:59) that are not routine rest days count as blocked dates
         doctorBlockedDates.value = doctorBlockedSlots.value
+          .filter((s: any) => {
+            const isWholeDay =
+              (s.start_time <= '00:01:00' || s.start_time <= '00:01') &&
+              (s.end_time >= '23:58:00' || s.end_time >= '23:58')
+            const loc = (s.location_name || '').toLowerCase()
+            const isRestDay =
+              loc.includes('rest day') || loc.includes('weekend') || loc.includes('off-duty')
+            return isWholeDay && !isRestDay
+          })
           .map((s: any) => s.available_date?.slice(0, 10))
           .filter(Boolean)
 
@@ -151,15 +164,21 @@
   const isPast = (day: number): boolean => dateStringFor(day) < today
   const isToday = (day: number): boolean => dateStringFor(day) === today
 
-  /** True when the doctor is blocked for the entire day. */
-  const isUnavailable = (day: number): boolean => {
-    const dateStr = dateStringFor(day)
-    return doctorBlockedDates.value.includes(dateStr)
+  /** Utility: 'HH:mm' or 'HH:mm:ss' to total minutes from midnight */
+  const toMins = (t: string): number => {
+    if (!t) return 0
+    const [h, m] = t.slice(0, 5).split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
   }
 
   /** Get duty slots for a specific date string */
   const getDutyForDate = (dateStr: string) => {
     return doctorDutySlots.value.filter((s: any) => s.available_date?.slice(0, 10) === dateStr)
+  }
+
+  /** Get blocked slots for a specific date string */
+  const getBlockedForDate = (dateStr: string) => {
+    return doctorBlockedSlots.value.filter((s: any) => s.available_date?.slice(0, 10) === dateStr)
   }
 
   /** True when the doctor has active clinic duty hours on this date. */
@@ -169,6 +188,79 @@
 
   /** True if the doctor has defined duty schedules anywhere in the calendar */
   const hasAnyDutyConfigured = computed(() => doctorDutySlots.value.length > 0)
+
+  /** Check if a date has at least one selectable consultation slot */
+  const hasAvailableSlotOnDate = (day: number): boolean => {
+    const dateStr = dateStringFor(day)
+    const dayDuties = getDutyForDate(dateStr)
+    if (!dayDuties.length) return false
+
+    const dayBlocked = getBlockedForDate(dateStr)
+    const DURATION_MINS = 60
+
+    const dayBookedAppts = doctorAppointmentsList.value.filter((a: any) => {
+      const apptDate = a.date || a.raw_scheduled_at?.slice(0, 10)
+      return apptDate === dateStr && a.status !== 'declined' && a.id !== props.appointment.id
+    })
+
+    for (const duty of dayDuties) {
+      const dutyStart = toMins(duty.start_time)
+      const dutyEnd = toMins(duty.end_time)
+
+      for (let m = dutyStart; m + DURATION_MINS <= dutyEnd; m += 30) {
+        const endM = m + DURATION_MINS
+
+        // Check if overlaps any blocked slot (e.g. lunch break)
+        const isBlocked = dayBlocked.some((b: any) => {
+          const bStart = toMins(b.start_time)
+          const bEnd = toMins(b.end_time)
+          return m < bEnd && endM > bStart
+        })
+        if (isBlocked) continue
+
+        // Check if overlaps another booked appointment
+        const isBooked = dayBookedAppts.some((a: any) => {
+          if (a.raw_scheduled_at) {
+            const p = parseAppointmentDateTime(a.raw_scheduled_at)
+            const apptStart = parseInt(p.startH, 10) * 60 + parseInt(p.startM, 10)
+            let apptEnd = apptStart + DURATION_MINS
+            if (a.raw_scheduled_end_at) {
+              const pEnd = parseAppointmentDateTime(a.raw_scheduled_end_at)
+              const parsedEnd = parseInt(pEnd.startH, 10) * 60 + parseInt(pEnd.startM, 10)
+              if (parsedEnd > apptStart) apptEnd = parsedEnd
+            }
+            return m < apptEnd && endM > apptStart
+          }
+          return false
+        })
+        if (isBooked) continue
+
+        return true // Found at least one available slot!
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * True when the doctor is fully unavailable for the entire day.
+   * Partial blocks (such as lunch breaks) only apply to individual time slots and do NOT block the whole date.
+   */
+  const isUnavailable = (day: number): boolean => {
+    const dateStr = dateStringFor(day)
+
+    // Explicit whole-day block (e.g. sick leave, emergency, out of office)
+    if (doctorBlockedDates.value.includes(dateStr)) {
+      return true
+    }
+
+    // If the doctor is scheduled on duty, check if every single slot is blocked or booked
+    if (isDoctorOnDuty(day)) {
+      return !hasAvailableSlotOnDate(day)
+    }
+
+    return false
+  }
 
   /**
    * Strict check: True ONLY if the date is allowed for the patient to pick.
@@ -194,18 +286,6 @@
     const ampm = h >= 12 ? 'PM' : 'AM'
     const hour12 = h % 12 || 12
     return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`
-  }
-
-  /** Human readable duty schedule text for tooltip */
-  const dutyScheduleLabel = (day: number): string => {
-    const duties = getDutyForDate(dateStringFor(day))
-    if (!duties.length) return ''
-    return duties
-      .map((d: any) => {
-        const clinic = d.clinic?.name || d.location_name || 'Clinic Duty'
-        return `${formatTime12H(d.start_time)} – ${formatTime12H(d.end_time)} (${clinic})`
-      })
-      .join(', ')
   }
 
   const prevMonth = () => {
@@ -287,13 +367,6 @@
     })
 
     const DURATION_MINS = 60 // Standard consultation length (1 hour)
-
-    // Utility: 'HH:mm' to total minutes
-    const toMins = (t: string) => {
-      if (!t) return 0
-      const [h, m] = t.slice(0, 5).split(':').map(Number)
-      return (h || 0) * 60 + (m || 0)
-    }
 
     // True if a 1-hour slot starting at startM overlaps any blocked period
     const isSlotBlocked = (startM: number) => {
@@ -412,7 +485,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto p-4 bg-black/50"
+        class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/50 p-4"
         @click.self="emit('close')"
       >
         <div
@@ -604,21 +677,18 @@
                           isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-52 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-red-700/60 bg-red-900/95"
                         />
-                        <div class="mb-0.5 flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5">
                           <Icon
                             name="lucide:x-circle"
                             class="shrink-0 text-sm text-red-300"
                           />
                           <p class="text-xs font-bold text-red-100">Unavailable</p>
                         </div>
-                        <p class="text-[10px] leading-tight font-medium text-red-200">
-                          Doctor is blocked or unavailable on this date.
-                        </p>
                       </div>
                     </Transition>
 
@@ -631,21 +701,18 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-56 -translate-x-1/2 rounded-xl border border-indigo-700/60 bg-indigo-950/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-indigo-700/60 bg-indigo-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-indigo-700/60 bg-indigo-950/95"
                         />
-                        <div class="mb-0.5 flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5">
                           <Icon
                             name="lucide:calendar-clock"
                             class="shrink-0 text-sm text-indigo-400"
                           />
                           <p class="text-xs font-bold text-indigo-100">Current Appointment Date</p>
                         </div>
-                        <p class="text-[10px] leading-tight font-medium text-indigo-200">
-                          Click to pick a different time slot on this date.
-                        </p>
                       </div>
                     </Transition>
 
@@ -659,21 +726,18 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-56 -translate-x-1/2 rounded-xl border border-emerald-700/60 bg-emerald-950/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-emerald-700/60 bg-emerald-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-emerald-700/60 bg-emerald-950/95"
                         />
-                        <div class="mb-0.5 flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5">
                           <Icon
                             name="lucide:check-circle"
                             class="shrink-0 text-sm text-emerald-400"
                           />
                           <p class="text-xs font-bold text-emerald-100">Doctor Available</p>
                         </div>
-                        <p class="text-[10px] leading-tight font-medium text-emerald-200">
-                          {{ dutyScheduleLabel(date) }}
-                        </p>
                       </div>
                     </Transition>
 
@@ -688,21 +752,18 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-48 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-slate-700/60 bg-slate-900/95"
                         />
-                        <div class="mb-0.5 flex items-center gap-1.5">
+                        <div class="flex items-center gap-1.5">
                           <Icon
                             name="lucide:clock"
                             class="shrink-0 text-sm text-slate-400"
                           />
                           <p class="text-xs font-bold text-slate-100">Off-Duty</p>
                         </div>
-                        <p class="text-[10px] leading-tight font-medium text-slate-300">
-                          No clinic duty hours scheduled on this date.
-                        </p>
                       </div>
                     </Transition>
                   </div>
