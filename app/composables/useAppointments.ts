@@ -105,6 +105,7 @@ export const useAppointments = () => {
     }
     return {
       id: appt.uuid,
+      uuid: appt.uuid,
       date,
       time,
       raw_scheduled_at: appt.scheduled_at,
@@ -117,11 +118,15 @@ export const useAppointments = () => {
       patient_id: appt.patient_id,
       patient_uuid: appt.patient?.uuid,
       patient: appt.patient,
+      patient_age: appt.patient?.age,
+      patient_gender: appt.patient?.gender,
       created_at: appt.created_at,
       info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+      diagnosis_id: appt.diagnosis_id || appt.diagnosis?.id,
       diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
-      location: appt.location,
-      purpose: appt.purpose,
+      location: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
+      clinic_name: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
+      purpose: appt.purpose || 'Consultation',
       status: appt.status,
       requested_reschedule_date: appt.requested_reschedule_date,
       requested_reschedule_time: appt.requested_reschedule_time,
@@ -311,6 +316,23 @@ export const useAppointments = () => {
 
   const rescheduleRequestsCount = computed(() => rescheduleRequests.value.length)
 
+  const todayStr = computed(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  })
+
+  const todayAppointments = computed(() =>
+    appointments.value.filter(appt => {
+      const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
+      return p.date === todayStr.value
+    })
+  )
+
+  const todayAppointmentsCount = computed(() => todayAppointments.value.length)
+
   return {
     appointments,
     pendingAppointments,
@@ -318,6 +340,8 @@ export const useAppointments = () => {
     completedAppointments,
     rescheduleRequests,
     rescheduleRequestsCount,
+    todayAppointments,
+    todayAppointmentsCount,
     selectedDate,
     pending,
     fetchAppointments,

@@ -28,7 +28,7 @@
 
     const list = sourceList.map(a => ({
       id: a.id,
-      uuid: a.uuid,
+      uuid: a.id,
       patientName: a.doctor, // other person's name
       condition: a.info,
       time: a.time || 'TBD',
@@ -157,15 +157,16 @@
       </div>
 
       <AppButton
-        variant="soft"
+        variant="solid"
         rounded="both"
         @click="showScheduleModal = true"
+        class="inline-flex cursor-pointer items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
       >
         <Icon
-          name="lucide:plus"
-          class="mr-2"
+          name="lucide:calendar-plus"
+          class="text-base"
         />
-        New Schedule
+        New Appointment
       </AppButton>
     </div>
 
