@@ -44,6 +44,7 @@
 
   const isLoading = ref(false)
   const agreeToTerms = ref(false)
+  const consentDataset = ref(false)
   const showTermsModal = ref(false)
   const termsInitialTab = ref<'terms' | 'privacy'>('terms')
 
@@ -256,6 +257,8 @@
     try {
       const response = await authService.register({
         role: role.value,
+        consent_dataset: role.value === 'patient' ? consentDataset.value : false,
+        agree_to_terms: agreeToTerms.value,
         ...form
       })
 
@@ -593,6 +596,20 @@
               >
                 Privacy Policy
               </button>.
+            </label>
+          </div>
+
+          <!-- Optional AI Retraining Dataset Contribution Checkbox (Patients) -->
+          <div v-if="role === 'patient'" class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+            <input
+              id="agree-dataset"
+              v-model="consentDataset"
+              type="checkbox"
+              class="accent-primary mt-0.5 h-4 w-4 shrink-0 rounded border-primary/30 cursor-pointer"
+            />
+            <label for="agree-dataset" class="text-foreground/80 text-[11px] sm:text-xs leading-relaxed select-none cursor-pointer">
+              <span class="font-medium text-foreground block">Optional: AI Retraining Dataset Contribution</span>
+              <span class="text-[10px] text-muted-foreground block">I consent to contributing my anonymized clinical scan images to help study and improve the DermAssist AI model. You can change this preference anytime in your profile.</span>
             </label>
           </div>
 

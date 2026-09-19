@@ -38,7 +38,8 @@
     latitude: null as number | null,
     longitude: null as number | null,
     age: '',
-    gender: ''
+    gender: '',
+    consent_dataset: false
   })
 
   onMounted(async () => {
@@ -126,6 +127,7 @@
       form.longitude = userData.longitude ?? null
       form.age = userData.age || ''
       form.gender = userData.gender || ''
+      form.consent_dataset = Boolean(userData.consent_dataset)
 
       initDropdowns()
       loaded.value = true
@@ -371,6 +373,29 @@
                 class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 outline-none transition-all"
                 placeholder="House No., Street Name"
               />
+            </div>
+
+            <!-- Data Privacy & AI Research Settings -->
+            <div class="mt-2 rounded-2xl border border-border bg-foreground/[0.02] p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <Icon name="lucide:shield-check" class="text-primary h-4 w-4" />
+                    <h4 class="text-sm font-bold text-foreground">AI Retraining Dataset Contribution</h4>
+                  </div>
+                  <p class="text-xs text-muted-foreground leading-relaxed">
+                    Allow anonymized skin scan images from doctor consultations to be contributed to the DermAssist AI research dataset. Your identity and personal information are strictly removed. You can change this anytime.
+                  </p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0 mt-0.5">
+                  <input
+                    type="checkbox"
+                    v-model="form.consent_dataset"
+                    class="sr-only peer"
+                  />
+                  <div class="w-11 h-6 bg-foreground/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+              </div>
             </div>
 
             <div class="mt-4 flex items-center justify-between">

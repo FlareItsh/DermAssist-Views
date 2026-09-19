@@ -181,12 +181,6 @@
   const captureAndScan = async () => {
     if (isScanning.value) return
 
-    if (!agreeToConsent.value) {
-      toast.warning('Please review and agree to the Medical Disclaimer & Terms before scanning.')
-      openTermsModal('terms')
-      return
-    }
-
     // Case 1: Scanning a previewed (uploaded or already captured) image
     if (previewImage.value && selectedFile.value) {
       await performDiagnosis(selectedFile.value as File)
@@ -411,15 +405,10 @@
             v-if="!isScanning"
             class="absolute bottom-3 left-2 z-20 flex items-center pointer-events-auto max-w-[calc(100%-23rem)]"
           >
-            <div class="flex items-center gap-2.5 rounded-2xl border border-white/20 bg-black/30 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md">
-              <input
-                id="scanner-consent-desktop"
-                v-model="agreeToConsent"
-                type="checkbox"
-                class="accent-primary h-4 w-4 shrink-0 rounded border-white/30 cursor-pointer"
-              />
-              <label for="scanner-consent-desktop" class="text-[11px] sm:text-xs text-white/90 select-none cursor-pointer leading-tight">
-                I understand AI results are assistive only and agree to the
+            <div class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+              <Icon name="lucide:info" class="text-primary h-3.5 w-3.5 shrink-0" />
+              <p class="text-[11px] sm:text-xs text-white/90 select-none leading-tight">
+                AI results are assistive only.
                 <button
                   type="button"
                   class="text-primary font-bold underline underline-offset-2 hover:opacity-85 cursor-pointer ml-0.5"
@@ -434,8 +423,8 @@
                   @click.stop="openTermsModal('privacy')"
                 >
                   Privacy Policy
-                </button>.
-              </label>
+                </button>
+              </p>
             </div>
           </div>
 
@@ -443,7 +432,6 @@
             :is-camera-on="isCameraOn || !!previewImage"
             :is-scanning="isScanning"
             :has-quality-error="!!qualityError"
-            :has-consent="agreeToConsent"
             @toggle-camera="toggleCamera"
             @trigger-file="triggerFileInput"
             @scan="captureAndScan"

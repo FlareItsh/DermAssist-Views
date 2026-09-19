@@ -241,12 +241,6 @@ const compressImage = (file: File): Promise<Blob> => {
 const captureAndDiagnose = async () => {
   if (isScanning.value) return
 
-  if (!agreeToConsent.value) {
-    toast.warning('Please review and agree to the Medical Disclaimer & Terms before scanning.')
-    openTermsModal('terms')
-    return
-  }
-
   // Case 1: Diagnose already loaded file/preview
   if (previewImage.value && selectedFile.value) {
     await runDiagnosis(selectedFile.value)
@@ -463,17 +457,12 @@ const statusText = computed(() => {
       </div>
     </div>
 
-    <!-- AI Consent Checkbox Banner -->
+    <!-- AI Disclaimer Banner -->
     <div v-if="!isScanning" class="absolute bottom-48 left-4 right-4 z-30 flex justify-center">
-      <div class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/75 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md max-w-sm">
-        <input
-          id="scanner-consent-mobile"
-          v-model="agreeToConsent"
-          type="checkbox"
-          class="accent-primary h-4 w-4 shrink-0 rounded border-white/30 cursor-pointer"
-        />
-        <label for="scanner-consent-mobile" class="text-[10px] text-white/90 select-none cursor-pointer leading-tight">
-          I acknowledge AI results are assistive only and accept the
+      <div class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/75 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md max-w-sm">
+        <Icon name="lucide:info" class="text-primary h-3.5 w-3.5 shrink-0" />
+        <p class="text-[10px] text-white/90 select-none leading-tight">
+          AI results are assistive only.
           <button
             type="button"
             class="text-primary font-bold underline underline-offset-2 hover:opacity-80"
@@ -488,8 +477,8 @@ const statusText = computed(() => {
             @click.stop="openTermsModal('privacy')"
           >
             Privacy Policy
-          </button>.
-        </label>
+          </button>
+        </p>
       </div>
     </div>
 
@@ -510,7 +499,7 @@ const statusText = computed(() => {
         <!-- Main shutter / diagnose button -->
         <button
           @click="captureAndDiagnose"
-          :disabled="isScanning || (qualityError !== null && isCameraOn) || !agreeToConsent"
+          :disabled="isScanning || (qualityError !== null && isCameraOn)"
           class="h-20 w-20 rounded-full bg-white flex items-center justify-center shadow-2xl active:scale-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <div class="h-16 w-16 rounded-full border-4 border-black/10 flex items-center justify-center">
