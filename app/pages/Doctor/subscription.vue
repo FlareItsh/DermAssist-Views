@@ -263,7 +263,6 @@
 
     const items: string[] = []
 
-    // If passed the whole plan object with normalized plan_features
     if (planOrFeatures.plan_features && Array.isArray(planOrFeatures.plan_features)) {
       planOrFeatures.plan_features.forEach((pf: any) => {
         if (pf.is_included && pf.name) {
@@ -293,13 +292,13 @@
       }
 
       if (features.show_in_recommendation === true) {
-        items.push('Patient Scan Recommendations Access')
+        items.push('Patient Scan Recommendations')
       }
       if (features.can_execute_scan === true) {
-        items.push('Full Doctor AI Scan Execution')
+        items.push('Doctor AI Scan Execution')
       }
       if (features.export_pdf_reports === true) {
-        items.push('Export PDF Clinical Reports')
+        items.push('PDF Clinical Report Exports')
       }
       if (features.unlimited_appointments === true) {
         items.push('Teleconsultation Appointments')
@@ -330,60 +329,21 @@
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl space-y-8 pb-12">
+  <div class="mx-auto flex max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6">
     <!-- Header -->
-    <div
-      class="border-border flex flex-col justify-between gap-4 border-b pb-5 md:flex-row md:items-center"
-    >
+    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
       <div>
-        <h1 class="text-foreground text-2xl font-bold tracking-tight">Subscription & Billing</h1>
-        <p class="text-muted-foreground mt-1 text-sm">
-          Manage your practice tier, view billing statements, and upgrade plan limits.
+        <h1 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
+          Subscription & Plans
+        </h1>
+        <p class="text-xs text-gray-500 sm:text-sm">
+          Manage your clinical practice tier, multi-doctor clinic seat allocation, and billing
+          history.
         </p>
-      </div>
-
-      <!-- Billing Cycle Toggle -->
-      <div
-        class="bg-card border-sidebar-border inline-flex items-center self-start rounded-2xl border p-1 shadow-xs md:self-auto"
-      >
-        <button
-          type="button"
-          @click="billingCycle = 'monthly'"
-          class="cursor-pointer rounded-xl px-4 py-1.5 text-xs font-bold transition-all"
-          :class="
-            billingCycle === 'monthly'
-              ? 'bg-primary text-primary-foreground shadow-xs'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
-          "
-        >
-          Monthly Billing
-        </button>
-        <button
-          type="button"
-          @click="billingCycle = 'annual'"
-          class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-1.5 text-xs font-bold transition-all"
-          :class="
-            billingCycle === 'annual'
-              ? 'bg-primary text-primary-foreground shadow-xs'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
-          "
-        >
-          Annual Billing
-          <span
-            class="rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-tight"
-            :class="
-              billingCycle === 'annual'
-                ? 'bg-primary-foreground/20 text-primary-foreground'
-                : 'bg-primary/10 text-primary'
-            "
-          >
-            Save ~17%
-          </span>
-        </button>
       </div>
     </div>
 
-    <!-- Return Alert Banner -->
+    <!-- Alert Feedback Banner -->
     <AppAlert
       v-if="bannerAlert.type"
       :type="bannerAlert.type"
@@ -391,163 +351,113 @@
       :description="bannerAlert.description"
     />
 
-    <!-- Dual Coverage / Associate Notice Banner -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <!-- UNIFIED HERO CARD: ACTIVE PLAN & CLINICAL COVERAGE                        -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
     <div
-      v-if="associateCoverage"
-      class="flex flex-col justify-between gap-4 rounded-3xl border border-indigo-500/20 bg-indigo-500/5 p-6 shadow-xs sm:flex-row sm:items-center"
+      v-if="currentSubscription || associateCoverage"
+      class="relative overflow-hidden rounded-3xl border border-gray-200/90 bg-white p-5 shadow-xs transition-all hover:border-gray-300 sm:p-6"
     >
-      <div class="flex items-start gap-3.5">
-        <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
-        >
-          <Icon
-            name="lucide:building-2"
-            class="h-5 w-5"
-          />
-        </div>
+      <!-- Top Section: Plan Headline & Status -->
+      <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
         <div>
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-bold">Clinic Associate Coverage</h4>
-            <span
-              class="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 capitalize dark:text-indigo-400"
-            >
-              {{ associateCoverage.role }}
-            </span>
-            <span
-              v-if="isInherited"
-              class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600"
-            >
-              Active Coverage
-            </span>
-          </div>
-          <p class="text-muted-foreground mt-0.5 text-xs">
-            Stationed at
-            <strong class="text-foreground">{{ associateCoverage.clinic_name }}</strong> • Sponsored
-            by <strong class="text-foreground">Dr. {{ associateCoverage.owner_name }}</strong> under
-            their {{ associateCoverage.plan_name }}.
-          </p>
-          <p
-            v-if="directSubscription && isInherited"
-            class="text-muted-foreground mt-1 text-[11px]"
-          >
-            Note: You also hold a personal {{ directSubscription.plan?.name || 'subscription' }}.
-            Your active status is automatically upgraded to Dr. {{ associateCoverage.owner_name }}'s
-            {{ associateCoverage.plan_name }} to grant you full multi-doctor clinical privileges.
-          </p>
-          <p
-            v-else-if="!isInherited"
-            class="text-muted-foreground mt-1 text-[11px]"
-          >
-            You hold your own personal active plan, and you are also covered with shared clinic
-            capabilities under this clinic branch.
-          </p>
-        </div>
-      </div>
-
-      <AppButton
-        to="/doctor/profile?tab=clinics"
-        variant="solid"
-        size="sm"
-        class="shrink-0 self-start shadow-xs sm:self-auto"
-      >
-        <Icon
-          name="lucide:building"
-          class="mr-1.5 h-4 w-4"
-        />
-        <span>View Clinic & Doctor Team</span>
-      </AppButton>
-    </div>
-
-    <!-- Active Subscription Banner -->
-    <div
-      v-if="currentSubscription"
-      class="border-primary/20 bg-card space-y-4 rounded-3xl border p-6 shadow-sm"
-    >
-      <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div class="space-y-1">
+          <!-- Status Badges Row -->
           <div class="flex flex-wrap items-center gap-2">
-            <span class="text-primary text-xs font-semibold tracking-wider uppercase"
-              >Current Plan</span
+            <span
+              class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-indigo-600 uppercase"
             >
+              Current Plan
+            </span>
+
             <AppBadge
-              :color="getBadgeColor(currentSubscription.status)"
+              :color="getBadgeColor(currentSubscription?.status || 'active')"
               variant="subtle"
               size="sm"
             >
-              {{ currentSubscription.status }}
+              {{ currentSubscription?.status || 'Active' }}
             </AppBadge>
+
             <span
               v-if="isInherited"
-              class="rounded-full border border-indigo-500/20 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600"
+              class="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700"
             >
+              <Icon
+                name="lucide:shield-check"
+                class="text-xs"
+              />
               Sponsored by Clinic
             </span>
-            <AppBadge
-              v-else-if="currentSubscription.auto_renew"
-              color="success"
-              variant="subtle"
-              size="sm"
+
+            <span
+              v-else-if="currentSubscription?.auto_renew"
+              class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700"
             >
               <Icon
                 name="lucide:refresh-cw"
-                class="mr-1 h-3 w-3"
+                class="text-xs"
               />
-              Auto-Renew On
-            </AppBadge>
-            <AppBadge
+              Auto-Renew Active
+            </span>
+
+            <span
               v-else
-              color="warning"
-              variant="subtle"
-              size="sm"
+              class="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800"
             >
               <Icon
                 name="lucide:refresh-ccw-off"
-                class="mr-1 h-3 w-3"
+                class="text-xs"
               />
               Auto-Renew Off
-            </AppBadge>
+            </span>
           </div>
-          <h2 class="text-foreground text-xl font-bold">
+
+          <!-- Plan Title -->
+          <h2 class="mt-2 text-xl font-black text-gray-900 sm:text-2xl">
             {{
-              currentSubscription.plan_snapshot?.name ||
-              currentSubscription.plan?.name ||
-              'Standard Tier'
+              currentSubscription?.plan_snapshot?.name ||
+              currentSubscription?.plan?.name ||
+              associateCoverage?.plan_name ||
+              'Clinical Tier'
             }}
-            <span class="text-muted-foreground text-sm font-normal"
-              >({{ currentSubscription.billing_cycle }})</span
-            >
+            <span class="text-sm font-semibold text-gray-400">
+              ({{ currentSubscription?.billing_cycle || 'monthly' }})
+            </span>
           </h2>
-          <p
-            v-if="!isInherited"
-            class="text-muted-foreground text-xs"
-          >
-            {{
-              currentSubscription.is_pending_cancellation ? 'Expires on' : 'Renews / Valid until'
-            }}
-            {{
-              new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            }}
-          </p>
-          <p
-            v-else
-            class="text-muted-foreground text-xs"
-          >
-            Active via Clinic Seat Membership • Billing managed by Clinic Owner
+
+          <!-- Plan Subtitle / Renewal Date -->
+          <p class="mt-1 text-xs text-gray-500">
+            <template v-if="!isInherited && currentSubscription?.ends_at">
+              {{
+                currentSubscription.is_pending_cancellation
+                  ? 'Access expires on:'
+                  : 'Next renewal / valid until:'
+              }}
+              <strong class="text-gray-800">
+                {{
+                  new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })
+                }}
+              </strong>
+            </template>
+            <template v-else-if="isInherited">
+              Active via Clinic Seat Membership • Billing managed by Clinic Owner
+            </template>
           </p>
         </div>
 
+        <!-- Direct Actions on Active Plan (If not inherited) -->
         <div
-          v-if="!isInherited"
-          class="flex flex-wrap items-center gap-2.5"
+          v-if="!isInherited && currentSubscription"
+          class="flex flex-wrap items-center gap-2"
         >
           <AppButton
             v-if="currentSubscription.is_pending_cancellation || !currentSubscription.auto_renew"
             variant="solid"
             size="sm"
+            class="bg-indigo-600 text-white hover:bg-indigo-700"
             :loading="isResumingSub"
             @click="handleResumeSubscription"
           >
@@ -557,10 +467,12 @@
             />
             Resume Auto-Renew
           </AppButton>
+
           <AppButton
             v-if="currentSubscription.status === 'expired' || !currentSubscription.is_active"
             variant="solid"
             size="sm"
+            class="bg-indigo-600 text-white hover:bg-indigo-700"
             @click="openCheckout(currentSubscription.plan)"
           >
             <Icon
@@ -569,6 +481,7 @@
             />
             Renew Plan
           </AppButton>
+
           <AppButton
             v-if="
               currentSubscription.is_active &&
@@ -578,7 +491,7 @@
             "
             variant="ghost"
             size="sm"
-            class="text-destructive hover:bg-destructive/10 cursor-pointer text-xs"
+            class="text-xs font-bold text-rose-600 hover:bg-rose-50"
             @click="openCancelModal"
           >
             <Icon
@@ -590,10 +503,65 @@
         </div>
       </div>
 
-      <!-- Auto-Renew Toggle Bar (Doctor direct subscription) -->
+      <!-- Associate Clinic Coverage Integration Box (When covered under a clinic) -->
       <div
-        v-if="!isInherited"
-        class="border-sidebar-border flex flex-col justify-between gap-3 border-t pt-3 text-xs sm:flex-row sm:items-center"
+        v-if="associateCoverage"
+        class="mt-4 flex flex-col justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 sm:flex-row sm:items-center"
+      >
+        <div class="flex items-start gap-3">
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700"
+          >
+            <Icon
+              name="lucide:building-2"
+              class="h-4 w-4"
+            />
+          </div>
+          <div class="text-xs">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-gray-900">Clinic Associate Station</span>
+              <span
+                class="py-0.2 rounded-md bg-indigo-100/80 px-1.5 text-[10px] font-bold text-indigo-700 uppercase"
+              >
+                {{ associateCoverage.role || 'Associate' }}
+              </span>
+            </div>
+            <p class="mt-0.5 text-gray-600">
+              Stationed at
+              <strong class="text-gray-900">{{ associateCoverage.clinic_name }}</strong> • Sponsored
+              by <strong class="text-gray-900">Dr. {{ associateCoverage.owner_name }}</strong> under
+              their {{ associateCoverage.plan_name }}.
+            </p>
+            <p
+              v-if="directSubscription && isInherited"
+              class="mt-1 text-[11px] text-gray-500"
+            >
+              Note: You also hold a personal {{ directSubscription.plan?.name || 'subscription' }}.
+              Your active status is automatically upgraded to Dr.
+              {{ associateCoverage.owner_name }}'s {{ associateCoverage.plan_name }} for full team
+              privileges.
+            </p>
+          </div>
+        </div>
+
+        <AppButton
+          to="/doctor/profile?tab=clinics"
+          variant="outline"
+          size="sm"
+          class="shrink-0 border-indigo-200 bg-white font-bold text-indigo-700 hover:bg-indigo-50"
+        >
+          <Icon
+            name="lucide:users"
+            class="mr-1.5 h-3.5 w-3.5"
+          />
+          View Clinic Team
+        </AppButton>
+      </div>
+
+      <!-- Auto-Renewal Switch Row (Direct subscriptions only) -->
+      <div
+        v-if="!isInherited && currentSubscription"
+        class="mt-4 flex flex-col justify-between gap-3 border-t border-gray-100 pt-3 text-xs sm:flex-row sm:items-center"
       >
         <div class="flex items-center gap-2.5">
           <button
@@ -602,22 +570,22 @@
             :aria-checked="currentSubscription.auto_renew"
             :disabled="isTogglingAutoRenew"
             @click="handleToggleAutoRenew(!currentSubscription.auto_renew)"
-            class="focus:ring-primary relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
-            :class="currentSubscription.auto_renew ? 'bg-primary' : 'bg-muted-foreground/30'"
+            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            :class="currentSubscription.auto_renew ? 'bg-indigo-600' : 'bg-gray-200'"
           >
             <span
-              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out"
+              class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out"
               :class="currentSubscription.auto_renew ? 'translate-x-4' : 'translate-x-0'"
             />
           </button>
           <div>
-            <span class="text-foreground font-bold">
+            <span class="font-bold text-gray-900">
               Auto-Renewal: {{ currentSubscription.auto_renew ? 'Active' : 'Disabled' }}
             </span>
-            <span class="text-muted-foreground ml-1 text-[11px]">
+            <span class="ml-1 text-[11px] text-gray-500">
               ({{
                 currentSubscription.auto_renew
-                  ? 'Plan extends automatically on expiration date'
+                  ? 'Plan automatically renews on expiration date'
                   : 'Plan will not renew; access ends on expiration date'
               }})
             </span>
@@ -626,7 +594,7 @@
 
         <div
           v-if="currentSubscription.is_pending_cancellation"
-          class="flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400"
+          class="flex items-center gap-1 text-[11px] font-medium text-amber-700"
         >
           <Icon
             name="lucide:clock"
@@ -637,346 +605,298 @@
       </div>
     </div>
 
-    <!-- Pending Cancellation Alert Banner -->
-    <div
-      v-if="currentSubscription?.is_pending_cancellation && !isInherited"
-      class="flex flex-col justify-between gap-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-xs sm:flex-row sm:items-center"
-    >
-      <div class="flex items-start gap-3.5">
-        <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400"
-        >
-          <Icon
-            name="lucide:alert-triangle"
-            class="h-5 w-5"
-          />
-        </div>
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <!-- PLAN SELECTION SECTION                                                    -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <div class="space-y-4">
+      <!-- Section Header with Contextual Billing Cycle Switcher -->
+      <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div>
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-bold">
-              Subscription Scheduled for Cancellation
-            </h4>
-            <span
-              class="rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
-            >
-              No Auto-Renewal
-            </span>
-          </div>
-          <p class="text-muted-foreground mt-0.5 text-xs">
-            You cancelled auto-renewal. Your active benefits (AI scans, doctor seats, practice
-            quotas) remain accessible until
-            <strong class="text-foreground">{{
-              new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            }}</strong
-            >. You can resume auto-renew anytime before then.
+          <h2 class="text-lg font-black text-gray-900 sm:text-xl">Available Practice Plans</h2>
+          <p class="text-xs text-gray-500">
+            Scale your clinical capacity, add doctor seats, or register secretary accounts.
           </p>
         </div>
-      </div>
 
-      <AppButton
-        variant="solid"
-        size="sm"
-        class="shrink-0 self-start shadow-xs sm:self-auto"
-        :loading="isResumingSub"
-        @click="handleResumeSubscription"
-      >
-        <Icon
-          name="lucide:rotate-ccw"
-          class="mr-1.5 h-4 w-4"
-        />
-        <span>Keep / Resume Plan</span>
-      </AppButton>
-    </div>
-
-    <!-- Plan Update Available Notice -->
-    <div
-      v-if="currentSubscription?.has_plan_update && !isInherited"
-      class="flex flex-col justify-between gap-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 shadow-xs sm:flex-row sm:items-center"
-    >
-      <div class="flex items-start gap-3.5">
+        <!-- Billing Cycle Toggle -->
         <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400"
+          class="inline-flex items-center self-start rounded-2xl border border-gray-200 bg-gray-100 p-1 shadow-2xs sm:self-auto"
         >
-          <Icon
-            name="lucide:sparkles"
-            class="h-5 w-5"
-          />
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h4 class="text-foreground text-sm font-bold">New Plan Updates Available!</h4>
-            <span
-              class="rounded-full border border-amber-500/30 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300"
-            >
-              v{{ currentSubscription.latest_plan_version || 'Latest' }} Available
-            </span>
-          </div>
-          <p class="text-muted-foreground mt-0.5 text-xs">
-            Your plan has received new features and quota updates. Your current access remains
-            locked to your original terms until renewal on
-            {{
-              new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            }}. You can upgrade / renew now to gain immediate access to the new features!
-          </p>
-        </div>
-      </div>
-
-      <AppButton
-        variant="solid"
-        size="sm"
-        class="shrink-0 self-start bg-amber-600 text-white shadow-xs hover:bg-amber-700 sm:self-auto"
-        @click="openCheckout(currentSubscription.plan)"
-      >
-        <Icon
-          name="lucide:arrow-up-circle"
-          class="mr-1.5 h-4 w-4"
-        />
-        <span>Upgrade / Renew to Latest</span>
-      </AppButton>
-    </div>
-
-    <!-- Loading Skeleton -->
-    <div
-      v-if="isLoading"
-      class="grid gap-6 md:grid-cols-3"
-    >
-      <div
-        v-for="n in 3"
-        :key="n"
-        class="bg-muted/20 h-96 animate-pulse rounded-3xl"
-      ></div>
-    </div>
-
-    <!-- Pricing Cards Grid -->
-    <div
-      v-else
-      class="grid items-stretch gap-6 md:grid-cols-3"
-    >
-      <div
-        v-for="plan in plans"
-        :key="plan.uuid"
-        :class="[
-          'bg-card relative flex flex-col justify-between rounded-3xl border p-6 shadow-sm transition-all',
-          currentSubscription?.plan?.uuid === plan.uuid
-            ? 'border-primary ring-primary/20 ring-2'
-            : 'border-sidebar-border hover:border-primary/50'
-        ]"
-      >
-        <div class="space-y-4">
-          <!-- Recommended Badge -->
-          <div
-            v-if="plan.tier_type === 'professional'"
-            class="absolute -top-3 left-1/2 -translate-x-1/2"
+          <button
+            type="button"
+            @click="billingCycle = 'monthly'"
+            class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              billingCycle === 'monthly'
+                ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
+            "
           >
-            <AppBadge
-              color="primary"
-              variant="solid"
-              size="sm"
-            >
-              Most Popular
-            </AppBadge>
-          </div>
-
-          <div>
-            <h3 class="text-foreground text-lg font-bold">{{ plan.name }}</h3>
-            <p class="text-muted-foreground mt-0.5 text-xs">
-              {{ formatTierLabel(plan.tier_type) }}
-            </p>
-          </div>
-
-          <!-- Price Display -->
-          <div class="flex items-baseline gap-1">
-            <span class="text-foreground text-3xl font-extrabold">
-              ₱{{ calculateBasePrice(plan).toLocaleString() }}
-            </span>
-            <span class="text-muted-foreground text-xs font-medium">
-              / {{ billingCycle === 'annual' ? 'year' : 'month' }}
-            </span>
-          </div>
-
-          <!-- Quotas List -->
-          <ul class="border-sidebar-border text-foreground/80 space-y-2.5 border-t pt-4 text-xs">
-            <li class="flex items-center gap-2">
-              <Icon
-                name="heroicons:check-circle"
-                class="text-primary h-4 w-4 shrink-0"
-              />
-              <span
-                ><strong>{{ plan.max_doctors ? plan.max_doctors : 'Unlimited' }}</strong> Doctor
-                Seats</span
-              >
-            </li>
-            <li class="flex items-center gap-2">
-              <Icon
-                name="heroicons:check-circle"
-                class="text-primary h-4 w-4 shrink-0"
-              />
-              <span
-                ><strong>{{ plan.max_clinics ? plan.max_clinics : 'Unlimited' }}</strong> Clinic
-                Branches</span
-              >
-            </li>
-            <li
-              v-if="
-                plan.max_secretaries !== undefined &&
-                plan.max_secretaries !== null &&
-                plan.max_secretaries > 0
+            Monthly Billing
+          </button>
+          <button
+            type="button"
+            @click="billingCycle = 'annual'"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              billingCycle === 'annual'
+                ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
+                : 'text-gray-500 hover:text-gray-800'
+            "
+          >
+            Annual Billing
+            <span
+              class="rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+              :class="
+                billingCycle === 'annual'
+                  ? 'bg-indigo-50 text-indigo-700'
+                  : 'bg-emerald-100 text-emerald-800'
               "
-              class="flex items-center gap-2"
             >
-              <Icon
-                name="heroicons:check-circle"
-                class="text-primary h-4 w-4 shrink-0"
-              />
-              <span
-                ><strong>{{ plan.max_secretaries }}</strong> Secretary Account{{
-                  plan.max_secretaries > 1 ? 's' : ''
-                }}</span
-              >
-            </li>
-            <li
-              v-else-if="plan.max_secretaries === null"
-              class="flex items-center gap-2"
-            >
-              <Icon
-                name="heroicons:check-circle"
-                class="text-primary h-4 w-4 shrink-0"
-              />
-              <span><strong>Unlimited</strong> Secretary Accounts</span>
-            </li>
-            <li
-              v-for="(feat, idx) in extractFeatureItems(plan)"
-              :key="idx"
-              class="flex items-center gap-2"
-            >
-              <Icon
-                name="heroicons:check-circle"
-                class="text-primary h-4 w-4 shrink-0"
-              />
-              <span>{{ feat }}</span>
-            </li>
-          </ul>
+              Save ~17%
+            </span>
+          </button>
         </div>
+      </div>
 
-        <div class="space-y-2 pt-6">
-          <AppButton
-            :variant="
-              currentSubscription?.plan?.uuid === plan.uuid &&
-              currentSubscription?.is_active &&
-              currentSubscription?.status === 'active' &&
-              !currentSubscription?.has_plan_update
-                ? 'ghost'
-                : 'solid'
-            "
-            block
-            :disabled="
-              currentSubscription?.plan?.uuid === plan.uuid &&
-              currentSubscription?.is_active &&
-              currentSubscription?.status === 'active' &&
-              !currentSubscription?.has_plan_update
-            "
-            @click="openCheckout(plan)"
-          >
-            {{
-              currentSubscription?.plan?.uuid === plan.uuid
-                ? currentSubscription?.is_active && currentSubscription?.status === 'active'
-                  ? currentSubscription?.has_plan_update
-                    ? 'Upgrade to Latest Version'
-                    : 'Current Active Plan'
-                  : 'Renew Plan'
-                : currentSubscription?.is_active && currentSubscription?.status === 'active'
-                  ? 'Switch to Plan'
-                  : 'Subscribe Now'
-            }}
-          </AppButton>
+      <!-- Loading Skeleton -->
+      <div
+        v-if="isLoading"
+        class="grid grid-cols-1 gap-5 md:grid-cols-3"
+      >
+        <div
+          v-for="n in 3"
+          :key="n"
+          class="h-80 animate-pulse rounded-3xl border border-gray-200/70 bg-gray-50/80 p-5 shadow-xs"
+        />
+      </div>
 
-          <AppButton
-            v-if="
-              currentSubscription?.plan?.uuid === plan.uuid &&
-              plan.max_doctors &&
-              plan.max_doctors > 1 &&
-              !isInherited
-            "
-            to="/doctor/profile?tab=clinics#seats"
-            variant="solid"
-            size="sm"
-            block
-          >
-            <Icon
-              name="lucide:user-plus"
-              class="mr-1 h-4 w-4"
-            />
-            <span>Manage Doctor Seats</span>
-          </AppButton>
+      <!-- Pricing Cards Grid -->
+      <div
+        v-else
+        class="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3"
+      >
+        <div
+          v-for="plan in plans"
+          :key="plan.uuid"
+          :class="[
+            'relative flex flex-col justify-between rounded-3xl border bg-white p-5 shadow-xs transition-all hover:shadow-md sm:p-6',
+            currentSubscription?.plan?.uuid === plan.uuid
+              ? 'border-indigo-600 ring-2 ring-indigo-600/20'
+              : 'border-gray-200/80 hover:border-indigo-300'
+          ]"
+        >
+          <div>
+            <!-- Most Popular Badge -->
+            <div
+              v-if="plan.tier_type === 'professional'"
+              class="absolute -top-3 left-1/2 -translate-x-1/2"
+            >
+              <span
+                class="rounded-full bg-indigo-600 px-3 py-0.5 text-[10px] font-extrabold tracking-wide text-white shadow-xs"
+              >
+                MOST POPULAR
+              </span>
+            </div>
 
-          <AppButton
-            v-else-if="currentSubscription?.plan?.uuid === plan.uuid && isInherited"
-            to="/doctor/profile?tab=clinics#seats"
-            variant="outline"
-            size="sm"
-            block
-          >
-            <Icon
-              name="lucide:users"
-              class="mr-1.5 h-4 w-4"
-            />
-            <span>View Doctor Team</span>
-          </AppButton>
+            <!-- Card Header -->
+            <div class="flex items-baseline justify-between">
+              <div>
+                <h3 class="text-base font-black text-gray-900">{{ plan.name }}</h3>
+                <p class="text-[11px] font-semibold text-gray-500">
+                  {{ formatTierLabel(plan.tier_type) }}
+                </p>
+              </div>
+
+              <span
+                v-if="currentSubscription?.plan?.uuid === plan.uuid"
+                class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+              >
+                Current
+              </span>
+            </div>
+
+            <!-- Price -->
+            <div class="mt-4 flex items-baseline gap-1">
+              <span class="text-3xl font-black text-gray-900">
+                ₱{{ calculateBasePrice(plan).toLocaleString() }}
+              </span>
+              <span class="text-xs font-semibold text-gray-400">
+                / {{ billingCycle === 'annual' ? 'year' : 'month' }}
+              </span>
+            </div>
+
+            <!-- Quotas Row -->
+            <div
+              class="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-gray-50/70 p-2.5 text-center text-xs"
+            >
+              <div>
+                <span class="block text-[10px] font-bold text-gray-400 uppercase">Doctors</span>
+                <span class="font-extrabold text-gray-900">
+                  {{ plan.max_doctors ? plan.max_doctors : 'Unlimited' }}
+                </span>
+              </div>
+              <div class="border-x border-gray-200/60">
+                <span class="block text-[10px] font-bold text-gray-400 uppercase">Clinics</span>
+                <span class="font-extrabold text-gray-900">
+                  {{ plan.max_clinics ? plan.max_clinics : 'Unlimited' }}
+                </span>
+              </div>
+              <div>
+                <span class="block text-[10px] font-bold text-gray-400 uppercase">Secretaries</span>
+                <span class="font-extrabold text-gray-900">
+                  {{ plan.max_secretaries ?? 'Unlimited' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Feature Checkmarks List -->
+            <ul class="mt-4 space-y-2 border-t border-gray-100 pt-4 text-xs text-gray-600">
+              <li
+                v-for="(feat, idx) in extractFeatureItems(plan)"
+                :key="idx"
+                class="flex items-center gap-2"
+              >
+                <Icon
+                  name="lucide:check-circle-2"
+                  class="h-4 w-4 shrink-0 text-indigo-600"
+                />
+                <span class="font-medium text-gray-700">{{ feat }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Bottom Card Actions -->
+          <div class="mt-6 space-y-2 border-t border-gray-100 pt-2">
+            <AppButton
+              :variant="
+                currentSubscription?.plan?.uuid === plan.uuid &&
+                currentSubscription?.is_active &&
+                currentSubscription?.status === 'active' &&
+                !currentSubscription?.has_plan_update
+                  ? 'ghost'
+                  : 'solid'
+              "
+              block
+              class="w-full justify-center text-xs font-bold"
+              :class="
+                currentSubscription?.plan?.uuid === plan.uuid &&
+                currentSubscription?.is_active &&
+                currentSubscription?.status === 'active' &&
+                !currentSubscription?.has_plan_update
+                  ? 'cursor-default border border-gray-200 bg-gray-50 text-gray-500'
+                  : 'bg-indigo-600 text-white hover:bg-indigo-700'
+              "
+              :disabled="
+                currentSubscription?.plan?.uuid === plan.uuid &&
+                currentSubscription?.is_active &&
+                currentSubscription?.status === 'active' &&
+                !currentSubscription?.has_plan_update
+              "
+              @click="openCheckout(plan)"
+            >
+              {{
+                currentSubscription?.plan?.uuid === plan.uuid
+                  ? currentSubscription?.is_active && currentSubscription?.status === 'active'
+                    ? currentSubscription?.has_plan_update
+                      ? 'Upgrade to Latest Version'
+                      : 'Current Active Plan'
+                    : 'Renew Plan'
+                  : currentSubscription?.is_active && currentSubscription?.status === 'active'
+                    ? 'Switch to Plan'
+                    : 'Subscribe Now'
+              }}
+            </AppButton>
+
+            <AppButton
+              v-if="
+                currentSubscription?.plan?.uuid === plan.uuid &&
+                plan.max_doctors &&
+                plan.max_doctors > 1 &&
+                !isInherited
+              "
+              to="/doctor/profile?tab=clinics#seats"
+              variant="outline"
+              size="sm"
+              block
+              class="w-full justify-center border-indigo-200 text-xs font-bold text-indigo-700 hover:bg-indigo-50"
+            >
+              <Icon
+                name="lucide:user-plus"
+                class="mr-1 h-3.5 w-3.5"
+              />
+              Manage Doctor Seats
+            </AppButton>
+
+            <AppButton
+              v-else-if="currentSubscription?.plan?.uuid === plan.uuid && isInherited"
+              to="/doctor/profile?tab=clinics#seats"
+              variant="outline"
+              size="sm"
+              block
+              class="w-full justify-center border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
+            >
+              <Icon
+                name="lucide:users"
+                class="mr-1.5 h-3.5 w-3.5"
+              />
+              View Doctor Team
+            </AppButton>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Invoices / Purchase History -->
-    <div class="space-y-4 pt-6">
-      <h2 class="text-foreground text-lg font-bold">Payment & Billing History</h2>
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <!-- BILLING & INVOICE HISTORY                                                 -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <div class="space-y-3 pt-2">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-black text-gray-900 sm:text-xl">Payment & Billing History</h2>
+        <span class="text-xs font-semibold text-gray-500">
+          {{ invoices.length }} {{ invoices.length === 1 ? 'transaction' : 'transactions' }}
+        </span>
+      </div>
 
       <div
         v-if="invoices.length === 0"
-        class="border-sidebar-border bg-card rounded-3xl border p-8 text-center"
+        class="rounded-3xl border border-gray-200/80 bg-white p-8 text-center shadow-xs"
       >
         <Icon
-          name="heroicons:document-text"
-          class="text-muted-foreground mx-auto mb-2 h-10 w-10"
+          name="lucide:receipt"
+          class="mx-auto mb-2 h-10 w-10 text-gray-400"
         />
-        <p class="text-foreground text-sm font-medium">No payment invoices found</p>
-        <p class="text-muted-foreground mt-1 text-xs">
-          Select a plan above to initiate your first subscription order.
+        <p class="text-sm font-bold text-gray-800">No payment invoices found</p>
+        <p class="mt-1 text-xs text-gray-500">
+          Invoices and receipts will appear here once an online checkout is completed.
         </p>
       </div>
 
       <div
         v-else
-        class="border-sidebar-border bg-card overflow-hidden rounded-3xl border shadow-sm"
+        class="overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-xs"
       >
         <div class="overflow-x-auto">
-          <table class="text-foreground/80 w-full text-left text-xs">
+          <table class="w-full text-left text-xs text-gray-700">
             <thead
-              class="bg-muted/10 text-foreground border-sidebar-border border-b text-[11px] font-semibold tracking-wider uppercase"
+              class="border-b border-gray-200/80 bg-gray-50/80 text-[11px] font-bold tracking-wider text-gray-500 uppercase"
             >
               <tr>
-                <th class="px-4 py-3.5">Date</th>
-                <th class="px-4 py-3.5">Plan / Cycle</th>
-                <th class="px-4 py-3.5">Payment Type</th>
-                <th class="px-4 py-3.5">Reference</th>
-                <th class="px-4 py-3.5">Amount</th>
-                <th class="px-4 py-3.5 text-right">Status</th>
+                <th class="px-4 py-3">Date</th>
+                <th class="px-4 py-3">Plan / Cycle</th>
+                <th class="px-4 py-3">Payment Method</th>
+                <th class="px-4 py-3">Reference</th>
+                <th class="px-4 py-3">Amount</th>
+                <th class="px-4 py-3 text-right">Status</th>
               </tr>
             </thead>
-            <tbody class="divide-sidebar-border divide-y">
+            <tbody class="divide-y divide-gray-100">
               <tr
                 v-for="inv in paginatedInvoices"
                 :key="inv.uuid"
-                class="hover:bg-muted/10"
+                class="transition-colors hover:bg-gray-50/60"
               >
-                <td class="text-foreground px-4 py-3.5 font-medium">
+                <td class="px-4 py-3 font-semibold text-gray-900">
                   {{
                     new Date(inv.created_at).toLocaleDateString('en-US', {
                       month: 'short',
@@ -985,17 +905,17 @@
                     })
                   }}
                 </td>
-                <td class="px-4 py-3.5">
+                <td class="px-4 py-3 font-medium text-gray-800">
                   {{ inv.subscription?.plan?.name || 'Subscription' }}
                 </td>
-                <td class="text-foreground px-4 py-3.5 font-semibold uppercase">Online Checkout</td>
-                <td class="text-muted-foreground px-4 py-3.5 font-mono">
+                <td class="px-4 py-3 font-semibold text-gray-600 uppercase">Online Checkout</td>
+                <td class="px-4 py-3 font-mono text-[11px] text-gray-500">
                   {{ inv.transaction_reference || 'N/A' }}
                 </td>
-                <td class="text-foreground px-4 py-3.5 font-bold">
+                <td class="px-4 py-3 font-extrabold text-gray-900">
                   ₱{{ Number(inv.final_amount).toLocaleString() }}
                 </td>
-                <td class="px-4 py-3.5 text-right">
+                <td class="px-4 py-3 text-right">
                   <AppBadge
                     :color="getBadgeColor(inv.payment_status)"
                     variant="subtle"
@@ -1019,15 +939,16 @@
       </div>
     </div>
 
-    <!-- Checkout Modal Component -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <!-- CHECKOUT MODAL                                                            -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
     <AppModal
       v-model="isCheckoutOpen"
       :title="selectedPlan ? `Checkout: ${selectedPlan.name}` : 'Checkout'"
       :description="billingCycle === 'annual' ? 'Annual Billing Cycle' : 'Monthly Billing Cycle'"
       size="lg"
     >
-      <div class="space-y-6">
-        <!-- Alerts using AppAlert component -->
+      <div class="space-y-5">
         <AppAlert
           v-if="checkoutSuccessMsg"
           type="success"
@@ -1042,52 +963,51 @@
         />
 
         <!-- Order Summary -->
-        <div class="bg-muted/10 border-sidebar-border space-y-2 rounded-2xl border p-4 text-xs">
-          <div class="text-muted-foreground flex justify-between">
+        <div class="space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-xs">
+          <div class="flex justify-between text-gray-500">
             <span>Base Price ({{ billingCycle }})</span>
-            <span class="text-foreground font-semibold"
-              >₱{{ selectedPlan ? calculateBasePrice(selectedPlan).toLocaleString() : 0 }}</span
-            >
+            <span class="font-bold text-gray-900">
+              ₱{{ selectedPlan ? calculateBasePrice(selectedPlan).toLocaleString() : 0 }}
+            </span>
           </div>
           <div
             v-if="couponDiscount"
-            class="text-primary flex justify-between"
+            class="flex justify-between text-indigo-700"
           >
             <span>Discount ({{ couponDiscount.code }})</span>
-            <span class="font-semibold"
-              >-₱{{ couponDiscount.discount_amount.toLocaleString() }}</span
-            >
+            <span class="font-bold">-₱{{ couponDiscount.discount_amount.toLocaleString() }}</span>
           </div>
           <div
-            class="text-foreground border-sidebar-border flex justify-between border-t pt-2 text-sm font-bold"
+            class="flex justify-between border-t border-gray-200/80 pt-2 text-sm font-black text-gray-900"
           >
             <span>Total Amount</span>
-            <span
-              >₱{{
+            <span>
+              ₱{{
                 selectedPlan
                   ? (couponDiscount
                       ? couponDiscount.final_amount
                       : calculateBasePrice(selectedPlan)
                     ).toLocaleString()
                   : 0
-              }}</span
-            >
+              }}
+            </span>
           </div>
         </div>
 
         <!-- Coupon Input -->
         <div class="space-y-1.5">
-          <label class="text-foreground text-xs font-semibold">Have a Promo Coupon?</label>
+          <label class="block text-xs font-bold text-gray-700">Promo Coupon Code</label>
           <div class="flex gap-2">
             <input
               v-model="couponCode"
               type="text"
               placeholder="ENTER CODE"
-              class="border-sidebar-border bg-card text-foreground focus:ring-primary flex-1 rounded-2xl border px-3 py-2 font-mono text-xs uppercase focus:ring-2 focus:outline-hidden"
+              class="h-9 flex-1 rounded-xl border border-gray-200 bg-white px-3 font-mono text-xs text-gray-900 uppercase outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             />
             <AppButton
               variant="outline"
               size="sm"
+              class="rounded-xl"
               :disabled="isValidatingCoupon || !couponCode"
               :loading="isValidatingCoupon"
               @click="handleValidateCoupon"
@@ -1097,30 +1017,29 @@
           </div>
           <p
             v-if="couponError"
-            class="text-destructive text-[11px]"
+            class="text-[11px] font-bold text-rose-600"
           >
             {{ couponError }}
           </p>
         </div>
 
-        <!-- Instant Payment Method Features -->
-        <div class="bg-primary/5 border-primary/20 space-y-2 rounded-2xl border p-4 text-xs">
-          <p class="text-primary flex items-center gap-1.5 font-bold">
+        <!-- Payment Notice -->
+        <div class="space-y-1 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs">
+          <p class="flex items-center gap-1.5 font-bold text-indigo-900">
             <Icon
-              name="heroicons:bolt"
-              class="text-primary h-4 w-4"
+              name="lucide:zap"
+              class="h-4 w-4 text-indigo-600"
             />
             Instant Automated Subscription Activation
           </p>
-          <p class="text-muted-foreground">
-            You will be redirected to a secure checkout portal supporting
+          <p class="text-gray-600">
+            Secure checkout gateway supporting
             <strong>GCash, Maya, QR Ph, and Credit/Debit Cards</strong>. Your subscription activates
             immediately upon payment completion.
           </p>
         </div>
       </div>
 
-      <!-- Modal Footer -->
       <template #footer>
         <AppButton
           variant="ghost"
@@ -1132,6 +1051,7 @@
         <AppButton
           variant="solid"
           size="md"
+          class="bg-indigo-600 text-white hover:bg-indigo-700"
           :loading="isSubmittingCheckout"
           @click="processCheckout"
         >
@@ -1140,7 +1060,9 @@
       </template>
     </AppModal>
 
-    <!-- Cancellation Confirmation Modal -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
+    <!-- CANCELLATION CONFIRMATION MODAL                                           -->
+    <!-- ───────────────────────────────────────────────────────────────────────── -->
     <AppModal
       v-model="isCancelModalOpen"
       title="Cancel Subscription Plan"
@@ -1148,41 +1070,44 @@
       size="lg"
     >
       <div class="space-y-4 py-2">
-        <div class="bg-muted/20 border-sidebar-border space-y-1.5 rounded-2xl border p-4 text-xs">
-          <div class="text-foreground flex items-center gap-2 font-semibold">
+        <div class="space-y-1.5 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-xs">
+          <div class="flex items-center gap-2 font-bold text-gray-900">
             <Icon
               name="lucide:info"
-              class="text-primary h-4 w-4 shrink-0"
+              class="h-4 w-4 shrink-0 text-indigo-600"
             />
             <span>How cancellation works</span>
           </div>
-          <p class="text-muted-foreground">
+          <p class="text-gray-600">
             Your plan will remain fully active until
-            <strong class="text-foreground">{{
-              currentSubscription?.ends_at
-                ? new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })
-                : 'the end of your current cycle'
-            }}</strong
+            <strong class="text-gray-900">
+              {{
+                currentSubscription?.ends_at
+                  ? new Date(currentSubscription.ends_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })
+                  : 'the end of your current cycle'
+              }} </strong
             >. Auto-renewal will be turned off and you will not be charged again. You can resume
             your plan at any time before expiration.
           </p>
         </div>
 
         <div class="space-y-2">
-          <label class="text-foreground text-xs font-bold"
+          <label class="block text-xs font-bold text-gray-700"
             >Please select a reason for cancelling:</label
           >
           <div class="space-y-2">
             <label
               v-for="(reason, idx) in cancellationReasons"
               :key="idx"
-              class="border-sidebar-border hover:bg-muted/10 text-foreground flex cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-xs font-medium transition-colors"
+              class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 p-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
               :class="
-                cancelReason === reason ? 'border-primary bg-primary/5 ring-primary/30 ring-1' : ''
+                cancelReason === reason
+                  ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600/30'
+                  : ''
               "
             >
               <input
@@ -1190,7 +1115,7 @@
                 name="cancelReason"
                 :value="reason"
                 v-model="cancelReason"
-                class="accent-primary"
+                class="accent-indigo-600"
               />
               <span>{{ reason }}</span>
             </label>
@@ -1198,12 +1123,14 @@
         </div>
 
         <div class="space-y-1.5">
-          <label class="text-foreground text-xs font-bold">Additional feedback (optional):</label>
+          <label class="block text-xs font-bold text-gray-700"
+            >Additional feedback (optional):</label
+          >
           <textarea
             v-model="cancelFeedback"
             rows="3"
             placeholder="Help us improve DermAssist with any details or suggestions..."
-            class="border-sidebar-border bg-card text-foreground placeholder:text-muted-foreground focus:border-primary focus:ring-primary w-full rounded-xl border p-3 text-xs focus:ring-1 focus:outline-hidden"
+            class="w-full rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-800 placeholder-gray-400 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
           ></textarea>
         </div>
       </div>
@@ -1221,7 +1148,7 @@
           <AppButton
             variant="solid"
             size="md"
-            class="bg-destructive hover:bg-destructive/90 text-white"
+            class="bg-rose-600 text-white hover:bg-rose-700"
             :loading="isCancellingSub"
             @click="handleConfirmCancel"
           >
