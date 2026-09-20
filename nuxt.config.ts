@@ -10,7 +10,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   css: ['./app/assets/css/main.css', 'vue-sonner/style.css'],
   vite: {
-    plugins: [tailwindcss()]
+    plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: ['vue-sonner']
+    }
   },
   runtimeConfig: {
     public: {
