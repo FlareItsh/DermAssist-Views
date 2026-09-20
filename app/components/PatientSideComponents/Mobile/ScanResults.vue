@@ -450,13 +450,16 @@ onMounted(() => {
               </span>
               <p class="text-[10px] font-bold uppercase tracking-wider">Available Now</p>
             </div>
-            <div v-else class="bg-red-500/10 border border-red-500/20 text-red-600 rounded-lg p-3 flex flex-col gap-1">
-              <div class="flex items-center gap-2">
-                <Icon name="heroicons:exclamation-triangle" class="text-sm" />
-                <p class="text-[10px] font-bold uppercase tracking-wider">Not Available Now</p>
+            <div v-else class="bg-amber-500/10 border border-amber-500/20 text-amber-900 rounded-xl p-3 flex flex-col gap-1">
+              <div class="flex items-center gap-2 text-amber-800">
+                <Icon name="material-symbols:info-outline-rounded" class="text-base text-amber-600 shrink-0" />
+                <p class="text-[10px] font-bold uppercase tracking-wider">Doctor Away Today</p>
               </div>
-              <p v-if="availabilityStatus.next_available" class="text-xs mt-1">
-                Next available on <strong>{{ availabilityStatus.next_available.formatted }}</strong>
+              <p v-if="availabilityStatus.next_available" class="text-xs mt-0.5 text-amber-800/90 leading-relaxed">
+                Dr. {{ nearestDoctor.last_name }} is currently away. Next available on <strong>{{ availabilityStatus.next_available.formatted }}</strong>. You can still send your findings now for review upon return.
+              </p>
+              <p v-else class="text-xs mt-0.5 text-amber-800/90 leading-relaxed">
+                Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your findings now for review as soon as possible.
               </p>
             </div>
           </div>

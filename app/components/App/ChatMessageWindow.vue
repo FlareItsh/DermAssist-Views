@@ -1368,7 +1368,8 @@
                         ? 'material-symbols:calendar-month-rounded'
                         : 'material-symbols:diagnosis-outline-rounded'
                     "
-                    class="mb-2 text-3xl text-indigo-500"
+                    class="mb-2 text-3xl"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'"
                   />
                   <p class="text-lg font-bold">
                     {{
@@ -1377,7 +1378,10 @@
                         : 'Clinical Findings'
                     }}
                   </p>
-                  <p class="text-sm opacity-80">
+                  <p
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/90' : 'opacity-80'"
+                  >
                     {{
                       msg.message
                         .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
@@ -1392,28 +1396,44 @@
                 <!-- Diagnosis Details -->
                 <div
                   v-if="msg.appointment_data"
-                  class="bg-card/50 border-border/50 mt-3 rounded-2xl border p-4 shadow-sm backdrop-blur-sm"
+                  class="mt-3 rounded-2xl border p-4 shadow-sm"
+                  :class="[
+                    msg.sender?.id === effectiveUserUuid
+                      ? 'bg-white text-gray-900 border-white/20 shadow-md'
+                      : 'bg-card/50 border-border/50 text-foreground backdrop-blur-sm'
+                  ]"
                 >
                   <div class="flex gap-4">
                     <img
                       :src="getStorageUrl(msg.appointment_data.diagnosis.image_path)"
-                      class="border-border h-24 w-24 rounded-xl border object-cover shadow-sm"
+                      class="border-border h-24 w-24 rounded-xl border object-cover shadow-sm shrink-0"
                       alt="Diagnosis scan"
                     />
-                    <div class="flex flex-col justify-center gap-0.5">
-                      <p class="text-[10px] font-black tracking-widest text-indigo-500 uppercase">
+                    <div class="flex flex-col justify-center gap-0.5 min-w-0">
+                      <p
+                        class="text-[10px] font-black tracking-widest uppercase"
+                        :class="msg.sender?.id === effectiveUserUuid ? 'text-primary' : 'text-primary'"
+                      >
                         Clinical Findings
                       </p>
-                      <h4 class="text-foreground text-lg leading-tight font-black">
+                      <h4
+                        class="text-lg leading-tight font-black truncate"
+                        :class="msg.sender?.id === effectiveUserUuid ? 'text-gray-900' : 'text-foreground'"
+                      >
                         {{ msg.appointment_data.diagnosis.label }}
                       </h4>
                       <div class="mt-1 flex flex-col gap-0.5">
-                        <p class="text-foreground/70 text-xs font-bold">
+                        <p
+                          class="text-xs font-bold truncate"
+                          :class="msg.sender?.id === effectiveUserUuid ? 'text-gray-700' : 'text-foreground/70'"
+                        >
                           {{ msg.appointment_data.diagnosis.patient_name }}
                         </p>
-                        <p class="text-foreground/50 text-[11px] font-medium">
-                          {{ msg.appointment_data.diagnosis.patient_age }} years old •
-                          {{ msg.appointment_data.diagnosis.date }}
+                        <p
+                          class="text-[11px] font-medium"
+                          :class="msg.sender?.id === effectiveUserUuid ? 'text-gray-500' : 'text-foreground/50'"
+                        >
+                          {{ (msg.appointment_data.diagnosis.patient_age != null && msg.appointment_data.diagnosis.patient_age !== '') ? `${msg.appointment_data.diagnosis.patient_age} years old • ` : '' }}{{ msg.appointment_data.diagnosis.date }}
                         </p>
                       </div>
                     </div>
@@ -1446,23 +1466,30 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-green-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-green-600 shadow-sm' : 'bg-green-100 text-green-600'"
+                    >
                       <Icon
                         name="material-symbols:check-circle-rounded"
-                        class="text-xl text-green-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-green-700">Appointment Confirmed</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'"
+                    >Appointment Confirmed</span>
                   </div>
                   <p
-                    class="text-sm opacity-90"
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
                     v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"
                   ></p>
                   <button
                     v-if="canPatientRequestReschedule(msg.message)"
                     type="button"
                     @click.prevent="requestReschedule(extractScheduledAppointmentUuid(msg.message))"
-                    class="mt-3 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+                    class="mt-3 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold text-primary shadow-sm ring-1 ring-primary/20 transition-all hover:bg-white/90 active:scale-95"
                   >
                     <Icon
                       name="material-symbols:edit-calendar-rounded"
@@ -1475,15 +1502,24 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-red-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-red-500 shadow-sm' : 'bg-red-100 text-red-500'"
+                    >
                       <Icon
                         name="material-symbols:cancel-rounded"
-                        class="text-xl text-red-500"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-red-600">Appointment Request Declined</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-red-600'"
+                    >Appointment Request Declined</span>
                   </div>
-                  <p class="text-sm opacity-90">
+                  <p
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
+                  >
                     {{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}
                   </p>
                 </div>
@@ -1491,15 +1527,24 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-amber-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-amber-600 shadow-sm' : 'bg-amber-100 text-amber-600'"
+                    >
                       <Icon
                         name="material-symbols:event-busy-rounded"
-                        class="text-xl text-amber-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-amber-800">Appointment Cancelled</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-800'"
+                    >Appointment Cancelled</span>
                   </div>
-                  <p class="text-sm opacity-90">
+                  <p
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
+                  >
                     {{ msg.message.replace(/\[APPOINTMENT_CANCELLED:.*?\]/g, '').trim() }}
                   </p>
                 </div>
@@ -1507,15 +1552,24 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-green-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-green-600 shadow-sm' : 'bg-green-100 text-green-600'"
+                    >
                       <Icon
                         name="material-symbols:check-circle-rounded"
-                        class="text-xl text-green-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-green-700">Appointment Completed</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'"
+                    >Appointment Completed</span>
                   </div>
-                  <p class="text-sm opacity-90">
+                  <p
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
+                  >
                     {{ msg.message.replace(/\[APPOINTMENT_COMPLETED:.*?\]/g, '').trim() }}
                   </p>
                 </div>
@@ -1523,16 +1577,23 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_PROPOSED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-amber-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-amber-600 shadow-sm' : 'bg-amber-100 text-amber-600'"
+                    >
                       <Icon
                         name="material-symbols:edit-calendar-rounded"
-                        class="text-xl text-amber-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-amber-700">Reschedule Proposed</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'"
+                    >Reschedule Proposed</span>
                   </div>
                   <p
-                    class="text-sm opacity-90"
+                    class="text-sm leading-relaxed"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
                     v-html="
                       msg.message.replace(/\[APPOINTMENT_RESCHEDULE_PROPOSED:.*?\]/g, '').trim()
                     "
@@ -1542,16 +1603,23 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-amber-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-amber-600 shadow-sm' : 'bg-amber-100 text-amber-600'"
+                    >
                       <Icon
                         name="material-symbols:event-repeat-rounded"
-                        class="text-xl text-amber-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-amber-700">Reschedule Requested</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'"
+                    >Reschedule Requested</span>
                   </div>
                   <p
-                    class="text-sm leading-relaxed opacity-90"
+                    class="text-sm leading-relaxed"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
                     v-html="
                       msg.message.replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '').trim()
                     "
@@ -1561,16 +1629,23 @@
               <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_ACCEPTED:')">
                 <div class="flex flex-col">
                   <div class="mb-2 flex items-center gap-2">
-                    <div class="rounded-full bg-green-100 p-2">
+                    <div
+                      class="rounded-full p-2"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white text-green-600 shadow-sm' : 'bg-green-100 text-green-600'"
+                    >
                       <Icon
                         name="material-symbols:check-circle-rounded"
-                        class="text-xl text-green-600"
+                        class="text-xl"
                       />
                     </div>
-                    <span class="font-bold text-green-700">Reschedule Accepted</span>
+                    <span
+                      class="font-bold"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'"
+                    >Reschedule Accepted</span>
                   </div>
                   <p
-                    class="text-sm opacity-90"
+                    class="text-sm"
+                    :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
                     v-html="
                       msg.message.replace(/\[APPOINTMENT_RESCHEDULE_ACCEPTED:.*?\]/g, '').trim()
                     "

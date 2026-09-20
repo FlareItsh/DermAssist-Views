@@ -1238,16 +1238,16 @@
 
             <!-- Unavailable Banner -->
             <div v-else
-              class="bg-red-500/10 border border-red-500/20 text-red-600 rounded-xl p-3.5 flex items-start gap-3">
-              <Icon name="heroicons:exclamation-triangle" class="text-xl mt-0.5 shrink-0" />
+              class="bg-amber-500/10 border border-amber-500/20 text-amber-900 rounded-xl p-3.5 flex items-start gap-3">
+              <Icon name="material-symbols:info-outline-rounded" class="text-xl mt-0.5 shrink-0 text-amber-600" />
               <div class="flex flex-col gap-0.5">
-                <p class="text-xs font-bold uppercase tracking-wider">Not Available Now</p>
-                <p v-if="availabilityStatus.next_available" class="text-xs leading-relaxed text-red-600/80 mt-0.5">
-                  Dr. {{ nearestDoctor.last_name }} is away. Next available on <strong>{{
-                    availabilityStatus.next_available.formatted }}</strong>.
+                <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Doctor Away Today</p>
+                <p v-if="availabilityStatus.next_available" class="text-xs leading-relaxed text-amber-800/90 mt-0.5">
+                  Dr. {{ nearestDoctor.last_name }} is currently away. Next available on <strong>{{
+                    availabilityStatus.next_available.formatted }}</strong>. You can still send your findings now — they will be reviewed upon return.
                 </p>
-                <p v-else class="text-xs leading-relaxed text-red-600/80 mt-0.5">
-                  Dr. {{ nearestDoctor.last_name }} is currently away with no upcoming availability.
+                <p v-else class="text-xs leading-relaxed text-amber-800/90 mt-0.5">
+                  Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your findings now — they will be reviewed as soon as possible.
                 </p>
               </div>
             </div>
