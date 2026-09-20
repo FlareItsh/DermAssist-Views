@@ -1163,7 +1163,7 @@
       >
         <div class="flex items-center justify-between">
           <h3 class="text-2xl font-bold">
-            {{ hasActiveAppointment ? 'Your Referred Doctor' : 'Nearest Specialist' }}
+            {{ isDoctorRegistered ? 'Your Attending Doctor' : (hasActiveAppointment ? 'Your Referred Doctor' : 'Nearest Specialist') }}
           </h3>
         </div>
 

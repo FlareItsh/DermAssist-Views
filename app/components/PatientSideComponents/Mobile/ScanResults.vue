@@ -413,7 +413,7 @@ onMounted(() => {
       <!-- Recommended Doctor Section -->
       <div class="mt-4 border-t border-gray-100 pt-4">
         <h3 class="text-lg font-bold text-gray-900 mb-4">
-          {{ hasActiveAppointment ? 'Your Preferred Doctor' : 'Nearest Specialist' }}
+          {{ isDoctorRegistered ? 'Your Attending Doctor' : (hasActiveAppointment ? 'Your Preferred Doctor' : 'Nearest Specialist') }}
         </h3>
 
         <div v-if="isDoctorLoading" class="flex animate-pulse gap-4">
