@@ -24,7 +24,7 @@
   const uniquePatients = computed(() => {
     const patientsMap = new Map()
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
-    
+
     for (const appt of allAppointments) {
       if (appt.patient && appt.patient_uuid) {
         if (!patientsMap.has(appt.patient_uuid)) {
@@ -42,7 +42,7 @@
         }
       }
     }
-    
+
     return Array.from(patientsMap.values())
   })
 
@@ -95,7 +95,7 @@
 
   watch(
     patientUuid,
-    async (uuid) => {
+    async uuid => {
       if (uuid) {
         try {
           const res = await userService.show(uuid)
@@ -122,7 +122,7 @@
 
   watch(
     patientConsentedToDataset,
-    (consented) => {
+    consented => {
       contributeToDataset.value = consented
     },
     { immediate: true }
@@ -181,10 +181,13 @@
     if (!import.meta.client) return
     try {
       if (editablePatientName.value || editablePatientAge.value) {
-        localStorage.setItem(draftPatientKey.value, JSON.stringify({
-          name: editablePatientName.value,
-          age: editablePatientAge.value
-        }))
+        localStorage.setItem(
+          draftPatientKey.value,
+          JSON.stringify({
+            name: editablePatientName.value,
+            age: editablePatientAge.value
+          })
+        )
       }
     } catch (e) {
       // silent fail
@@ -208,8 +211,6 @@
   const createAccountSuccess = ref(false)
   const createAccountError = ref<string | null>(null)
 
-
-
   const accountCodes = reactive({
     region: '',
     province: '',
@@ -232,42 +233,54 @@
   })
 
   // Cascading location watches for account creation modal
-  watch(() => accountCodes.region, async (newVal) => {
-    if (newVal) {
-      accountCodes.province = ''
-      accountCodes.city = ''
-      accountCodes.barangay = ''
-      const region = accountRegions.value.find(r => r.code === newVal)
-      if (region) newAccountForm.province = region.name
-      await fetchAccountProvinces(newVal)
+  watch(
+    () => accountCodes.region,
+    async newVal => {
+      if (newVal) {
+        accountCodes.province = ''
+        accountCodes.city = ''
+        accountCodes.barangay = ''
+        const region = accountRegions.value.find(r => r.code === newVal)
+        if (region) newAccountForm.province = region.name
+        await fetchAccountProvinces(newVal)
+      }
     }
-  })
+  )
 
-  watch(() => accountCodes.province, async (newVal) => {
-    if (newVal) {
-      accountCodes.city = ''
-      accountCodes.barangay = ''
-      const prov = accountProvinces.value.find(p => p.code === newVal)
-      if (prov) newAccountForm.province = prov.name
-      await fetchAccountCities(newVal)
+  watch(
+    () => accountCodes.province,
+    async newVal => {
+      if (newVal) {
+        accountCodes.city = ''
+        accountCodes.barangay = ''
+        const prov = accountProvinces.value.find(p => p.code === newVal)
+        if (prov) newAccountForm.province = prov.name
+        await fetchAccountCities(newVal)
+      }
     }
-  })
+  )
 
-  watch(() => accountCodes.city, async (newVal) => {
-    if (newVal) {
-      accountCodes.barangay = ''
-      const city = accountCities.value.find(c => c.code === newVal)
-      if (city) newAccountForm.city = city.name
-      await fetchAccountBarangays(newVal)
+  watch(
+    () => accountCodes.city,
+    async newVal => {
+      if (newVal) {
+        accountCodes.barangay = ''
+        const city = accountCities.value.find(c => c.code === newVal)
+        if (city) newAccountForm.city = city.name
+        await fetchAccountBarangays(newVal)
+      }
     }
-  })
+  )
 
-  watch(() => accountCodes.barangay, (newVal) => {
-    if (newVal) {
-      const brgy = accountBarangays.value.find(b => b.code === newVal)
-      if (brgy) newAccountForm.barangay = brgy.name
+  watch(
+    () => accountCodes.barangay,
+    newVal => {
+      if (newVal) {
+        const brgy = accountBarangays.value.find(b => b.code === newVal)
+        if (brgy) newAccountForm.barangay = brgy.name
+      }
     }
-  })
+  )
 
   const highlightCreateAccount = ref(false)
 
@@ -289,7 +302,8 @@
     const parts = rawName ? rawName.split(' ') : []
     newAccountForm.firstName = parts[0] || ''
     newAccountForm.lastName = parts.slice(1).join(' ') || ''
-    newAccountForm.age = editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
+    newAccountForm.age =
+      editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
     newAccountForm.email = ''
     newAccountForm.password = generateTemporaryPassword('Patient')
     newAccountForm.gender = ''
@@ -311,7 +325,12 @@
   }
 
   const handleCreatePatientAccount = async () => {
-    if (!newAccountForm.firstName.trim() || !newAccountForm.lastName.trim() || !newAccountForm.email.trim() || !newAccountForm.password.trim()) {
+    if (
+      !newAccountForm.firstName.trim() ||
+      !newAccountForm.lastName.trim() ||
+      !newAccountForm.email.trim() ||
+      !newAccountForm.password.trim()
+    ) {
       createAccountError.value = 'First Name, Last Name, Email, and Password are required.'
       return
     }
@@ -357,7 +376,8 @@
         createAccountSuccess.value = false
       }, 900)
     } catch (err: any) {
-      createAccountError.value = err.data?.message || err.message || 'Failed to create patient account.'
+      createAccountError.value =
+        err.data?.message || err.message || 'Failed to create patient account.'
     } finally {
       isSubmittingAccount.value = false
     }
@@ -399,7 +419,9 @@
     }
   }
 
-  const defaultChartData: DonutEntry[] = [{ label: 'No skin disease detected', value: 100, color: '#6b7280' }]
+  const defaultChartData: DonutEntry[] = [
+    { label: 'No skin disease detected', value: 100, color: '#6b7280' }
+  ]
 
   // ── Active disease state ──────────────────────────────────────────
   const activeDisease = ref<DiseaseName>((props.conditionName as DiseaseName) || 'Eczema')
@@ -433,7 +455,7 @@
 
   const activeConfidence = computed(() => {
     const active = displayChartData.value.find(e => e.label === activeDisease.value)
-    return active ? active.value : (displayChartData.value[0]?.value || 0)
+    return active ? active.value : displayChartData.value[0]?.value || 0
   })
 
   // ── Nearest doctor by proximity ───────────────────────────────────
@@ -504,21 +526,33 @@
     }
   }
 
-  watch(nearestDoctor, async (newDoc) => {
-    if (newDoc?.uuid) {
-      await checkAvailability()
-    } else {
-      availabilityStatus.value = null
-    }
-  }, { immediate: true })
+  watch(
+    nearestDoctor,
+    async newDoc => {
+      if (newDoc?.uuid) {
+        await checkAvailability()
+      } else {
+        availabilityStatus.value = null
+      }
+    },
+    { immediate: true }
+  )
 
   const selectAlternativeDoctor = (altDoctor: any) => {
     nearestDoctor.value = altDoctor
     const doctorLat = parseCoordinate(altDoctor.latitude)
     const doctorLng = parseCoordinate(altDoctor.longitude)
 
-    if (patientLat.value !== null && patientLng.value !== null && doctorLat !== null && doctorLng !== null) {
-      doctorDistance.value = Math.round(haversineDistance(patientLat.value, patientLng.value, doctorLat, doctorLng) * 10) / 10
+    if (
+      patientLat.value !== null &&
+      patientLng.value !== null &&
+      doctorLat !== null &&
+      doctorLng !== null
+    ) {
+      doctorDistance.value =
+        Math.round(
+          haversineDistance(patientLat.value, patientLng.value, doctorLat, doctorLng) * 10
+        ) / 10
     } else {
       doctorDistance.value = null
     }
@@ -550,9 +584,12 @@
 
     try {
       const query = `${patient.city}, ${patient.province}, ${patient.country || 'Philippines'}`
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-        headers: { 'User-Agent': 'DermAssist/1.0 (contact@dermassist.com)' }
-      })
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+        {
+          headers: { 'User-Agent': 'DermAssist/1.0 (contact@dermassist.com)' }
+        }
+      )
       const data = await response.json()
 
       if (!data?.length) return null
@@ -650,7 +687,7 @@
         nearestDoctor.value = docRes
         const match = withDistance.find(d => d.uuid === docRes.uuid)
         doctorDistance.value = match ? Math.round(match.distance * 10) / 10 : null
-        
+
         clearSelection()
       } else {
         // 4. Check for active appointment to set the default "nearest" doctor
@@ -724,9 +761,11 @@
 </script>
 
 <template>
-  <div class="custom-scrollbar flex h-full w-full overflow-y-auto items-start">
+  <div class="custom-scrollbar flex h-full w-full items-start overflow-y-auto">
     <!-- Left Column: Knowledge Base -->
-    <div class="sticky top-0 flex flex-1 flex-col p-10 pr-8 self-start overflow-y-auto custom-scrollbar max-h-full">
+    <div
+      class="custom-scrollbar sticky top-0 flex max-h-full flex-1 flex-col self-start overflow-y-auto p-10 pr-8"
+    >
       <div class="mb-8 flex items-center gap-5">
         <div
           class="bg-primary/10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-inner"
@@ -737,12 +776,12 @@
           />
         </div>
         <div>
-          <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">{{ activeDisease }}</h1>
+          <h1 class="text-foreground text-3xl font-black tracking-tight lg:text-4xl">
+            {{ activeDisease }}
+          </h1>
           <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-sm font-bold text-gray-500">
-              Clinical Analysis &amp; Guidance
-            </p>
+            <p class="text-sm font-bold text-gray-500">Clinical Analysis &amp; Guidance</p>
           </div>
         </div>
       </div>
@@ -756,12 +795,19 @@
           >
           <div
             v-if="props.role === 'doctor'"
-            class="flex flex-col gap-2 w-full"
+            class="flex w-full flex-col gap-2"
           >
-            <div class="flex items-center gap-2 w-full">
+            <div class="flex w-full items-center gap-2">
               <template v-if="props.isNewScan && patientUuid">
-                <span class="text-base font-bold text-gray-900">{{ editablePatientName || patientName }}</span>
-                <AppButton variant="ghost" size="sm" class="text-xs font-bold text-gray-500 hover:text-primary rounded-xl" @click="isPatientModalOpen = true">
+                <span class="text-base font-bold text-gray-900">{{
+                  editablePatientName || patientName
+                }}</span>
+                <AppButton
+                  variant="ghost"
+                  size="sm"
+                  class="hover:text-primary rounded-xl text-xs font-bold text-gray-500"
+                  @click="isPatientModalOpen = true"
+                >
                   Change
                 </AppButton>
               </template>
@@ -771,33 +817,49 @@
                   class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
                   placeholder="Enter patient name"
                 />
-                <AppButton 
-                  v-if="props.isNewScan" 
-                  variant="ghost" 
-                  size="sm" 
-                  class="rounded-xl border-dashed border-2 hover:bg-gray-50 transition-colors shrink-0" 
+                <AppButton
+                  v-if="props.isNewScan"
+                  variant="ghost"
+                  size="sm"
+                  class="shrink-0 rounded-xl border-2 border-dashed transition-colors hover:bg-gray-50"
                   @click="isPatientModalOpen = true"
                   title="Select Registered Patient"
                 >
-                  <Icon name="material-symbols:person-search-outline" class="text-base text-gray-500" />
+                  <Icon
+                    name="material-symbols:person-search-outline"
+                    class="text-base text-gray-500"
+                  />
                 </AppButton>
               </template>
             </div>
 
             <!-- Create Patient Account Button for Unregistered Patient -->
-            <div id="patient-account-section" v-if="props.role === 'doctor'" class="mt-1 flex items-center gap-2 flex-wrap">
+            <div
+              id="patient-account-section"
+              v-if="props.role === 'doctor'"
+              class="mt-1 flex flex-wrap items-center gap-2"
+            >
               <template v-if="!patientUuid">
                 <button
                   type="button"
                   @click="isPatientModalOpen = true"
-                  class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs bg-primary/10 text-primary hover:bg-primary/20"
+                  class="bg-primary/10 text-primary hover:bg-primary/20 inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold shadow-xs transition-all"
                 >
-                  <Icon name="material-symbols:person-add-rounded" class="text-base" />
+                  <Icon
+                    name="material-symbols:person-add-rounded"
+                    class="text-base"
+                  />
                   <span>Create Patient Account</span>
                 </button>
               </template>
-              <div v-else class="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
-                <Icon name="material-symbols:check-circle" class="text-sm" />
+              <div
+                v-else
+                class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600"
+              >
+                <Icon
+                  name="material-symbols:check-circle"
+                  class="text-sm"
+                />
                 <span>Account Linked</span>
               </div>
             </div>
@@ -847,25 +909,38 @@
         </div>
       </div>
 
-      <div v-if="props.role === 'doctor' && patientConsentedToDataset" class="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2 w-fit">
+      <div
+        v-if="props.role === 'doctor' && patientConsentedToDataset"
+        class="border-primary/20 bg-primary/5 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2"
+      >
         <input
           id="detailed-dataset-checkbox"
           v-model="contributeToDataset"
           type="checkbox"
-          class="accent-primary h-4 w-4 shrink-0 rounded border-gray-300 cursor-pointer"
+          class="accent-primary h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300"
         />
-        <label for="detailed-dataset-checkbox" class="text-xs text-foreground/80 font-normal cursor-pointer select-none leading-tight">
-          <span class="font-medium text-foreground block text-[11px] sm:text-xs">Include in AI Retraining Dataset</span>
-          <span class="text-[10px] text-muted-foreground">Save anonymized scan to admin gallery</span>
+        <label
+          for="detailed-dataset-checkbox"
+          class="text-foreground/80 cursor-pointer text-xs leading-tight font-normal select-none"
+        >
+          <span class="text-foreground block text-[11px] font-medium sm:text-xs"
+            >Include in AI Retraining Dataset</span
+          >
+          <span class="text-muted-foreground text-[10px]"
+            >Save anonymized scan to admin gallery</span
+          >
         </label>
       </div>
 
-      <div v-if="props.role === 'doctor'" class="flex flex-col gap-12 mt-12">
-        <AppClinicalNoteForm 
-          :appointment-uuid="props.appointmentUuid" 
+      <div
+        v-if="props.role === 'doctor'"
+        class="mt-12 flex flex-col gap-12"
+      >
+        <AppClinicalNoteForm
+          :appointment-uuid="props.appointmentUuid"
           :diagnosis-id="props.diagnosis?.id || null"
           :diagnosis-uuid="props.diagnosisUuid || null"
-          :skip-load="props.isNewScan" 
+          :skip-load="props.isNewScan"
           :is-finish-mode="props.isNewScan"
           :contribute-to-dataset="contributeToDataset"
           @saved="emit('finished', $event)"
@@ -873,7 +948,10 @@
         />
       </div>
 
-      <div v-else class="flex flex-col gap-8 mt-6">
+      <div
+        v-else
+        class="mt-6 flex flex-col gap-8"
+      >
         <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
@@ -938,10 +1016,13 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="sticky top-0 flex w-[420px] shrink-0 flex-col gap-6 border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px] self-start relative min-h-[500px]"
+      class="relative sticky top-0 flex min-h-[500px] w-[420px] shrink-0 flex-col gap-6 self-start border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px]"
     >
       <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <h2 class="mb-6 text-xl font-bold">Statistical Findings</h2>
+        <div class="mb-6 flex items-center justify-between">
+          <h2 class="text-xl font-bold">Statistical Findings</h2>
+          <AppConfidenceTooltip align="right" />
+        </div>
         <div class="flex flex-col items-center gap-6">
           <div class="relative flex items-center justify-center">
             <AppDonutChart
@@ -1005,21 +1086,27 @@
       <div
         v-if="currentDiagnosis?.image_quality"
         class="bg-card rounded-[2.5rem] border p-8 shadow-sm transition-all"
-        :class="currentDiagnosis.image_quality.status === 'Excellent'
-          ? 'border-green-100'
-          : 'border-amber-100'"
+        :class="
+          currentDiagnosis.image_quality.status === 'Excellent'
+            ? 'border-green-100'
+            : 'border-amber-100'
+        "
       >
         <div class="mb-6 flex items-center gap-4">
           <div
             class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
-            :class="currentDiagnosis.image_quality.status === 'Excellent'
-              ? 'bg-green-100 text-green-600'
-              : 'bg-amber-100 text-amber-600'"
+            :class="
+              currentDiagnosis.image_quality.status === 'Excellent'
+                ? 'bg-green-100 text-green-600'
+                : 'bg-amber-100 text-amber-600'
+            "
           >
             <Icon
-              :name="currentDiagnosis.image_quality.status === 'Excellent'
-                ? 'material-symbols:verified-rounded'
-                : 'material-symbols:warning-outline-rounded'"
+              :name="
+                currentDiagnosis.image_quality.status === 'Excellent'
+                  ? 'material-symbols:verified-rounded'
+                  : 'material-symbols:warning-outline-rounded'
+              "
               class="text-2xl"
             />
           </div>
@@ -1027,9 +1114,11 @@
             <h3 class="text-lg font-bold text-gray-900">Image Quality</h3>
             <span
               class="text-sm font-bold"
-              :class="currentDiagnosis.image_quality.status === 'Excellent'
-                ? 'text-green-600'
-                : 'text-amber-600'"
+              :class="
+                currentDiagnosis.image_quality.status === 'Excellent'
+                  ? 'text-green-600'
+                  : 'text-amber-600'
+              "
             >
               {{ currentDiagnosis.image_quality.status }}
             </span>
@@ -1044,48 +1133,72 @@
         <div class="flex flex-wrap gap-2">
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-            :class="currentDiagnosis.image_quality.is_blurry
-              ? 'bg-red-50 text-red-600'
-              : 'bg-green-50 text-green-700'"
+            :class="
+              currentDiagnosis.image_quality.is_blurry
+                ? 'bg-red-50 text-red-600'
+                : 'bg-green-50 text-green-700'
+            "
           >
             <Icon
-              :name="currentDiagnosis.image_quality.is_blurry ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              :name="
+                currentDiagnosis.image_quality.is_blurry
+                  ? 'material-symbols:close-rounded'
+                  : 'material-symbols:check-rounded'
+              "
               class="text-base"
             />
             Focus
           </span>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-            :class="currentDiagnosis.image_quality.is_dark
-              ? 'bg-red-50 text-red-600'
-              : 'bg-green-50 text-green-700'"
+            :class="
+              currentDiagnosis.image_quality.is_dark
+                ? 'bg-red-50 text-red-600'
+                : 'bg-green-50 text-green-700'
+            "
           >
             <Icon
-              :name="currentDiagnosis.image_quality.is_dark ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              :name="
+                currentDiagnosis.image_quality.is_dark
+                  ? 'material-symbols:close-rounded'
+                  : 'material-symbols:check-rounded'
+              "
               class="text-base"
             />
             Brightness
           </span>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-            :class="currentDiagnosis.image_quality.is_overexposed
-              ? 'bg-red-50 text-red-600'
-              : 'bg-green-50 text-green-700'"
+            :class="
+              currentDiagnosis.image_quality.is_overexposed
+                ? 'bg-red-50 text-red-600'
+                : 'bg-green-50 text-green-700'
+            "
           >
             <Icon
-              :name="currentDiagnosis.image_quality.is_overexposed ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              :name="
+                currentDiagnosis.image_quality.is_overexposed
+                  ? 'material-symbols:close-rounded'
+                  : 'material-symbols:check-rounded'
+              "
               class="text-base"
             />
             Glare
           </span>
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-            :class="currentDiagnosis.image_quality.is_low_contrast
-              ? 'bg-red-50 text-red-600'
-              : 'bg-green-50 text-green-700'"
+            :class="
+              currentDiagnosis.image_quality.is_low_contrast
+                ? 'bg-red-50 text-red-600'
+                : 'bg-green-50 text-green-700'
+            "
           >
             <Icon
-              :name="currentDiagnosis.image_quality.is_low_contrast ? 'material-symbols:close-rounded' : 'material-symbols:check-rounded'"
+              :name="
+                currentDiagnosis.image_quality.is_low_contrast
+                  ? 'material-symbols:close-rounded'
+                  : 'material-symbols:check-rounded'
+              "
               class="text-base"
             />
             Contrast
@@ -1096,12 +1209,14 @@
       <!-- Medical Appeal Card (Doctor Only) -->
       <div
         v-if="props.role === 'doctor'"
-        class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm mb-6"
+        class="bg-card mb-6 flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
       >
         <div class="flex items-center justify-between">
           <div>
             <h3 class="text-xl font-bold">Disagree with the results?</h3>
-            <p class="mt-1 text-sm text-gray-500">File an appeal to suggest a different diagnosis.</p>
+            <p class="mt-1 text-sm text-gray-500">
+              File an appeal to suggest a different diagnosis.
+            </p>
           </div>
           <AppButton
             v-if="!isAppealOpen"
@@ -1113,30 +1228,47 @@
           </AppButton>
         </div>
 
-        <div v-if="isAppealOpen" class="animate-in slide-in-from-top-2 flex flex-col gap-4 duration-300">
+        <div
+          v-if="isAppealOpen"
+          class="animate-in slide-in-from-top-2 flex flex-col gap-4 duration-300"
+        >
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Suggested Diagnosis</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Suggested Diagnosis</label
+            >
             <input
               v-model="suggestedLabel"
               type="text"
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-primary transition-all outline-none"
+              class="focus:ring-primary w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
               placeholder="Enter correct diagnosis..."
             />
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Reason / Description (Optional)</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Reason / Description (Optional)</label
+            >
             <textarea
               v-model="appealDescription"
               rows="3"
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-primary transition-all outline-none resize-none"
+              class="focus:ring-primary w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
               placeholder="Provide details on why you disagree..."
             ></textarea>
           </div>
 
-          <div v-if="appealError" class="text-sm font-medium text-red-500">{{ appealError }}</div>
-          <div v-if="appealSuccess" class="text-sm font-medium text-green-500">Appeal submitted successfully!</div>
+          <div
+            v-if="appealError"
+            class="text-sm font-medium text-red-500"
+          >
+            {{ appealError }}
+          </div>
+          <div
+            v-if="appealSuccess"
+            class="text-sm font-medium text-green-500"
+          >
+            Appeal submitted successfully!
+          </div>
 
-          <div class="flex items-center justify-end gap-3 mt-2">
+          <div class="mt-2 flex items-center justify-end gap-3">
             <AppButton
               variant="ghost"
               @click="isAppealOpen = false"
@@ -1157,7 +1289,6 @@
         </div>
       </div>
 
-
       <div
         v-if="props.role !== 'doctor'"
         ref="doctorCardRef"
@@ -1165,7 +1296,13 @@
       >
         <div class="flex items-center justify-between">
           <h3 class="text-2xl font-bold">
-            {{ isDoctorRegistered ? 'Your Attending Doctor' : (hasActiveAppointment ? 'Your Referred Doctor' : 'Nearest Specialist') }}
+            {{
+              isDoctorRegistered
+                ? 'Your Attending Doctor'
+                : hasActiveAppointment
+                  ? 'Your Referred Doctor'
+                  : 'Nearest Specialist'
+            }}
           </h3>
         </div>
 
@@ -1224,32 +1361,56 @@
           class="flex flex-col gap-6"
         >
           <!-- Availability Status Banner -->
-          <div v-if="isCheckingAvailability" class="h-12 w-full rounded-xl bg-foreground/5 animate-pulse mb-1"></div>
+          <div
+            v-if="isCheckingAvailability"
+            class="bg-foreground/5 mb-1 h-12 w-full animate-pulse rounded-xl"
+          ></div>
 
-          <div v-else-if="availabilityStatus" class="mb-1 animate-in slide-in-from-top-2 duration-300">
+          <div
+            v-else-if="availabilityStatus"
+            class="animate-in slide-in-from-top-2 mb-1 duration-300"
+          >
             <!-- Available -->
-            <div v-if="availabilityStatus.is_available"
-              class="bg-green-500/10 border border-green-500/20 text-green-600 rounded-xl px-3.5 py-2.5 flex items-center gap-2">
+            <div
+              v-if="availabilityStatus.is_available"
+              class="flex items-center gap-2 rounded-xl border border-green-500/20 bg-green-500/10 px-3.5 py-2.5 text-green-600"
+            >
               <span class="relative flex h-2.5 w-2.5">
                 <span
-                  class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                  class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
+                ></span>
+                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500"></span>
               </span>
-              <p class="text-xs font-bold uppercase tracking-wider">Available Now</p>
+              <p class="text-xs font-bold tracking-wider uppercase">Available Now</p>
             </div>
 
             <!-- Unavailable Banner -->
-            <div v-else
-              class="bg-amber-500/10 border border-amber-500/20 text-amber-900 rounded-xl p-3.5 flex items-start gap-3">
-              <Icon name="material-symbols:info-outline-rounded" class="text-xl mt-0.5 shrink-0 text-amber-600" />
+            <div
+              v-else
+              class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-amber-900"
+            >
+              <Icon
+                name="material-symbols:info-outline-rounded"
+                class="mt-0.5 shrink-0 text-xl text-amber-600"
+              />
               <div class="flex flex-col gap-0.5">
-                <p class="text-xs font-bold uppercase tracking-wider text-amber-800">Doctor Away Today</p>
-                <p v-if="availabilityStatus.next_available" class="text-xs leading-relaxed text-amber-800/90 mt-0.5">
-                  Dr. {{ nearestDoctor.last_name }} is currently away. Next available on <strong>{{
-                    availabilityStatus.next_available.formatted }}</strong>. You can still send your findings now — they will be reviewed upon return.
+                <p class="text-xs font-bold tracking-wider text-amber-800 uppercase">
+                  Doctor Away Today
                 </p>
-                <p v-else class="text-xs leading-relaxed text-amber-800/90 mt-0.5">
-                  Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your findings now — they will be reviewed as soon as possible.
+                <p
+                  v-if="availabilityStatus.next_available"
+                  class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+                >
+                  Dr. {{ nearestDoctor.last_name }} is currently away. Next available on
+                  <strong>{{ availabilityStatus.next_available.formatted }}</strong
+                  >. You can still send your findings now — they will be reviewed upon return.
+                </p>
+                <p
+                  v-else
+                  class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+                >
+                  Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your
+                  findings now — they will be reviewed as soon as possible.
                 </p>
               </div>
             </div>
@@ -1272,7 +1433,7 @@
             </div>
           </div>
 
-          <div class="flex gap-4 items-center">
+          <div class="flex items-center gap-4">
             <div class="relative shrink-0 rounded-2xl border-2 border-gray-100 p-1.5">
               <img
                 :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
@@ -1288,15 +1449,21 @@
               </div>
             </div>
 
-            <div class="flex flex-1 flex-col justify-center gap-1 min-w-0">
-              <p class="text-foreground text-lg font-bold truncate">
+            <div class="flex min-w-0 flex-1 flex-col justify-center gap-1">
+              <p class="text-foreground truncate text-lg font-bold">
                 Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
               </p>
               <div class="text-primary flex items-center gap-1.5 text-xs font-bold">
-                <Icon name="material-symbols:verified-outline-rounded" class="text-sm" />
+                <Icon
+                  name="material-symbols:verified-outline-rounded"
+                  class="text-sm"
+                />
                 <span>Verified</span>
               </div>
-              <p v-if="nearestDoctor.affiliation" class="text-xs text-gray-500 truncate">
+              <p
+                v-if="nearestDoctor.affiliation"
+                class="truncate text-xs text-gray-500"
+              >
                 Affiliation: <span class="font-semibold">{{ nearestDoctor.affiliation }}</span>
               </p>
             </div>
@@ -1304,47 +1471,69 @@
 
           <!-- Recommended Alternative Doctor Card -->
           <div
-            v-if="!isDoctorRegistered && availabilityStatus && !availabilityStatus.is_available && availabilityStatus.alternatives && availabilityStatus.alternatives.length > 0"
-            class="bg-sidebar border border-sidebar-border rounded-2xl p-4 shadow-sm flex flex-col gap-3 animate-in zoom-in-95 duration-500"
+            v-if="
+              !isDoctorRegistered &&
+              availabilityStatus &&
+              !availabilityStatus.is_available &&
+              availabilityStatus.alternatives &&
+              availabilityStatus.alternatives.length > 0
+            "
+            class="bg-sidebar border-sidebar-border animate-in zoom-in-95 flex flex-col gap-3 rounded-2xl border p-4 shadow-sm duration-500"
           >
             <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold text-foreground flex items-center gap-1.5">
-                <Icon name="heroicons:user-group" class="text-primary text-base" />
+              <h4 class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                <Icon
+                  name="heroicons:user-group"
+                  class="text-primary text-base"
+                />
                 Recommended Alternative Doctor (Available)
               </h4>
               <span
-                class="bg-green-500/10 text-green-500 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-green-500/20 uppercase tracking-wider"
+                class="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-green-500 uppercase"
               >
                 Available
               </span>
             </div>
 
-            <div class="flex gap-4 items-center">
+            <div class="flex items-center gap-4">
               <img
-                :src="availabilityStatus.alternatives[0].avatar_path ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path) : ''"
+                :src="
+                  availabilityStatus.alternatives[0].avatar_path
+                    ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path)
+                    : ''
+                "
                 :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-                class="h-14 w-14 rounded-xl object-cover border border-sidebar-border shrink-0"
+                class="border-sidebar-border h-14 w-14 shrink-0 rounded-xl border object-cover"
                 alt="Alternative Doctor photo"
               />
 
-              <div class="flex-1 flex flex-col gap-0.5 min-w-0">
-                <p class="text-sm font-bold text-foreground truncate">
-                  Dr. {{ availabilityStatus.alternatives[0].first_name }} {{ availabilityStatus.alternatives[0].last_name }}
+              <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                <p class="text-foreground truncate text-sm font-bold">
+                  Dr. {{ availabilityStatus.alternatives[0].first_name }}
+                  {{ availabilityStatus.alternatives[0].last_name }}
                 </p>
-                <p class="text-[11px] text-foreground/50">
-                  PRC #{{ availabilityStatus.alternatives[0].prc_number || availabilityStatus.alternatives[0].prcNumber || 'N/A' }}
+                <p class="text-foreground/50 text-[11px]">
+                  PRC #{{
+                    availabilityStatus.alternatives[0].prc_number ||
+                    availabilityStatus.alternatives[0].prcNumber ||
+                    'N/A'
+                  }}
                 </p>
-                <p class="text-[11px] text-foreground/60 leading-tight truncate">
-                  Location: {{ availabilityStatus.alternatives[0].city }}, {{ availabilityStatus.alternatives[0].province }}
+                <p class="text-foreground/60 truncate text-[11px] leading-tight">
+                  Location: {{ availabilityStatus.alternatives[0].city }},
+                  {{ availabilityStatus.alternatives[0].province }}
                 </p>
               </div>
             </div>
 
             <button
               @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
-              class="bg-primary hover:bg-primary/90 text-white font-bold text-xs py-2 rounded-xl transition-all shadow-sm active:scale-98 flex items-center justify-center gap-1.5 cursor-pointer animate-in fade-in"
+              class="bg-primary hover:bg-primary/90 animate-in fade-in flex cursor-pointer items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-98"
             >
-              <Icon name="heroicons:user-plus" size="14" />
+              <Icon
+                name="heroicons:user-plus"
+                size="14"
+              />
               Select Alternative Doctor
             </button>
           </div>
@@ -1368,7 +1557,7 @@
               size="md"
               @click="sendDiagnosis"
               :disabled="isSending || !nearestDoctor"
-              class="bg-primary text-white flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               :class="isDoctorRegistered ? 'w-full' : ''"
             >
               <Icon
@@ -1382,7 +1571,15 @@
                 class="shrink-0 text-base"
               />
               <span class="truncate">
-                {{ isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : (isDoctorRegistered ? 'Proceed' : 'Select Doctor') }}
+                {{
+                  isSending
+                    ? 'Sending...'
+                    : hasActiveAppointment
+                      ? 'Send Findings'
+                      : isDoctorRegistered
+                        ? 'Proceed'
+                        : 'Select Doctor'
+                }}
               </span>
             </AppButton>
           </div>
@@ -1392,16 +1589,20 @@
             v-if="hasActiveAppointment"
             class="mt-3 flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200"
           >
-            <Icon name="material-symbols:info-outline-rounded" class="mt-0.5 shrink-0 text-base text-amber-500" />
+            <Icon
+              name="material-symbols:info-outline-rounded"
+              class="mt-0.5 shrink-0 text-base text-amber-500"
+            />
             <div class="flex-1 text-xs leading-relaxed text-amber-700">
               <span class="font-black">Existing appointment found.</span>
-              This will send your new findings to the same doctor in your current conversation.
-              Go to
+              This will send your new findings to the same doctor in your current conversation. Go
+              to
               <NuxtLink
                 :to="`/Patient/Messages`"
                 @click="emit('close')"
                 class="font-bold underline hover:text-amber-900"
-              >Messages</NuxtLink>
+                >Messages</NuxtLink
+              >
               to check the status or send additional findings.
             </div>
           </div>
@@ -1411,111 +1612,192 @@
       <div
         v-if="props.role !== 'doctor' && showGuidancePill"
         @click="scrollToDoctor"
-        class="sticky bottom-4 mx-auto z-30 cursor-pointer flex items-center gap-2 rounded-full bg-slate-900/90 text-white px-4 py-2.5 text-xs font-semibold shadow-2xl backdrop-blur-md hover:bg-slate-800 transition-all border border-white/20 active:scale-95 group shrink-0"
+        class="group sticky bottom-4 z-30 mx-auto flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-slate-900/90 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-all hover:bg-slate-800 active:scale-95"
       >
-        <Icon name="material-symbols:local-hospital-outline-rounded" class="text-base text-indigo-400 group-hover:scale-110 transition-transform" />
+        <Icon
+          name="material-symbols:local-hospital-outline-rounded"
+          class="text-base text-indigo-400 transition-transform group-hover:scale-110"
+        />
         <span>Proceed to Referred Doctor</span>
-        <Icon name="material-symbols:keyboard-double-arrow-down-rounded" class="text-base text-indigo-400 animate-bounce" />
+        <Icon
+          name="material-symbols:keyboard-double-arrow-down-rounded"
+          class="animate-bounce text-base text-indigo-400"
+        />
       </div>
     </div>
 
-
-
     <!-- Patient Selection Modal -->
-    <AppModal v-model="isPatientModalOpen" title="Assign Patient" description="Select a patient for this clinical scan." size="lg">
-      <div class="flex flex-col gap-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-        <div v-if="uniquePatients.length === 0" class="text-center py-10 text-gray-400">
-          <Icon name="material-symbols:inbox-outline" class="text-4xl opacity-50 mb-2" />
+    <AppModal
+      v-model="isPatientModalOpen"
+      title="Assign Patient"
+      description="Select a patient for this clinical scan."
+      size="lg"
+    >
+      <div class="custom-scrollbar flex max-h-[60vh] flex-col gap-3 overflow-y-auto pr-2">
+        <div
+          v-if="uniquePatients.length === 0"
+          class="py-10 text-center text-gray-400"
+        >
+          <Icon
+            name="material-symbols:inbox-outline"
+            class="mb-2 text-4xl opacity-50"
+          />
           <p>No patients available</p>
         </div>
         <button
           v-for="patient in uniquePatients"
           :key="patient.uuid"
-          @click="patientUuid = patient.uuid; isPatientModalOpen = false"
-          class="flex items-center gap-4 p-4 rounded-2xl border transition-all text-left w-full"
-          :class="patientUuid === patient.uuid ? 'border-primary bg-primary/5 shadow-sm' : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'"
+          @click="
+            patientUuid = patient.uuid
+            isPatientModalOpen = false
+          "
+          class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
+          :class="
+            patientUuid === patient.uuid
+              ? 'border-primary bg-primary/5 shadow-sm'
+              : 'border-gray-100 hover:border-gray-300 hover:bg-gray-50'
+          "
         >
           <img
-            :src="patient.avatar_path ? getStorageUrl(patient.avatar_path) : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`"
-            class="h-12 w-12 rounded-full object-cover shrink-0"
+            :src="
+              patient.avatar_path
+                ? getStorageUrl(patient.avatar_path)
+                : `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.first_name + '+' + patient.last_name)}&background=7B5EF5&color=fff&size=128`
+            "
+            class="h-12 w-12 shrink-0 rounded-full object-cover"
           />
           <div class="flex-1">
             <p class="font-bold text-gray-900">{{ patient.first_name }} {{ patient.last_name }}</p>
-            <p class="text-xs text-gray-500 mt-0.5">
-              Latest: {{ patient.latest_appointment_date ? new Date(patient.latest_appointment_date).toLocaleDateString() : 'N/A' }}
+            <p class="mt-0.5 text-xs text-gray-500">
+              Latest:
+              {{
+                patient.latest_appointment_date
+                  ? new Date(patient.latest_appointment_date).toLocaleDateString()
+                  : 'N/A'
+              }}
             </p>
           </div>
-          <div v-if="patientUuid === patient.uuid" class="bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center shadow-sm">
-            <Icon name="material-symbols:check-small-rounded" class="text-xl" />
+          <div
+            v-if="patientUuid === patient.uuid"
+            class="bg-primary flex h-6 w-6 items-center justify-center rounded-full text-white shadow-sm"
+          >
+            <Icon
+              name="material-symbols:check-small-rounded"
+              class="text-xl"
+            />
           </div>
         </button>
       </div>
       <template #footer>
-        <AppButton variant="outline" @click="patientUuid = null; isPatientModalOpen = false" class="rounded-xl px-6 font-bold" v-if="patientUuid">
+        <AppButton
+          variant="outline"
+          @click="
+            patientUuid = null
+            isPatientModalOpen = false
+          "
+          class="rounded-xl px-6 font-bold"
+          v-if="patientUuid"
+        >
           Clear Selection
         </AppButton>
-        <AppButton variant="ghost" @click="isPatientModalOpen = false" class="rounded-xl px-6 font-bold text-gray-500">
+        <AppButton
+          variant="ghost"
+          @click="isPatientModalOpen = false"
+          class="rounded-xl px-6 font-bold text-gray-500"
+        >
           Close
         </AppButton>
       </template>
     </AppModal>
     <!-- Create Patient Account Modal -->
-    <AppModal v-model="isCreateAccountModalOpen" title="Create Patient Account" description="Register an account for this patient. This account will be linked exclusively to you." size="4xl">
+    <AppModal
+      v-model="isCreateAccountModalOpen"
+      title="Create Patient Account"
+      description="Register an account for this patient. This account will be linked exclusively to you."
+      size="4xl"
+    >
       <div class="flex flex-col gap-4 py-2">
-        <div v-if="createAccountSuccess" class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-4 rounded-2xl flex items-center gap-3">
-          <Icon name="material-symbols:check-circle-rounded" class="text-3xl text-emerald-600 shrink-0" />
+        <div
+          v-if="createAccountSuccess"
+          class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-700"
+        >
+          <Icon
+            name="material-symbols:check-circle-rounded"
+            class="shrink-0 text-3xl text-emerald-600"
+          />
           <div>
-            <p class="font-bold text-base">Account Created Successfully!</p>
-            <p class="text-xs text-emerald-600">The patient account has been created and linked to your profile.</p>
+            <p class="text-base font-bold">Account Created Successfully!</p>
+            <p class="text-xs text-emerald-600">
+              The patient account has been created and linked to your profile.
+            </p>
           </div>
         </div>
 
-        <div v-if="createAccountError" class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl flex items-center gap-3">
-          <Icon name="material-symbols:error-rounded" class="text-2xl text-rose-600 shrink-0" />
-          <p class="font-semibold text-xs">{{ createAccountError }}</p>
+        <div
+          v-if="createAccountError"
+          class="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700"
+        >
+          <Icon
+            name="material-symbols:error-rounded"
+            class="shrink-0 text-2xl text-rose-600"
+          />
+          <p class="text-xs font-semibold">{{ createAccountError }}</p>
         </div>
 
-        <div v-if="!createAccountSuccess" class="grid grid-cols-1 md:grid-cols-2 gap-8 py-2">
+        <div
+          v-if="!createAccountSuccess"
+          class="grid grid-cols-1 gap-8 py-2 md:grid-cols-2"
+        >
           <!-- Left Column: Personal & Credentials -->
           <div class="flex flex-col gap-4">
             <div>
-              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Personal & Account Information</span>
-              
+              <span class="text-primary mb-3 block text-[10px] font-black tracking-widest uppercase"
+                >Personal & Account Information</span
+              >
+
               <div class="flex flex-col gap-3.5">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-semibold">First Name <span class="text-rose-500">*</span></label>
-                    <input 
-                      v-model="newAccountForm.firstName" 
-                      type="text" 
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    <label class="text-foreground/70 text-xs font-semibold"
+                      >First Name <span class="text-rose-500">*</span></label
+                    >
+                    <input
+                      v-model="newAccountForm.firstName"
+                      type="text"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                       placeholder="First Name"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-semibold">Last Name <span class="text-rose-500">*</span></label>
-                    <input 
-                      v-model="newAccountForm.lastName" 
-                      type="text" 
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                    <label class="text-foreground/70 text-xs font-semibold"
+                      >Last Name <span class="text-rose-500">*</span></label
+                    >
+                    <input
+                      v-model="newAccountForm.lastName"
+                      type="text"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                       placeholder="Last Name"
                     />
                   </div>
                 </div>
 
                 <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 text-xs font-semibold">Email Address <span class="text-rose-500">*</span></label>
-                  <input 
-                    v-model="newAccountForm.email" 
-                    type="email" 
-                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                  <label class="text-foreground/70 text-xs font-semibold"
+                    >Email Address <span class="text-rose-500">*</span></label
+                  >
+                  <input
+                    v-model="newAccountForm.email"
+                    type="email"
+                    class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                     placeholder="patient@example.com"
                   />
                 </div>
 
                 <div class="flex flex-col gap-1.5">
                   <div class="flex items-center justify-between">
-                    <label class="text-foreground/70 text-xs font-semibold">Temporary Password <span class="text-rose-500">*</span></label>
+                    <label class="text-foreground/70 text-xs font-semibold"
+                      >Temporary Password <span class="text-rose-500">*</span></label
+                    >
                     <div class="flex items-center gap-1.5">
                       <button
                         type="button"
@@ -1523,7 +1805,10 @@
                         class="text-primary flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
                         title="Copy password to clipboard"
                       >
-                        <UIcon name="i-heroicons-clipboard-document" class="h-3.5 w-3.5" />
+                        <UIcon
+                          name="i-heroicons-clipboard-document"
+                          class="h-3.5 w-3.5"
+                        />
                         Copy
                       </button>
                       <span class="text-gray-300">|</span>
@@ -1533,24 +1818,30 @@
                         class="text-primary flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
                         title="Generate new random password"
                       >
-                        <UIcon name="i-heroicons-arrow-path" class="h-3.5 w-3.5" />
+                        <UIcon
+                          name="i-heroicons-arrow-path"
+                          class="h-3.5 w-3.5"
+                        />
                         Regenerate
                       </button>
                     </div>
                   </div>
                   <div class="relative">
-                    <input 
-                      v-model="newAccountForm.password" 
-                      :type="showNewAccountPassword ? 'text' : 'password'" 
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 pr-10 py-2.5 text-sm font-mono outline-none transition-all" 
+                    <input
+                      v-model="newAccountForm.password"
+                      :type="showNewAccountPassword ? 'text' : 'password'"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 pr-10 font-mono text-sm transition-all outline-none"
                       placeholder="Temporary password"
                     />
                     <button
                       type="button"
                       @click="showNewAccountPassword = !showNewAccountPassword"
-                      class="text-foreground/40 hover:text-foreground/70 absolute right-3 top-1/2 -translate-y-1/2"
+                      class="text-foreground/40 hover:text-foreground/70 absolute top-1/2 right-3 -translate-y-1/2"
                     >
-                      <UIcon :name="showNewAccountPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="h-4 w-4" />
+                      <UIcon
+                        :name="showNewAccountPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                        class="h-4 w-4"
+                      />
                     </button>
                   </div>
                 </div>
@@ -1558,21 +1849,26 @@
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Age</label>
-                    <input 
-                      v-model="newAccountForm.age" 
-                      type="number" 
+                    <input
+                      v-model="newAccountForm.age"
+                      type="number"
                       min="0"
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                       placeholder="Age"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Gender</label>
-                    <select 
-                      v-model="newAccountForm.gender" 
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    <select
+                      v-model="newAccountForm.gender"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                     >
-                      <option value="" disabled>Select gender</option>
+                      <option
+                        value=""
+                        disabled
+                      >
+                        Select gender
+                      </option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="other">Other</option>
@@ -1587,64 +1883,112 @@
           <!-- Right Column: Address & Location -->
           <div class="flex flex-col gap-4">
             <div>
-              <span class="text-[10px] font-black tracking-widest text-primary uppercase block mb-3">Address & Location Information</span>
-              
+              <span class="text-primary mb-3 block text-[10px] font-black tracking-widest uppercase"
+                >Address & Location Information</span
+              >
+
               <div class="flex flex-col gap-3.5">
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Region</label>
-                    <select 
-                      v-model="accountCodes.region" 
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all"
+                    <select
+                      v-model="accountCodes.region"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                     >
-                      <option value="" disabled>Select Region</option>
-                      <option v-for="r in accountRegions" :key="r.code" :value="r.code">{{ r.name }}</option>
+                      <option
+                        value=""
+                        disabled
+                      >
+                        Select Region
+                      </option>
+                      <option
+                        v-for="r in accountRegions"
+                        :key="r.code"
+                        :value="r.code"
+                      >
+                        {{ r.name }}
+                      </option>
                     </select>
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Province</label>
-                    <select 
-                      v-model="accountCodes.province" 
+                    <select
+                      v-model="accountCodes.province"
                       :disabled="!accountProvinces.length"
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
                     >
-                      <option value="" disabled>{{ accountProvinces.length ? 'Select Province' : 'N/A' }}</option>
-                      <option v-for="p in accountProvinces" :key="p.code" :value="p.code">{{ p.name }}</option>
+                      <option
+                        value=""
+                        disabled
+                      >
+                        {{ accountProvinces.length ? 'Select Province' : 'N/A' }}
+                      </option>
+                      <option
+                        v-for="p in accountProvinces"
+                        :key="p.code"
+                        :value="p.code"
+                      >
+                        {{ p.name }}
+                      </option>
                     </select>
                   </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-semibold">City / Municipality</label>
-                    <select 
-                      v-model="accountCodes.city" 
-                      :disabled="!accountCities.length"
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                    <label class="text-foreground/70 text-xs font-semibold"
+                      >City / Municipality</label
                     >
-                      <option value="" disabled>Select City</option>
-                      <option v-for="c in accountCities" :key="c.code" :value="c.code">{{ c.name }}</option>
+                    <select
+                      v-model="accountCodes.city"
+                      :disabled="!accountCities.length"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
+                    >
+                      <option
+                        value=""
+                        disabled
+                      >
+                        Select City
+                      </option>
+                      <option
+                        v-for="c in accountCities"
+                        :key="c.code"
+                        :value="c.code"
+                      >
+                        {{ c.name }}
+                      </option>
                     </select>
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Barangay</label>
-                    <select 
-                      v-model="accountCodes.barangay" 
+                    <select
+                      v-model="accountCodes.barangay"
                       :disabled="!accountBarangays.length"
-                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all disabled:opacity-50"
+                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
                     >
-                      <option value="" disabled>Select Barangay</option>
-                      <option v-for="b in accountBarangays" :key="b.code" :value="b.code">{{ b.name }}</option>
+                      <option
+                        value=""
+                        disabled
+                      >
+                        Select Barangay
+                      </option>
+                      <option
+                        v-for="b in accountBarangays"
+                        :key="b.code"
+                        :value="b.code"
+                      >
+                        {{ b.name }}
+                      </option>
                     </select>
                   </div>
                 </div>
 
                 <div class="flex flex-col gap-1.5">
                   <label class="text-foreground/70 text-xs font-semibold">Street Address</label>
-                  <input 
-                    v-model="newAccountForm.street" 
-                    type="text" 
-                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
+                  <input
+                    v-model="newAccountForm.street"
+                    type="text"
+                    class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
                     placeholder="House No., Street Name"
                   />
                 </div>
@@ -1655,17 +1999,28 @@
       </div>
 
       <template #footer>
-        <div class="flex items-center justify-end gap-3 w-full" v-if="!createAccountSuccess">
-          <AppButton type="button" variant="ghost" class="rounded-xl px-6 font-bold text-gray-500" @click.stop="isCreateAccountModalOpen = false">
+        <div
+          class="flex w-full items-center justify-end gap-3"
+          v-if="!createAccountSuccess"
+        >
+          <AppButton
+            type="button"
+            variant="ghost"
+            class="rounded-xl px-6 font-bold text-gray-500"
+            @click.stop="isCreateAccountModalOpen = false"
+          >
             Cancel
           </AppButton>
-          <AppButton type="button" class="rounded-xl px-6 font-bold" @click.stop="handleCreatePatientAccount" :disabled="isSubmittingAccount">
+          <AppButton
+            type="button"
+            class="rounded-xl px-6 font-bold"
+            @click.stop="handleCreatePatientAccount"
+            :disabled="isSubmittingAccount"
+          >
             {{ isSubmittingAccount ? 'Creating...' : 'Register & Link Account' }}
           </AppButton>
         </div>
       </template>
     </AppModal>
-
-
   </div>
 </template>
