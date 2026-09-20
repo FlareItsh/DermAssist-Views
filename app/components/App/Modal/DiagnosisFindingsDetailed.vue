@@ -374,6 +374,14 @@
         activeDisease.value = 'Clear'
         return
       }
+      if (newVal === 'None' || newVal === 'Non-Skin / Out of Scope') {
+        activeDisease.value = 'None'
+        return
+      }
+      if (newVal === 'Inconclusive' || newVal === 'Inconclusive / Outside Priority Scope') {
+        activeDisease.value = 'Inconclusive'
+        return
+      }
       if (newVal && (DISEASE_DATABASE as any)[newVal]) {
         activeDisease.value = newVal as DiseaseName
       }
@@ -699,7 +707,25 @@
           />
         </div>
         <div>
-          <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">{{ activeDisease }}</h1>
+          <div class="flex items-center gap-3">
+            <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">
+              {{ activeDisease === 'None' ? 'Non-Skin / Out of Scope' : activeDisease === 'Inconclusive' ? 'Inconclusive Result' : activeDisease }}
+            </h1>
+            <AppBadge
+              v-if="activeDisease === 'Inconclusive'"
+              color="warning"
+              size="sm"
+            >
+              Low Confidence
+            </AppBadge>
+            <AppBadge
+              v-else-if="activeDisease === 'None'"
+              color="gray"
+              size="sm"
+            >
+              Non-Skin
+            </AppBadge>
+          </div>
           <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
             <p class="text-sm font-bold text-gray-500">
@@ -707,6 +733,34 @@
             </p>
           </div>
         </div>
+      </div>
+
+      <!-- Inconclusive Advisory Notice -->
+      <div
+        v-if="activeDisease === 'Inconclusive'"
+        class="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5"
+      >
+        <div class="flex items-center gap-2 font-bold text-sm text-amber-700 dark:text-amber-300">
+          <Icon name="lucide:alert-triangle" size="17" class="shrink-0" />
+          <span>Low Confidence &amp; Inconclusive Guard</span>
+        </div>
+        <p class="text-xs sm:text-sm leading-relaxed opacity-90">
+          {{ currentDiagnosis?.clinical_feedback || 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+        </p>
+      </div>
+
+      <!-- Non-Skin Advisory Notice -->
+      <div
+        v-else-if="activeDisease === 'None'"
+        class="mb-8 p-4 rounded-2xl bg-muted/40 border border-border text-muted-foreground space-y-1.5"
+      >
+        <div class="flex items-center gap-2 font-bold text-sm text-foreground">
+          <Icon name="lucide:image-off" size="17" class="shrink-0" />
+          <span>Image Gate Notice: Non-Skin Image</span>
+        </div>
+        <p class="text-xs sm:text-sm leading-relaxed">
+          The uploaded image was flagged as non-skin or outside the operational scope of our dermatological neural backbones. Please upload a clear photo of human skin.
+        </p>
       </div>
 
       <div

@@ -13,7 +13,7 @@
     role: 'patient'
   })
 
-  const { currentDiagnosis, isScanned, qualityError, isHealthyState, chartData, resetScanner, patientUuid, isProceededToResults, saveActiveDiagnosisState } =
+  const { currentDiagnosis, isScanned, qualityError, isHealthyState, isInconclusiveState, isNoneState, chartData, resetScanner, patientUuid, isProceededToResults, saveActiveDiagnosisState } =
     useDiagnosis()
 
   const userName = useCookie('user_name')
@@ -40,7 +40,7 @@
 
   const canProceed = computed(() => {
     const hasPatient = props.role === 'patient' || !!patientUuid.value || !!assignedName.value
-    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && hasPatient
+    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && !isNoneState.value && hasPatient
   })
 
   const handleProceed = async () => {
@@ -75,6 +75,12 @@
         prescription: 'No findings yet.',
         guidelines: ['Waiting for scan...']
       }
+    }
+    if (isNoneState.value) {
+      return DISEASE_DATABASE['None']
+    }
+    if (isInconclusiveState.value) {
+      return DISEASE_DATABASE['Inconclusive']
     }
     const label = isHealthyState.value ? 'Clear' : currentDiagnosis.value.label
     return DISEASE_DATABASE[label] || DISEASE_DATABASE['Clear']
@@ -355,12 +361,69 @@
 
         <div>
           <p class="text-md text-foreground font-semibold">Condition Status</p>
-          <p
-            class="text-md mb-1 font-bold"
-            :class="[isHealthyState ? 'text-gray-500' : 'text-primary']"
+          <div class="flex items-center gap-2 mb-1">
+            <p
+              class="text-md font-bold"
+              :class="{
+                'text-gray-500': isHealthyState || isNoneState,
+                'text-amber-600 dark:text-amber-400': isInconclusiveState,
+                'text-primary': !isHealthyState && !isInconclusiveState && !isNoneState
+              }"
+            >
+              {{
+                isNoneState
+                  ? 'Non-Skin / Out of Scope'
+                  : isInconclusiveState
+                    ? 'Inconclusive / Outside Priority Scope'
+                    : isHealthyState
+                      ? 'No skin disease detected'
+                      : currentDiagnosis?.label || 'Waiting...'
+              }}
+            </p>
+            <AppBadge
+              v-if="isInconclusiveState"
+              color="warning"
+              size="sm"
+            >
+              Low Confidence
+            </AppBadge>
+            <AppBadge
+              v-else-if="isNoneState"
+              color="gray"
+              size="sm"
+            >
+              Non-Skin
+            </AppBadge>
+          </div>
+
+          <!-- Inconclusive Advisory Banner -->
+          <div
+            v-if="isInconclusiveState"
+            class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 my-2 space-y-1"
           >
-            {{ isHealthyState ? 'No skin disease detected' : currentDiagnosis?.label || 'Waiting...' }}
-          </p>
+            <div class="flex items-center gap-1.5 font-bold text-xs">
+              <Icon name="lucide:alert-triangle" size="14" class="text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Clinical Advisory</span>
+            </div>
+            <p class="text-xs leading-relaxed opacity-90">
+              {{ currentDiagnosis?.clinical_feedback || 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+            </p>
+          </div>
+
+          <!-- Non-Skin Advisory Banner -->
+          <div
+            v-else-if="isNoneState"
+            class="p-3.5 rounded-2xl bg-muted/40 border border-border text-muted-foreground my-2 space-y-1"
+          >
+            <div class="flex items-center gap-1.5 font-bold text-xs text-foreground">
+              <Icon name="lucide:image-off" size="14" class="text-muted-foreground shrink-0" />
+              <span>Image Gate Notice</span>
+            </div>
+            <p class="text-xs leading-relaxed">
+              The uploaded image does not appear to be a human skin photo. Please retake or upload a clear, focused photo of the skin lesion.
+            </p>
+          </div>
+
           <p class="text-md text-foreground mb-3 font-normal">{{ info.description }}</p>
         </div>
 

@@ -22,6 +22,17 @@ export class DatasetService extends BaseService {
     })
   }
 
+  async uploadImages(images: File[], category: string): Promise<any> {
+    const formData = new FormData()
+    images.forEach(img => formData.append('images[]', img))
+    formData.append('category', category)
+
+    return $api('/dataset', {
+      method: 'POST',
+      body: formData
+    })
+  }
+
   async saveFromDiagnosis(diagnosisUuid: string): Promise<any> {
     return $api('/dataset/save-diagnosis', {
       method: 'POST',
@@ -31,6 +42,10 @@ export class DatasetService extends BaseService {
 
   async deleteImage(url: string): Promise<any> {
     return this.request('/dataset', 'DELETE', { url })
+  }
+
+  async deleteImages(urls: string[]): Promise<any> {
+    return this.request('/dataset/bulk', 'DELETE', { urls })
   }
 
   async downloadDataset(category?: string): Promise<Blob> {

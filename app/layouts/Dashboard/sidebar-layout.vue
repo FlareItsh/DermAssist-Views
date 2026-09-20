@@ -76,6 +76,7 @@
       showBadge: hasUnseenAppeals.value
     },
     { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
+    { icon: 'lucide:brain-circuit', label: 'AI Models', to: '/admin/ai' },
     {
       icon: 'lucide:credit-card',
       label: 'Subscriptions',
@@ -143,6 +144,11 @@
       icon: 'lucide:folder',
       label: 'Records',
       to: '/doctor/records'
+    },
+    {
+      icon: 'lucide:database',
+      label: 'Dataset',
+      to: '/doctor/dataset'
     },
     {
       icon: 'lucide:credit-card',

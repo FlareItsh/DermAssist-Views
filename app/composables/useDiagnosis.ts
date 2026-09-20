@@ -14,11 +14,16 @@ export interface ImageQuality {
 
 export interface DiagnosisResult {
   id?: string
+  uuid?: string
   label: string
   confidence: number
   all_probabilities: Record<string, number>
   image_quality?: ImageQuality
+  is_inconclusive?: boolean
+  clinical_feedback?: string
 }
+
+export type DiseaseName = 'Acne' | 'Eczema' | 'Herpes' | 'Clear' | 'None' | 'Inconclusive'
 
 export interface DiseaseInfo {
   description: string
@@ -33,8 +38,9 @@ export const COLOR_MAP: Record<string, string> = {
   'Acne': '#ef4444',
   'Eczema': '#d97706',
   'Herpes': '#4c0516',
-  'Clear': '#6b7280',
-  'None': '#6b7280'
+  'Clear': '#10b981',
+  'None': '#6b7280',
+  'Inconclusive': '#f59e0b'
 }
 
 export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
@@ -106,21 +112,42 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     color: COLOR_MAP['Clear']
   },
   'None': {
-    description: 'The skin appears clear and healthy with no significant irregularities detected.',
-    guidelines: ['Use daily sunscreen', 'Stay hydrated', 'Maintain a healthy diet'],
+    description: 'The uploaded image was flagged as non-skin or outside the operational scope of our dermatological neural backbones.',
+    guidelines: [
+      'Upload a well-lit, close-up photograph of human skin',
+      'Ensure the affected skin lesion is in focus and centered',
+      'Consult a licensed dermatologist for any non-obvious skin concerns'
+    ],
     symptoms: [
-      'Healthy skin surface',
-      'No inflammation',
-      'Natural barrier function',
-      'Uniform tone'
+      'Non-human or non-skin subject detected',
+      'Insufficient dermatological surface features',
+      'Uncalibrated background or lighting'
     ],
     causes: [
-      'Proper hydration',
-      'Effective skincare',
-      'UV defense',
-      'Good overall health'
+      'Non-skin object or environment',
+      'Distant or out-of-focus capture',
+      'Extreme lighting or non-medical perspective'
     ],
     color: COLOR_MAP['None']
+  },
+  'Inconclusive': {
+    description: 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). It may represent an out-of-scope dermatological condition or an ambiguous lesion presentation.',
+    guidelines: [
+      'Consult a licensed dermatologist for a comprehensive in-person medical evaluation',
+      'Do not apply unprescribed topical medications or harsh products',
+      'Monitor the area for changes in size, color, texture, or spreading'
+    ],
+    symptoms: [
+      'Ambiguous, mixed, or atypical lesion features',
+      'Condition outside the 3 trained priority spectrums',
+      'Low neural confidence below decisive clinical threshold (< 55%)'
+    ],
+    causes: [
+      'Out-of-scope dermatological condition (e.g. Psoriasis, Rosacea, Dermatitis, Tinea)',
+      'Atypical lesion morphology or overlapping presentation',
+      'Equally distributed or ambiguous probability distribution'
+    ],
+    color: COLOR_MAP['Inconclusive']
   }
 }
 
@@ -170,9 +197,24 @@ const saveActiveDiagnosisState = () => {
 }
 
 export const useDiagnosis = () => {
+  const isInconclusiveState = computed(() => {
+    if (!currentDiagnosis.value) return false
+    return (
+      currentDiagnosis.value.is_inconclusive === true ||
+      currentDiagnosis.value.label === 'Inconclusive' ||
+      (currentDiagnosis.value.confidence < 0.55 && currentDiagnosis.value.label !== 'None' && currentDiagnosis.value.label !== 'Clear')
+    )
+  })
+
+  const isNoneState = computed(() => {
+    if (!currentDiagnosis.value) return false
+    return currentDiagnosis.value.label === 'None'
+  })
+
   const isHealthyState = computed(() => {
     if (!currentDiagnosis.value) return false
-    return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'None'
+    if (isInconclusiveState.value || isNoneState.value) return false
+    return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'Clear'
   })
 
   const chartData = computed(() => {
@@ -180,12 +222,21 @@ export const useDiagnosis = () => {
       return [{ label: 'Normal', value: 100, color: '#f3f4f6' }]
     }
 
+    if (isNoneState.value) {
+      return [{ label: 'Non-Skin / Out of Scope', value: 100, color: COLOR_MAP['None'] }]
+    }
+
     if (isHealthyState.value) {
       return [{ label: 'No skin disease detected', value: 100, color: COLOR_MAP['Clear'] }]
     }
 
+    if (!currentDiagnosis.value.all_probabilities || Object.keys(currentDiagnosis.value.all_probabilities).length === 0) {
+      const label = currentDiagnosis.value.label || 'Inconclusive'
+      return [{ label, value: Math.round(currentDiagnosis.value.confidence * 100), color: COLOR_MAP[label] || '#475569' }]
+    }
+
     return Object.entries(currentDiagnosis.value.all_probabilities)
-      .filter(([label, value]) => value > 0.05)
+      .filter(([label, value]) => value > 0.02)
       .map(([label, value]) => ({
         label,
         value: Math.round(value * 100),
@@ -225,6 +276,8 @@ export const useDiagnosis = () => {
     selectedFile,
     patientUuid,
     isHealthyState,
+    isInconclusiveState,
+    isNoneState,
     chartData,
     setDiagnosis,
     clearDiagnosis,
