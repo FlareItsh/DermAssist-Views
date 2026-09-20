@@ -16,6 +16,8 @@
   const { appointments, pendingAppointments } = useAppointments()
   const { patientUuid, currentDiagnosis, saveActiveDiagnosisState } = useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
+  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const showNewAccountPassword = ref(false)
 
   const isPatientModalOpen = ref(false)
 
@@ -219,7 +221,7 @@
     firstName: '',
     lastName: '',
     email: '',
-    password: '',
+    password: generateTemporaryPassword('Patient'),
     age: '',
     gender: '',
     street: '',
@@ -289,7 +291,7 @@
     newAccountForm.lastName = parts.slice(1).join(' ') || ''
     newAccountForm.age = editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
     newAccountForm.email = ''
-    newAccountForm.password = ''
+    newAccountForm.password = generateTemporaryPassword('Patient')
     newAccountForm.gender = ''
     newAccountForm.street = ''
     newAccountForm.barangay = ''
@@ -1512,13 +1514,45 @@
                 </div>
 
                 <div class="flex flex-col gap-1.5">
-                  <label class="text-foreground/70 text-xs font-semibold">Temporary Password <span class="text-rose-500">*</span></label>
-                  <input 
-                    v-model="newAccountForm.password" 
-                    type="password" 
-                    class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none transition-all" 
-                    placeholder="Temporary password"
-                  />
+                  <div class="flex items-center justify-between">
+                    <label class="text-foreground/70 text-xs font-semibold">Temporary Password <span class="text-rose-500">*</span></label>
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        @click="copyToClipboard(newAccountForm.password, 'Password')"
+                        class="text-primary flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
+                        title="Copy password to clipboard"
+                      >
+                        <UIcon name="i-heroicons-clipboard-document" class="h-3.5 w-3.5" />
+                        Copy
+                      </button>
+                      <span class="text-gray-300">|</span>
+                      <button
+                        type="button"
+                        @click="newAccountForm.password = generateTemporaryPassword('Patient')"
+                        class="text-primary flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
+                        title="Generate new random password"
+                      >
+                        <UIcon name="i-heroicons-arrow-path" class="h-3.5 w-3.5" />
+                        Regenerate
+                      </button>
+                    </div>
+                  </div>
+                  <div class="relative">
+                    <input 
+                      v-model="newAccountForm.password" 
+                      :type="showNewAccountPassword ? 'text' : 'password'" 
+                      class="bg-foreground/5 border-gray-200 focus:border-primary w-full rounded-xl border px-3.5 pr-10 py-2.5 text-sm font-mono outline-none transition-all" 
+                      placeholder="Temporary password"
+                    />
+                    <button
+                      type="button"
+                      @click="showNewAccountPassword = !showNewAccountPassword"
+                      class="text-foreground/40 hover:text-foreground/70 absolute right-3 top-1/2 -translate-y-1/2"
+                    >
+                      <UIcon :name="showNewAccountPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-3">
