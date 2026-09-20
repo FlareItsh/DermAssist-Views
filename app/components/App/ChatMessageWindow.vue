@@ -310,15 +310,26 @@
   }
 
   const isAcceptingReschedule = ref(false)
+  const showAcceptConfirmModal = ref(false)
+  const pendingAcceptUuid = ref<string | null>(null)
 
-  const acceptReschedule = async (uuid?: string) => {
-    const targetUuid = uuid || activeAppointment.value?.id || activeAppointment.value?.uuid
+  const promptAcceptReschedule = (uuid?: string) => {
+    pendingAcceptUuid.value =
+      uuid || activeAppointment.value?.id || activeAppointment.value?.uuid || null
+    showAcceptConfirmModal.value = true
+  }
+
+  const confirmAcceptReschedule = async () => {
+    const targetUuid =
+      pendingAcceptUuid.value || activeAppointment.value?.id || activeAppointment.value?.uuid
     if (!targetUuid) return
 
     isAcceptingReschedule.value = true
     try {
       await appointmentService.acceptReschedule(targetUuid, {})
       toast.success('Appointment schedule accepted.')
+      showAcceptConfirmModal.value = false
+      pendingAcceptUuid.value = null
       await fetchMessages(1)
       await fetchAppointments()
     } catch (e: any) {
@@ -334,14 +345,29 @@
     }
   }
 
+  const acceptReschedule = async (uuid?: string) => {
+    promptAcceptReschedule(uuid)
+  }
+
+  const closeAcceptModal = () => {
+    showAcceptConfirmModal.value = false
+    pendingAcceptUuid.value = null
+  }
+
+  const pendingCancelUuid = ref<string | null>(null)
+
+  const promptCancelAppointment = (uuid: string) => {
+    pendingCancelUuid.value = uuid
+    showCancelConfirm.value = true
+  }
+
+  const closeCancelModal = () => {
+    showCancelConfirm.value = false
+    pendingCancelUuid.value = null
+  }
+
   const cancelAppointment = async (uuid: string) => {
-    try {
-      await appointmentService.update(uuid, { status: 'declined' })
-      fetchMessages(1)
-      fetchAppointments()
-    } catch (e) {
-      console.error(e)
-    }
+    promptCancelAppointment(uuid)
   }
 
   const rescheduleModalAppt = ref<any | null>(null)
@@ -430,12 +456,18 @@
 
   const formatRequestedRescheduleLabel = (appt: any): string => {
     if (!appt?.requested_reschedule_date) return ''
-    const d = new Date(appt.requested_reschedule_date + 'T00:00:00')
-    const dateFmt = d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
+    const rawDate =
+      typeof appt.requested_reschedule_date === 'string'
+        ? appt.requested_reschedule_date.split('T')[0]
+        : appt.requested_reschedule_date
+    const d = new Date(rawDate + 'T00:00:00')
+    const dateFmt = isNaN(d.getTime())
+      ? rawDate
+      : d.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
     if (appt.requested_reschedule_time) {
       const [hStr, mStr] = appt.requested_reschedule_time.split(':')
       const h = parseInt(hStr, 10)
@@ -483,18 +515,21 @@
   }
 
   const cancelAppointmentDirectly = async () => {
-    if (!activeAppointment.value) return
+    const targetUuid = pendingCancelUuid.value || activeAppointment.value?.id
+    if (!targetUuid) return
     isCancelling.value = true
     try {
-      const cancelledAppointment = activeAppointment.value
-      await appointmentService.update(cancelledAppointment.id, { status: 'declined' })
-      removeFromPriority(cancelledAppointment.id)
+      await appointmentService.update(targetUuid, { status: 'declined' })
+      removeFromPriority(targetUuid)
       showCancelConfirm.value = false
       showResolveModal.value = false
+      pendingCancelUuid.value = null
+      toast.success('Appointment cancelled.')
       fetchAppointments()
       fetchMessages(1)
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to cancel appointment.')
     } finally {
       isCancelling.value = false
     }
@@ -1516,7 +1551,7 @@
                     <span class="font-bold text-amber-700">Reschedule Requested</span>
                   </div>
                   <p
-                    class="text-sm opacity-90"
+                    class="text-sm leading-relaxed opacity-90"
                     v-html="
                       msg.message.replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '').trim()
                     "
@@ -1787,7 +1822,7 @@
         <Transition name="modal">
           <div
             v-if="showDeleteMessageModal"
-            class="bg-black/50 fixed inset-0 z-999 flex items-center justify-center p-4"
+            class="fixed inset-0 z-999 flex items-center justify-center bg-black/50 p-4"
             @click.self="showDeleteMessageModal = false"
           >
             <div
@@ -1830,8 +1865,8 @@
         <Transition name="modal">
           <div
             v-if="showCancelConfirm"
-            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
-            @click.self="showCancelConfirm = false"
+            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
+            @click.self="closeCancelModal"
           >
             <div
               class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl"
@@ -1864,7 +1899,7 @@
                 <AppButton
                   variant="unstyled"
                   class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
-                  @click="showCancelConfirm = false"
+                  @click="closeCancelModal"
                 >
                   Go Back
                 </AppButton>
@@ -1877,7 +1912,7 @@
         <Transition name="modal">
           <div
             v-if="showResolveModal"
-            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
             @click.self="showResolveModal = false"
           >
             <div
@@ -1939,7 +1974,7 @@
         <Transition name="modal">
           <div
             v-if="showDeleteConversationModal"
-            class="bg-black/50 fixed inset-0 z-999 flex items-center justify-center p-4"
+            class="fixed inset-0 z-999 flex items-center justify-center bg-black/50 p-4"
             @click.self="showDeleteConversationModal = false"
           >
             <div
@@ -1984,7 +2019,7 @@
         <Transition name="modal">
           <div
             v-if="showCompleteConfirm"
-            class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
             @click.self="showCompleteConfirm = false"
           >
             <div
@@ -2050,6 +2085,21 @@
         :appointment="rescheduleModalAppt"
         @close="rescheduleModalAppt = null"
         @requested="onRescheduleRequested"
+      />
+
+      <!-- Reschedule Accept Confirmation Modal -->
+      <AppModalConfirmation
+        v-model="showAcceptConfirmModal"
+        title="Accept Reschedule?"
+        description="Are you sure you want to accept this proposed appointment schedule? The appointment date and time will be officially updated."
+        confirm-text="Yes, Accept Schedule"
+        cancel-text="Go Back"
+        confirm-variant="solid"
+        icon="material-symbols:check-circle-rounded"
+        icon-color="primary"
+        :loading="isAcceptingReschedule"
+        @confirm="confirmAcceptReschedule"
+        @cancel="closeAcceptModal"
       />
     </ClientOnly>
   </div>

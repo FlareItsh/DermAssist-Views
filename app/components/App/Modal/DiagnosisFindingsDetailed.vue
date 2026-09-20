@@ -88,7 +88,43 @@
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
-  const contributeToDataset = ref(true)
+  const contributeToDataset = ref(false)
+  const selectedPatientData = ref<any>(null)
+
+  watch(
+    patientUuid,
+    async (uuid) => {
+      if (uuid) {
+        try {
+          const res = await userService.show(uuid)
+          selectedPatientData.value = res?.data ?? res
+        } catch (e) {
+          selectedPatientData.value = null
+        }
+      } else {
+        selectedPatientData.value = null
+      }
+    },
+    { immediate: true }
+  )
+
+  const patientConsentedToDataset = computed(() => {
+    if (selectedPatientData.value) {
+      return Boolean(selectedPatientData.value.consent_dataset)
+    }
+    if ((props.diagnosis as any)?.patient_consented_dataset !== undefined) {
+      return Boolean((props.diagnosis as any).patient_consented_dataset)
+    }
+    return false
+  })
+
+  watch(
+    patientConsentedToDataset,
+    (consented) => {
+      contributeToDataset.value = consented
+    },
+    { immediate: true }
+  )
 
   const draftPatientKey = computed(() => 'draft_patient_info_' + (props.diagnosisUuid || 'active'))
 
@@ -863,7 +899,7 @@
         </div>
       </div>
 
-      <div v-if="props.role === 'doctor'" class="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2 w-fit">
+      <div v-if="props.role === 'doctor' && patientConsentedToDataset" class="flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary/5 px-3.5 py-2 w-fit">
         <input
           id="detailed-dataset-checkbox"
           v-model="contributeToDataset"

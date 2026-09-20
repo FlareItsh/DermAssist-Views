@@ -19,24 +19,31 @@
       <main
         class="flex-1"
         :class="[
-          isFullHeightPage ? 'overflow-hidden h-full pb-0 bg-transparent' : 'overflow-y-auto pb-24 md:pb-5',
-          userRole === 'patient' 
-            ? (isFullHeightPage 
-                ? (isChatThread ? 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full' : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5 h-full')
-                : 'mt-0 pt-0 md:pt-5 md:-mt-4 md:p-5')
+          isFullHeightPage
+            ? 'h-full overflow-hidden bg-transparent pb-0'
+            : 'overflow-y-auto pb-24 md:pb-5',
+          userRole === 'patient'
+            ? isFullHeightPage
+              ? isChatThread
+                ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
+                : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
+              : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
             : '-mt-4 p-5'
         ]"
         id="main-content"
       >
         <!-- Mobile Header (only on mobile viewports for patients, except in active chat threads) -->
-        <div class="block md:hidden relative z-50" v-if="userRole === 'patient' && !isChatThread">
+        <div
+          class="relative z-50 block md:hidden"
+          v-if="userRole === 'patient' && !isChatThread"
+        >
           <PatientSideComponentsMobileHeroHeader />
         </div>
-        <div 
-          class="mx-auto" 
+        <div
+          class="mx-auto"
           :class="[
             userRole === 'patient' ? 'px-5 md:p-0' : '',
-            (isFullHeightPage || isChatPage) ? 'h-full min-h-0' : 'min-h-0'
+            isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
           <slot />
@@ -84,7 +91,11 @@
         { icon: 'lucide:bar-chart-3', label: 'Dashboard', to: '/admin/subscriptions' },
         { icon: 'lucide:sliders', label: 'Plan Builder', to: '/admin/subscriptions/plans' },
         { icon: 'lucide:sparkles', label: 'Features Manager', to: '/admin/subscriptions/features' },
-        { icon: 'lucide:receipt', label: 'Payment Verification', to: '/admin/subscriptions/payments' },
+        {
+          icon: 'lucide:receipt',
+          label: 'Payment Verification',
+          to: '/admin/subscriptions/payments'
+        },
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
     },
@@ -126,7 +137,7 @@
       icon: 'lucide:user-round',
       label: 'Consultations',
       children: [
-        { icon: 'lucide:users', label: 'Patients', to: '/doctor/users' },
+        { icon: 'lucide:users', label: 'Patients', to: '/doctor/patients' },
         { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
       ]
     },
@@ -168,7 +179,7 @@
       icon: 'lucide:user-round',
       label: 'Consultations',
       children: [
-        { icon: 'lucide:users', label: 'Patients', to: '/secretary/users' },
+        { icon: 'lucide:users', label: 'Patients', to: '/secretary/patients' },
         { icon: 'lucide:calendar', label: 'Appointments', to: '/secretary/appointments' }
       ]
     },
@@ -267,7 +278,7 @@
       if (path.startsWith('/admin/appeals')) {
         markAppealsSeen()
       }
-      
+
       // Scroll to top on page change (only on client-side)
       if (typeof document !== 'undefined') {
         await nextTick()

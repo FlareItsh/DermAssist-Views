@@ -6,6 +6,8 @@ export interface Appointment {
   time: string
   raw_scheduled_at?: string
   raw_scheduled_end_at?: string
+  previous_scheduled_at?: string
+  previous_scheduled_end_at?: string
   doctor: string
   doctor_id: number
   doctor_uuid?: string
@@ -21,7 +23,9 @@ export interface Appointment {
   completed_at?: string
 }
 
-export const parseAppointmentDateTime = (dateTimeStr: string): { date: string; time: string; startH: string; startM: string } => {
+export const parseAppointmentDateTime = (
+  dateTimeStr: string
+): { date: string; time: string; startH: string; startM: string } => {
   if (!dateTimeStr) return { date: '', time: '', startH: '00', startM: '00' }
   const match = dateTimeStr.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/)
   if (match) {
@@ -35,7 +39,7 @@ export const parseAppointmentDateTime = (dateTimeStr: string): { date: string; t
       date,
       time: `${h12}:${startM} ${ampm}`,
       startH,
-      startM,
+      startM
     }
   }
   const d = new Date(dateTimeStr)
@@ -48,7 +52,7 @@ export const parseAppointmentDateTime = (dateTimeStr: string): { date: string; t
     date: `${year}-${month}-${day}`,
     time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     startH,
-    startM,
+    startM
   }
 }
 
@@ -60,23 +64,34 @@ let activeAppointmentFetch: Promise<void> | null = null
 export const useAppointments = () => {
   const userUuid = useCookie('user_uuid')
   const userRole = useCookie('user_role')
-  
+
   // Use a ref for the current user in this instance to detect changes
   const localUserUuid = ref(userUuid.value)
 
   const appointments = useState<Appointment[]>('shared_appointments_list', () => [])
   const pendingAppointments = useState<Appointment[]>('shared_pending_appointments_list', () => [])
-  const declinedAppointments = useState<{ id: string; doctor: string; info: string; conversation_uuid?: string }[]>('shared_declined_appointments_list', () => [])
-  const completedAppointments = useState<Appointment[]>('shared_completed_appointments_list', () => [])
+  const declinedAppointments = useState<
+    { id: string; doctor: string; info: string; conversation_uuid?: string }[]
+  >('shared_declined_appointments_list', () => [])
+  const completedAppointments = useState<Appointment[]>(
+    'shared_completed_appointments_list',
+    () => []
+  )
   const selectedDate = useState<string | null>('appointments_selected_date', () => {
     return new Date().toISOString().split('T')[0]
   })
   const pending = ref(false)
 
   const mapPerson = (appt: any) => {
-    const doctorName = appt.doctor ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}` : 'Unknown Doctor'
-    const patientName = appt.patient ? `${appt.patient.first_name} ${appt.patient.last_name}` : 'Unknown Patient'
-    const currentRole = (userRole.value || useCookie('user_role').value || '')?.toString().toLowerCase()
+    const doctorName = appt.doctor
+      ? `Dr. ${appt.doctor.first_name} ${appt.doctor.last_name}`
+      : 'Unknown Doctor'
+    const patientName = appt.patient
+      ? `${appt.patient.first_name} ${appt.patient.last_name}`
+      : 'Unknown Patient'
+    const currentRole = (userRole.value || useCookie('user_role').value || '')
+      ?.toString()
+      .toLowerCase()
     return currentRole === 'doctor' ? patientName : doctorName
   }
 
@@ -90,21 +105,28 @@ export const useAppointments = () => {
     }
     return {
       id: appt.uuid,
+      uuid: appt.uuid,
       date,
       time,
       raw_scheduled_at: appt.scheduled_at,
       raw_scheduled_end_at: appt.scheduled_end_at,
+      previous_scheduled_at: appt.previous_scheduled_at,
+      previous_scheduled_end_at: appt.previous_scheduled_end_at,
       doctor: mapPerson(appt),
       doctor_id: appt.doctor_id,
       doctor_uuid: appt.doctor?.uuid,
       patient_id: appt.patient_id,
       patient_uuid: appt.patient?.uuid,
       patient: appt.patient,
+      patient_age: appt.patient?.age,
+      patient_gender: appt.patient?.gender,
       created_at: appt.created_at,
       info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+      diagnosis_id: appt.diagnosis_id || appt.diagnosis?.id,
       diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
-      location: appt.location,
-      purpose: appt.purpose,
+      location: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
+      clinic_name: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
+      purpose: appt.purpose || 'Consultation',
       status: appt.status,
       requested_reschedule_date: appt.requested_reschedule_date,
       requested_reschedule_time: appt.requested_reschedule_time,
@@ -122,7 +144,7 @@ export const useAppointments = () => {
       selectedDate.value = new Date().toISOString().split('T')[0]
       return
     }
-    
+
     // Reuse in-flight request if already pending
     if (activeAppointmentFetch) return activeAppointmentFetch
 
@@ -132,7 +154,12 @@ export const useAppointments = () => {
         const res = await appointmentService.list()
         if (res) {
           appointments.value = res
-            .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
+            .filter(
+              (appt: any) =>
+                appt.status === 'scheduled' ||
+                appt.status === 'reschedule_proposed' ||
+                appt.status === 'reschedule_requested'
+            )
             .map(mapAppt)
 
           pendingAppointments.value = res
@@ -144,7 +171,10 @@ export const useAppointments = () => {
             .map((appt: any) => ({
               id: appt.uuid,
               doctor: mapPerson(appt),
-              info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
+              info:
+                appt.diagnosis?.label ||
+                appt.clinical_note?.diagnosis?.label ||
+                'General Appointment',
               conversation_uuid: appt.conversation_uuid
             }))
 
@@ -163,16 +193,24 @@ export const useAppointments = () => {
     return activeAppointmentFetch
   }
 
-  const fetchAppointmentsForDoctor = async (doctorIdOrUuid: string | number): Promise<Appointment[]> => {
+  const fetchAppointmentsForDoctor = async (
+    doctorIdOrUuid: string | number
+  ): Promise<Appointment[]> => {
     if (!doctorIdOrUuid) return []
     try {
-      const param = typeof doctorIdOrUuid === 'number' || !isNaN(Number(doctorIdOrUuid))
-        ? { doctor_id: doctorIdOrUuid }
-        : { doctor_uuid: doctorIdOrUuid }
+      const param =
+        typeof doctorIdOrUuid === 'number' || !isNaN(Number(doctorIdOrUuid))
+          ? { doctor_id: doctorIdOrUuid }
+          : { doctor_uuid: doctorIdOrUuid }
       const res = await appointmentService.list(param)
       if (Array.isArray(res)) {
         return res
-          .filter((appt: any) => appt.status === 'scheduled' || appt.status === 'reschedule_proposed' || appt.status === 'reschedule_requested')
+          .filter(
+            (appt: any) =>
+              appt.status === 'scheduled' ||
+              appt.status === 'reschedule_proposed' ||
+              appt.status === 'reschedule_requested'
+          )
           .map(mapAppt)
       }
     } catch (e) {
@@ -181,12 +219,20 @@ export const useAppointments = () => {
     return []
   }
 
-  const isApptTimeConflicting = (dateStr: string, startTimeStr: string, endTimeStr?: string, excludeUuid?: string, apptsList?: Appointment[]): boolean => {
+  const isApptTimeConflicting = (
+    dateStr: string,
+    startTimeStr: string,
+    endTimeStr?: string,
+    excludeUuid?: string,
+    apptsList?: Appointment[]
+  ): boolean => {
     if (!dateStr || !startTimeStr) return false
 
     // Parse start datetime ms
     const targetStartMs = new Date(`${dateStr}T${startTimeStr}:00`).getTime()
-    let targetEndMs = endTimeStr ? new Date(`${dateStr}T${endTimeStr}:00`).getTime() : targetStartMs + 3600000
+    let targetEndMs = endTimeStr
+      ? new Date(`${dateStr}T${endTimeStr}:00`).getTime()
+      : targetStartMs + 3600000
 
     if (isNaN(targetStartMs) || isNaN(targetEndMs)) return false
 
@@ -226,16 +272,19 @@ export const useAppointments = () => {
   }
 
   // Watch for user changes globally
-  watch(() => userUuid.value, (newUuid, oldUuid) => {
-    if (newUuid !== oldUuid) {
-      appointments.value = []
-      pendingAppointments.value = []
-      declinedAppointments.value = []
-      completedAppointments.value = []
-      selectedDate.value = new Date().toISOString().split('T')[0]
-      if (newUuid) fetchAppointments()
+  watch(
+    () => userUuid.value,
+    (newUuid, oldUuid) => {
+      if (newUuid !== oldUuid) {
+        appointments.value = []
+        pendingAppointments.value = []
+        declinedAppointments.value = []
+        completedAppointments.value = []
+        selectedDate.value = new Date().toISOString().split('T')[0]
+        if (newUuid) fetchAppointments()
+      }
     }
-  })
+  )
 
   // Singleton Polling: Starts only ONE global interval regardless of how many components call useAppointments()
   if (import.meta.client) {
@@ -259,11 +308,40 @@ export const useAppointments = () => {
     }
   }
 
+  const rescheduleRequests = computed(() =>
+    appointments.value.filter(
+      appt => appt.status === 'reschedule_requested' || appt.status === 'reschedule_proposed'
+    )
+  )
+
+  const rescheduleRequestsCount = computed(() => rescheduleRequests.value.length)
+
+  const todayStr = computed(() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  })
+
+  const todayAppointments = computed(() =>
+    appointments.value.filter(appt => {
+      const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
+      return p.date === todayStr.value
+    })
+  )
+
+  const todayAppointmentsCount = computed(() => todayAppointments.value.length)
+
   return {
     appointments,
     pendingAppointments,
     declinedAppointments,
     completedAppointments,
+    rescheduleRequests,
+    rescheduleRequestsCount,
+    todayAppointments,
+    todayAppointmentsCount,
     selectedDate,
     pending,
     fetchAppointments,
