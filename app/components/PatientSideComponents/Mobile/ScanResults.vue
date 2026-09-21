@@ -10,7 +10,7 @@ import { useAppointments } from '~/composables/useAppointments'
 import { useStorage } from '~/composables/useStorage'
 
 const router = useRouter()
-const { currentDiagnosis, isHealthyState, chartData } = useDiagnosis()
+const { currentDiagnosis, isHealthyState, isInconclusiveState, isNoneState, chartData } = useDiagnosis()
 const userName = useCookie('user_name')
 const userUuid = useCookie('user_uuid')
 
@@ -20,10 +20,14 @@ const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
 const activeDiseaseLabel = computed(() => {
   if (!currentDiagnosis.value) return 'None'
+  if (isNoneState.value) return 'Non-Skin / Out of Scope'
+  if (isInconclusiveState.value) return 'Inconclusive Result'
   return currentDiagnosis.value.label
 })
 
 const activeDiseaseInfo = computed(() => {
+  if (isNoneState.value) return DISEASE_DATABASE['None']
+  if (isInconclusiveState.value) return DISEASE_DATABASE['Inconclusive']
   const label = activeDiseaseLabel.value
   return DISEASE_DATABASE[label] || DISEASE_DATABASE['None']
 })
@@ -343,10 +347,41 @@ onMounted(() => {
           <h3 class="text-foreground text-lg font-black truncate leading-tight mt-0.5">
             {{ activeDiseaseLabel }}
           </h3>
-          <p class="text-primary text-xs font-bold mt-1">
+          <p
+            class="text-xs font-bold mt-1"
+            :class="isInconclusiveState ? 'text-amber-600 dark:text-amber-400' : 'text-primary'"
+          >
             Confidence: {{ confidencePercent }}%
           </p>
         </div>
+      </div>
+
+      <!-- Inconclusive Advisory Banner (Mobile) -->
+      <div
+        v-if="isInconclusiveState"
+        class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1"
+      >
+        <div class="flex items-center gap-1.5 font-bold text-xs text-amber-700 dark:text-amber-300">
+          <Icon name="lucide:alert-triangle" size="14" class="shrink-0" />
+          <span>Low Confidence &amp; Inconclusive Guard</span>
+        </div>
+        <p class="text-xs leading-relaxed opacity-90">
+          {{ currentDiagnosis?.clinical_feedback || 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+        </p>
+      </div>
+
+      <!-- Non-Skin Advisory Banner (Mobile) -->
+      <div
+        v-else-if="isNoneState"
+        class="p-3.5 rounded-2xl bg-muted/40 border border-border text-muted-foreground space-y-1"
+      >
+        <div class="flex items-center gap-1.5 font-bold text-xs text-foreground">
+          <Icon name="lucide:image-off" size="14" class="shrink-0" />
+          <span>Non-Skin Image Detected</span>
+        </div>
+        <p class="text-xs leading-relaxed">
+          The uploaded image does not appear to be a human skin photo. Please retake or upload a clear, focused photo of the skin lesion.
+        </p>
       </div>
 
       <!-- Probability Distribution -->
