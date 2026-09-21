@@ -36,19 +36,19 @@
     <template #content="{ close, isPinned }">
       <!-- Header -->
       <div
-        class="mb-2.5 flex items-center justify-between border-b border-gray-100 pb-2 dark:border-gray-800"
+        class="mb-3 flex items-center justify-between border-b border-gray-100 pb-2 dark:border-gray-800"
       >
         <div class="flex items-center gap-2">
           <span
             class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold"
           >
             <Icon
-              name="material-symbols:psychology-rounded"
+              name="material-symbols:lightbulb-outline"
               class="text-xs"
             />
-            AI Probability
+            How It Works
           </span>
-          <h4 class="text-xs font-bold text-gray-900 dark:text-gray-100">Confidence Calculation</h4>
+          <h4 class="text-xs font-bold text-gray-900 dark:text-gray-100">Confidence Score</h4>
         </div>
 
         <button
@@ -64,28 +64,27 @@
         </button>
       </div>
 
-      <!-- Formula Card -->
+      <!-- Match Explanation Card (Layman's terms) -->
       <div
-        class="mb-3 rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 dark:border-gray-800 dark:bg-gray-800/60"
+        class="border-primary/10 bg-primary/5 dark:border-primary/20 dark:bg-primary/10 mb-3 rounded-xl border p-3"
       >
-        <div
-          class="mb-1 flex items-center justify-between text-[11px] font-semibold text-gray-500 dark:text-gray-400"
-        >
-          <span>Softmax Normalization</span>
-          <span class="text-primary font-mono text-[10px]">Σ P(c) = 100%</span>
-        </div>
-        <div
-          class="rounded-lg border border-gray-100 bg-white/80 py-1 text-center font-mono text-xs font-bold text-gray-800 dark:border-gray-800 dark:bg-gray-900/80 dark:text-gray-200"
-        >
-          Confidence(c<sub class="text-[9px]">i</sub>) = e<sup class="text-[9px]"
-            >z<sub class="text-[8px]">i</sub></sup
+        <div class="mb-1 flex items-center gap-2">
+          <Icon
+            name="material-symbols:fact-check-outline-rounded"
+            class="text-primary shrink-0 text-sm"
+          />
+          <span class="text-xs font-bold text-gray-900 dark:text-white"
+            >What does this percentage mean?</span
           >
-          / Σ e<sup class="text-[9px]">z<sub class="text-[8px]">j</sub></sup>
         </div>
+        <p class="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+          This score represents how closely your skin scan matches verified doctor-diagnosed cases
+          in our medical database.
+        </p>
       </div>
 
-      <!-- Step Explanations -->
-      <div class="space-y-2 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+      <!-- 3-Step Plain Language Explanation -->
+      <div class="space-y-2.5 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
         <div class="flex items-start gap-2">
           <span
             class="bg-primary/10 text-primary mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
@@ -93,9 +92,9 @@
             1
           </span>
           <p>
-            <strong class="text-gray-900 dark:text-white">Feature Extraction:</strong>
-            Deep CNN evaluates lesion pigment, border regularity, and surface morphology into raw
-            prediction logits.
+            <strong class="text-gray-900 dark:text-white">Examining Visual Signs:</strong>
+            The AI inspects key visual traits in the photo, such as color variation, edges, shape,
+            and skin texture.
           </p>
         </div>
 
@@ -106,9 +105,9 @@
             2
           </span>
           <p>
-            <strong class="text-gray-900 dark:text-white">Probability Mapping:</strong>
-            Softmax normalizes logits across all candidate skin conditions so the differential
-            breakdown sums to 100%.
+            <strong class="text-gray-900 dark:text-white">Comparing with Medical Cases:</strong>
+            It compares these patterns against thousands of clinical dermatology images confirmed by
+            medical specialists.
           </p>
         </div>
 
@@ -119,22 +118,33 @@
             3
           </span>
           <p>
-            <strong class="text-gray-900 dark:text-white">Ranking:</strong>
-            The top statistical probability is shown as the primary confidence, with secondary
-            findings displayed in the chart.
+            <strong class="text-gray-900 dark:text-white">Finding the Closest Match:</strong>
+            The condition with the highest similarity percentage is displayed as your primary
+            result.
           </p>
         </div>
       </div>
 
-      <!-- Clinical Disclaimer Footer -->
+      <!-- Interpretation Tip -->
       <div
-        class="mt-3 flex items-start gap-1.5 rounded-lg border border-amber-200/50 bg-amber-50/80 p-2 text-[10px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+        class="mt-3 flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-2 text-[10px] text-gray-500 dark:border-gray-800 dark:bg-gray-800/60 dark:text-gray-400"
+      >
+        <span>Higher % = Stronger visual match</span>
+        <span class="font-medium text-gray-700 dark:text-gray-300">Total adds to 100%</span>
+      </div>
+
+      <!-- Friendly Medical Disclaimer Footer -->
+      <div
+        class="mt-2.5 flex items-start gap-1.5 rounded-lg border border-amber-200/50 bg-amber-50/80 p-2 text-[10px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
       >
         <Icon
-          name="material-symbols:info-outline-rounded"
-          class="mt-0.5 shrink-0 text-xs"
+          name="material-symbols:medical-services-outline-rounded"
+          class="mt-0.5 shrink-0 text-xs text-amber-600 dark:text-amber-400"
         />
-        <span>Algorithmic decision support only. Not a definitive clinical diagnosis.</span>
+        <span
+          >This is an AI screening estimate, not a final medical diagnosis. Always consult your
+          doctor.</span
+        >
       </div>
     </template>
   </AppTooltip>
