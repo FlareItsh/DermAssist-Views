@@ -92,12 +92,14 @@
           else errors.lastName = ''
           break
         case 'middleName':
-          if (form.middleName && form.middleName.length > 255) errors.middleName = 'Max 255 characters'
+          if (form.middleName && form.middleName.length > 255)
+            errors.middleName = 'Max 255 characters'
           else errors.middleName = ''
           break
         case 'email':
           if (!form.email) errors.email = 'Email address is required'
-          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Invalid email format'
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+            errors.email = 'Invalid email format'
           else if (form.email.length > 255) errors.email = 'Max 255 characters'
           else errors.email = ''
           break
@@ -108,8 +110,10 @@
           if (touched.password_confirmation) validateField('password_confirmation', true)
           break
         case 'password_confirmation':
-          if (!form.password_confirmation) errors.password_confirmation = 'Please confirm your password'
-          else if (form.password_confirmation !== form.password) errors.password_confirmation = 'Passwords do not match'
+          if (!form.password_confirmation)
+            errors.password_confirmation = 'Please confirm your password'
+          else if (form.password_confirmation !== form.password)
+            errors.password_confirmation = 'Passwords do not match'
           else errors.password_confirmation = ''
           break
         case 'prcNumber':
@@ -137,38 +141,62 @@
   }
 
   // Watchers for Live Validation
-  watch(() => form.firstName, () => {
-    errors.firstName = ''
-    validateField('firstName')
-  })
-  watch(() => form.lastName, () => {
-    errors.lastName = ''
-    validateField('lastName')
-  })
-  watch(() => form.middleName, () => {
-    errors.middleName = ''
-    validateField('middleName')
-  })
-  watch(() => form.email, () => {
-    errors.email = ''
-    validateField('email')
-  })
-  watch(() => form.password, () => {
-    errors.password = ''
-    validateField('password')
-  })
-  watch(() => form.password_confirmation, () => {
-    errors.password_confirmation = ''
-    validateField('password_confirmation')
-  })
-  watch(() => form.prcNumber, () => {
-    errors.prcNumber = ''
-    validateField('prcNumber')
-  })
-  watch(() => form.idPhoto, () => {
-    errors.idPhoto = ''
-    validateField('idPhoto')
-  })
+  watch(
+    () => form.firstName,
+    () => {
+      errors.firstName = ''
+      validateField('firstName')
+    }
+  )
+  watch(
+    () => form.lastName,
+    () => {
+      errors.lastName = ''
+      validateField('lastName')
+    }
+  )
+  watch(
+    () => form.middleName,
+    () => {
+      errors.middleName = ''
+      validateField('middleName')
+    }
+  )
+  watch(
+    () => form.email,
+    () => {
+      errors.email = ''
+      validateField('email')
+    }
+  )
+  watch(
+    () => form.password,
+    () => {
+      errors.password = ''
+      validateField('password')
+    }
+  )
+  watch(
+    () => form.password_confirmation,
+    () => {
+      errors.password_confirmation = ''
+      validateField('password_confirmation')
+    }
+  )
+  watch(
+    () => form.prcNumber,
+    () => {
+      errors.prcNumber = ''
+      validateField('prcNumber')
+    }
+  )
+  watch(
+    () => form.idPhoto,
+    () => {
+      errors.idPhoto = ''
+      validateField('idPhoto')
+    }
+  )
   watch(role, () => {
     if (role.value === 'doctor') {
       validateField('prcNumber', true)
@@ -198,7 +226,9 @@
   })
 
   const isStep2Valid = computed(() => {
-    return form.prcNumber.length >= 7 && form.idPhoto !== null && !errors.prcNumber && !errors.idPhoto
+    return (
+      form.prcNumber.length >= 7 && form.idPhoto !== null && !errors.prcNumber && !errors.idPhoto
+    )
   })
 
   // Methods
@@ -206,7 +236,16 @@
     if (currentStep.value === 1) {
       // Force immediate validation for all Step 1 fields
       Object.keys(touched).forEach(key => {
-        if (['firstName', 'middleName', 'lastName', 'email', 'password', 'password_confirmation'].includes(key)) {
+        if (
+          [
+            'firstName',
+            'middleName',
+            'lastName',
+            'email',
+            'password',
+            'password_confirmation'
+          ].includes(key)
+        ) {
           touched[key as keyof typeof touched] = true
           validateField(key, true)
         }
@@ -264,23 +303,49 @@
 
       if (response.token) {
         // Set the auth token cookie
-        const tokenCookie = useCookie('auth_token')
+        const tokenCookie = useCookie('auth_token', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
         tokenCookie.value = response.token
 
-        const userData = response.user.data || response.user
+        const userData = (response.user as any)?.data || response.user
+        const rawRole = userData?.role?.slug || userData?.role || role.value || 'patient'
+        const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
         // Set the user role cookie for middleware
-        const roleCookie = useCookie('user_role')
-        roleCookie.value = userData.role
+        const roleCookie = useCookie('user_role', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        roleCookie.value = baseRole
+
+        const userName = useCookie('user_name', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        const authName = useCookie('auth_user_name', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
+        userName.value = fullName
+        authName.value = fullName
 
         const userUuid = useCookie('user_uuid', {
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        userUuid.value = userData.uuid
+        userUuid.value = userData?.uuid
+
+        const doctorUuid = useCookie('doctor_uuid', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        doctorUuid.value = userData?.doctor_uuid || null
 
         // Redirect based on role
-        navigateTo(`/${userData.role}`)
+        await navigateTo(`/${baseRole}`)
       }
     } catch (err: any) {
       console.error('Registration Error:', err)
@@ -365,13 +430,15 @@
 </script>
 
 <template>
-  <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-4 sm:px-8 py-4 sm:py-6 pb-16">
+  <div
+    class="custom-scrollbar flex h-full flex-col overflow-y-auto px-4 py-4 pb-16 sm:px-8 sm:py-6"
+  >
     <!-- Header/Logo Area -->
     <div class="mb-3 flex flex-col items-center text-center">
       <NuxtLink to="/">
         <NuxtImg
           src="/DA_Logo.png"
-          class="h-12 sm:h-14 object-contain"
+          class="h-12 object-contain sm:h-14"
         />
       </NuxtLink>
     </div>
@@ -431,7 +498,9 @@
           class="flex w-full flex-col gap-2"
         >
           <div class="mb-2 text-center">
-            <h1 class="text-foreground text-2xl sm:text-3xl font-bold tracking-tight">Create your account</h1>
+            <h1 class="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+              Create your account
+            </h1>
             <p class="text-foreground/60 mt-1 text-xs sm:text-sm">
               Choose your role and fill in your details.
             </p>
@@ -572,18 +641,23 @@
           </div>
 
           <!-- Terms and Conditions Agreement Checkbox -->
-          <div class="mt-3 flex items-start gap-2.5 rounded-xl border border-border/50 bg-muted/20 p-2.5">
+          <div
+            class="border-border/50 bg-muted/20 mt-3 flex items-start gap-2.5 rounded-xl border p-2.5"
+          >
             <input
               id="agree-terms"
               v-model="agreeToTerms"
               type="checkbox"
-              class="accent-primary mt-0.5 h-4 w-4 shrink-0 rounded border-border cursor-pointer"
+              class="accent-primary border-border mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
             />
-            <label for="agree-terms" class="text-foreground/75 text-[11px] sm:text-xs leading-relaxed select-none cursor-pointer">
+            <label
+              for="agree-terms"
+              class="text-foreground/75 cursor-pointer text-[11px] leading-relaxed select-none sm:text-xs"
+            >
               I have read and agree to the
               <button
                 type="button"
-                class="text-primary font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                class="text-primary cursor-pointer font-semibold underline underline-offset-2 hover:opacity-80"
                 @click.stop="openTermsModal('terms')"
               >
                 Terms and Conditions
@@ -591,25 +665,37 @@
               and
               <button
                 type="button"
-                class="text-primary font-semibold underline underline-offset-2 hover:opacity-80 cursor-pointer"
+                class="text-primary cursor-pointer font-semibold underline underline-offset-2 hover:opacity-80"
                 @click.stop="openTermsModal('privacy')"
               >
-                Privacy Policy
-              </button>.
+                Privacy Policy</button
+              >.
             </label>
           </div>
 
           <!-- Optional AI Retraining Dataset Contribution Checkbox (Patients) -->
-          <div v-if="role === 'patient'" class="mt-2.5 flex items-start gap-2.5 rounded-xl border border-primary/20 bg-primary/5 p-2.5">
+          <div
+            v-if="role === 'patient'"
+            class="border-primary/20 bg-primary/5 mt-2.5 flex items-start gap-2.5 rounded-xl border p-2.5"
+          >
             <input
               id="agree-dataset"
               v-model="consentDataset"
               type="checkbox"
-              class="accent-primary mt-0.5 h-4 w-4 shrink-0 rounded border-primary/30 cursor-pointer"
+              class="accent-primary border-primary/30 mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
             />
-            <label for="agree-dataset" class="text-foreground/80 text-[11px] sm:text-xs leading-relaxed select-none cursor-pointer">
-              <span class="font-medium text-foreground block">Optional: AI Retraining Dataset Contribution</span>
-              <span class="text-[10px] text-muted-foreground block">I consent to contributing my anonymized clinical scan images to help study and improve the DermAssist AI model. You can change this preference anytime in your profile.</span>
+            <label
+              for="agree-dataset"
+              class="text-foreground/80 cursor-pointer text-[11px] leading-relaxed select-none sm:text-xs"
+            >
+              <span class="text-foreground block font-medium"
+                >Optional: AI Retraining Dataset Contribution</span
+              >
+              <span class="text-muted-foreground block text-[10px]"
+                >I consent to contributing my anonymized clinical scan images to help study and
+                improve the DermAssist AI model. You can change this preference anytime in your
+                profile.</span
+              >
             </label>
           </div>
 

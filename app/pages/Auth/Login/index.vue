@@ -39,7 +39,8 @@
       switch (field) {
         case 'email':
           if (!form.email) errors.email = 'Email address is required'
-          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Please enter a valid email address'
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+            errors.email = 'Please enter a valid email address'
           else errors.email = ''
           break
         case 'password':
@@ -50,14 +51,20 @@
     }, 500) // 500ms delay
   }
 
-  watch(() => form.email, () => {
-    errors.email = ''
-    validateField('email')
-  })
-  watch(() => form.password, () => {
-    errors.password = ''
-    validateField('password')
-  })
+  watch(
+    () => form.email,
+    () => {
+      errors.email = ''
+      validateField('email')
+    }
+  )
+  watch(
+    () => form.password,
+    () => {
+      errors.password = ''
+      validateField('password')
+    }
+  )
 
   const validate = () => {
     // Clear any pending debounce
@@ -69,7 +76,8 @@
 
     // Immediate validation for submission
     if (!form.email) errors.email = 'Email address is required'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Please enter a valid email address'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      errors.email = 'Please enter a valid email address'
     else errors.email = ''
 
     if (!form.password) errors.password = 'Password is required'
@@ -82,7 +90,6 @@
     if (!validate()) return
     isLoading.value = true
 
-    isLoading.value = true
     try {
       const response = await authService.login(form.email, form.password)
 
@@ -93,8 +100,9 @@
         })
         token.value = response.token
 
-        const userData = response.user.data || response.user
-        const baseRole = userData?.role?.split('/')[0] || 'patient'
+        const userData = (response.user as any)?.data || response.user
+        const rawRole = userData?.role?.slug || userData?.role || 'patient'
+        const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
         // Store user role
         const role = useCookie('user_role', {
@@ -111,25 +119,23 @@
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        userName.value = `${userData.first_name} ${userData.last_name}`
-        authName.value = `${userData.first_name} ${userData.last_name}`
+        const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
+        userName.value = fullName
+        authName.value = fullName
 
         const userUuid = useCookie('user_uuid', {
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        userUuid.value = userData.uuid
+        userUuid.value = userData?.uuid
 
         const doctorUuid = useCookie('doctor_uuid', {
           maxAge: 60 * 60 * 24 * 7,
           path: '/'
         })
-        doctorUuid.value = userData.doctor_uuid || null
-      }
+        doctorUuid.value = userData?.doctor_uuid || null
 
-      if (response.user && response.user.role) {
-        const baseRole = response.user.role?.split('/')[0] || 'patient'
-        // Redirect based on role: /admin, /patient, or /doctor
+        // Redirect based on role: /doctor, /patient, /admin, or /secretary
         await navigateTo(`/${baseRole}`)
       }
     } catch (error: any) {
@@ -138,12 +144,13 @@
       const msg = data.message || error.message || ''
 
       if (status === 403 || msg.toLowerCase().includes('disabled')) {
-        errors.general = msg || 'Account Disabled: Your account has been disabled by your attending doctor.'
+        errors.general =
+          msg || 'Account Disabled: Your account has been disabled by your attending doctor.'
       } else if (status === 422) {
         const validationErrors = data.errors
         if (validationErrors?.email) errors.email = validationErrors.email[0]
         if (validationErrors?.password) errors.password = validationErrors.password[0]
-      } else if (status === 401) {
+      } else if (status === 401 || msg.toLowerCase().includes('invalid')) {
         errors.general = msg || 'Invalid credentials'
       } else {
         errors.general = msg || 'An unexpected error occurred. Please try again.'
@@ -175,14 +182,20 @@
       >
         <div
           v-if="errors.general"
-          class="rounded-2xl p-4 text-center text-sm font-semibold flex items-center justify-center gap-2.5 border transition-all"
-          :class="errors.general.toLowerCase().includes('disabled') 
-            ? 'bg-amber-50 text-amber-800 border-amber-200' 
-            : 'bg-rose-50 text-rose-700 border-rose-200'"
+          class="flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-center text-sm font-semibold transition-all"
+          :class="
+            errors.general.toLowerCase().includes('disabled')
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-rose-200 bg-rose-50 text-rose-700'
+          "
         >
-          <Icon 
-            :name="errors.general.toLowerCase().includes('disabled') ? 'material-symbols:block-rounded' : 'material-symbols:error-rounded'" 
-            class="text-xl shrink-0" 
+          <Icon
+            :name="
+              errors.general.toLowerCase().includes('disabled')
+                ? 'material-symbols:block-rounded'
+                : 'material-symbols:error-rounded'
+            "
+            class="shrink-0 text-xl"
           />
           <span>{{ errors.general }}</span>
         </div>
@@ -214,7 +227,10 @@
             />
             Remember me
           </label>
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             type="button"
             class="text-primary text-sm font-medium hover:underline"
           >
