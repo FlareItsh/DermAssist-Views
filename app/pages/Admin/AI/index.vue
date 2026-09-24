@@ -564,9 +564,9 @@ onBeforeUnmount(() => {
             ></div>
           </div>
           <div class="flex justify-between text-xs text-muted-foreground pt-0.5">
-            <span>Elapsed Time: {{ trainingStatus?.elapsed_seconds ?? 0 }}s</span>
+            <span>Elapsed Time: {{ formatDuration(trainingStatus?.elapsed_seconds) }}</span>
             <span v-if="trainingStatus?.eta_seconds && isTrainingActive">
-              Estimated Remaining: ~{{ trainingStatus.eta_seconds }}s
+              Estimated Remaining: ~{{ formatDuration(trainingStatus.eta_seconds) }}
             </span>
           </div>
         </div>
