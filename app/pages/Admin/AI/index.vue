@@ -656,7 +656,7 @@ onBeforeUnmount(() => {
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <!-- Left Column: Unified Ensemble Training Control (5 cols) -->
       <div class="lg:col-span-5 space-y-6">
-        <div class="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-5" :class="{ 'opacity-60 pointer-events-none': isTrainingActive }">
+        <div class="p-6 rounded-3xl bg-card border border-border shadow-sm space-y-5">
           <div class="flex items-center justify-between border-b border-border pb-3">
             <h3 class="font-bold text-base text-foreground flex items-center gap-2">
               <Icon name="lucide:sparkles" size="18" class="text-primary" />
@@ -693,13 +693,14 @@ onBeforeUnmount(() => {
           </div>
 
           <!-- Epoch Selection -->
-          <div class="space-y-2 pt-1">
+          <div class="space-y-2 pt-1" :class="{ 'opacity-60': isTrainingActive }">
             <label class="block text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Training Epochs (Per Model)
             </label>
             <select
               v-model="selectedEpochs"
-              class="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              :disabled="isTrainingActive"
+              class="w-full px-3.5 py-2.5 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:cursor-not-allowed"
             >
               <option :value="3">3 Epochs / Model (Recommended — Fast & Balanced)</option>
               <option :value="5">5 Epochs / Model (Standard fine-tuning)</option>
@@ -723,11 +724,12 @@ onBeforeUnmount(() => {
 
           <!-- Sync Toggle -->
           <div class="pt-2 border-t border-border">
-            <label class="flex items-start gap-3 cursor-pointer">
+            <label class="flex items-start gap-3" :class="isTrainingActive ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'">
               <input
                 v-model="syncDataset"
+                :disabled="isTrainingActive"
                 type="checkbox"
-                class="mt-1 rounded border-border text-primary focus:ring-primary w-4 h-4"
+                class="mt-1 rounded border-border text-primary focus:ring-primary w-4 h-4 disabled:cursor-not-allowed"
               />
               <div>
                 <span class="text-xs font-bold text-foreground block">Sync Clinical Scans</span>
@@ -743,7 +745,7 @@ onBeforeUnmount(() => {
             <AppButton
               variant="outline"
               size="lg"
-              class="w-full gap-2 justify-center pointer-events-auto"
+              class="w-full gap-2 justify-center shadow-xs font-semibold"
               @click="showDatasetSlideover = true"
             >
               <Icon name="lucide:images" size="16" />
@@ -753,7 +755,7 @@ onBeforeUnmount(() => {
               v-if="isTrainingActive"
               variant="destructive"
               size="lg"
-              class="w-full gap-2 justify-center shadow-md font-bold pointer-events-auto"
+              class="w-full gap-2 justify-center shadow-md font-bold"
               @click="confirmCancelTraining"
             >
               <Icon name="lucide:square" size="18" />
