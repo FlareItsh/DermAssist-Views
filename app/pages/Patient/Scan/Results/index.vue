@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { currentDiagnosis, isScanned, isHealthyState, isInconclusiveState, isNoneState, chartData } = useDiagnosis()
+const { currentDiagnosis, isScanned, isHealthyState, isInconclusiveState, isOutOfScopeState, isNoneState, chartData } = useDiagnosis()
 const userName = useCookie('user_name')
 
 definePageMeta({
@@ -48,7 +48,7 @@ onMounted(() => {
         <AppModalDiagnosisFindingsDetailed 
           v-if="currentDiagnosis"
           role="patient"
-          :condition-name="isNoneState ? 'None' : isInconclusiveState ? 'Inconclusive' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
+          :condition-name="isNoneState ? 'None' : isOutOfScopeState ? 'OutOfScope' : isInconclusiveState ? 'Inconclusive' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
           :patient-name="userName"
           :diagnosis-data="chartData"
           :diagnosis-uuid="currentDiagnosis?.uuid"

@@ -13,7 +13,7 @@
     role: 'patient'
   })
 
-  const { currentDiagnosis, isScanned, qualityError, isHealthyState, isInconclusiveState, isNoneState, chartData, resetScanner, patientUuid, isProceededToResults, saveActiveDiagnosisState } =
+  const { currentDiagnosis, isScanned, qualityError, isHealthyState, isInconclusiveState, isOutOfScopeState, isNoneState, chartData, resetScanner, patientUuid, isProceededToResults, saveActiveDiagnosisState } =
     useDiagnosis()
 
   const userName = useCookie('user_name')
@@ -78,6 +78,9 @@
     }
     if (isNoneState.value) {
       return DISEASE_DATABASE['None']
+    }
+    if (isOutOfScopeState.value) {
+      return DISEASE_DATABASE['OutOfScope']
     }
     if (isInconclusiveState.value) {
       return DISEASE_DATABASE['Inconclusive']
@@ -361,27 +364,30 @@
 
         <div>
           <p class="text-md text-foreground font-semibold">Condition Status</p>
-          <div class="flex items-center gap-2 mb-1">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
             <p
               class="text-md font-bold"
               :class="{
                 'text-gray-500': isHealthyState || isNoneState,
-                'text-amber-600 dark:text-amber-400': isInconclusiveState,
+                'text-purple-600 dark:text-purple-400': isOutOfScopeState,
+                'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
                 'text-primary': !isHealthyState && !isInconclusiveState && !isNoneState
               }"
             >
               {{
                 isNoneState
-                  ? 'Non-Skin / Out of Scope'
-                  : isInconclusiveState
-                    ? 'Inconclusive / Outside Priority Scope'
-                    : isHealthyState
-                      ? 'No skin disease detected'
-                      : currentDiagnosis?.label || 'Waiting...'
+                  ? 'Non-Skin Image Detected'
+                  : isOutOfScopeState
+                    ? 'Out of Scope Condition'
+                    : isInconclusiveState
+                      ? 'Inconclusive Finding'
+                      : isHealthyState
+                        ? 'No skin disease detected'
+                        : currentDiagnosis?.label || 'Waiting...'
               }}
             </p>
             <AppBadge
-              v-if="isInconclusiveState"
+              v-if="isInconclusiveState && !isOutOfScopeState"
               color="warning"
               size="sm"
             >
@@ -396,9 +402,36 @@
             </AppBadge>
           </div>
 
+          <!-- Out-of-Scope Dedicated Advisory Banner -->
+          <div
+            v-if="isOutOfScopeState"
+            class="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 my-2 space-y-2.5 shadow-xs"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1.5 font-bold text-xs text-purple-800">
+                <Icon name="lucide:stethoscope" size="16" class="text-purple-600 shrink-0" />
+                <span>Out-of-Scope Disease Gate</span>
+              </div>
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">Zero-Shot Triage</span>
+            </div>
+            <p class="text-xs leading-relaxed font-semibold text-purple-950">
+              {{ currentDiagnosis?.clinical_feedback || 'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+            </p>
+            <div class="pt-2 border-t border-purple-200/80">
+              <p class="text-[11px] font-bold text-purple-900 mb-1.5">Common Examples in this Category:</p>
+              <div class="flex flex-wrap gap-1.5">
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Psoriasis</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Ringworm (Tinea)</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Vitiligo</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Rosacea</span>
+                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Hives / Urticaria</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Inconclusive Advisory Banner -->
           <div
-            v-if="isInconclusiveState"
+            v-else-if="isInconclusiveState"
             class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 my-2 space-y-1"
           >
             <div class="flex items-center gap-1.5 font-bold text-xs">

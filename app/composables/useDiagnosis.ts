@@ -23,7 +23,7 @@ export interface DiagnosisResult {
   clinical_feedback?: string
 }
 
-export type DiseaseName = 'Acne' | 'Eczema' | 'Herpes' | 'Clear' | 'None' | 'Inconclusive'
+export type DiseaseName = 'Acne' | 'Eczema' | 'Herpes' | 'Clear' | 'None' | 'Inconclusive' | 'OutOfScope'
 
 export interface DiseaseInfo {
   description: string
@@ -40,7 +40,8 @@ export const COLOR_MAP: Record<string, string> = {
   'Herpes': '#4c0516',
   'Clear': '#10b981',
   'None': '#6b7280',
-  'Inconclusive': '#f59e0b'
+  'Inconclusive': '#f59e0b',
+  'OutOfScope': '#8b5cf6'
 }
 
 export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
@@ -130,6 +131,25 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['None']
   },
+  'OutOfScope': {
+    description: 'This skin condition was detected as an out-of-scope dermatological presentation outside our 3 primary focus conditions (Acne, Eczema, Herpes). It may represent other common conditions such as Psoriasis, Ringworm (Tinea), Vitiligo, Rosacea, Hives, or Melanocytic lesions.',
+    guidelines: [
+      'Consult a licensed dermatologist for a definitive clinical examination',
+      'Do not apply unprescribed acne or eczema topical treatments',
+      'Observe and document changes in redness, scaling, or lesion borders'
+    ],
+    symptoms: [
+      'Silvery scales, distinct circular ring borders, or sharp depigmentation',
+      'Morphology outside Acne, Eczema, or Herpes patterns',
+      'Potential autoimmune, fungal, or vascular dermatological features'
+    ],
+    causes: [
+      'Out-of-scope dermatological conditions (e.g., Psoriasis, Ringworm, Vitiligo, Rosacea, Urticaria)',
+      'Non-target skin infection or chronic dermatosis',
+      'Condition outside the 3 trained neural classification backbones'
+    ],
+    color: COLOR_MAP['OutOfScope']
+  },
   'Inconclusive': {
     description: 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). It may represent an out-of-scope dermatological condition or an ambiguous lesion presentation.',
     guidelines: [
@@ -197,6 +217,17 @@ const saveActiveDiagnosisState = () => {
 }
 
 export const useDiagnosis = () => {
+  const isOutOfScopeState = computed(() => {
+    if (!currentDiagnosis.value) return false
+    const feedback = (currentDiagnosis.value.clinical_feedback || '').toLowerCase()
+    return (
+      currentDiagnosis.value.label === 'OutOfScope' ||
+      currentDiagnosis.value.label === 'Unsupported' ||
+      (currentDiagnosis.value.label === 'Inconclusive' &&
+        (feedback.includes('outside our 3 primary') || feedback.includes('unsupported') || feedback.includes('psoriasis') || feedback.includes('ringworm')))
+    )
+  })
+
   const isInconclusiveState = computed(() => {
     if (!currentDiagnosis.value) return false
     return (
@@ -223,7 +254,11 @@ export const useDiagnosis = () => {
     }
 
     if (isNoneState.value) {
-      return [{ label: 'Non-Skin / Out of Scope', value: 100, color: COLOR_MAP['None'] }]
+      return [{ label: 'Non-Skin Image Detected', value: 100, color: COLOR_MAP['None'] }]
+    }
+
+    if (isOutOfScopeState.value) {
+      return [{ label: 'Unsupported Condition (Out of Scope)', value: 100, color: COLOR_MAP['OutOfScope'] }]
     }
 
     if (isHealthyState.value) {
@@ -277,6 +312,7 @@ export const useDiagnosis = () => {
     patientUuid,
     isHealthyState,
     isInconclusiveState,
+    isOutOfScopeState,
     isNoneState,
     chartData,
     setDiagnosis,

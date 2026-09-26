@@ -410,12 +410,21 @@
         activeDisease.value = 'Clear'
         return
       }
-      if (newVal === 'None' || newVal === 'Non-Skin / Out of Scope') {
+      if (newVal === 'None' || newVal === 'Non-Skin' || newVal === 'Non-Skin Image Detected' || newVal === 'Non-Skin / Out of Scope') {
         activeDisease.value = 'None'
         return
       }
-      if (newVal === 'Inconclusive' || newVal === 'Inconclusive / Outside Priority Scope') {
-        activeDisease.value = 'Inconclusive'
+      if (newVal === 'OutOfScope' || newVal === 'Out of Scope Condition' || newVal === 'Unsupported') {
+        activeDisease.value = 'OutOfScope'
+        return
+      }
+      if (newVal === 'Inconclusive' || newVal === 'Inconclusive / Outside Priority Scope' || newVal === 'Inconclusive Finding') {
+        const feedback = (currentDiagnosis.value?.clinical_feedback || '').toLowerCase()
+        if (feedback.includes('outside our 3 primary') || feedback.includes('unsupported') || feedback.includes('psoriasis') || feedback.includes('ringworm')) {
+          activeDisease.value = 'OutOfScope'
+        } else {
+          activeDisease.value = 'Inconclusive'
+        }
         return
       }
       if (newVal && (DISEASE_DATABASE as any)[newVal]) {
@@ -743,9 +752,9 @@
           />
         </div>
         <div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <h1 class="text-foreground text-3xl lg:text-4xl font-black tracking-tight">
-              {{ activeDisease === 'None' ? 'Non-Skin / Out of Scope' : activeDisease === 'Inconclusive' ? 'Inconclusive Result' : activeDisease }}
+              {{ activeDisease === 'None' ? 'Non-Skin Image Detected' : activeDisease === 'OutOfScope' ? 'Out-of-Scope Condition' : activeDisease === 'Inconclusive' ? 'Inconclusive Result' : activeDisease }}
             </h1>
             <AppBadge
               v-if="activeDisease === 'Inconclusive'"
@@ -771,9 +780,37 @@
         </div>
       </div>
 
+      <!-- Out-of-Scope Dedicated Advisory Notice -->
+      <div
+        v-if="activeDisease === 'OutOfScope'"
+        class="mb-8 p-6 rounded-2xl bg-purple-50 border border-purple-200 text-purple-950 space-y-3 shadow-xs"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 font-bold text-sm text-purple-800">
+            <Icon name="lucide:stethoscope" size="18" class="text-purple-600 shrink-0" />
+            <span>Semantic Validation: Out-of-Scope Skin Condition</span>
+          </div>
+          <span class="text-[11px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full">Zero-Shot OOD Filter</span>
+        </div>
+        <p class="text-xs sm:text-sm leading-relaxed font-semibold text-purple-950">
+          {{ currentDiagnosis?.clinical_feedback || 'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). It may represent an unsupported skin disease such as Psoriasis, Ringworm, Vitiligo, Rosacea, or Melanoma. Please consult a licensed dermatologist for comprehensive clinical evaluation.' }}
+        </p>
+        <div class="pt-3 border-t border-purple-200/80 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-xs font-bold text-purple-900">Common Examples:</span>
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Psoriasis</span>
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Ringworm (Tinea)</span>
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Vitiligo</span>
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Rosacea</span>
+            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Hives / Urticaria</span>
+          </div>
+          <p class="text-[11px] text-purple-700 font-bold">Target Trained Scope: Acne, Eczema, Herpes</p>
+        </div>
+      </div>
+
       <!-- Inconclusive Advisory Notice -->
       <div
-        v-if="activeDisease === 'Inconclusive'"
+        v-else-if="activeDisease === 'Inconclusive'"
         class="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5"
       >
         <div class="flex items-center gap-2 font-bold text-sm text-amber-700 dark:text-amber-300">
