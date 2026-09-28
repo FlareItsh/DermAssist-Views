@@ -152,7 +152,7 @@
     tabindex="0"
     @click="navigateToSubscription"
     @keydown.enter="navigateToSubscription"
-    class="group border-primary-light/30 from-primary via-primary to-primary-dark text-primary-foreground shadow-primary/20 hover:shadow-primary/30 relative cursor-pointer overflow-hidden rounded-3xl border bg-gradient-to-br p-5 shadow-lg transition-all duration-300 select-none hover:-translate-y-1 hover:shadow-xl focus:ring-2 focus:ring-white/40 focus:outline-none"
+    class="group border-primary-light/30 from-primary via-primary to-primary-dark text-primary-foreground shadow-primary/20 hover:shadow-primary/30 relative shrink-0 cursor-pointer overflow-hidden rounded-3xl border bg-gradient-to-br p-5 shadow-lg transition-all duration-300 select-none hover:-translate-y-1 hover:shadow-xl focus:ring-2 focus:ring-white/40 focus:outline-none"
   >
     <!-- Background dynamic ambient glows -->
     <div
@@ -163,25 +163,30 @@
     />
 
     <!-- Header / Dismiss -->
-    <div class="relative flex items-center justify-between gap-2">
-      <div class="flex min-w-0 flex-wrap items-center gap-2">
-        <span
-          class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/20 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-white uppercase shadow-2xs backdrop-blur-xs"
-        >
-          <Icon
-            name="lucide:sparkles"
-            class="h-3.5 w-3.5 animate-pulse text-white"
-          />
-          {{ isSubscribed ? 'Upgrade Opportunity' : 'Practice Growth' }}
-        </span>
+    <div class="relative flex items-start justify-between gap-3">
+      <div class="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div class="flex min-w-0 flex-wrap items-center gap-2">
+          <span
+            class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/25 bg-white/20 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-white uppercase shadow-2xs backdrop-blur-xs"
+          >
+            <Icon
+              name="lucide:sparkles"
+              class="h-3.5 w-3.5 animate-pulse text-white"
+            />
+            {{ isSubscribed ? 'Upgrade Opportunity' : 'Practice Growth' }}
+          </span>
 
-        <span
-          v-if="isSubscribed && planName"
-          class="inline-flex max-w-[170px] items-center truncate rounded-lg border border-white/20 bg-black/15 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-xs"
-          :title="`Current plan: ${planName}`"
-        >
-          {{ planName }}
-        </span>
+          <span
+            v-if="isSubscribed && planName"
+            class="inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-lg border border-white/20 bg-black/20 px-2.5 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-xs"
+            :title="`Current plan: ${planName}`"
+          >
+            <span class="shrink-0 text-[9px] font-bold tracking-wider text-white/65 uppercase"
+              >Current:</span
+            >
+            <span class="min-w-0 truncate font-bold text-white">{{ planName }}</span>
+          </span>
+        </div>
       </div>
 
       <button
@@ -189,7 +194,7 @@
         @click.stop="dismissAd"
         title="Dismiss for session"
         aria-label="Dismiss banner"
-        class="relative z-10 rounded-full p-1 text-white/75 transition-colors hover:bg-white/20 hover:text-white"
+        class="relative z-10 shrink-0 rounded-full p-1 text-white/75 transition-colors hover:bg-white/20 hover:text-white focus:outline-hidden"
       >
         <Icon
           name="lucide:x"
@@ -200,7 +205,9 @@
 
     <!-- Main pitch -->
     <div class="relative mt-3 flex flex-col gap-1">
-      <h3 class="drop-shadow-2xs text-base font-black tracking-tight text-white transition-colors">
+      <h3
+        class="drop-shadow-2xs text-base leading-snug font-black tracking-tight break-words text-white transition-colors"
+      >
         <template v-if="recommendedPlan"> Level up to {{ recommendedPlan.name }} </template>
         <template v-else> Scale your practice with DermAssist Pro </template>
       </h3>
@@ -227,7 +234,7 @@
       </div>
 
       <div
-        class="text-primary inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-black shadow-md transition-all duration-200 group-hover:scale-102 group-hover:bg-white/95 group-hover:shadow-lg"
+        class="text-primary inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-black whitespace-nowrap shadow-md transition-all duration-200 group-hover:scale-102 group-hover:bg-white/95 group-hover:shadow-lg"
       >
         <span>{{ isSubscribed ? 'Upgrade Plan' : 'Explore Plans' }}</span>
         <Icon

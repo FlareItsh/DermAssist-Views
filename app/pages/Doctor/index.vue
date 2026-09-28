@@ -156,7 +156,7 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="flex min-w-0 flex-1 flex-col gap-5 lg:flex-row">
+    <div class="flex min-w-0 flex-1 flex-col gap-5 lg:flex-row lg:items-start">
       <!-- Left Column: Primary Clinical Workspace -->
       <div class="flex min-w-0 flex-1 flex-col gap-5">
         <!-- Workspace Filter Tabs & Status Bar -->
@@ -243,7 +243,9 @@
         <DoctorSideComponentsPriorityList />
 
         <!-- Quick Practice Actions & Clinic Status Card -->
-        <div class="bg-card flex flex-col gap-3 rounded-3xl border border-gray-100 p-5 shadow-xs">
+        <div
+          class="bg-card flex shrink-0 flex-col gap-3 rounded-3xl border border-gray-100 p-5 shadow-xs"
+        >
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <div class="bg-secondary h-6 w-1 shrink-0 rounded-full" />
