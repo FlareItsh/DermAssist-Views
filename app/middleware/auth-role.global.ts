@@ -1,8 +1,8 @@
 export default defineNuxtRouteMiddleware((to, from) => {
   // We skip middleware on the server just to be safe if cookies aren't synced,
   // but useCookie works in Nuxt 3 SSR for initial requests.
-  const token = useCookie('auth_token')
-  const role = useCookie('user_role')
+  const token = useCookie('auth_token', { path: '/' })
+  const role = useCookie('user_role', { path: '/' })
 
   const path = to.path.toLowerCase()
 

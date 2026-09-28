@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const { currentDiagnosis, isScanned, isHealthyState, chartData, patientUuid, isProceededToResults, saveActiveDiagnosisState, clearDiagnosis, resetScanner } = useDiagnosis()
+const { currentDiagnosis, isScanned, isHealthyState, isInconclusiveState, isNoneState, chartData, patientUuid, isProceededToResults, saveActiveDiagnosisState, clearDiagnosis, resetScanner } = useDiagnosis()
 const { appointments, pendingAppointments } = useAppointments()
 const userName = useCookie('user_name')
 import { userService } from '~/api/user/UserService'
@@ -116,7 +116,7 @@ const handleFinished = (payload?: { conversationUuid?: string; followUpScheduled
       <AppModalDiagnosisFindingsDetailed 
         v-if="currentDiagnosis"
         role="doctor"
-        :condition-name="currentDiagnosis?.label === 'None' ? 'None' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
+        :condition-name="isNoneState ? 'None' : isInconclusiveState ? 'Inconclusive' : (isHealthyState ? 'Clear' : currentDiagnosis?.label)"
         :patient-name="patientName"
         :age="patientAge"
         :appointment-uuid="appointmentUuid"
