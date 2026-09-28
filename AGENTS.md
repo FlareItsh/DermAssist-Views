@@ -10,6 +10,15 @@
 
 ---
 
+## Zero-Mistake & Rigorous Verification Protocol (CRITICAL)
+
+- **Make No Mistakes**: The AI assistant must operate with extreme precision, diligence, and zero tolerance for syntax, runtime, or architectural errors.
+- **Contextual Awareness**: Always read and inspect adjacent lines, imports, and component hierarchies before proposing code modifications. Never guess or hallucinate props, component names, or imports.
+- **Vue Sequential Conditional Rule**: In multi-branch template conditionals (`v-if`, `v-else-if`, `v-else`), `v-else` must **always** be the final terminal branch. Never put `v-else-if` after `v-else`.
+- **Mandatory Verification**: Always verify Vue templates compile cleanly and format code using Prettier (`npx prettier --write {path}`). Never mark a frontend task complete without testing page rendering and responsiveness.
+
+---
+
 ## Core DermAssist Feature Patterns
 
 - **Doctor-Registered Patients**: Must strictly only book appointments with their registering doctor. Reject other doctor IDs with 403. Omit alternative doctor availability suggestions when the doctor is away. Frame attending physician as "Your Attending Doctor".
