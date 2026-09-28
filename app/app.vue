@@ -13,6 +13,7 @@
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+    <AppCookieBanner />
   </UApp>
 </template>
 
