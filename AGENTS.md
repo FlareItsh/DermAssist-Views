@@ -17,3 +17,5 @@
 - **Clinical Scan Patient Assignment**: Must default to an appointment-centric schedule (listing chronological appointments with Today, Tomorrow, Date Picker, and All Dates filters). Never fall back to `created_at` as the appointment date. Provide a separate "Registered (Walk-In)" tab for unscheduled patients.
 - **Chat Contrast Standards**: Primary colored sender bubbles must use pure white headers, elevated white status pill badges (`bg-white shadow-sm`), and solid white preview cards for clinical findings.
 - **Zero Native Browser Prompts**: Strictly no `alert()`, `confirm()`, or `prompt()`. Always use `vue-sonner` toasts and `<AppModalConfirmation>`.
+- **Cookie Notice & Terms Integration**: Cookie notice must remain a minimal, floating glassmorphism pill with direct "Terms & Cookies" hyperlink opening `<AppModalTermsModal initial-tab="cookies" />`. Never show intimidating technical terms (e.g. "bot farms", "device tracking tokens") in initial cookie notices.
+- **Vue Sequential Conditional Rule**: In multi-branch templates (`v-if`, `v-else-if`, `v-else`), `v-else` must **always** be the final terminal branch. Never put `v-else-if` after `v-else`.
