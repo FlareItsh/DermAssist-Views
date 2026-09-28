@@ -294,10 +294,13 @@
     isLoading.value = true
 
     try {
+      const { deviceId, isAccepted } = useDeviceIdentifier()
       const response = await authService.register({
         role: role.value,
         consent_dataset: role.value === 'patient' ? consentDataset.value : false,
         agree_to_terms: agreeToTerms.value,
+        device_token: deviceId.value,
+        cookies_accepted: isAccepted.value,
         ...form
       })
 
@@ -343,6 +346,18 @@
           path: '/'
         })
         doctorUuid.value = userData?.doctor_uuid || null
+
+        const accountStatusCookie = useCookie('account_status', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        accountStatusCookie.value = userData?.account_status || 'active'
+
+        const verificationDeadlineCookie = useCookie('verification_deadline', {
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        })
+        verificationDeadlineCookie.value = userData?.verification_deadline || null
 
         // Redirect based on role
         await navigateTo(`/${baseRole}`)

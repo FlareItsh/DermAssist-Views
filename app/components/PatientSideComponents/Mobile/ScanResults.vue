@@ -10,7 +10,7 @@ import { useAppointments } from '~/composables/useAppointments'
 import { useStorage } from '~/composables/useStorage'
 
 const router = useRouter()
-const { currentDiagnosis, isHealthyState, isInconclusiveState, isNoneState, chartData } = useDiagnosis()
+const { currentDiagnosis, isHealthyState, isInconclusiveState, isOutOfScopeState, isNoneState, chartData } = useDiagnosis()
 const userName = useCookie('user_name')
 const userUuid = useCookie('user_uuid')
 
@@ -20,13 +20,15 @@ const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
 const activeDiseaseLabel = computed(() => {
   if (!currentDiagnosis.value) return 'None'
-  if (isNoneState.value) return 'Non-Skin / Out of Scope'
+  if (isNoneState.value) return 'Non-Skin Image Detected'
+  if (isOutOfScopeState.value) return 'Out of Scope Condition'
   if (isInconclusiveState.value) return 'Inconclusive Result'
   return currentDiagnosis.value.label
 })
 
 const activeDiseaseInfo = computed(() => {
   if (isNoneState.value) return DISEASE_DATABASE['None']
+  if (isOutOfScopeState.value) return DISEASE_DATABASE['OutOfScope']
   if (isInconclusiveState.value) return DISEASE_DATABASE['Inconclusive']
   const label = activeDiseaseLabel.value
   return DISEASE_DATABASE[label] || DISEASE_DATABASE['None']
@@ -349,16 +351,40 @@ onMounted(() => {
           </h3>
           <p
             class="text-xs font-bold mt-1"
-            :class="isInconclusiveState ? 'text-amber-600 dark:text-amber-400' : 'text-primary'"
+            :class="{
+              'text-purple-600 dark:text-purple-400': isOutOfScopeState,
+              'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
+              'text-primary': !isInconclusiveState && !isOutOfScopeState
+            }"
           >
             Confidence: {{ confidencePercent }}%
           </p>
         </div>
       </div>
 
+      <!-- Out-of-Scope Advisory Banner (Mobile) -->
+      <div
+        v-if="isOutOfScopeState"
+        class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-950 dark:text-purple-200 space-y-2 shadow-sm"
+      >
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5 font-bold text-xs text-purple-800 dark:text-purple-300">
+            <Icon name="lucide:stethoscope" size="16" class="text-purple-600 dark:text-purple-400 shrink-0" />
+            <span>Out-of-Scope Condition Gate</span>
+          </div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-400">Zero-Shot Filter</span>
+        </div>
+        <p class="text-xs leading-relaxed font-semibold text-purple-950 dark:text-purple-100">
+          {{ currentDiagnosis?.clinical_feedback || 'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+        </p>
+        <div class="pt-1.5 border-t border-purple-500/20">
+          <p class="text-[10px] font-semibold text-purple-800 dark:text-purple-300 mb-1">Examples: Psoriasis, Ringworm, Vitiligo, Rosacea, Hives</p>
+        </div>
+      </div>
+
       <!-- Inconclusive Advisory Banner (Mobile) -->
       <div
-        v-if="isInconclusiveState"
+        v-else-if="isInconclusiveState"
         class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1"
       >
         <div class="flex items-center gap-1.5 font-bold text-xs text-amber-700 dark:text-amber-300">

@@ -36,6 +36,197 @@ let stream: MediaStream | null = null
 let qualityCheckInterval: any = null
 const currentFacingMode = ref<'user' | 'environment'>('environment')
 
+const isDraggingOver = ref(false)
+let dragCounter = 0
+
+const handleDragEnter = (e: DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  dragCounter++
+  if (e.dataTransfer && e.dataTransfer.types.length > 0) {
+    isDraggingOver.value = true
+  }
+}
+
+const handleDragOver = (e: DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'copy'
+  }
+  isDraggingOver.value = true
+}
+
+const handleDragLeave = (e: DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  dragCounter--
+  if (dragCounter <= 0) {
+    dragCounter = 0
+    isDraggingOver.value = false
+  }
+}
+
+const processImageFile = (file: File) => {
+  if (!file.type.startsWith('image/')) {
+    toast.error('Please upload or drop a valid image file (JPEG, PNG, WEBP).')
+    return
+  }
+  selectedFile.value = file as File
+  isScanned.value = false
+  uploadQualityWarning.value = null
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    previewImage.value = e.target?.result as string
+    analyzeUploadedImageQuality(previewImage.value)
+  }
+  reader.readAsDataURL(file)
+  stopCamera()
+  isCameraOn.value = false
+}
+
+const processImageUrl = async (rawUrl: string) => {
+  let url = rawUrl.trim()
+  if (!url) return
+
+  const imgMatch = url.match(/<img[^>]+src=["']([^"']+)["']/i)
+  if (imgMatch && imgMatch[1]) {
+    url = imgMatch[1]
+  }
+
+  if (url.startsWith('data:image/')) {
+    try {
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const ext = url.substring(url.indexOf('/') + 1, url.indexOf(';')) || 'jpg'
+      const file = new File([blob], `dropped-image.${ext}`, { type: blob.type || 'image/jpeg' })
+      processImageFile(file)
+      toast.success('Dropped image loaded successfully!')
+      return
+    } catch (e) {
+      console.error('Failed to parse dropped data URL:', e)
+    }
+  }
+
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    toast.error('Dropped link is not a valid image URL.')
+    return
+  }
+
+  const toastId = toast.loading('Loading image from link...')
+  try {
+    const response = await fetch(url, { mode: 'cors' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    if (!blob.type.startsWith('image/') && !blob.type.includes('octet-stream')) {
+      toast.dismiss(toastId)
+      toast.error('The link does not point to a recognized image format.')
+      return
+    }
+    const filename = url.split('/').pop()?.split('?')[0] || 'dropped-image.jpg'
+    const file = new File([blob], filename, { type: blob.type || 'image/jpeg' })
+    toast.dismiss(toastId)
+    toast.success('Image loaded from link successfully!')
+    processImageFile(file)
+  } catch (err) {
+    try {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.naturalWidth || img.width
+          canvas.height = img.naturalHeight || img.height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) throw new Error('Canvas context unavailable')
+          ctx.drawImage(img, 0, 0)
+          canvas.toBlob((blob) => {
+            toast.dismiss(toastId)
+            if (blob) {
+              const file = new File([blob], 'dropped-image.jpg', { type: 'image/jpeg' })
+              toast.success('Image loaded from link successfully!')
+              processImageFile(file)
+            } else {
+              toast.error('Could not extract image from link. Please save and drop the file.')
+            }
+          }, 'image/jpeg', 0.9)
+        } catch (canvasErr) {
+          toast.dismiss(toastId)
+          toast.error('Direct link access is protected by CORS. Please right-click > "Save Image As" and drop the file.')
+        }
+      }
+      img.onerror = () => {
+        toast.dismiss(toastId)
+        toast.error('Unable to load image from URL. Please save the image and drop the file directly.')
+      }
+      img.src = url
+    } catch (fallbackErr) {
+      toast.dismiss(toastId)
+      toast.error('Could not load image from URL.')
+    }
+  }
+}
+
+const handleDrop = async (e: DragEvent) => {
+  e.preventDefault()
+  e.stopPropagation()
+  dragCounter = 0
+  isDraggingOver.value = false
+
+  const dataTransfer = e.dataTransfer
+  if (!dataTransfer) return
+
+  if (dataTransfer.files && dataTransfer.files.length > 0) {
+    const file = dataTransfer.files[0]
+    if (file.type.startsWith('image/')) {
+      processImageFile(file)
+      return
+    }
+  }
+
+  const htmlData = dataTransfer.getData('text/html')
+  if (htmlData) {
+    const match = htmlData.match(/<img[^>]+src=["']([^"']+)["']/i)
+    if (match && match[1]) {
+      await processImageUrl(match[1])
+      return
+    }
+  }
+
+  const uriData = dataTransfer.getData('text/uri-list')
+  if (uriData) {
+    const firstUrl = uriData.split('\n')[0].trim()
+    if (firstUrl && !firstUrl.startsWith('#')) {
+      await processImageUrl(firstUrl)
+      return
+    }
+  }
+
+  const textData = dataTransfer.getData('text/plain')
+  if (textData) {
+    const trimmed = textData.trim()
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+      await processImageUrl(trimmed)
+      return
+    }
+  }
+
+  if (dataTransfer.items && dataTransfer.items.length > 0) {
+    for (let i = 0; i < dataTransfer.items.length; i++) {
+      const item = dataTransfer.items[i]
+      if (item.kind === 'file' && item.type.startsWith('image/')) {
+        const file = item.getAsFile()
+        if (file) {
+          processImageFile(file)
+          return
+        }
+      }
+    }
+  }
+
+  toast.info('No valid image or image link detected in the drop.')
+}
+
 const flipCamera = async () => {
   if (!isCameraOn.value) return
   currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user'
@@ -53,17 +244,7 @@ const handleFileUpload = async (event: Event) => {
   const target = event.target as HTMLInputElement
   if (target.files && target.files[0]) {
     const file = target.files[0]
-    selectedFile.value = file as File
-    isScanned.value = false
-    uploadQualityWarning.value = null
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      previewImage.value = e.target?.result as string
-      analyzeUploadedImageQuality(previewImage.value)
-    }
-    reader.readAsDataURL(file)
-    stopCamera()
-    isCameraOn.value = false
+    processImageFile(file)
   }
 }
 
@@ -331,7 +512,36 @@ const statusText = computed(() => {
 
 <template>
   <!-- Fullscreen camera container -->
-  <div class="fixed inset-0 bg-black overflow-hidden">
+  <div
+    class="fixed inset-0 bg-black overflow-hidden"
+    @dragenter="handleDragEnter"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
+  >
+    <!-- Drag & Drop Hover Overlay (Active when hovering file/image/link) -->
+    <div
+      v-if="isDraggingOver && !isScanning"
+      class="absolute inset-4 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md border-4 border-dashed border-primary rounded-3xl animate-in fade-in zoom-in-95 duration-150 transition-all pointer-events-none text-center p-6"
+    >
+      <div class="h-20 w-20 rounded-full bg-primary/20 text-primary flex items-center justify-center mb-4 ring-8 ring-primary/10 animate-bounce">
+        <Icon name="material-symbols:add-photo-alternate-rounded" class="text-4xl" />
+      </div>
+      <h3 class="text-xl font-black text-white tracking-tight mb-1">
+        Drop Image or Link Here
+      </h3>
+      <p class="text-sm text-gray-300 leading-relaxed mb-4">
+        Release your image file or web link to load and analyze instantly
+      </p>
+      <div class="flex items-center gap-2">
+        <span class="text-[11px] font-bold uppercase tracking-wider bg-white/10 text-white/90 px-3 py-1 rounded-full border border-white/15">
+          JPG, PNG, WEBP
+        </span>
+        <span class="text-[11px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-3 py-1 rounded-full border border-primary/30">
+          Image URLs & Links
+        </span>
+      </div>
+    </div>
 
     <!-- === FULLSCREEN VIDEO / PREVIEW === -->
     <video
@@ -355,7 +565,7 @@ const statusText = computed(() => {
       class="absolute inset-0 flex flex-col items-center justify-center gap-3 select-none"
     >
       <Icon name="solar:camera-minimalistic-linear" class="text-white/10 text-8xl" />
-      <p class="text-white/25 text-sm font-medium">Tap the camera button to start</p>
+      <p class="text-white/25 text-sm font-medium">Tap the camera button or drop an image to start</p>
     </div>
 
     <!-- === TOP HUD: Status / No-Image / Error bar === -->
