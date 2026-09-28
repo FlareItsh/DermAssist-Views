@@ -434,17 +434,35 @@
         activeDisease.value = 'Clear'
         return
       }
-      if (newVal === 'None' || newVal === 'Non-Skin' || newVal === 'Non-Skin Image Detected' || newVal === 'Non-Skin / Out of Scope') {
+      if (
+        newVal === 'None' ||
+        newVal === 'Non-Skin' ||
+        newVal === 'Non-Skin Image Detected' ||
+        newVal === 'Non-Skin / Out of Scope'
+      ) {
         activeDisease.value = 'None'
         return
       }
-      if (newVal === 'OutOfScope' || newVal === 'Out of Scope Condition' || newVal === 'Unsupported') {
+      if (
+        newVal === 'OutOfScope' ||
+        newVal === 'Out of Scope Condition' ||
+        newVal === 'Unsupported'
+      ) {
         activeDisease.value = 'OutOfScope'
         return
       }
-      if (newVal === 'Inconclusive' || newVal === 'Inconclusive / Outside Priority Scope' || newVal === 'Inconclusive Finding') {
+      if (
+        newVal === 'Inconclusive' ||
+        newVal === 'Inconclusive / Outside Priority Scope' ||
+        newVal === 'Inconclusive Finding'
+      ) {
         const feedback = (currentDiagnosis.value?.clinical_feedback || '').toLowerCase()
-        if (feedback.includes('outside our 3 primary') || feedback.includes('unsupported') || feedback.includes('psoriasis') || feedback.includes('ringworm')) {
+        if (
+          feedback.includes('outside our 3 primary') ||
+          feedback.includes('unsupported') ||
+          feedback.includes('psoriasis') ||
+          feedback.includes('ringworm')
+        ) {
           activeDisease.value = 'OutOfScope'
         } else {
           activeDisease.value = 'Inconclusive'
@@ -793,9 +811,17 @@
           />
         </div>
         <div>
-          <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-foreground text-3xl font-black tracking-tight lg:text-4xl">
-              {{ activeDisease === 'None' ? 'Non-Skin Image Detected' : activeDisease === 'OutOfScope' ? 'Out-of-Scope Condition' : activeDisease === 'Inconclusive' ? 'Inconclusive Result' : activeDisease }}
+              {{
+                activeDisease === 'None'
+                  ? 'Non-Skin Image Detected'
+                  : activeDisease === 'OutOfScope'
+                    ? 'Out-of-Scope Condition'
+                    : activeDisease === 'Inconclusive'
+                      ? 'Inconclusive Result'
+                      : activeDisease
+              }}
             </h1>
             <AppBadge
               v-if="activeDisease === 'Inconclusive'"
@@ -822,56 +848,97 @@
       <!-- Out-of-Scope Dedicated Advisory Notice -->
       <div
         v-if="activeDisease === 'OutOfScope'"
-        class="mb-8 p-6 rounded-2xl bg-purple-50 border border-purple-200 text-purple-950 space-y-3 shadow-xs"
+        class="mb-8 space-y-3 rounded-2xl border border-purple-200 bg-purple-50 p-6 text-purple-950 shadow-xs"
       >
         <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 font-bold text-sm text-purple-800">
-            <Icon name="lucide:stethoscope" size="18" class="text-purple-600 shrink-0" />
+          <div class="flex items-center gap-2 text-sm font-bold text-purple-800">
+            <Icon
+              name="lucide:stethoscope"
+              size="18"
+              class="shrink-0 text-purple-600"
+            />
             <span>Semantic Validation: Out-of-Scope Skin Condition</span>
           </div>
-          <span class="text-[11px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full">Zero-Shot OOD Filter</span>
+          <span
+            class="rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-extrabold tracking-wider text-purple-700 uppercase"
+            >Zero-Shot OOD Filter</span
+          >
         </div>
-        <p class="text-xs sm:text-sm leading-relaxed font-semibold text-purple-950">
-          {{ currentDiagnosis?.clinical_feedback || 'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). It may represent an unsupported skin disease such as Psoriasis, Ringworm, Vitiligo, Rosacea, or Melanoma. Please consult a licensed dermatologist for comprehensive clinical evaluation.' }}
+        <p class="text-xs leading-relaxed font-semibold text-purple-950 sm:text-sm">
+          {{
+            currentDiagnosis?.clinical_feedback ||
+            'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). It may represent an unsupported skin disease such as Psoriasis, Ringworm, Vitiligo, Rosacea, or Melanoma. Please consult a licensed dermatologist for comprehensive clinical evaluation.'
+          }}
         </p>
-        <div class="pt-3 border-t border-purple-200/80 flex flex-wrap items-center justify-between gap-2">
-          <div class="flex items-center gap-1.5 flex-wrap">
+        <div
+          class="flex flex-wrap items-center justify-between gap-2 border-t border-purple-200/80 pt-3"
+        >
+          <div class="flex flex-wrap items-center gap-1.5">
             <span class="text-xs font-bold text-purple-900">Common Examples:</span>
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Psoriasis</span>
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Ringworm (Tinea)</span>
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Vitiligo</span>
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Rosacea</span>
-            <span class="px-2.5 py-0.5 rounded-md text-xs font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Hives / Urticaria</span>
+            <span
+              class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-xs font-bold text-purple-800 shadow-2xs"
+              >Psoriasis</span
+            >
+            <span
+              class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-xs font-bold text-purple-800 shadow-2xs"
+              >Ringworm (Tinea)</span
+            >
+            <span
+              class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-xs font-bold text-purple-800 shadow-2xs"
+              >Vitiligo</span
+            >
+            <span
+              class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-xs font-bold text-purple-800 shadow-2xs"
+              >Rosacea</span
+            >
+            <span
+              class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-xs font-bold text-purple-800 shadow-2xs"
+              >Hives / Urticaria</span
+            >
           </div>
-          <p class="text-[11px] text-purple-700 font-bold">Target Trained Scope: Acne, Eczema, Herpes</p>
+          <p class="text-[11px] font-bold text-purple-700">
+            Target Trained Scope: Acne, Eczema, Herpes
+          </p>
         </div>
       </div>
 
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="mb-8 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 space-y-1.5"
+        class="mb-8 space-y-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200"
       >
-        <div class="flex items-center gap-2 font-bold text-sm text-amber-700 dark:text-amber-300">
-          <Icon name="lucide:alert-triangle" size="17" class="shrink-0" />
+        <div class="flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
+          <Icon
+            name="lucide:alert-triangle"
+            size="17"
+            class="shrink-0"
+          />
           <span>Low Confidence &amp; Inconclusive Guard</span>
         </div>
-        <p class="text-xs sm:text-sm leading-relaxed opacity-90">
-          {{ currentDiagnosis?.clinical_feedback || 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+        <p class="text-xs leading-relaxed opacity-90 sm:text-sm">
+          {{
+            currentDiagnosis?.clinical_feedback ||
+            'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+          }}
         </p>
       </div>
 
       <!-- Non-Skin Advisory Notice -->
       <div
         v-else-if="activeDisease === 'None'"
-        class="mb-8 p-4 rounded-2xl bg-muted/40 border border-border text-muted-foreground space-y-1.5"
+        class="bg-muted/40 border-border text-muted-foreground mb-8 space-y-1.5 rounded-2xl border p-4"
       >
-        <div class="flex items-center gap-2 font-bold text-sm text-foreground">
-          <Icon name="lucide:image-off" size="17" class="shrink-0" />
+        <div class="text-foreground flex items-center gap-2 text-sm font-bold">
+          <Icon
+            name="lucide:image-off"
+            size="17"
+            class="shrink-0"
+          />
           <span>Image Gate Notice: Non-Skin Image</span>
         </div>
-        <p class="text-xs sm:text-sm leading-relaxed">
-          The uploaded image was flagged as non-skin or outside the operational scope of our dermatological neural backbones. Please upload a clear photo of human skin.
+        <p class="text-xs leading-relaxed sm:text-sm">
+          The uploaded image was flagged as non-skin or outside the operational scope of our
+          dermatological neural backbones. Please upload a clear photo of human skin.
         </p>
       </div>
 
@@ -1110,7 +1177,11 @@
       <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
         <div class="mb-6 flex items-center justify-between">
           <h2 class="text-xl font-bold">Statistical Findings</h2>
-          <AppConfidenceTooltip align="right" />
+          <AppConfidenceTooltip
+            align="right"
+            :chart-data="displayChartData"
+            :confidence="activeConfidence"
+          />
         </div>
         <div class="flex flex-col items-center gap-6">
           <div class="relative flex items-center justify-center">

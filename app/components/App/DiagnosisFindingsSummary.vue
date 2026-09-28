@@ -56,7 +56,13 @@
 
   const canProceed = computed(() => {
     const hasPatient = props.role === 'patient' || !!patientUuid.value || !!assignedName.value
-    return !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && !isNoneState.value && hasPatient
+    return (
+      !!currentDiagnosis.value &&
+      isScanned.value &&
+      !isHealthyState.value &&
+      !isNoneState.value &&
+      hasPatient
+    )
   })
 
   const handleProceed = async () => {
@@ -463,7 +469,11 @@
           <p class="text-foreground text-lg font-semibold">
             Confidence: <span class="text-foreground ml-2 font-normal">{{ confidence }}%</span>
           </p>
-          <AppConfidenceTooltip align="left" />
+          <AppConfidenceTooltip
+            align="end"
+            :chart-data="chartData"
+            :confidence="confidence"
+          />
         </div>
 
         <div class="flex flex-col">
@@ -1300,7 +1310,7 @@
 
         <div>
           <p class="text-md text-foreground font-semibold">Condition Status</p>
-          <div class="flex items-center gap-2 mb-1 flex-wrap">
+          <div class="mb-1 flex flex-wrap items-center gap-2">
             <p
               class="text-md font-bold"
               :class="{
@@ -1341,26 +1351,53 @@
           <!-- Out-of-Scope Dedicated Advisory Banner -->
           <div
             v-if="isOutOfScopeState"
-            class="p-4 rounded-2xl bg-purple-50 border border-purple-200 text-purple-900 my-2 space-y-2.5 shadow-xs"
+            class="my-2 space-y-2.5 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-900 shadow-xs"
           >
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-1.5 font-bold text-xs text-purple-800">
-                <Icon name="lucide:stethoscope" size="16" class="text-purple-600 shrink-0" />
+              <div class="flex items-center gap-1.5 text-xs font-bold text-purple-800">
+                <Icon
+                  name="lucide:stethoscope"
+                  size="16"
+                  class="shrink-0 text-purple-600"
+                />
                 <span>Out-of-Scope Disease Gate</span>
               </div>
-              <span class="text-[10px] font-extrabold uppercase tracking-wider text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">Zero-Shot Triage</span>
+              <span
+                class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-purple-700 uppercase"
+                >Zero-Shot Triage</span
+              >
             </div>
             <p class="text-xs leading-relaxed font-semibold text-purple-950">
-              {{ currentDiagnosis?.clinical_feedback || 'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+              {{
+                currentDiagnosis?.clinical_feedback ||
+                'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+              }}
             </p>
-            <div class="pt-2 border-t border-purple-200/80">
-              <p class="text-[11px] font-bold text-purple-900 mb-1.5">Common Examples in this Category:</p>
+            <div class="border-t border-purple-200/80 pt-2">
+              <p class="mb-1.5 text-[11px] font-bold text-purple-900">
+                Common Examples in this Category:
+              </p>
               <div class="flex flex-wrap gap-1.5">
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Psoriasis</span>
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Ringworm (Tinea)</span>
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Vitiligo</span>
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Rosacea</span>
-                <span class="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white text-purple-800 border border-purple-200 shadow-2xs">Hives / Urticaria</span>
+                <span
+                  class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-purple-800 shadow-2xs"
+                  >Psoriasis</span
+                >
+                <span
+                  class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-purple-800 shadow-2xs"
+                  >Ringworm (Tinea)</span
+                >
+                <span
+                  class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-purple-800 shadow-2xs"
+                  >Vitiligo</span
+                >
+                <span
+                  class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-purple-800 shadow-2xs"
+                  >Rosacea</span
+                >
+                <span
+                  class="rounded-md border border-purple-200 bg-white px-2.5 py-0.5 text-[11px] font-bold text-purple-800 shadow-2xs"
+                  >Hives / Urticaria</span
+                >
               </div>
             </div>
           </div>
@@ -1368,28 +1405,40 @@
           <!-- Inconclusive Advisory Banner -->
           <div
             v-else-if="isInconclusiveState"
-            class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 my-2 space-y-1"
+            class="my-2 space-y-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-900 dark:text-amber-200"
           >
-            <div class="flex items-center gap-1.5 font-bold text-xs">
-              <Icon name="lucide:alert-triangle" size="14" class="text-amber-600 dark:text-amber-400 shrink-0" />
+            <div class="flex items-center gap-1.5 text-xs font-bold">
+              <Icon
+                name="lucide:alert-triangle"
+                size="14"
+                class="shrink-0 text-amber-600 dark:text-amber-400"
+              />
               <span>Clinical Advisory</span>
             </div>
             <p class="text-xs leading-relaxed opacity-90">
-              {{ currentDiagnosis?.clinical_feedback || 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.' }}
+              {{
+                currentDiagnosis?.clinical_feedback ||
+                'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+              }}
             </p>
           </div>
 
           <!-- Non-Skin Advisory Banner -->
           <div
             v-else-if="isNoneState"
-            class="p-3.5 rounded-2xl bg-muted/40 border border-border text-muted-foreground my-2 space-y-1"
+            class="bg-muted/40 border-border text-muted-foreground my-2 space-y-1 rounded-2xl border p-3.5"
           >
-            <div class="flex items-center gap-1.5 font-bold text-xs text-foreground">
-              <Icon name="lucide:image-off" size="14" class="text-muted-foreground shrink-0" />
+            <div class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+              <Icon
+                name="lucide:image-off"
+                size="14"
+                class="text-muted-foreground shrink-0"
+              />
               <span>Image Gate Notice</span>
             </div>
             <p class="text-xs leading-relaxed">
-              The uploaded image does not appear to be a human skin photo. Please retake or upload a clear, focused photo of the skin lesion.
+              The uploaded image does not appear to be a human skin photo. Please retake or upload a
+              clear, focused photo of the skin lesion.
             </p>
           </div>
           <p class="text-md text-foreground mb-3 font-normal">{{ info.description }}</p>
