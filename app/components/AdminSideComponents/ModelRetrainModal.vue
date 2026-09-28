@@ -145,8 +145,10 @@ const handleExecuteCancel = async () => {
     await modelTrainingService.cancelTraining()
     toast.info('Training cancellation requested.')
     showCancelConfirm.value = false
+    await pollStatus()
   } catch (err: any) {
-    toast.error('Failed to cancel training.')
+    const errorMsg = err?.data?.message || err?.data?.error || err?.data?.detail || err?.message || 'Failed to cancel training.'
+    toast.error(errorMsg)
   } finally {
     isCancelling.value = false
   }
@@ -294,8 +296,8 @@ onBeforeUnmount(() => {
               ></div>
             </div>
             <div class="flex justify-between text-[11px] text-muted-foreground pt-0.5">
-              <span>Elapsed: {{ trainingStatus?.elapsed_seconds ?? 0 }}s</span>
-              <span v-if="trainingStatus?.eta_seconds && isTrainingActive">ETA: ~{{ trainingStatus.eta_seconds }}s</span>
+              <span>Elapsed: {{ formatDuration(trainingStatus?.elapsed_seconds) }}</span>
+              <span v-if="trainingStatus?.eta_seconds && isTrainingActive">ETA: ~{{ formatDuration(trainingStatus.eta_seconds) }}</span>
             </div>
           </div>
 

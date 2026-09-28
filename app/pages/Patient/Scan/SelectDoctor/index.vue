@@ -13,6 +13,7 @@
 
   const allNearbyDoctors = ref<any[]>([])
   const isLoading = ref(true)
+  const isDoctorRegistered = ref(false)
 
   const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
     const R = 6371
@@ -36,6 +37,8 @@
     try {
       const patientRes = await userService.show(userUuid.value as string, { t: Date.now() })
       const patient = patientRes?.data ?? patientRes
+
+      isDoctorRegistered.value = Boolean(patient?.is_doctor_registered)
 
       if (patient?.is_doctor_registered && patient?.registered_by_doctor) {
         allNearbyDoctors.value = [{ ...patient.registered_by_doctor, distance: 0 }]
@@ -113,7 +116,9 @@
         <span class="xs:inline hidden text-xs font-bold sm:text-sm">Back to Results</span>
       </AppButton>
 
-      <h1 class="truncate text-center text-lg font-black sm:text-2xl">Select Specialist</h1>
+      <h1 class="truncate text-center text-lg font-black sm:text-2xl">
+        {{ isDoctorRegistered ? 'Your Attending Doctor' : 'Select Specialist' }}
+      </h1>
 
       <div class="w-8 shrink-0 sm:w-32"></div>
       <!-- Spacer for center alignment -->
@@ -135,6 +140,16 @@
         v-else
         class="mx-auto flex max-w-5xl flex-col gap-3 sm:grid sm:grid-cols-1 sm:gap-6 md:grid-cols-2"
       >
+        <div
+          v-if="isDoctorRegistered"
+          class="col-span-full mb-2 flex items-center gap-3 rounded-2xl bg-primary/5 p-4 border border-primary/20 text-primary"
+        >
+          <Icon name="material-symbols:lock-outline" class="text-xl shrink-0" />
+          <p class="text-xs sm:text-sm font-semibold">
+            Your account was registered by your attending doctor. All appointments and scan findings are managed directly with them.
+          </p>
+        </div>
+
         <div
           v-for="(doc, index) in allNearbyDoctors"
           :key="doc.uuid"

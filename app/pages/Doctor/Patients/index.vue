@@ -13,6 +13,8 @@
   const { priorityIds, addToPriority, removeFromPriority, isInPriority } = usePriorityList()
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
+  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const showPassword = ref(false)
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
@@ -514,7 +516,7 @@
     middleName: '',
     lastName: '',
     email: '',
-    password: '',
+    password: generateTemporaryPassword('Patient'),
     age: '',
     gender: 'Female',
     street: '',
@@ -528,7 +530,7 @@
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
-    registerForm.password = ''
+    registerForm.password = generateTemporaryPassword('Patient')
     registerForm.age = ''
     registerForm.gender = 'Female'
     registerForm.street = ''
@@ -1563,14 +1565,46 @@
             />
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-700">Temporary Password *</label>
-            <input
-              type="password"
-              v-model="registerForm.password"
-              required
-              placeholder="Min. 8 characters"
-              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-            />
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-gray-700">Temporary Password *</label>
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  @click="copyToClipboard(registerForm.password, 'Password')"
+                  class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+                  title="Copy password to clipboard"
+                >
+                  <UIcon name="i-heroicons-clipboard-document" class="h-3.5 w-3.5" />
+                  Copy
+                </button>
+                <span class="text-gray-300">|</span>
+                <button
+                  type="button"
+                  @click="registerForm.password = generateTemporaryPassword('Patient')"
+                  class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+                  title="Generate new random password"
+                >
+                  <UIcon name="i-heroicons-arrow-path" class="h-3.5 w-3.5" />
+                  Regenerate
+                </button>
+              </div>
+            </div>
+            <div class="relative mt-1">
+              <input
+                :type="showPassword ? 'text' : 'password'"
+                v-model="registerForm.password"
+                required
+                placeholder="Min. 8 characters"
+                class="h-10 w-full rounded-xl border border-gray-200 bg-white pl-3 pr-10 text-xs font-mono font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              />
+              <button
+                type="button"
+                @click="showPassword = !showPassword"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <UIcon :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
 
