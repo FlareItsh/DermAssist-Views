@@ -99,7 +99,7 @@
               class="group hover:bg-sidebar-accent relative flex items-center rounded-full p-2 transition-all duration-300 active:scale-95"
               :class="[
                 isItemActive(item) ? 'bg-sidebar-accent' : '',
-                item.highlight && !isItemActive(item) ? 'bg-primary/5 hover:bg-primary/10' : '',
+                item.highlight && !isItemActive(item) ? 'bg-primary/5 hover:bg-sidebar-accent' : '',
                 isCollapsed ? 'mx-auto w-14 justify-center' : 'w-full justify-start'
               ]"
             >
@@ -107,7 +107,7 @@
                 class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300"
                 :class="[
                   item.highlight && !isItemActive(item)
-                    ? 'bg-primary/15 text-primary ring-primary/25 shadow-xs ring-1'
+                    ? 'bg-primary/10 text-primary group-hover:bg-white/20'
                     : ''
                 ]"
               >
@@ -119,7 +119,7 @@
                     isItemActive(item)
                       ? 'text-sidebar-accent-foreground'
                       : item.highlight
-                        ? 'text-primary group-hover:scale-110 group-hover:-rotate-12'
+                        ? 'text-primary group-hover:text-sidebar-accent-foreground group-hover:scale-110 group-hover:-rotate-12'
                         : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                   ]"
                 />
@@ -127,13 +127,13 @@
                 <!-- Pulsing Notification Beacon on Icon -->
                 <span
                   v-if="item.showBadge"
-                  class="absolute -top-0.5 -right-0.5 flex h-3 w-3"
+                  class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
                 >
                   <span
-                    class="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                    class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
                   ></span>
                   <span
-                    class="bg-primary border-sidebar relative inline-flex h-3 w-3 rounded-full border-2 shadow-xs"
+                    class="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500 shadow-xs"
                   ></span>
                 </span>
               </div>
@@ -153,7 +153,7 @@
                       isItemActive(item)
                         ? 'text-sidebar-accent-foreground'
                         : item.highlight
-                          ? 'text-primary font-semibold'
+                          ? 'text-primary group-hover:text-sidebar-accent-foreground font-semibold'
                           : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                     ]"
                   >
@@ -163,9 +163,19 @@
                   <!-- NEW Badge Capsule -->
                   <span
                     v-if="item.badgeText"
-                    class="bg-primary/15 text-primary border-primary/20 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-black tracking-wider uppercase shadow-xs"
+                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase shadow-xs transition-colors duration-300"
+                    :class="[
+                      isItemActive(item)
+                        ? 'bg-white/20 text-white'
+                        : 'bg-primary/15 text-primary border-primary/20 group-hover:text-primary border group-hover:border-transparent group-hover:bg-white'
+                    ]"
                   >
-                    <span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
+                    <span
+                      class="h-1.5 w-1.5 rounded-full"
+                      :class="[
+                        isItemActive(item) ? 'bg-white' : 'bg-primary group-hover:bg-primary'
+                      ]"
+                    ></span>
                     {{ item.badgeText }}
                   </span>
                 </div>
