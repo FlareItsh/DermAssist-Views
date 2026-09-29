@@ -11,7 +11,10 @@
     </div>
 
     <!-- Temporary Account Verification Alert Banner -->
-    <AppVerificationBanner :user="currentUser" @verified="handleUserVerified" />
+    <AppVerificationBanner
+      :user="currentUser"
+      @verified="handleUserVerified"
+    />
 
     <div class="flex flex-1 overflow-hidden">
       <!-- Desktop Sidebar (hidden on mobile) -->
@@ -72,7 +75,7 @@
 
   watch(
     () => accountStatus.value,
-    (val) => {
+    val => {
       currentUser.account_status = val || 'active'
     }
   )
@@ -85,6 +88,11 @@
   }
 
   const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
+  const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
+
+  const showWhatsNew = computed(() => {
+    return hasUnseenUpdate.value || route.path.toLowerCase().endsWith('/updates')
+  })
 
   const adminNavItems = computed(() => [
     { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/admin' },
@@ -127,76 +135,96 @@
     { icon: 'lucide:newspaper', label: 'System Updates', to: '/admin/patch-notes' }
   ])
 
-  const patientNavItems = computed(() => [
-    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/patient' },
-    {
-      icon: 'lucide:camera',
-      label: 'Scan',
-      to: '/patient/scan'
-    },
-    {
-      icon: 'lucide:message-square',
-      label: 'Message',
-      to: '/patient/messages'
-    },
-    {
-      icon: 'lucide:folder',
-      label: 'Records',
-      to: '/patient/records'
-    },
-    {
-      icon: 'lucide:sparkles',
-      label: "What's New",
-      to: '/patient/updates'
-    }
-  ])
+  const patientNavItems = computed(() => {
+    const items = [
+      { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/patient' },
+      {
+        icon: 'lucide:camera',
+        label: 'Scan',
+        to: '/patient/scan'
+      },
+      {
+        icon: 'lucide:message-square',
+        label: 'Message',
+        to: '/patient/messages'
+      },
+      {
+        icon: 'lucide:folder',
+        label: 'Records',
+        to: '/patient/records'
+      }
+    ]
 
-  const doctorNavItems = computed(() => [
-    { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/doctor' },
-    {
-      icon: 'lucide:camera',
-      label: 'Scan',
-      to: '/doctor/scan'
-    },
-    {
-      icon: 'lucide:user-round',
-      label: 'Consultations',
-      children: [
-        { icon: 'lucide:users', label: 'Patients', to: '/doctor/patients' },
-        { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
-      ]
-    },
-    {
-      icon: 'lucide:user-plus',
-      label: 'Secretaries',
-      to: '/doctor/secretaries'
-    },
-    {
-      icon: 'lucide:message-square',
-      label: 'Message',
-      to: '/doctor/messages'
-    },
-    {
-      icon: 'lucide:folder',
-      label: 'Records',
-      to: '/doctor/records'
-    },
-    {
-      icon: 'lucide:database',
-      label: 'Dataset',
-      to: '/doctor/dataset'
-    },
-    {
-      icon: 'lucide:credit-card',
-      label: 'Subscription',
-      to: '/doctor/subscription'
-    },
-    {
-      icon: 'lucide:sparkles',
-      label: "What's New",
-      to: '/doctor/updates'
+    if (showWhatsNew.value) {
+      items.push({
+        icon: 'lucide:megaphone',
+        label: "What's New",
+        to: '/patient/updates',
+        showBadge: hasUnseenUpdate.value,
+        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
+        highlight: hasUnseenUpdate.value
+      })
     }
-  ])
+
+    return items
+  })
+
+  const doctorNavItems = computed(() => {
+    const items = [
+      { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/doctor' },
+      {
+        icon: 'lucide:camera',
+        label: 'Scan',
+        to: '/doctor/scan'
+      },
+      {
+        icon: 'lucide:user-round',
+        label: 'Consultations',
+        children: [
+          { icon: 'lucide:users', label: 'Patients', to: '/doctor/patients' },
+          { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
+        ]
+      },
+      {
+        icon: 'lucide:user-plus',
+        label: 'Secretaries',
+        to: '/doctor/secretaries'
+      },
+      {
+        icon: 'lucide:message-square',
+        label: 'Message',
+        to: '/doctor/messages'
+      },
+      {
+        icon: 'lucide:folder',
+        label: 'Records',
+        to: '/doctor/records'
+      },
+      {
+        icon: 'lucide:database',
+        label: 'Dataset',
+        to: '/doctor/dataset'
+      },
+      {
+        icon: 'lucide:credit-card',
+        label: 'Subscription',
+        to: '/doctor/subscription'
+      }
+    ]
+
+    if (showWhatsNew.value) {
+      items.push({
+        icon: 'lucide:megaphone',
+        label: "What's New",
+        to: '/doctor/updates',
+        showBadge: hasUnseenUpdate.value,
+        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
+        highlight: hasUnseenUpdate.value
+      })
+    }
+
+    return items
+  })
 
   const secretaryNavItems = computed(() => [
     { icon: 'lucide:layout-dashboard', label: 'Dashboard', to: '/secretary' },
@@ -294,6 +322,8 @@
   onMounted(() => {
     if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
       fetchAppeals()
+    } else {
+      fetchPublishedPatchNotes()
     }
   })
 
@@ -302,6 +332,10 @@
     async path => {
       if (path.startsWith('/admin/appeals')) {
         markAppealsSeen()
+      }
+
+      if (path.toLowerCase().endsWith('/updates')) {
+        markLatestUpdateAsSeen()
       }
 
       // Scroll to top on page change (only on client-side)

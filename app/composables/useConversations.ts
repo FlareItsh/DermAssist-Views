@@ -63,10 +63,13 @@ export const useConversations = () => {
   })
 
   // Watch for user changes to reset and refetch
-  watch(() => userUuid.value, (newUuid) => {
-    conversations.value = []
-    if (newUuid) fetchConversations()
-  })
+  watch(
+    () => userUuid.value,
+    newUuid => {
+      conversations.value = []
+      if (newUuid) fetchConversations()
+    }
+  )
 
   // Singleton Polling: Starts only ONE global interval regardless of how many components call useConversations()
   if (import.meta.client) {

@@ -53,9 +53,8 @@
     if (/^\d+$/.test(query)) {
       result = list.filter(appt => appt.date.toLowerCase().includes(query))
     } else {
-      result = list.filter(appt => 
-        appt.doctor.toLowerCase().includes(query) || 
-        appt.info.toLowerCase().includes(query)
+      result = list.filter(
+        appt => appt.doctor.toLowerCase().includes(query) || appt.info.toLowerCase().includes(query)
       )
     }
 
@@ -81,7 +80,6 @@
       minute: '2-digit'
     })
   }
-
 </script>
 
 <template>
@@ -192,29 +190,47 @@
           </PatientSideComponentsSkinConditionsInfo>
         </div>
 
-        <div v-if="isScheduledForAction" class="w-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-3xl p-5 shadow-sm backdrop-blur-xs relative overflow-hidden group my-1">
-          <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-orange-500/10 rounded-full blur-2xl pointer-events-none"></div>
-          <div class="flex flex-col sm:flex-row items-start sm:items-center gap-5 relative z-10">
-            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30">
-              <Icon name="material-symbols:timer-outline" class="text-3xl" />
+        <div
+          v-if="isScheduledForAction"
+          class="group relative my-1 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 p-5 shadow-sm backdrop-blur-xs"
+        >
+          <div
+            class="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-orange-500/10 blur-2xl"
+          ></div>
+          <div class="relative z-10 flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+            <div
+              class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-lg shadow-orange-500/30"
+            >
+              <Icon
+                name="material-symbols:timer-outline"
+                class="text-3xl"
+              />
             </div>
             <div class="flex-1">
               <div class="flex items-center gap-2">
-                <span class="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-700">
+                <span
+                  class="inline-block rounded-md bg-orange-500/20 px-2.5 py-0.5 text-[10px] font-black tracking-wider text-orange-700 uppercase"
+                >
                   Account Notice
                 </span>
               </div>
-              <h3 class="text-xl font-bold text-foreground mt-1">
+              <h3 class="text-foreground mt-1 text-xl font-bold">
                 Account Scheduled for {{ scheduledAction === 'delete' ? 'Deletion' : 'Disabling' }}
               </h3>
-              <p class="text-sm text-foreground/80 leading-relaxed mt-1">
-                Your attending doctor has scheduled your account for 
-                <strong class="text-orange-600 font-bold uppercase">{{ scheduledAction }}</strong> on 
-                <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong>.
+              <p class="text-foreground/80 mt-1 text-sm leading-relaxed">
+                Your attending doctor has scheduled your account for
+                <strong class="font-bold text-orange-600 uppercase">{{ scheduledAction }}</strong>
+                on
+                <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong
+                >.
               </p>
-              <p class="text-xs text-foreground/60 mt-2 flex items-center gap-1.5">
-                <Icon name="solar:info-circle-bold" class="text-orange-500 shrink-0 text-sm" />
-                Please contact your attending doctor if you have any questions regarding this schedule.
+              <p class="text-foreground/60 mt-2 flex items-center gap-1.5 text-xs">
+                <Icon
+                  name="solar:info-circle-bold"
+                  class="shrink-0 text-sm text-orange-500"
+                />
+                Please contact your attending doctor if you have any questions regarding this
+                schedule.
               </p>
             </div>
           </div>
@@ -237,28 +253,34 @@
     <!-- ═══════════════════════════════════════════════
          MOBILE LAYOUT (only on phones/tablets)
          ═══════════════════════════════════════════════ -->
-    <div class="mobile-only min-h-screen -mx-5 px-5">
+    <div class="mobile-only -mx-5 min-h-screen px-5">
       <!-- ─── Scrollable Body ─── -->
-      <div class="flex flex-col gap-3 relative z-10">
-
+      <div class="relative z-10 flex flex-col gap-3">
         <!-- My Health Overview Card -->
-        <h2 class="text-foreground text-lg font-bold mb-0.5 mt-4">My Health Overview</h2>
+        <h2 class="text-foreground mt-4 mb-0.5 text-lg font-bold">My Health Overview</h2>
         <PatientSideComponentsMobileWeekTracker />
 
         <!-- Total Scans Card -->
         <div class="bg-primary rounded-3xl px-5 py-4">
-          <h3 class="text-white text-base font-bold mb-3">Total scans performed</h3>
+          <h3 class="mb-3 text-base font-bold text-white">Total scans performed</h3>
           <div class="flex items-center gap-4">
-            <div class="h-14 w-14 flex items-center justify-center rounded-full bg-white/20 shadow-[inset_0_0_9px_rgba(0,0,0,0.3)]">
-              <span class="text-white text-xl font-black">{{ total_scans }}</span>
+            <div
+              class="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 shadow-[inset_0_0_9px_rgba(0,0,0,0.3)]"
+            >
+              <span class="text-xl font-black text-white">{{ total_scans }}</span>
             </div>
-            <p class="text-white/70 text-xs leading-relaxed max-w-[160px]">Skin scans analyzed by our AI system</p>
+            <p class="max-w-[160px] text-xs leading-relaxed text-white/70">
+              Skin scans analyzed by our AI system
+            </p>
           </div>
         </div>
 
         <!-- Upcoming Appointment Strip -->
-        <div v-if="filteredAppointments.length > 0" class="bg-white rounded-3xl p-4 shadow-sm border border-gray-100">
-          <div class="flex items-center gap-2 mb-3">
+        <div
+          v-if="filteredAppointments.length > 0"
+          class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm"
+        >
+          <div class="mb-3 flex items-center gap-2">
             <div class="bg-secondary h-5 w-1 shrink-0 rounded-full"></div>
             <h3 class="text-foreground text-base font-bold">Upcoming Appointments</h3>
           </div>
@@ -266,23 +288,36 @@
             <div
               v-for="appt in filteredAppointments.slice(0, 3)"
               :key="appt.id"
-              class="flex items-center gap-3 rounded-2xl bg-primary/5 p-3 border border-primary/10"
+              class="bg-primary/5 border-primary/10 flex items-center gap-3 rounded-2xl border p-3"
             >
               <!-- Date badge -->
-              <div class="flex flex-col items-center bg-primary rounded-xl px-3 py-2 shrink-0">
-                <span class="text-white text-[10px] font-bold uppercase">{{ appt.date ? months[parseInt(appt.date.split('-')[1]) - 1] : 'TBD' }}</span>
-                <span class="text-white text-xl font-black leading-none">{{ appt.date ? appt.date.split('-')[2] : '--' }}</span>
+              <div class="bg-primary flex shrink-0 flex-col items-center rounded-xl px-3 py-2">
+                <span class="text-[10px] font-bold text-white uppercase">{{
+                  appt.date ? months[parseInt(appt.date.split('-')[1]) - 1] : 'TBD'
+                }}</span>
+                <span class="text-xl leading-none font-black text-white">{{
+                  appt.date ? appt.date.split('-')[2] : '--'
+                }}</span>
               </div>
               <!-- Info -->
-              <div class="flex-1 min-w-0">
-                <p class="text-foreground text-sm font-bold truncate">{{ appt.doctor }}</p>
-                <p class="text-foreground/50 text-xs font-semibold uppercase tracking-wide truncate">{{ appt.info }}</p>
-                <p v-if="appt.time" class="text-primary text-xs font-bold mt-0.5">{{ appt.time }}</p>
+              <div class="min-w-0 flex-1">
+                <p class="text-foreground truncate text-sm font-bold">{{ appt.doctor }}</p>
+                <p
+                  class="text-foreground/50 truncate text-xs font-semibold tracking-wide uppercase"
+                >
+                  {{ appt.info }}
+                </p>
+                <p
+                  v-if="appt.time"
+                  class="text-primary mt-0.5 text-xs font-bold"
+                >
+                  {{ appt.time }}
+                </p>
               </div>
               <img
                 v-if="appt.diagnosis_image"
                 :src="getStorageUrl(appt.diagnosis_image)"
-                class="h-10 w-10 rounded-xl object-cover shrink-0 border border-primary/20"
+                class="border-primary/20 h-10 w-10 shrink-0 rounded-xl border object-cover"
               />
             </div>
           </div>
@@ -292,20 +327,34 @@
         <PatientSideComponentsMobileSkinConditionAccordion />
 
         <!-- Scheduled Action Indicator Banner (Mobile) -->
-        <div v-if="isScheduledForAction" class="w-full bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 border-2 border-orange-500/30 rounded-3xl p-5 shadow-sm relative overflow-hidden my-2">
+        <div
+          v-if="isScheduledForAction"
+          class="relative my-2 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 p-5 shadow-sm"
+        >
           <div class="flex items-start gap-4">
-            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-md">
-              <Icon name="material-symbols:timer-outline" class="text-2xl" />
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500 text-white shadow-md"
+            >
+              <Icon
+                name="material-symbols:timer-outline"
+                class="text-2xl"
+              />
             </div>
-            <div class="flex-1 min-w-0">
-              <span class="inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-700 mb-1">
+            <div class="min-w-0 flex-1">
+              <span
+                class="mb-1 inline-block rounded-md bg-orange-500/20 px-2 py-0.5 text-[9px] font-black tracking-wider text-orange-700 uppercase"
+              >
                 Account Notice
               </span>
-              <h3 class="text-base font-bold text-foreground leading-snug">
+              <h3 class="text-foreground text-base leading-snug font-bold">
                 Account Scheduled for {{ scheduledAction === 'delete' ? 'Deletion' : 'Disabling' }}
               </h3>
-              <p class="text-xs text-foreground/80 mt-1 leading-relaxed">
-                Scheduled for <strong class="text-orange-600 font-bold uppercase">{{ scheduledAction }}</strong> on <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong> by your doctor.
+              <p class="text-foreground/80 mt-1 text-xs leading-relaxed">
+                Scheduled for
+                <strong class="font-bold text-orange-600 uppercase">{{ scheduledAction }}</strong>
+                on
+                <strong class="text-foreground font-bold">{{ formatSchedule(scheduledAt) }}</strong>
+                by your doctor.
               </p>
             </div>
           </div>
@@ -315,22 +364,21 @@
         <PatientSideComponentsMobileDoctorsNearby v-else />
 
         <!-- SaaS Promo -->
-        <PatientSideComponentsSaaSPromotion class="rounded-3xl overflow-hidden mb-2" />
-
+        <PatientSideComponentsSaaSPromotion class="mb-2 overflow-hidden rounded-3xl" />
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-@media (min-width: 768px) {
-  .mobile-only {
-    display: none !important;
+  @media (min-width: 768px) {
+    .mobile-only {
+      display: none !important;
+    }
   }
-}
-@media (max-width: 767px) {
-  .desktop-only {
-    display: none !important;
+  @media (max-width: 767px) {
+    .desktop-only {
+      display: none !important;
+    }
   }
-}
 </style>

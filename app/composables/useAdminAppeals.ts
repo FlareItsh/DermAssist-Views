@@ -44,12 +44,17 @@ export const useAdminAppeals = () => {
 
   const sortedAppeals = computed(() => {
     return [...filteredAppeals.value].sort((a, b) => {
-      return new Date(getAppealTimestamp(b) || 0).getTime() - new Date(getAppealTimestamp(a) || 0).getTime()
+      return (
+        new Date(getAppealTimestamp(b) || 0).getTime() -
+        new Date(getAppealTimestamp(a) || 0).getTime()
+      )
     })
   })
 
   const latestAppealSignature = computed(() => {
-    return sortedAppeals.value.map(appeal => `${appeal.uuid}:${getAppealTimestamp(appeal)}`).join('|')
+    return sortedAppeals.value
+      .map(appeal => `${appeal.uuid}:${getAppealTimestamp(appeal)}`)
+      .join('|')
   })
 
   const seenAppealSignature = useCookie<string | null>('admin_seen_appeals_signature', {
@@ -58,7 +63,11 @@ export const useAdminAppeals = () => {
   })
 
   const hasUnseenAppeals = computed(() => {
-    return Boolean(latestAppealSignature.value && seenAppealSignature.value !== latestAppealSignature.value && filterStatus.value === 'pending')
+    return Boolean(
+      latestAppealSignature.value &&
+      seenAppealSignature.value !== latestAppealSignature.value &&
+      filterStatus.value === 'pending'
+    )
   })
 
   const fetchAppeals = async () => {
@@ -86,7 +95,7 @@ export const useAdminAppeals = () => {
       resolvedAppealUuids.value.push(uuid)
     }
   }
-  
+
   const restoreAppeal = (uuid: string) => {
     resolvedAppealUuids.value = resolvedAppealUuids.value.filter(id => id !== uuid)
   }

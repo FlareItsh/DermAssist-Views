@@ -23,7 +23,7 @@
   const { acceptInvitation, declineInvitation, fetchClinicDoctors, acknowledgeRevocation } =
     useDoctorClinicDoctors()
   const { fetchSubscription } = useDoctorSubscription()
-  const { readNotifs } = useAppNotifications()
+  const { readNotifs, markLatestUpdateAsSeen } = useAppNotifications()
 
   const isAccepting = ref(false)
   const isDeclining = ref(false)
@@ -44,6 +44,9 @@
         if (!arr.includes(props.notification.id)) {
           arr.push(props.notification.id)
           readNotifs.value = arr
+        }
+        if (props.notification?.type === 'patch_note' && props.notification?.data) {
+          markLatestUpdateAsSeen(props.notification.data)
         }
       }
     }

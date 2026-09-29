@@ -26,9 +26,10 @@
 
   const otherPerson = computed(() => {
     if (!conversation.value) return { name: 'Unknown', avatar: null }
-    const person = (userRole.value === 'doctor' || userRole.value === 'secretary')
-      ? conversation.value.patient
-      : conversation.value.doctor
+    const person =
+      userRole.value === 'doctor' || userRole.value === 'secretary'
+        ? conversation.value.patient
+        : conversation.value.doctor
 
     return {
       ...person,
@@ -39,14 +40,16 @@
 </script>
 
 <template>
-  <div class="flex h-full gap-3 -mx-5 md:mx-0 mt-0 md:mt-0">
+  <div class="-mx-5 mt-0 flex h-full gap-3 md:mx-0 md:mt-0">
     <div class="hidden md:block">
       <AppChatConversationList
         :active-id="uuid"
         base-path="/Secretary/Messages"
       />
     </div>
-    <div class="bg-card border-0 md:border md:border-border flex-1 overflow-hidden rounded-none md:rounded-3xl shadow-none md:shadow-sm w-full h-full">
+    <div
+      class="bg-card md:border-border h-full w-full flex-1 overflow-hidden rounded-none border-0 shadow-none md:rounded-3xl md:border md:shadow-sm"
+    >
       <AppChatMessageWindow
         :key="uuid"
         :conversation-uuid="uuid"

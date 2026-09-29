@@ -5,7 +5,7 @@
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto py-2">
+  <div class="mx-auto max-w-5xl py-2">
     <AppNotificationsPageView />
   </div>
 </template>

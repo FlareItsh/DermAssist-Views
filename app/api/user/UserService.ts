@@ -57,15 +57,25 @@ export class UserService extends BaseService {
   }
 
   async sendScanResult(patientUuid: string, diagnosisUuid: string): Promise<any> {
-    return await this.request(`/doctor/patients/${patientUuid}/send-scan`, 'POST', { diagnosis_uuid: diagnosisUuid })
+    return await this.request(`/doctor/patients/${patientUuid}/send-scan`, 'POST', {
+      diagnosis_uuid: diagnosisUuid
+    })
   }
 
-  async scheduleAppointmentForPatient(patientUuid: string, payload: { scheduled_at: string; scheduled_end_at?: string; location: string; purpose: string }): Promise<any> {
-    return await this.request(`/doctor/patients/${patientUuid}/schedule-appointment`, 'POST', payload)
+  async scheduleAppointmentForPatient(
+    patientUuid: string,
+    payload: { scheduled_at: string; scheduled_end_at?: string; location: string; purpose: string }
+  ): Promise<any> {
+    return await this.request(
+      `/doctor/patients/${patientUuid}/schedule-appointment`,
+      'POST',
+      payload
+    )
   }
 
   useShow(uuid: string | (() => string), options: any = {}) {
-    const url = typeof uuid === 'function' ? () => `${this.resource}/${uuid()}` : `${this.resource}/${uuid}`
+    const url =
+      typeof uuid === 'function' ? () => `${this.resource}/${uuid()}` : `${this.resource}/${uuid}`
     return this.useRequest(url, options)
   }
 }

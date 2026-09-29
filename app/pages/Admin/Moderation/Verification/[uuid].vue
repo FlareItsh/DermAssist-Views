@@ -163,7 +163,7 @@
       class="flex h-[60vh] flex-col items-center justify-center space-y-4"
     >
       <div
-        class="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary"
+        class="border-primary/20 border-t-primary h-12 w-12 animate-spin rounded-full border-4"
       ></div>
       <p class="font-medium text-gray-500">Loading verification details...</p>
     </div>
@@ -179,7 +179,7 @@
         <div class="overflow-hidden rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
           <div class="mb-6 flex flex-col items-center text-center">
             <div
-              class="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary/10 text-primary ring-4 ring-primary/5"
+              class="bg-primary/10 text-primary ring-primary/5 mb-4 flex h-24 w-24 items-center justify-center rounded-3xl ring-4"
             >
               <span class="text-4xl font-bold uppercase">
                 {{ verification.user.first_name[0] }}{{ verification.user.last_name[0] }}
@@ -255,7 +255,7 @@
               <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >PRC License Number</span
               >
-              <span class="mt-1 font-mono text-lg font-bold text-primary">{{
+              <span class="text-primary mt-1 font-mono text-lg font-bold">{{
                 verification.prc_number
               }}</span>
             </div>

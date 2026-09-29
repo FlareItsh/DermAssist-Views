@@ -9,7 +9,12 @@
  *   formatDuration(3725) => '1h 2m'
  */
 export const formatDuration = (totalSeconds: number | null | undefined): string => {
-  if (totalSeconds === null || totalSeconds === undefined || Number.isNaN(totalSeconds) || totalSeconds <= 0) {
+  if (
+    totalSeconds === null ||
+    totalSeconds === undefined ||
+    Number.isNaN(totalSeconds) ||
+    totalSeconds <= 0
+  ) {
     return '0s'
   }
 
@@ -34,6 +39,6 @@ export const formatDuration = (totalSeconds: number | null | undefined): string 
 
 export const useTimeFormat = () => {
   return {
-    formatDuration,
+    formatDuration
   }
 }

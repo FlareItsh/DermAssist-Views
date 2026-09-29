@@ -9,6 +9,7 @@ import { doctorSecretaryService } from '~/api/doctorSecretary/DoctorSecretarySer
 import { recordService, type RecordItem } from '~/api/record/RecordService'
 import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
 import { useConversations } from '~/composables/useConversations'
+import { usePatchNotes } from '~/composables/usePatchNotes'
 
 export interface AppNotification {
   id: string | number
@@ -39,13 +40,18 @@ let notificationPollingTimer: any = null
 let isNotificationListenerBound = false
 let isPollingActive = false
 
-const publishedPatchNotes = ref<any[]>([])
-const isPatchNotesLoaded = ref(false)
-
 export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
+
+  const {
+    publishedPatchNotes,
+    latestPatchNote,
+    hasUnseenUpdate,
+    fetchPublishedPatchNotes,
+    markLatestUpdateAsSeen
+  } = usePatchNotes()
 
   const {
     appointments,
@@ -99,22 +105,6 @@ export const useAppNotifications = () => {
       key: 'admin-appeals'
     }
   )
-
-  const fetchPublishedPatchNotes = async (force = false) => {
-    if (isPatchNotesLoaded.value && !force && publishedPatchNotes.value.length > 0) {
-      return publishedPatchNotes.value
-    }
-    try {
-      const res = await patchNoteService.getPublished()
-      if (res?.status === 'success') {
-        publishedPatchNotes.value = res.data || []
-        isPatchNotesLoaded.value = true
-      }
-    } catch (err) {
-      console.error('Failed to fetch published patch notes:', err)
-    }
-    return publishedPatchNotes.value
-  }
 
   const pollAllNotifications = async () => {
     if (isPollingActive || !userUuid.value) return
@@ -857,6 +847,10 @@ export const useAppNotifications = () => {
     userProfile,
     refreshProfile,
     refreshAppeals,
+    publishedPatchNotes,
+    latestPatchNote,
+    hasUnseenUpdate,
+    markLatestUpdateAsSeen,
     fetchPublishedPatchNotes,
     fetchAppointments,
     isPatientProfileIncomplete,

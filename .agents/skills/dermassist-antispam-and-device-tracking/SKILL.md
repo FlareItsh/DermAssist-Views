@@ -12,9 +12,11 @@ This skill provides mandatory architectural context and workflow standards for m
 ## 1. Web Security Realities vs. Hardware Blocking
 
 ### Browser Sandboxing
+
 Standard web browsers (Chrome, Edge, Safari, Firefox) run in strict security sandboxes. Web applications **cannot** read physical hardware serial numbers, CPU IDs, or MAC addresses due to web privacy standards.
 
 ### The Standard Web Solution: Cryptographic Device Tokens
+
 1. **Persistent Device Cookie**: A client-side UUID is generated and stored in a long-lived cookie (`da_device_id`, maxAge: 1 year, SameSite: `Lax`).
 2. **Global Request Header**: The frontend composable (`useApi.ts`) automatically attaches `'X-Device-Id': deviceId.value` to every outgoing API request.
 3. **IP Logging & Rate Limiting**: The client IP (`$request->ip()`) is evaluated alongside the device token for anomalous registration bursts.
@@ -24,6 +26,7 @@ Standard web browsers (Chrome, Edge, Safari, Firefox) run in strict security san
 ## 2. Device & IP Blacklist Architecture
 
 ### Database Schema
+
 - **`blocked_devices` Table**:
   - `device_id` (string 100, indexed): Persistent device UUID.
   - `user_id` (foreignId to `users`, nullable, null on delete): Associated user if known.
@@ -35,7 +38,9 @@ Standard web browsers (Chrome, Edge, Safari, Firefox) run in strict security san
   - `expires_at` (timestamp, nullable): Null for permanent blocks or timestamp for temporary cooling bans.
 
 ### Middleware Guardrail (`CheckBlockedDeviceOrIp`)
+
 Mounted on authentication endpoints (`/login`, `/register`):
+
 ```php
 Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::class)->group(function () {
     Route::post('/login', 'login')->name('login');
@@ -43,6 +48,7 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
     Route::post('/verify-account', 'verifyAccount');
 });
 ```
+
 - Checks `X-Device-Id` header, `da_device_id` cookie, and `request->ip()`.
 - Rejects matching blacklist records with HTTP 403:
   ```json
@@ -57,11 +63,13 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
 ## 3. Temporary Account Lifecycle & Verification
 
 ### User Account States (`account_status`)
+
 - `'active'`: Fully verified account with unrestricted access.
 - `'pending_verification'`: Self-registered public accounts awaiting email/token verification.
 - `'disabled'`: Manually suspended by attending doctor or administrator.
 
 ### Public Self-Registration Rules
+
 1. Doctor-registered patients start as `'active'`.
 2. Public patient self-registrations start as `'pending_verification'` with:
    - `verification_token`: Cryptographically secure random hash (`Str::random(40)`).
@@ -69,6 +77,7 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
    - `device_token`: Linked to the current client device ID.
 
 ### Verification Banner & Modal (`AppVerificationBanner.vue`)
+
 - Displayed prominently in `sidebar-layout.vue` when `user.account_status === 'pending_verification'`.
 - Shows a real-time countdown to the deadline (e.g. `Time remaining: 47h 12m`).
 - Provides one-click verification token submission modal and resend action.
@@ -79,6 +88,7 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
 ## 4. Automated Soft-Deletion vs. Permanent Pruning
 
 ### Soft Deletion (`$user->delete()`)
+
 - **When**: Accounts with `account_status === 'pending_verification'` whose `verification_deadline <= now()`.
 - **Action**:
   - Sets `deleted_at = now()`.
@@ -87,6 +97,7 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
 - **Execution**: Evaluated in real-time in `CheckAccountStatus` middleware and scheduled every minute in `routes/console.php` via `ProcessScheduledAccountActions::processDueActions()`.
 
 ### Permanent Pruning (`$user->forceDelete()`)
+
 - **When**: Soft-deleted accounts older than the 14-day trash retention period.
 - **Action**:
   - Purges related conversations, messages, appointments, diagnoses, and executes `$user->forceDelete()`.
@@ -98,11 +109,13 @@ Route::middleware([CheckBlockedDeviceOrIp::class])->controller(AuthController::c
 ## 5. UI Standards for Cookie Notices & Terms
 
 ### Minimalist Floating Pill Pattern (`AppCookieBanner.vue`)
+
 - Cookie banners must **never** bombard users with intimidating technical jargon (e.g. avoid phrases like "bot farms", "device tracking tokens", or "strict deactivation deadlines").
 - Maintain a **compact, floating glassmorphism pill** in the bottom corner with a single clean sentence:
-  > *"We use essential cookies to keep your account secure. [Terms & Cookies] [Accept] [✕]"*
+  > _"We use essential cookies to keep your account secure. [Terms & Cookies] [Accept] [✕]"_
 
 ### Terms & Conditions Modal Integration (`AppModalTermsModal`)
+
 - Located in `views/app/components/App/Modal/TermsModal.vue`.
 - Must support 3 distinct tabs:
   1. `terms`: Terms & Conditions and Medical Disclaimer.

@@ -9,7 +9,10 @@
 
 <template>
   <div class="flex justify-around gap-2 p-2">
-    <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+    <AppButton
+      variant="unstyled"
+      size="unstyled"
+      rounded="unstyled"
       v-for="tab in tabs"
       :key="tab"
       @click="$emit('update:activeTab', tab)"

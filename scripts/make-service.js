@@ -20,7 +20,7 @@ const cleanName = name.replace(/Service$/i, '')
 const resourceName = pascalCase(cleanName)
 const folderName = kebabCase(cleanName)
 
-const getPlural = (str) => {
+const getPlural = str => {
   const lower = str.toLowerCase()
   if (lower.endsWith('sis')) {
     return str.slice(0, -3) + 'ses'

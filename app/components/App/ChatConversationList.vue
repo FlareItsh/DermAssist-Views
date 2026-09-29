@@ -33,16 +33,16 @@
 
   const userRole = useCookie('user_role')
 
-  const { data: conversations, refresh, pending } =
-    await conversationService.useList()
+  const { data: conversations, refresh, pending } = await conversationService.useList()
 
   const filteredConversations = computed(() => {
     if (!conversations.value?.data) return []
     const list = (conversations.value.data as any[]).filter(c => c && typeof c === 'object')
     if (!searchValue.value) return list
     const query = searchValue.value.toLowerCase()
-    return list.filter((c) => {
-      const otherPerson = (userRole.value === 'doctor' || userRole.value === 'secretary') ? c.patient : c.doctor
+    return list.filter(c => {
+      const otherPerson =
+        userRole.value === 'doctor' || userRole.value === 'secretary' ? c.patient : c.doctor
       return getPersonName(otherPerson).toLowerCase().includes(query)
     })
   })
@@ -60,7 +60,8 @@
   }
 
   const getOtherPerson = (conv: Conversation): ConversationPerson | null => {
-    const person = (userRole.value === 'doctor' || userRole.value === 'secretary') ? conv.patient : conv.doctor
+    const person =
+      userRole.value === 'doctor' || userRole.value === 'secretary' ? conv.patient : conv.doctor
 
     if (!person) return null
 
@@ -103,25 +104,31 @@
 
 <template>
   <div
-    class="bg-transparent md:bg-card border-0 md:border border-border flex h-full w-full md:w-80 shrink-0 flex-col overflow-hidden rounded-none md:rounded-3xl shadow-none md:shadow-sm"
+    class="md:bg-card border-border flex h-full w-full shrink-0 flex-col overflow-hidden rounded-none border-0 bg-transparent shadow-none md:w-80 md:rounded-3xl md:border md:shadow-sm"
   >
     <div class="border-border border-b p-4">
       <div class="relative">
         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-          <Icon name="material-symbols:search-rounded" class="text-xl" />
+          <Icon
+            name="material-symbols:search-rounded"
+            class="text-xl"
+          />
         </span>
         <input
           v-model="searchValue"
           type="text"
           placeholder="Search conversations..."
-          class="bg-foreground/5 h-11 w-full text-gray-400 rounded-2xl border border-transparent pl-11 pr-4 text-sm transition-all outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          class="bg-foreground/5 h-11 w-full rounded-2xl border border-transparent pr-4 pl-11 text-sm text-gray-400 transition-all outline-none placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         />
         <button
           v-if="searchValue"
           @click="searchValue = ''"
           class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
         >
-          <Icon name="material-symbols:close-rounded" class="text-lg" />
+          <Icon
+            name="material-symbols:close-rounded"
+            class="text-lg"
+          />
         </button>
       </div>
     </div>
@@ -131,7 +138,11 @@
         v-if="pending && !conversations?.data?.length"
         class="space-y-3 p-4"
       >
-        <div v-for="i in 5" :key="i" class="flex items-center gap-4 animate-pulse">
+        <div
+          v-for="i in 5"
+          :key="i"
+          class="flex animate-pulse items-center gap-4"
+        >
           <div class="bg-foreground/10 h-14 w-14 shrink-0 rounded-2xl" />
           <div class="flex-1 space-y-2">
             <div class="bg-foreground/10 h-4 w-3/4 rounded-lg" />
@@ -148,8 +159,18 @@
           name="solar:chat-round-line-linear"
           class="mx-auto mb-2 text-4xl opacity-20"
         />
-        <p v-if="searchValue" class="text-sm">No conversations matching "{{ searchValue }}"</p>
-        <p v-else class="text-sm">No conversations yet</p>
+        <p
+          v-if="searchValue"
+          class="text-sm"
+        >
+          No conversations matching "{{ searchValue }}"
+        </p>
+        <p
+          v-else
+          class="text-sm"
+        >
+          No conversations yet
+        </p>
       </div>
 
       <button

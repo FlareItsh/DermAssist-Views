@@ -142,11 +142,15 @@
       >
         <div
           v-if="isDoctorRegistered"
-          class="col-span-full mb-2 flex items-center gap-3 rounded-2xl bg-primary/5 p-4 border border-primary/20 text-primary"
+          class="bg-primary/5 border-primary/20 text-primary col-span-full mb-2 flex items-center gap-3 rounded-2xl border p-4"
         >
-          <Icon name="material-symbols:lock-outline" class="text-xl shrink-0" />
-          <p class="text-xs sm:text-sm font-semibold">
-            Your account was registered by your attending doctor. All appointments and scan findings are managed directly with them.
+          <Icon
+            name="material-symbols:lock-outline"
+            class="shrink-0 text-xl"
+          />
+          <p class="text-xs font-semibold sm:text-sm">
+            Your account was registered by your attending doctor. All appointments and scan findings
+            are managed directly with them.
           </p>
         </div>
 

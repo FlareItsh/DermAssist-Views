@@ -37,7 +37,7 @@
     const query = searchQuery.value.toLowerCase()
     return result.filter(
       record =>
-        record.title?.toLowerCase().includes(query) || 
+        record.title?.toLowerCase().includes(query) ||
         record.label?.toLowerCase().includes(query) ||
         record.patient?.first_name?.toLowerCase().includes(query) ||
         record.patient?.last_name?.toLowerCase().includes(query)
@@ -58,8 +58,14 @@
 
 <template>
   <div class="mt-6 flex min-h-screen flex-col">
-    <div v-if="isLoading" class="flex items-center justify-center py-20">
-      <Icon name="svg-spinners:ring-resize" class="text-primary text-4xl" />
+    <div
+      v-if="isLoading"
+      class="flex items-center justify-center py-20"
+    >
+      <Icon
+        name="svg-spinners:ring-resize"
+        class="text-primary text-4xl"
+      />
     </div>
 
     <div
@@ -70,7 +76,11 @@
         v-for="(record, index) in filteredRecords"
         :key="record.id"
         :time="formatDate(record.created_at)"
-        :title="record.patient ? `${record.patient.first_name} ${record.patient.last_name} - ${record.title}` : record.title"
+        :title="
+          record.patient
+            ? `${record.patient.first_name} ${record.patient.last_name} - ${record.title}`
+            : record.title
+        "
         :style="{
           marginTop: index === 0 ? '0px' : '-200px',
           zIndex: 10 + index
@@ -93,7 +103,10 @@
       </div>
       <h3 class="text-foreground mb-2 text-2xl font-bold">No records found</h3>
       <p class="text-muted-foreground">Try searching for a different condition or date.</p>
-      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+      <AppButton
+        variant="unstyled"
+        size="unstyled"
+        rounded="unstyled"
         @click="searchQuery = ''"
         class="text-primary mt-6 font-bold hover:underline"
       >
@@ -111,7 +124,10 @@
           <div
             class="modal-container bg-card relative max-h-[90vh] w-[68vw] overflow-hidden rounded-4xl shadow-2xl"
           >
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
               @click="isOpen = false"
               class="group absolute top-6 right-6 z-10 rounded-full p-3 transition-all hover:bg-gray-100 active:scale-90"
             >

@@ -23,7 +23,15 @@ export interface TrainingHistory {
 }
 
 export interface TrainingStatusResponse {
-  status: 'idle' | 'syncing' | 'training' | 'evaluating' | 'completed' | 'failed' | 'cancelled' | 'offline'
+  status:
+    | 'idle'
+    | 'syncing'
+    | 'training'
+    | 'evaluating'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'offline'
   progress: number
   architecture: string
   current_epoch: number

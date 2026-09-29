@@ -1,13 +1,13 @@
 {
-    "folders": [
-        {
-            "path": "."
-        },
-        {
-            "path": "../DermAssist-API"
-        },
-        {
-            "path": "../DermAssist-Algorithms"
-        }
-    ]
+  "folders": [
+    {
+      "path": "."
+    },
+    {
+      "path": "../DermAssist-API"
+    },
+    {
+      "path": "../DermAssist-Algorithms"
+    }
+  ]
 }

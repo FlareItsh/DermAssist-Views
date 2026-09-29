@@ -33,13 +33,13 @@ export const useBlockedDates = () => {
 
   const blockedSlots = computed(() => {
     return allSlots.value.filter(
-      (slot) => Number(slot.is_available) === 0 || slot.is_available === false
+      slot => Number(slot.is_available) === 0 || slot.is_available === false
     )
   })
 
   const dutySlots = computed(() => {
     return allSlots.value.filter(
-      (slot) => Number(slot.is_available) === 1 || slot.is_available === true
+      slot => Number(slot.is_available) === 1 || slot.is_available === true
     )
   })
 
@@ -93,32 +93,32 @@ export const useBlockedDates = () => {
    * Returns all blocked time ranges for a given date (YYYY-MM-DD).
    */
   const getBlockedTimesForDate = (dateStr: string): AvailabilitySlot[] => {
-    return blockedSlots.value.filter(
-      (slot) => normaliseDateStr(slot.available_date) === dateStr
-    )
+    return blockedSlots.value.filter(slot => normaliseDateStr(slot.available_date) === dateStr)
   }
 
   /**
    * Returns all active duty clinic schedules for a given date (YYYY-MM-DD).
    */
   const getDutySlotsForDate = (dateStr: string): AvailabilitySlot[] => {
-    return dutySlots.value.filter(
-      (slot) => normaliseDateStr(slot.available_date) === dateStr
-    )
+    return dutySlots.value.filter(slot => normaliseDateStr(slot.available_date) === dateStr)
   }
 
   /**
    * Find matching duty clinic for a selected date and time range.
    */
-  const getDutyClinicForDateAndTime = (dateStr: string, startTime: string, endTime?: string): AvailabilitySlot | null => {
+  const getDutyClinicForDateAndTime = (
+    dateStr: string,
+    startTime: string,
+    endTime?: string
+  ): AvailabilitySlot | null => {
     if (!dateStr || !startTime) return null
     const sStart = startTime.slice(0, 5)
     const sEnd = (endTime || startTime).slice(0, 5)
 
     const dayDutySlots = getDutySlotsForDate(dateStr)
-    
+
     // First try exact overlap
-    const matchingSlot = dayDutySlots.find((slot) => {
+    const matchingSlot = dayDutySlots.find(slot => {
       const dStart = slot.start_time.slice(0, 5)
       const dEnd = slot.end_time.slice(0, 5)
       return sStart < dEnd && sEnd > dStart
@@ -146,7 +146,7 @@ export const useBlockedDates = () => {
    */
   const isWholeDayBlocked = (dateStr: string): boolean => {
     return getBlockedTimesForDate(dateStr).some(
-      (slot) => slot.start_time <= '00:01' && slot.end_time >= '23:58'
+      slot => slot.start_time <= '00:01' && slot.end_time >= '23:58'
     )
   }
 
@@ -156,18 +156,22 @@ export const useBlockedDates = () => {
   const isTimeBlockedOnDate = (dateStr: string, timeStr: string): boolean => {
     if (!dateStr || !timeStr) return false
     return getBlockedTimesForDate(dateStr).some(
-      (slot) => timeStr >= slot.start_time.slice(0, 5) && timeStr <= slot.end_time.slice(0, 5)
+      slot => timeStr >= slot.start_time.slice(0, 5) && timeStr <= slot.end_time.slice(0, 5)
     )
   }
 
   /**
    * Returns true if a time range [startTime, endTime] overlaps with any blocked range on the given date.
    */
-  const isTimeRangeBlockedOnDate = (dateStr: string, startTime: string, endTime: string): boolean => {
+  const isTimeRangeBlockedOnDate = (
+    dateStr: string,
+    startTime: string,
+    endTime: string
+  ): boolean => {
     if (!dateStr || !startTime || !endTime) return false
     const sStart = startTime.slice(0, 5)
     const sEnd = endTime.slice(0, 5)
-    return getBlockedTimesForDate(dateStr).some((slot) => {
+    return getBlockedTimesForDate(dateStr).some(slot => {
       const bStart = slot.start_time.slice(0, 5)
       const bEnd = slot.end_time.slice(0, 5)
       return sStart < bEnd && sEnd > bStart
@@ -186,14 +190,18 @@ export const useBlockedDates = () => {
    * Returns true only if the entire time range [startTime, endTime] is strictly
    * contained within a single active duty slot on that date.
    */
-  const isTimeRangeWithinDutyHours = (dateStr: string, startTime: string, endTime: string): boolean => {
+  const isTimeRangeWithinDutyHours = (
+    dateStr: string,
+    startTime: string,
+    endTime: string
+  ): boolean => {
     if (!dateStr || !startTime || !endTime) return false
     const sStart = startTime.slice(0, 5)
     const sEnd = endTime.slice(0, 5)
     const dayDutySlots = getDutySlotsForDate(dateStr)
     if (!dayDutySlots.length) return false
 
-    return dayDutySlots.some((slot) => {
+    return dayDutySlots.some(slot => {
       const dStart = slot.start_time.slice(0, 5)
       const dEnd = slot.end_time.slice(0, 5)
       return sStart >= dStart && sEnd <= dEnd
@@ -222,7 +230,7 @@ export const useBlockedDates = () => {
     const slots = getDutySlotsForDate(dateStr)
     if (!slots.length) return 'Off-Duty (No duty hours)'
     return slots
-      .map((s) => `${formatTime12H(s.start_time)} – ${formatTime12H(s.end_time)}`)
+      .map(s => `${formatTime12H(s.start_time)} – ${formatTime12H(s.end_time)}`)
       .join(', ')
   }
 
@@ -264,7 +272,7 @@ export const useBlockedDates = () => {
         const candEnd = candStart + durationMinutes
 
         // Check blocked slot overlaps
-        const hasBlocked = dayBlockedSlots.some((slot) => {
+        const hasBlocked = dayBlockedSlots.some(slot => {
           const bStart = timeToMins(slot.start_time)
           const bEnd = timeToMins(slot.end_time)
           return candStart < bEnd && candEnd > bStart
@@ -272,7 +280,7 @@ export const useBlockedDates = () => {
         if (hasBlocked) continue
 
         // Check existing appointment overlaps
-        const hasAppt = existingAppts.some((appt) => {
+        const hasAppt = existingAppts.some(appt => {
           const aStart = timeToMins(appt.start_time)
           const aEnd = timeToMins(appt.end_time)
           return candStart < aEnd && candEnd > aStart
@@ -311,7 +319,7 @@ export const useBlockedDates = () => {
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
-    findEarliestAvailableSlot,
+    findEarliestAvailableSlot
   }
 }
 

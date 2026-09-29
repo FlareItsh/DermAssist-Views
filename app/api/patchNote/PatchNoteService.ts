@@ -22,15 +22,26 @@ class PatchNoteService extends BaseService {
   }
 
   async create(data: Partial<PatchNote>) {
-    return this.request<{ status: string; message: string; data: PatchNote }>('/admin/patch-notes', 'POST', data)
+    return this.request<{ status: string; message: string; data: PatchNote }>(
+      '/admin/patch-notes',
+      'POST',
+      data
+    )
   }
 
   async update(id: number, data: Partial<PatchNote>) {
-    return this.request<{ status: string; message: string; data: PatchNote }>(`/admin/patch-notes/${id}`, 'PUT', data)
+    return this.request<{ status: string; message: string; data: PatchNote }>(
+      `/admin/patch-notes/${id}`,
+      'PUT',
+      data
+    )
   }
 
   async togglePublish(id: number) {
-    return this.request<{ status: string; message: string; data: PatchNote }>(`/admin/patch-notes/${id}/toggle-publish`, 'PATCH')
+    return this.request<{ status: string; message: string; data: PatchNote }>(
+      `/admin/patch-notes/${id}/toggle-publish`,
+      'PATCH'
+    )
   }
 
   async delete(id: number) {
