@@ -11,10 +11,14 @@
   // State
   const currentStep = ref(1)
   const role = ref<Role>('patient')
+  const verificationMode = ref<'upload' | 'camera'>('upload')
   const isCapturing = ref(false)
   const video = ref<HTMLVideoElement | null>(null)
   const canvas = ref<HTMLCanvasElement | null>(null)
   const stream = ref<MediaStream | null>(null)
+  const uploadedFileName = ref<string>('')
+  const uploadedFileSize = ref<string>('')
+  const isDraggingOver = ref(false)
 
   const fileInput = ref<HTMLInputElement | null>(null)
 
@@ -273,7 +277,7 @@
     }
   }
 
-  const handleRegister = async () => {
+  const handleRegister = async (allowSkip = false) => {
     if (debounceTimeout) clearTimeout(debounceTimeout)
 
     // Final Validation check
@@ -282,10 +286,15 @@
       validateField(key, true)
     })
 
-    if (currentStep.value === 2 && !isStep2Valid.value) return
-    if (currentStep.value === 1 && !isStep1Valid.value) return
     if (!agreeToTerms.value) {
       toast.warning('Please agree to the Terms and Conditions and Privacy Policy.')
+      return
+    }
+
+    if (currentStep.value === 1 && !isStep1Valid.value) return
+
+    if (currentStep.value === 2 && !allowSkip && !isStep2Valid.value) {
+      toast.error('Please provide both your PRC Number and ID Photo, or skip for now.')
       return
     }
 
@@ -387,6 +396,15 @@
     }
   }
 
+  const setVerificationMode = (mode: 'upload' | 'camera') => {
+    verificationMode.value = mode
+    if (mode === 'camera') {
+      startCamera()
+    } else {
+      stopCamera()
+    }
+  }
+
   // Camera Methods
   const startCamera = async () => {
     isCapturing.value = true
@@ -401,6 +419,7 @@
       console.error('Error accessing camera:', err)
       toast.error('Could not access camera. Please check camera permissions in your browser.')
       isCapturing.value = false
+      verificationMode.value = 'upload'
     }
   }
 
@@ -421,22 +440,60 @@
         canvas.value.height = video.value.videoHeight
         context.drawImage(video.value, 0, 0, canvas.value.width, canvas.value.height)
         form.idPhoto = canvas.value.toDataURL('image/png')
+        uploadedFileName.value = `camera_capture_${Date.now()}.png`
+        uploadedFileSize.value = 'Captured via Camera'
         markTouched('idPhoto')
         stopCamera()
       }
     }
   }
 
+  const processFile = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (PNG, JPG, WebP).')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size exceeds 10MB limit.')
+      return
+    }
+
+    uploadedFileName.value = file.name
+    const sizeInKb = Math.round(file.size / 1024)
+    uploadedFileSize.value =
+      sizeInKb > 1024 ? `${(sizeInKb / 1024).toFixed(1)} MB` : `${sizeInKb} KB`
+
+    const reader = new FileReader()
+    reader.onload = e => {
+      form.idPhoto = e.target?.result as string
+      markTouched('idPhoto')
+    }
+    reader.readAsDataURL(file)
+  }
+
   const handleFileUpload = (event: Event) => {
     const file = (event.target as HTMLInputElement).files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onload = e => {
-        form.idPhoto = e.target?.result as string
-        markTouched('idPhoto')
-      }
-      reader.readAsDataURL(file)
+      processFile(file)
     }
+  }
+
+  const handleFileDrop = (event: DragEvent) => {
+    isDraggingOver.value = false
+    const file = event.dataTransfer?.files?.[0]
+    if (file) {
+      processFile(file)
+    }
+  }
+
+  const removePhoto = () => {
+    form.idPhoto = null
+    uploadedFileName.value = ''
+    uploadedFileSize.value = ''
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
+    stopCamera()
   }
 
   onUnmounted(() => {
@@ -459,35 +516,45 @@
     </div>
 
     <!-- Progress Indicator -->
-    <div class="mx-auto mb-2 flex w-full max-w-md items-center justify-between px-4">
+    <div
+      v-if="role === 'doctor'"
+      class="mx-auto mb-3 flex w-full max-w-md items-center justify-between px-4 transition-all duration-300"
+    >
       <div
         class="flex items-center gap-2"
         :class="currentStep >= 1 ? 'text-primary' : 'text-foreground/30'"
       >
         <div
-          class="flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold transition-all"
-          :class="currentStep >= 1 ? 'border-primary bg-primary/10' : 'border-foreground/20'"
+          class="flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold shadow-xs transition-all"
+          :class="
+            currentStep >= 1
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-foreground/20 text-foreground/40'
+          "
         >
           1
         </div>
         <span class="text-xs font-semibold">Account Info</span>
       </div>
 
-      <div class="bg-foreground/10 mx-3 h-[2px] flex-1">
+      <div class="bg-foreground/10 mx-3 h-[2px] flex-1 overflow-hidden rounded-full">
         <div
-          class="bg-primary h-full transition-all duration-500"
+          class="bg-primary h-full rounded-full transition-all duration-500"
           :style="{ width: currentStep > 1 ? '100%' : '0%' }"
         ></div>
       </div>
 
       <div
         class="flex items-center gap-2"
-        v-if="role === 'doctor'"
-        :class="currentStep === 2 ? 'text-primary' : 'text-foreground/30'"
+        :class="currentStep === 2 ? 'text-primary' : 'text-foreground/40'"
       >
         <div
-          class="flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold transition-all"
-          :class="currentStep === 2 ? 'border-primary bg-primary/10' : 'border-foreground/20'"
+          class="flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-bold shadow-xs transition-all"
+          :class="
+            currentStep === 2
+              ? 'border-primary bg-primary/10 text-primary'
+              : 'border-foreground/20 text-foreground/40'
+          "
         >
           2
         </div>
@@ -530,36 +597,52 @@
           </div>
 
           <!-- Role Selection -->
-          <div class="mb-2 grid grid-cols-2 gap-3">
+          <div class="mb-2 grid grid-cols-2 gap-2.5">
             <AppButton
               variant="unstyled"
               size="unstyled"
               rounded="unstyled"
               @click="role = 'patient'"
               type="button"
-              class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
+              class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
                 role === 'patient'
-                  ? 'border-primary bg-primary/5 ring-primary/10 ring-4'
-                  : 'border-foreground/10 bg-transparent'
+                  ? 'border-primary bg-primary/5 shadow-primary/10 ring-primary/20 shadow-xs ring-2'
+                  : 'border-border/70 hover:border-primary/40 bg-card/50 hover:bg-muted/30'
               "
             >
+              <!-- Selected Checkmark Pill -->
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
+                v-if="role === 'patient'"
+                class="bg-primary text-primary-foreground absolute top-2 right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full shadow-xs"
+              >
+                <Icon
+                  name="lucide:check"
+                  class="h-2 w-2 stroke-[3]"
+                />
+              </div>
+
+              <div
+                class="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200"
                 :class="
                   role === 'patient'
-                    ? 'bg-primary shadow-primary/30 text-white shadow-lg'
-                    : 'bg-foreground/5 text-foreground/40 group-hover:bg-foreground/10'
+                    ? 'bg-primary shadow-primary/30 scale-105 text-white shadow-xs'
+                    : 'bg-muted/80 text-foreground/50 group-hover:bg-primary/10 group-hover:text-primary'
                 "
               >
                 <Icon
                   name="lucide:user"
-                  class="h-5 w-5"
+                  class="h-4.5 w-4.5"
                 />
               </div>
               <div class="text-center">
-                <p class="text-sm font-bold">Patient</p>
-                <p class="text-foreground/50 text-[9px]">Seeking consultation</p>
+                <p
+                  class="text-xs font-bold transition-colors"
+                  :class="role === 'patient' ? 'text-primary' : 'text-foreground'"
+                >
+                  Patient
+                </p>
+                <p class="text-foreground/55 text-[9px] font-medium">Seeking consultation</p>
               </div>
             </AppButton>
 
@@ -569,60 +652,82 @@
               rounded="unstyled"
               @click="role = 'doctor'"
               type="button"
-              class="group hover:border-primary/50 relative flex flex-col items-center gap-2 rounded-xl border-2 p-3 transition-all"
+              class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
                 role === 'doctor'
-                  ? 'border-primary bg-primary/5 ring-primary/10 ring-4'
-                  : 'border-foreground/10 bg-transparent'
+                  ? 'border-primary bg-primary/5 shadow-primary/10 ring-primary/20 shadow-xs ring-2'
+                  : 'border-border/70 hover:border-primary/40 bg-card/50 hover:bg-muted/30'
               "
             >
+              <!-- Selected Checkmark Pill -->
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg transition-colors"
+                v-if="role === 'doctor'"
+                class="bg-primary text-primary-foreground absolute top-2 right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full shadow-xs"
+              >
+                <Icon
+                  name="lucide:check"
+                  class="h-2 w-2 stroke-[3]"
+                />
+              </div>
+
+              <div
+                class="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200"
                 :class="
                   role === 'doctor'
-                    ? 'bg-primary shadow-primary/30 text-white shadow-lg'
-                    : 'bg-foreground/5 text-foreground/40 group-hover:bg-foreground/10'
+                    ? 'bg-primary shadow-primary/30 scale-105 text-white shadow-xs'
+                    : 'bg-muted/80 text-foreground/50 group-hover:bg-primary/10 group-hover:text-primary'
                 "
               >
                 <Icon
                   name="lucide:stethoscope"
-                  class="h-5 w-5"
+                  class="h-4.5 w-4.5"
                 />
               </div>
               <div class="text-center">
-                <p class="text-sm font-bold">Doctor</p>
-                <p class="text-foreground/50 text-[9px]">Medical Professional</p>
+                <p
+                  class="text-xs font-bold transition-colors"
+                  :class="role === 'doctor' ? 'text-primary' : 'text-foreground'"
+                >
+                  Doctor
+                </p>
+                <p class="text-foreground/55 text-[9px] font-medium">Medical Professional</p>
               </div>
             </AppButton>
           </div>
 
-          <!-- Name Grid -->
-          <div class="grid grid-cols-3 gap-3">
-            <AuthInput
-              id="first-name"
-              v-model="form.firstName"
-              label="First Name"
-              :error="errors.firstName"
-              @blur="markTouched('firstName')"
-              @input="markTouched('firstName')"
-            />
-            <AuthInput
-              id="middle-name"
-              v-model="form.middleName"
-              label="Middle Name"
-              :error="errors.middleName"
-              @blur="markTouched('middleName')"
-              @input="markTouched('middleName')"
-            />
-            <AuthInput
-              id="last-name"
-              v-model="form.lastName"
-              label="Last Name"
-              :error="errors.lastName"
-              @blur="markTouched('lastName')"
-              @input="markTouched('lastName')"
-            />
+          <!-- Name Fields: Layout A (First Name 70% + M.I. 30%, Last Name Full-Width) -->
+          <div class="grid grid-cols-12 gap-2.5">
+            <div class="col-span-8">
+              <AuthInput
+                id="first-name"
+                v-model="form.firstName"
+                label="First Name"
+                :error="errors.firstName"
+                @blur="markTouched('firstName')"
+                @input="markTouched('firstName')"
+              />
+            </div>
+            <div class="col-span-4">
+              <AuthInput
+                id="middle-name"
+                v-model="form.middleName"
+                label="M.I."
+                :optional="true"
+                :error="errors.middleName"
+                @blur="markTouched('middleName')"
+                @input="markTouched('middleName')"
+              />
+            </div>
           </div>
+
+          <AuthInput
+            id="last-name"
+            v-model="form.lastName"
+            label="Last Name"
+            :error="errors.lastName"
+            @blur="markTouched('lastName')"
+            @input="markTouched('lastName')"
+          />
 
           <AuthInput
             id="email"
@@ -745,185 +850,362 @@
         <div
           v-else-if="currentStep === 2"
           key="step2"
-          class="flex w-full flex-col gap-2"
+          class="flex w-full flex-col gap-3"
         >
-          <AppButton
-            variant="ghost"
-            size="sm"
-            @click="prevStep"
-            class="mb-1 w-fit px-0!"
-          >
-            <template #leading>
-              <Icon
-                name="lucide:arrow-left"
-                class="h-3 w-3"
-              />
-            </template>
-            Back
-          </AppButton>
-          <div class="mb-1 text-center">
-            <h1 class="text-foreground text-2xl font-bold tracking-tight">Doctor Verification</h1>
-            <p class="text-foreground/60 mt-1 text-sm">
-              Please provide your PRC credentials to get verified.
-            </p>
-          </div>
-
-          <AuthInput
-            id="prc-number"
-            v-model="form.prcNumber"
-            label="PRC Registration Number"
-            placeholder="e.g. 1234567"
-            :error="errors.prcNumber"
-            @blur="markTouched('prcNumber')"
-            @input="markTouched('prcNumber')"
-          />
-
-          <!-- Photo Capture Section -->
-          <div class="flex flex-col gap-2">
-            <label class="text-foreground/70 ml-1 text-xs font-medium">PRC ID Photo</label>
-
-            <!-- Camera Wrapper -->
-            <div
-              class="border-foreground/10 bg-foreground/5 relative aspect-video h-60 w-full overflow-hidden rounded-xl border-2 border-dashed"
-            >
-              <!-- Captured Preview -->
-              <img
-                v-if="form.idPhoto && !isCapturing"
-                :src="form.idPhoto"
-                class="h-full w-full object-contain p-2"
-              />
-
-              <!-- Live Camera -->
-              <video
-                v-show="isCapturing"
-                ref="video"
-                autoplay
-                playsinline
-                class="h-full w-full object-cover"
-              ></video>
-
-              <!-- Placeholder / Empty State -->
-              <div
-                v-if="!form.idPhoto && !isCapturing"
-                class="text-foreground/40 flex h-full flex-col items-center justify-center"
-              >
-                <Icon
-                  name="lucide:image"
-                  class="mb-2 h-12 w-12 opacity-50"
-                />
-                <p class="text-xs">No photo captured yet</p>
-              </div>
-
-              <!-- Controls Overlay -->
-              <div class="absolute inset-x-0 bottom-4 flex justify-center gap-3">
-                <AppButton
-                  variant="unstyled"
-                  size="unstyled"
-                  rounded="unstyled"
-                  v-if="!isCapturing"
-                  @click="startCamera"
-                  type="button"
-                  class="bg-foreground/80 text-background hover:bg-foreground flex items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold backdrop-blur-sm transition-all"
-                >
-                  <Icon
-                    name="lucide:camera"
-                    class="h-3 w-3"
-                  />
-                  <span>{{ form.idPhoto ? 'Retake Photo' : 'Capture ID' }}</span>
-                </AppButton>
-
-                <AppButton
-                  variant="unstyled"
-                  size="unstyled"
-                  rounded="unstyled"
-                  v-if="isCapturing"
-                  @click="capturePhoto"
-                  type="button"
-                  class="bg-primary flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-transform active:scale-90"
-                >
-                  <div class="h-8 w-8 rounded-full border-4 border-white"></div>
-                </AppButton>
-
-                <AppButton
-                  v-if="isCapturing"
-                  @click="stopCamera"
-                  variant="destructive"
-                  size="icon"
-                  class="h-10 w-10 rounded-full!"
-                >
-                  <Icon
-                    name="lucide:x"
-                    class="h-5 w-5"
-                  />
-                </AppButton>
-              </div>
-            </div>
-
-            <!-- Upload Fallback -->
-            <div class="flex items-center gap-3">
-              <div class="bg-foreground/5 h-px flex-1"></div>
-              <span class="text-foreground/30 text-[10px] font-bold tracking-widest uppercase"
-                >Or upload</span
-              >
-              <div class="bg-foreground/5 h-px flex-1"></div>
-            </div>
-
+          <!-- Top Step Back Navigation -->
+          <div class="flex items-center justify-between">
             <AppButton
-              variant="outline"
-              block
-              @click="fileInput?.click()"
+              variant="ghost"
+              size="sm"
+              @click="prevStep"
+              class="text-foreground/70 hover:text-foreground -ml-2 w-fit px-2!"
             >
               <template #leading>
                 <Icon
-                  name="lucide:upload"
-                  class="h-4 w-4 opacity-60"
+                  name="lucide:arrow-left"
+                  class="h-4 w-4"
                 />
               </template>
-              Browse from Files
+              Back to Account Info
             </AppButton>
+            <span class="text-foreground/40 text-[11px] font-medium">Step 2 of 2</span>
+          </div>
 
+          <div class="text-center">
+            <h1 class="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+              Doctor Verification
+            </h1>
+            <p class="text-foreground/60 mt-1 text-xs sm:text-sm">
+              Verify your professional medical license to start consultations.
+            </p>
+          </div>
+
+          <!-- PRC Input with format hint -->
+          <div class="flex flex-col gap-1">
+            <AuthInput
+              id="prc-number"
+              v-model="form.prcNumber"
+              label="PRC Registration Number"
+              placeholder="e.g. 1234567"
+              :error="errors.prcNumber"
+              @blur="markTouched('prcNumber')"
+              @input="markTouched('prcNumber')"
+            />
+            <p class="text-foreground/45 ml-1 flex items-center gap-1 text-[11px]">
+              <Icon
+                name="lucide:info"
+                class="inline h-3 w-3 shrink-0"
+              />
+              Standard 7-digit Professional Regulation Commission ID
+            </p>
+          </div>
+
+          <!-- Photo Verification Card Section -->
+          <div class="flex flex-col gap-2.5">
+            <div class="flex items-center justify-between px-1">
+              <label class="text-foreground/80 text-xs font-semibold"
+                >PRC ID Document / Photo</label
+              >
+              <span
+                v-if="form.idPhoto"
+                class="text-primary flex items-center gap-1 text-[11px] font-medium"
+              >
+                <Icon
+                  name="lucide:check-circle-2"
+                  class="h-3.5 w-3.5"
+                />
+                Document Attached
+              </span>
+            </div>
+
+            <!-- Upload vs Camera Mode Switcher -->
+            <div class="bg-muted/60 border-border/50 grid grid-cols-2 gap-1 rounded-xl border p-1">
+              <button
+                type="button"
+                @click="setVerificationMode('upload')"
+                class="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all"
+                :class="
+                  verificationMode === 'upload'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-foreground/60 hover:text-foreground'
+                "
+              >
+                <Icon
+                  name="lucide:upload-cloud"
+                  class="h-4 w-4"
+                />
+                <span>Upload Document</span>
+              </button>
+
+              <button
+                type="button"
+                @click="setVerificationMode('camera')"
+                class="flex cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-all"
+                :class="
+                  verificationMode === 'camera'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-foreground/60 hover:text-foreground'
+                "
+              >
+                <Icon
+                  name="lucide:camera"
+                  class="h-4 w-4"
+                />
+                <span>Take Photo</span>
+              </button>
+            </div>
+
+            <!-- MODE 1: Upload File Area -->
+            <div v-if="verificationMode === 'upload'">
+              <!-- Empty State / Dropzone -->
+              <div
+                v-if="!form.idPhoto"
+                @dragover.prevent="isDraggingOver = true"
+                @dragleave.prevent="isDraggingOver = false"
+                @drop.prevent="handleFileDrop"
+                @click="fileInput?.click()"
+                class="group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-all duration-200"
+                :class="
+                  isDraggingOver
+                    ? 'border-primary bg-primary/10 scale-[1.01]'
+                    : 'border-border/80 hover:border-primary/50 bg-card/40 hover:bg-muted/30'
+                "
+              >
+                <div
+                  class="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-110"
+                >
+                  <Icon
+                    name="lucide:upload-cloud"
+                    class="h-6 w-6"
+                  />
+                </div>
+                <div>
+                  <p class="text-foreground text-sm font-semibold">
+                    Click to browse or drag & drop ID photo
+                  </p>
+                  <p class="text-foreground/50 mt-0.5 text-[11px]">
+                    Supports JPG, PNG, WebP (up to 10MB)
+                  </p>
+                </div>
+              </div>
+
+              <!-- Uploaded Preview Card -->
+              <div
+                v-else
+                class="border-border/80 bg-card flex items-center gap-3.5 rounded-2xl border p-3.5 shadow-xs"
+              >
+                <div
+                  class="bg-muted/40 border-border/50 h-16 w-20 shrink-0 overflow-hidden rounded-xl border"
+                >
+                  <img
+                    :src="form.idPhoto"
+                    alt="PRC ID Preview"
+                    class="h-full w-full object-cover"
+                  />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-foreground truncate text-xs font-bold">
+                    {{ uploadedFileName || 'PRC_ID_Document.png' }}
+                  </p>
+                  <p class="text-foreground/50 mt-0.5 text-[11px]">
+                    {{ uploadedFileSize || 'Ready for verification' }}
+                  </p>
+                  <div class="mt-1 flex items-center gap-2">
+                    <button
+                      type="button"
+                      @click="fileInput?.click()"
+                      class="text-primary cursor-pointer text-[11px] font-semibold hover:underline"
+                    >
+                      Replace File
+                    </button>
+                    <span class="text-foreground/20 text-xs">•</span>
+                    <button
+                      type="button"
+                      @click="removePhoto"
+                      class="text-destructive cursor-pointer text-[11px] font-semibold hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODE 2: Camera Viewfinder Area -->
+            <div v-else-if="verificationMode === 'camera'">
+              <div
+                class="border-border/80 relative flex aspect-video h-60 w-full items-center justify-center overflow-hidden rounded-2xl border bg-neutral-950 shadow-inner"
+              >
+                <!-- Live Camera Stream -->
+                <video
+                  v-show="isCapturing"
+                  ref="video"
+                  autoplay
+                  playsinline
+                  class="h-full w-full object-cover"
+                ></video>
+
+                <!-- Document ID Framing Overlay (Visible when capturing) -->
+                <div
+                  v-if="isCapturing"
+                  class="pointer-events-none absolute inset-4 flex flex-col justify-between rounded-xl border border-white/30 p-2"
+                >
+                  <div class="flex justify-between">
+                    <div class="h-4 w-4 border-t-2 border-l-2 border-white"></div>
+                    <div class="h-4 w-4 border-t-2 border-r-2 border-white"></div>
+                  </div>
+                  <div class="text-center">
+                    <span
+                      class="rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-medium text-white/90 backdrop-blur-xs"
+                    >
+                      Align PRC ID within frame
+                    </span>
+                  </div>
+                  <div class="flex justify-between">
+                    <div class="h-4 w-4 border-b-2 border-l-2 border-white"></div>
+                    <div class="h-4 w-4 border-r-2 border-b-2 border-white"></div>
+                  </div>
+                </div>
+
+                <!-- Captured Preview in Camera Mode -->
+                <img
+                  v-if="form.idPhoto && !isCapturing"
+                  :src="form.idPhoto"
+                  alt="Captured ID"
+                  class="h-full w-full object-contain p-2"
+                />
+
+                <!-- Camera Idle Placeholder -->
+                <div
+                  v-if="!form.idPhoto && !isCapturing"
+                  class="text-foreground/50 flex flex-col items-center justify-center p-4 text-center"
+                >
+                  <div
+                    class="bg-foreground/10 text-foreground/70 mb-2 flex h-12 w-12 items-center justify-center rounded-full"
+                  >
+                    <Icon
+                      name="lucide:camera"
+                      class="h-6 w-6"
+                    />
+                  </div>
+                  <p class="text-foreground/80 text-xs font-semibold">Camera is inactive</p>
+                  <p class="text-foreground/50 mt-0.5 text-[11px]">
+                    Click below to start video stream
+                  </p>
+                </div>
+
+                <!-- Camera Controls Bar -->
+                <div
+                  class="absolute inset-x-0 bottom-3 z-20 flex items-center justify-center gap-3 px-4"
+                >
+                  <AppButton
+                    v-if="!isCapturing"
+                    @click="startCamera"
+                    type="button"
+                    size="sm"
+                    class="shadow-md"
+                  >
+                    <template #leading>
+                      <Icon
+                        name="lucide:camera"
+                        class="h-4 w-4"
+                      />
+                    </template>
+                    <span>{{ form.idPhoto ? 'Retake Photo' : 'Activate Camera' }}</span>
+                  </AppButton>
+
+                  <template v-if="isCapturing">
+                    <!-- Shutter Button -->
+                    <button
+                      type="button"
+                      @click="capturePhoto"
+                      title="Take Snapshot"
+                      class="group bg-primary relative flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-4 border-white shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+                    >
+                      <Icon
+                        name="lucide:camera"
+                        class="h-6 w-6 text-white transition-transform group-hover:scale-110"
+                      />
+                    </button>
+
+                    <AppButton
+                      @click="stopCamera"
+                      variant="outline"
+                      size="sm"
+                      class="border-white/30 bg-black/60 text-white backdrop-blur-xs hover:bg-black/80"
+                    >
+                      Cancel
+                    </AppButton>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hidden File Input -->
             <input
               ref="fileInput"
               type="file"
               class="hidden"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp"
               @change="handleFileUpload"
             />
           </div>
 
-          <div class="mt-4 flex gap-3">
+          <!-- Main Actions -->
+          <div class="mt-2 flex flex-col gap-2.5">
             <AppButton
-              variant="outline"
-              class="w-full"
-              @click="currentStep = 1"
-            >
-              Back
-            </AppButton>
-            <AppButton
-              class="w-full"
+              block
+              size="lg"
               :loading="isLoading"
               :disabled="!isStep2Valid"
-              @click="handleRegister"
+              @click="handleRegister(false)"
             >
-              Complete
+              <span>Complete Doctor Registration</span>
+              <template #trailing>
+                <Icon
+                  name="lucide:arrow-right"
+                  class="h-5 w-5"
+                />
+              </template>
             </AppButton>
+
+            <!-- Friendly Skip Notice Card -->
+            <div
+              class="border-border/50 bg-muted/20 hover:bg-muted/40 flex items-start gap-2.5 rounded-xl border p-3 transition-colors"
+            >
+              <Icon
+                name="lucide:shield-check"
+                class="text-primary mt-0.5 h-4 w-4 shrink-0"
+              />
+              <div class="flex-1">
+                <p class="text-foreground text-xs font-semibold">
+                  Don't have your PRC license on hand?
+                </p>
+                <p class="text-foreground/60 mt-0.5 text-[11px] leading-relaxed">
+                  You can finish account creation now. Your profile will stay pending until you
+                  upload your credentials later.
+                </p>
+                <button
+                  type="button"
+                  @click="handleRegister(true)"
+                  :disabled="isLoading"
+                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1 text-xs font-bold hover:underline"
+                >
+                  <span>Skip Verification for Now</span>
+                  <Icon
+                    name="lucide:chevron-right"
+                    class="h-3 w-3"
+                  />
+                </button>
+              </div>
+            </div>
           </div>
 
-          <AppButton
-            variant="unstyled"
-            size="unstyled"
-            rounded="unstyled"
-            class="text-secondary hover:text-primary-foreground mt-4 w-full text-center font-medium transition-colors"
-            @click="handleRegister"
-          >
-            Skip For Now >
-          </AppButton>
-
           <div class="mt-2 text-center">
-            <span class="text-foreground/60">Already have an account?</span>
+            <span class="text-foreground/60 text-xs">Already have an account?</span>
             <NuxtLink
               to="/auth/login"
-              class="text-primary ml-1 font-semibold hover:underline"
+              class="text-primary ml-1 text-xs font-semibold hover:underline"
             >
               Login
             </NuxtLink>
