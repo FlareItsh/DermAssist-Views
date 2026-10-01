@@ -102,6 +102,8 @@
     }
   ]
 
+  const MIN_REQUIRED_DATASET = 10
+
   const isTrainingActive = computed(() => {
     const s = trainingStatus.value?.status
     return s === 'syncing' || s === 'training' || s === 'evaluating' || s === 'cancelling'
@@ -114,6 +116,21 @@
   const getCandidateCount = (diseaseId: string) => {
     return stats.value?.out_of_scope_candidates?.by_category?.[diseaseId] ?? 0
   }
+
+  const selectedCandidateCount = computed(() => {
+    return getCandidateCount(selectedExpansionDisease.value)
+  })
+
+  const hasInsufficientDataset = computed(() => {
+    return selectedCandidateCount.value < MIN_REQUIRED_DATASET
+  })
+
+  const selectedDiseaseName = computed(() => {
+    return (
+      expansionDiseases.find(d => d.id === selectedExpansionDisease.value)?.name ||
+      selectedExpansionDisease.value
+    )
+  })
 
   const formatDuration = (seconds?: number) => {
     if (!seconds || seconds <= 0) return '0s'
@@ -190,6 +207,12 @@
   }
 
   const handleStartExpansionTraining = async () => {
+    if (hasInsufficientDataset.value) {
+      toast.error(
+        `Insufficient dataset: At least ${MIN_REQUIRED_DATASET} verified images are required to train with +${selectedDiseaseName.value}. Currently ${selectedCandidateCount.value} available.`
+      )
+      return
+    }
     isStarting.value = true
     try {
       await modelTrainingService.startTraining({
@@ -420,12 +443,14 @@
                 <span
                   class="rounded-md px-2 py-0.5 font-mono text-xs font-bold"
                   :class="
-                    getCandidateCount(d.id) > 0
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-muted text-muted-foreground'
+                    getCandidateCount(d.id) >= MIN_REQUIRED_DATASET
+                      ? 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                      : getCandidateCount(d.id) > 0
+                        ? 'border border-amber-500/30 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                        : 'border border-zinc-200 bg-zinc-100 text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400'
                   "
                 >
-                  {{ getCandidateCount(d.id) }} images
+                  {{ getCandidateCount(d.id) }} / {{ MIN_REQUIRED_DATASET }} images
                 </span>
               </div>
             </div>
@@ -598,15 +623,26 @@
               v-else
               variant="solid"
               size="lg"
-              class="w-full justify-center gap-2 bg-violet-600 font-bold text-white shadow-md hover:bg-violet-700"
+              class="w-full justify-center gap-2 font-bold transition-all"
+              :class="[
+                hasInsufficientDataset
+                  ? 'cursor-not-allowed border border-zinc-300 bg-zinc-200 text-zinc-500 shadow-none hover:bg-zinc-200 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800'
+                  : 'cursor-pointer bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-700'
+              ]"
               :loading="isStarting"
+              :disabled="hasInsufficientDataset"
               @click="handleStartExpansionTraining"
             >
               <Icon
-                name="lucide:sparkles"
+                :name="hasInsufficientDataset ? 'lucide:lock' : 'lucide:sparkles'"
                 size="18"
+                :class="hasInsufficientDataset ? 'text-zinc-400 dark:text-zinc-500' : 'text-white'"
               />
-              Start Model Expansion Training
+              {{
+                hasInsufficientDataset
+                  ? 'Insufficient Dataset to Train (Need 10+ Scans)'
+                  : 'Start Model Expansion Training'
+              }}
             </AppButton>
           </div>
         </div>
