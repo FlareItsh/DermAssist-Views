@@ -5,6 +5,8 @@
     label: string
     to?: string
     showBadge?: boolean
+    badgeText?: string
+    highlight?: boolean
     children?: NavItem[]
   }
 
@@ -32,18 +34,6 @@
     return path.replace(/\/+$/, '').toLowerCase() || '/'
   }
 
-  const getAllNavPaths = (): string[] => {
-    const paths: string[] = []
-    const extract = (items?: NavItem[]) => {
-      items?.forEach(i => {
-        if (i.to) paths.push(normalizePath(i.to))
-        if (i.children) extract(i.children)
-      })
-    }
-    extract(props.items)
-    return paths
-  }
-
   const isPathActive = (to?: string): boolean => {
     const itemPath = normalizePath(to)
     const currentPath = normalizePath(route.path)
@@ -53,18 +43,7 @@
     if (currentPath === itemPath) return true
     if (['/admin', '/doctor', '/patient'].includes(itemPath)) return false
 
-    if (currentPath.startsWith(`${itemPath}/`)) {
-      const allPaths = getAllNavPaths()
-      const hasCloserMatch = allPaths.some(
-        p =>
-          p !== itemPath &&
-          p.startsWith(itemPath) &&
-          (currentPath === p || currentPath.startsWith(`${p}/`))
-      )
-      return !hasCloserMatch
-    }
-
-    return false
+    return currentPath.startsWith(`${itemPath}/`)
   }
 
   const isItemActive = (item: NavItem): boolean => {
@@ -74,18 +53,6 @@
     }
     return false
   }
-
-  watch(
-    () => route.path,
-    () => {
-      props.items?.forEach(item => {
-        if (item.children && isItemActive(item)) {
-          expandedMenus.value.add(item.label)
-        }
-      })
-    },
-    { immediate: true }
-  )
 
   const triggerLogout = () => {
     isLogoutModalOpen.value = true
@@ -129,33 +96,47 @@
             <NuxtLink
               v-if="!item.children"
               :to="item.to"
-              class="group hover:bg-sidebar-accent flex items-center rounded-full p-2 transition-all duration-300 active:scale-95"
+              class="group hover:bg-sidebar-accent relative flex items-center rounded-full p-2 transition-all duration-300 active:scale-95"
               :class="[
                 isItemActive(item) ? 'bg-sidebar-accent' : '',
+                item.highlight && !isItemActive(item) ? 'bg-primary/5 hover:bg-sidebar-accent' : '',
                 isCollapsed ? 'mx-auto w-14 justify-center' : 'w-full justify-start'
               ]"
             >
               <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300"
+                class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300"
+                :class="[
+                  item.highlight && !isItemActive(item)
+                    ? 'bg-primary/10 text-primary group-hover:bg-white/20'
+                    : ''
+                ]"
               >
                 <Icon
                   :name="item.icon"
                   size="34"
-                  class="transition-colors duration-300"
-                  :class="
+                  class="transition-all duration-300"
+                  :class="[
                     isItemActive(item)
                       ? 'text-sidebar-accent-foreground'
-                      : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
-                  "
+                      : item.highlight
+                        ? 'text-primary group-hover:text-sidebar-accent-foreground group-hover:scale-110 group-hover:-rotate-12'
+                        : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
+                  ]"
                 />
-              </div>
 
-              <!-- Notification Dot -->
-              <div
-                v-if="item.showBadge"
-                class="border-sidebar absolute top-2 right-2 h-3 w-3 rounded-full border-2 bg-red-500"
-                :class="isCollapsed ? 'right-4' : 'right-auto left-8'"
-              ></div>
+                <!-- Pulsing Notification Beacon on Icon -->
+                <span
+                  v-if="item.showBadge"
+                  class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
+                >
+                  <span
+                    class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
+                  ></span>
+                  <span
+                    class="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500 shadow-xs"
+                  ></span>
+                </span>
+              </div>
 
               <div
                 class="grid transition-all duration-500"
@@ -165,16 +146,39 @@
                     : 'ml-4 grid-cols-[1fr] opacity-100'
                 "
               >
-                <span
-                  class="overflow-hidden text-lg font-medium whitespace-nowrap transition-colors duration-300"
-                  :class="
-                    isItemActive(item)
-                      ? 'text-sidebar-accent-foreground'
-                      : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
-                  "
-                >
-                  {{ item.label }}
-                </span>
+                <div class="flex items-center gap-2 overflow-hidden whitespace-nowrap">
+                  <span
+                    class="text-lg font-medium transition-colors duration-300"
+                    :class="[
+                      isItemActive(item)
+                        ? 'text-sidebar-accent-foreground'
+                        : item.highlight
+                          ? 'text-primary group-hover:text-sidebar-accent-foreground font-semibold'
+                          : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
+                    ]"
+                  >
+                    {{ item.label }}
+                  </span>
+
+                  <!-- NEW Badge Capsule -->
+                  <span
+                    v-if="item.badgeText"
+                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase shadow-xs transition-colors duration-300"
+                    :class="[
+                      isItemActive(item)
+                        ? 'bg-white/20 text-white'
+                        : 'bg-primary/15 text-primary border-primary/20 group-hover:text-primary border group-hover:border-transparent group-hover:bg-white'
+                    ]"
+                  >
+                    <span
+                      class="h-1.5 w-1.5 rounded-full"
+                      :class="[
+                        isItemActive(item) ? 'bg-white' : 'bg-primary group-hover:bg-primary'
+                      ]"
+                    ></span>
+                    {{ item.badgeText }}
+                  </span>
+                </div>
               </div>
             </NuxtLink>
 
@@ -188,9 +192,9 @@
                 size="unstyled"
                 rounded="unstyled"
                 @click="toggleSubmenu(item.label)"
-                class="group flex cursor-pointer items-center rounded-full p-2 transition-all duration-300 active:scale-95"
+                class="group hover:bg-sidebar-accent flex cursor-pointer items-center rounded-full p-2 transition-all duration-300 active:scale-95"
                 :class="[
-                  isItemActive(item) ? 'bg-sidebar-accent/20' : 'hover:bg-sidebar-accent/50',
+                  isItemActive(item) ? 'bg-sidebar-accent/40' : '',
                   isCollapsed ? 'mx-auto w-14 justify-center' : 'w-full justify-start'
                 ]"
               >
@@ -203,7 +207,7 @@
                     class="transition-colors duration-300"
                     :class="
                       isItemActive(item)
-                        ? 'text-sidebar-accent-foreground/80'
+                        ? 'text-sidebar-accent-foreground'
                         : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                     "
                   />
@@ -224,7 +228,7 @@
                     class="overflow-hidden text-lg font-medium whitespace-nowrap transition-colors duration-300"
                     :class="
                       isItemActive(item)
-                        ? 'text-sidebar-accent-foreground/90 font-medium'
+                        ? 'text-sidebar-accent-foreground'
                         : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                     "
                   >
@@ -255,21 +259,21 @@
                   >
                     <NuxtLink
                       :to="child.to"
-                      class="group flex items-center gap-3 rounded-xl px-4 py-2.5 transition-all duration-300 active:scale-95"
+                      class="group hover:bg-sidebar-accent/40 flex items-center gap-3 rounded-xl px-4 py-2.5 transition-all duration-300 active:scale-95"
                       :class="
                         isItemActive(child)
-                          ? 'bg-sidebar-accent text-sidebar-accent-foreground font-semibold shadow-xs'
-                          : 'text-foreground/70 hover:bg-sidebar-accent/30 hover:text-sidebar-accent-foreground'
+                          ? 'bg-sidebar-accent/60 text-sidebar-accent-foreground font-semibold'
+                          : 'text-foreground/80'
                       "
                     >
                       <Icon
                         :name="child.icon"
                         size="18"
-                        class="transition-colors duration-300"
+                        class="group-hover:text-sidebar-accent-foreground transition-colors duration-300"
                         :class="
                           isItemActive(child)
                             ? 'text-sidebar-accent-foreground'
-                            : 'text-foreground/50 group-hover:text-sidebar-accent-foreground'
+                            : 'text-foreground/40'
                         "
                       />
                       <!-- Notification Dot for children -->
@@ -278,12 +282,7 @@
                         class="h-2 w-2 shrink-0 rounded-full bg-red-500"
                       ></div>
                       <span
-                        class="text-[15px] whitespace-nowrap transition-colors duration-300"
-                        :class="
-                          isItemActive(child)
-                            ? 'text-sidebar-accent-foreground font-semibold'
-                            : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
-                        "
+                        class="group-hover:text-sidebar-accent-foreground text-[15px] whitespace-nowrap transition-colors duration-300"
                       >
                         {{ child.label }}
                       </span>

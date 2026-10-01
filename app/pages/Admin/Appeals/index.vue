@@ -5,8 +5,16 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  const { sortedAppeals, isLoadingAppeals, appealsError, fetchAppeals, markAppealsSeen, filterStatus, resolveAppeal: originalResolve, restoreAppeal: originalRestore } =
-    useAdminAppeals()
+  const {
+    sortedAppeals,
+    isLoadingAppeals,
+    appealsError,
+    fetchAppeals,
+    markAppealsSeen,
+    filterStatus,
+    resolveAppeal: originalResolve,
+    restoreAppeal: originalRestore
+  } = useAdminAppeals()
 
   const resolveAppeal = (uuid: string) => {
     originalResolve(uuid)
@@ -64,23 +72,31 @@
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="border-b border-gray-100 px-5 py-4 flex items-center justify-between">
+      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
         <div>
           <h2 class="text-lg font-black text-gray-950">Filed Appeals</h2>
           <p class="mt-1 text-sm text-gray-500">Newest appeals appear first.</p>
         </div>
-        <div class="flex gap-2 p-1 bg-gray-50 rounded-xl border border-gray-100">
-          <button 
+        <div class="flex gap-2 rounded-xl border border-gray-100 bg-gray-50 p-1">
+          <button
             @click="filterStatus = 'pending'"
-            :class="filterStatus === 'pending' ? 'bg-white shadow-sm text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-700'"
-            class="px-4 py-2 text-sm rounded-lg transition-all"
+            :class="
+              filterStatus === 'pending'
+                ? 'bg-white font-bold text-gray-950 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            "
+            class="rounded-lg px-4 py-2 text-sm transition-all"
           >
             Pending
           </button>
-          <button 
+          <button
             @click="filterStatus = 'resolved'"
-            :class="filterStatus === 'resolved' ? 'bg-white shadow-sm text-gray-950 font-bold' : 'text-gray-500 hover:text-gray-700'"
-            class="px-4 py-2 text-sm rounded-lg transition-all"
+            :class="
+              filterStatus === 'resolved'
+                ? 'bg-white font-bold text-gray-950 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            "
+            class="rounded-lg px-4 py-2 text-sm transition-all"
           >
             Resolved
           </button>
@@ -134,7 +150,9 @@
             </p>
           </div>
 
-          <div class="min-w-0 rounded-xl border border-gray-100 bg-gray-50 p-4 flex flex-col justify-between gap-3">
+          <div
+            class="flex min-w-0 flex-col justify-between gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4"
+          >
             <div>
               <div class="flex flex-wrap gap-2 text-sm">
                 <AppBadge
@@ -156,16 +174,20 @@
                 {{ appeal.description || 'No appeal reason was provided.' }}
               </p>
             </div>
-            
-            <div class="flex justify-end border-t border-gray-200/50 pt-3 mt-1">
+
+            <div class="mt-1 flex justify-end border-t border-gray-200/50 pt-3">
               <AppButton
                 v-if="filterStatus === 'pending'"
                 variant="outline"
                 size="sm"
                 @click="resolveAppeal(appeal.uuid)"
-                class="hover:text-green-600 hover:border-green-300"
+                class="hover:border-green-300 hover:text-green-600"
               >
-                <Icon name="lucide:check-circle-2" size="14" class="mr-1.5" />
+                <Icon
+                  name="lucide:check-circle-2"
+                  size="14"
+                  class="mr-1.5"
+                />
                 Resolve Appeal
               </AppButton>
               <AppButton
@@ -173,9 +195,13 @@
                 variant="outline"
                 size="sm"
                 @click="restoreAppeal(appeal.uuid)"
-                class="hover:text-amber-600 hover:border-amber-300"
+                class="hover:border-amber-300 hover:text-amber-600"
               >
-                <Icon name="lucide:rotate-ccw" size="14" class="mr-1.5" />
+                <Icon
+                  name="lucide:rotate-ccw"
+                  size="14"
+                  class="mr-1.5"
+                />
                 Restore to Pending
               </AppButton>
             </div>
@@ -196,7 +222,11 @@
           />
         </div>
         <p class="text-sm font-semibold text-gray-500">
-          {{ filterStatus === 'pending' ? 'No pending doctor scan appeals found.' : 'No resolved appeals yet.' }}
+          {{
+            filterStatus === 'pending'
+              ? 'No pending doctor scan appeals found.'
+              : 'No resolved appeals yet.'
+          }}
         </p>
       </div>
     </section>

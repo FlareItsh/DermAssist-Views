@@ -75,7 +75,7 @@
         { label: 'Eczema', value: 75, color: '#7B5EF5' }
       ]
     }
-    
+
     return Object.entries(props.record.probabilities)
       .map(([key, value]) => ({
         label: key,
@@ -109,59 +109,94 @@
       </h1>
 
       <div class="mb-8 flex flex-col gap-1">
-        <p class="text-base" v-if="record.patient">
+        <p
+          class="text-base"
+          v-if="record.patient"
+        >
           <span class="font-bold">Patient Name:</span>
           <span class="ml-2">{{ record.patient.first_name }} {{ record.patient.last_name }}</span>
         </p>
-        <p class="text-base" v-else>
+        <p
+          class="text-base"
+          v-else
+        >
           <span class="font-bold">Patient Name:</span>
           <span class="ml-2">{{ userName || 'Guest User' }}</span>
         </p>
-        <p class="text-base" v-if="record.doctor">
+        <p
+          class="text-base"
+          v-if="record.doctor"
+        >
           <span class="font-bold">Attending Doctor:</span>
           <span class="ml-2">Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}</span>
         </p>
         <p class="text-base">
           <span class="font-bold">Date:</span>
-          <span class="ml-2">{{ new Date(record.created_at || Date.now()).toLocaleDateString() }}</span>
+          <span class="ml-2">{{
+            new Date(record.created_at || Date.now()).toLocaleDateString()
+          }}</span>
         </p>
       </div>
 
       <!-- Clinical Note View -->
       <template v-if="record.type === 'doctor_diagnosis' && record.clinical_note">
-        
         <!-- PRESCRIPTION HIGHLIGHT -->
-        <div class="mb-8 rounded-2xl bg-amber-100 p-6 shadow-sm border border-amber-200">
-          <div class="flex items-center gap-3 mb-3 text-amber-900">
-            <Icon name="material-symbols:prescriptions-outline-rounded" class="text-3xl" />
-            <h2 class="text-xl font-bold uppercase tracking-wider">Prescriptions & Plan</h2>
+        <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-100 p-6 shadow-sm">
+          <div class="mb-3 flex items-center gap-3 text-amber-900">
+            <Icon
+              name="material-symbols:prescriptions-outline-rounded"
+              class="text-3xl"
+            />
+            <h2 class="text-xl font-bold tracking-wider uppercase">Prescriptions & Plan</h2>
           </div>
-          <p class="text-amber-950 whitespace-pre-wrap leading-relaxed text-base font-medium">
+          <p class="text-base leading-relaxed font-medium whitespace-pre-wrap text-amber-950">
             {{ record.clinical_note.prescription || 'No specific prescriptions noted.' }}
           </p>
         </div>
 
         <div class="space-y-6">
           <div v-if="record.clinical_note.final_diagnosis">
-            <p class="mb-1 font-bold text-lg text-primary">Final Diagnosis</p>
-            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.final_diagnosis }}</p>
+            <p class="text-primary mb-1 text-lg font-bold">Final Diagnosis</p>
+            <p class="whitespace-pre-wrap text-gray-700">
+              {{ record.clinical_note.final_diagnosis }}
+            </p>
           </div>
           <div v-if="record.clinical_note.history_of_present_illness">
-            <p class="mb-1 font-bold text-lg text-primary">History of Present Illness</p>
-            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.history_of_present_illness }}</p>
+            <p class="text-primary mb-1 text-lg font-bold">History of Present Illness</p>
+            <p class="whitespace-pre-wrap text-gray-700">
+              {{ record.clinical_note.history_of_present_illness }}
+            </p>
           </div>
           <div v-if="record.clinical_note.physical_exam">
-            <p class="mb-1 font-bold text-lg text-primary">Physical Exam</p>
-            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.physical_exam }}</p>
+            <p class="text-primary mb-1 text-lg font-bold">Physical Exam</p>
+            <p class="whitespace-pre-wrap text-gray-700">
+              {{ record.clinical_note.physical_exam }}
+            </p>
           </div>
           <div v-if="record.clinical_note.patient_education">
-            <p class="mb-1 font-bold text-lg text-primary">Patient Education</p>
-            <p class="text-gray-700 whitespace-pre-wrap">{{ record.clinical_note.patient_education }}</p>
+            <p class="text-primary mb-1 text-lg font-bold">Patient Education</p>
+            <p class="whitespace-pre-wrap text-gray-700">
+              {{ record.clinical_note.patient_education }}
+            </p>
           </div>
-          <div v-if="record.clinical_note.follow_up_date || record.clinical_note.follow_up_instructions">
-            <p class="mb-1 font-bold text-lg text-primary">Follow-up</p>
-            <p class="text-gray-700 whitespace-pre-wrap" v-if="record.clinical_note.follow_up_date">Date: {{ record.clinical_note.follow_up_date }}</p>
-            <p class="text-gray-700 whitespace-pre-wrap" v-if="record.clinical_note.follow_up_instructions">{{ record.clinical_note.follow_up_instructions }}</p>
+          <div
+            v-if="
+              record.clinical_note.follow_up_date || record.clinical_note.follow_up_instructions
+            "
+          >
+            <p class="text-primary mb-1 text-lg font-bold">Follow-up</p>
+            <p
+              class="whitespace-pre-wrap text-gray-700"
+              v-if="record.clinical_note.follow_up_date"
+            >
+              Date: {{ record.clinical_note.follow_up_date }}
+            </p>
+            <p
+              class="whitespace-pre-wrap text-gray-700"
+              v-if="record.clinical_note.follow_up_instructions"
+            >
+              {{ record.clinical_note.follow_up_instructions }}
+            </p>
           </div>
         </div>
       </template>
@@ -198,7 +233,9 @@
 
         <div class="mb-4">
           <p class="mb-2 font-semibold">What Causes It?</p>
-          <p class="mb-2 text-sm text-gray-600">Generally believed to be a combination of factors:</p>
+          <p class="mb-2 text-sm text-gray-600">
+            Generally believed to be a combination of factors:
+          </p>
           <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
             <li
               v-for="(cause, i) in currentDisease.causes"
@@ -218,8 +255,15 @@
       <div class="flex w-full flex-col items-center">
         <h2 class="mb-8 text-center text-2xl font-bold">Findings</h2>
         <div class="flex w-full flex-col items-center gap-8">
-          <NuxtImg v-if="record.image_path" :src="getStorageUrl(record.image_path)" class="w-48 h-48 rounded-2xl object-cover shadow-lg border border-border cursor-pointer hover:opacity-90 transition-opacity" alt="Scan Image" @click="isImageExpanded = true" loading="lazy" />
-          
+          <NuxtImg
+            v-if="record.image_path"
+            :src="getStorageUrl(record.image_path)"
+            class="border-border h-48 w-48 cursor-pointer rounded-2xl border object-cover shadow-lg transition-opacity hover:opacity-90"
+            alt="Scan Image"
+            @click="isImageExpanded = true"
+            loading="lazy"
+          />
+
           <AppDonutChart
             :data="chartData"
             :size="200"
@@ -269,13 +313,19 @@
 
       <div class="mt-auto space-y-4">
         <div class="flex gap-4">
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             class="bg-foreground text-card flex flex-1 items-center justify-center gap-3 rounded-2xl py-4 text-sm font-bold transition-all hover:opacity-90 active:scale-95"
           >
             <Icon name="solar:printer-bold" />
             Print Medical PDF
           </AppButton>
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             class="bg-primary text-foreground flex w-14 items-center justify-center rounded-2xl font-bold transition-all hover:bg-gray-200 active:scale-95"
           >
             <Icon
@@ -300,8 +350,15 @@
       leave-from-class="opacity-100"
       leave-to-class="opacity-0"
     >
-      <div v-if="isImageExpanded" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8" @click="isImageExpanded = false">
-        <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+      <div
+        v-if="isImageExpanded"
+        class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8"
+        @click="isImageExpanded = false"
+      >
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
           @click="isImageExpanded = false"
           class="group absolute top-6 right-6 z-10 rounded-full bg-white/10 p-3 transition-all hover:bg-white/20 active:scale-90"
         >
@@ -310,7 +367,12 @@
             class="text-3xl text-white"
           />
         </AppButton>
-        <NuxtImg :src="getStorageUrl(record.image_path)" class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl" alt="Scan Image Expanded" @click.stop />
+        <NuxtImg
+          :src="getStorageUrl(record.image_path)"
+          class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl"
+          alt="Scan Image Expanded"
+          @click.stop
+        />
       </div>
     </Transition>
   </Teleport>

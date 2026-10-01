@@ -38,75 +38,110 @@
       <!-- Loading Subscription State -->
       <div
         v-if="isLoadingSubscription"
-        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px]"
+        class="bg-card border-border flex h-full min-h-[500px] flex-col items-center justify-center rounded-[2.5rem] border p-10 text-center shadow-sm"
       >
-        <Icon name="svg-spinners:ring-resize" class="h-10 w-10 text-primary animate-spin mb-4" />
-        <p class="text-sm font-medium text-muted-foreground">Checking subscription access...</p>
+        <Icon
+          name="svg-spinners:ring-resize"
+          class="text-primary mb-4 h-10 w-10 animate-spin"
+        />
+        <p class="text-muted-foreground text-sm font-medium">Checking subscription access...</p>
       </div>
 
       <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
       <div
         v-else-if="!canExecuteScan"
-        class="bg-card rounded-[2.5rem] p-10 border border-border shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden"
+        class="bg-card border-border relative flex h-full min-h-[500px] flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border p-10 text-center shadow-sm"
       >
-        <div class="absolute -top-32 -right-32 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div
+          class="bg-primary/10 pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full blur-3xl"
+        ></div>
 
-        <div class="bg-primary/10 text-primary h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-sm border border-primary/20">
-          <Icon name="lucide:lock" class="text-4xl" />
+        <div
+          class="bg-primary/10 text-primary border-primary/20 mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border shadow-sm"
+        >
+          <Icon
+            name="lucide:lock"
+            class="text-4xl"
+          />
         </div>
 
-        <AppBadge color="primary" variant="subtle" class="mb-3 uppercase tracking-wider text-xs font-bold px-3 py-1">
+        <AppBadge
+          color="primary"
+          variant="subtle"
+          class="mb-3 px-3 py-1 text-xs font-bold tracking-wider uppercase"
+        >
           Feature Upgrade Required
         </AppBadge>
 
-        <h2 class="text-2xl md:text-3xl font-black text-foreground tracking-tight max-w-md">
+        <h2 class="text-foreground max-w-md text-2xl font-black tracking-tight md:text-3xl">
           Unlock Doctor AI Skin Scanner
         </h2>
 
-        <p class="text-sm font-medium text-muted-foreground mt-3 max-w-lg leading-relaxed">
-          Your current subscription plan does not include Full Doctor AI Scan Execution. Upgrade your plan to perform live patient scans and instant AI dermatological assessments.
+        <p class="text-muted-foreground mt-3 max-w-lg text-sm leading-relaxed font-medium">
+          Your current subscription plan does not include Full Doctor AI Scan Execution. Upgrade
+          your plan to perform live patient scans and instant AI dermatological assessments.
         </p>
 
-        <div class="flex flex-col sm:flex-row items-center gap-3 mt-8">
+        <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <AppButton
             size="lg"
             variant="solid"
             to="/doctor/subscription"
-            class="flex items-center gap-2 px-8 py-3.5 shadow-lg shadow-primary/20"
+            class="shadow-primary/20 flex items-center gap-2 px-8 py-3.5 shadow-lg"
           >
-            <Icon name="lucide:sparkles" class="text-lg" />
+            <Icon
+              name="lucide:sparkles"
+              class="text-lg"
+            />
             <span>Upgrade Subscription Plan</span>
           </AppButton>
         </div>
       </div>
 
       <!-- Active Assessment Pending Card -->
-      <div v-else-if="currentDiagnosis && isScanned && isProceededToResults" class="bg-white rounded-[2.5rem] p-10 border border-amber-200/80 shadow-sm flex flex-col items-center justify-center text-center h-full min-h-[500px] relative overflow-hidden">
-        <div class="absolute -top-32 -right-32 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div
+        v-else-if="currentDiagnosis && isScanned && isProceededToResults"
+        class="relative flex h-full min-h-[500px] flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border border-amber-200/80 bg-white p-10 text-center shadow-sm"
+      >
+        <div
+          class="pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full bg-amber-500/5 blur-3xl"
+        ></div>
 
-        <div class="bg-amber-100/80 text-amber-700 h-20 w-20 rounded-3xl flex items-center justify-center mb-6 shadow-xs border border-amber-200/60">
-          <Icon name="material-symbols:lock-clock-outline-rounded" class="text-4xl" />
+        <div
+          class="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200/60 bg-amber-100/80 text-amber-700 shadow-xs"
+        >
+          <Icon
+            name="material-symbols:lock-clock-outline-rounded"
+            class="text-4xl"
+          />
         </div>
 
-        <span class="px-3.5 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-black uppercase tracking-wider mb-3">
+        <span
+          class="mb-3 rounded-full bg-amber-100 px-3.5 py-1 text-xs font-black tracking-wider text-amber-800 uppercase"
+        >
           Assessment Pending
         </span>
 
-        <h2 class="text-2xl font-black text-gray-900 tracking-tight max-w-md">
+        <h2 class="max-w-md text-2xl font-black tracking-tight text-gray-900">
           Active Diagnosis Assessment In Progress
         </h2>
 
-        <p class="text-sm font-medium text-gray-600 mt-2 max-w-lg leading-relaxed">
-          You have an active scan assessment in progress. Please complete the assessment and click <span class="font-bold text-gray-900">"Finish Diagnosis & Save"</span> to finish and unlock the scanner for new scans.
+        <p class="mt-2 max-w-lg text-sm leading-relaxed font-medium text-gray-600">
+          You have an active scan assessment in progress. Please complete the assessment and click
+          <span class="font-bold text-gray-900">"Finish Diagnosis & Save"</span> to finish and
+          unlock the scanner for new scans.
         </p>
 
-        <div class="flex flex-col sm:flex-row items-center gap-3 mt-8">
+        <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
           <AppButton
             size="lg"
-            class="bg-primary hover:bg-primary/90 text-white font-bold px-8 py-3.5 rounded-2xl shadow-lg shadow-primary/20 transition-all hover:shadow-xl active:scale-95 flex items-center gap-2 cursor-pointer"
+            class="bg-primary hover:bg-primary/90 shadow-primary/20 flex cursor-pointer items-center gap-2 rounded-2xl px-8 py-3.5 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95"
             @click="navigateTo('/Doctor/Scan/Results')"
           >
-            <Icon name="material-symbols:arrow-forward-rounded" class="text-xl" />
+            <Icon
+              name="material-symbols:arrow-forward-rounded"
+              class="text-xl"
+            />
             <span>Resume & Finish Diagnosis</span>
           </AppButton>
 
@@ -114,7 +149,7 @@
             variant="unstyled"
             size="unstyled"
             rounded="unstyled"
-            class="px-6 py-3.5 rounded-2xl font-bold text-gray-500 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-200/60 cursor-pointer active:scale-95 text-sm"
+            class="cursor-pointer rounded-2xl border border-transparent px-6 py-3.5 text-sm font-bold text-gray-500 transition-all hover:border-red-200/60 hover:bg-red-50 hover:text-red-600 active:scale-95"
             @click="showConfirmDiscard = true"
           >
             Discard Scan & Start Fresh

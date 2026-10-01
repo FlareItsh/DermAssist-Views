@@ -75,9 +75,11 @@
       v-if="pending"
       class="flex min-h-[220px] items-center justify-center p-10"
     >
-      <div class="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+      <div
+        class="h-8 w-8 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"
+      ></div>
     </div>
-    
+
     <div
       v-else-if="filteredUsers.length > 0"
       class="custom-scrollbar flex min-h-[220px] flex-row gap-4 overflow-x-auto px-2 pb-6"
@@ -89,7 +91,13 @@
         :doctorId="userItem.id"
         :doctorName="getDisplayName(userItem)"
         :doctorWorkplace="getWorkplaceOrLocation(userItem)"
-        :doctorImage="userItem.avatar_path ? getStorageUrl(userItem.avatar_path) : (userItem.doctor_verification?.id_photo_path ? getStorageUrl(userItem.doctor_verification.id_photo_path) : '/images/lp-img.png')"
+        :doctorImage="
+          userItem.avatar_path
+            ? getStorageUrl(userItem.avatar_path)
+            : userItem.doctor_verification?.id_photo_path
+              ? getStorageUrl(userItem.doctor_verification.id_photo_path)
+              : '/images/lp-img.png'
+        "
       />
     </div>
 
@@ -102,7 +110,10 @@
         class="text-foreground/20 mb-3 text-4xl"
       />
       <p class="text-foreground/60 font-medium">No results match your search</p>
-      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+      <AppButton
+        variant="unstyled"
+        size="unstyled"
+        rounded="unstyled"
         @click="searchQuery = ''"
         class="text-primary mt-2 text-xs font-bold hover:underline"
       >

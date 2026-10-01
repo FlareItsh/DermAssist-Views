@@ -23,7 +23,14 @@ export interface DiagnosisResult {
   clinical_feedback?: string
 }
 
-export type DiseaseName = 'Acne' | 'Eczema' | 'Herpes' | 'Clear' | 'None' | 'Inconclusive' | 'OutOfScope'
+export type DiseaseName =
+  | 'Acne'
+  | 'Eczema'
+  | 'Herpes'
+  | 'Clear'
+  | 'None'
+  | 'Inconclusive'
+  | 'OutOfScope'
 
 export interface DiseaseInfo {
   description: string
@@ -35,19 +42,24 @@ export interface DiseaseInfo {
 }
 
 export const COLOR_MAP: Record<string, string> = {
-  'Acne': '#ef4444',
-  'Eczema': '#d97706',
-  'Herpes': '#4c0516',
-  'Clear': '#10b981',
-  'None': '#6b7280',
-  'Inconclusive': '#f59e0b',
-  'OutOfScope': '#8b5cf6'
+  Acne: '#ef4444',
+  Eczema: '#d97706',
+  Herpes: '#4c0516',
+  Clear: '#10b981',
+  None: '#6b7280',
+  Inconclusive: '#f59e0b',
+  OutOfScope: '#8b5cf6'
 }
 
 export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
-  'Acne': {
-    description: 'Acne is a common skin condition that occurs when hair follicles become clogged with oil and dead skin cells. It causes whiteheads, blackheads, or pimples.',
-    guidelines: ['Wash twice daily with gentle cleanser', 'Avoid picking or squeezing pimples', 'Use non-comedogenic products'],
+  Acne: {
+    description:
+      'Acne is a common skin condition that occurs when hair follicles become clogged with oil and dead skin cells. It causes whiteheads, blackheads, or pimples.',
+    guidelines: [
+      'Wash twice daily with gentle cleanser',
+      'Avoid picking or squeezing pimples',
+      'Use non-comedogenic products'
+    ],
     symptoms: [
       'Whiteheads (closed clogged pores)',
       'Blackheads (open clogged pores)',
@@ -62,9 +74,14 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['Acne']
   },
-  'Eczema': {
-    description: 'Eczema is a condition that causes itchy, inflamed, and cracked patches of skin. It is often chronic and can flare up periodically.',
-    guidelines: ['Moisturize at least twice a day', 'Identify and avoid triggers', 'Take shorter, lukewarm baths'],
+  Eczema: {
+    description:
+      'Eczema is a condition that causes itchy, inflamed, and cracked patches of skin. It is often chronic and can flare up periodically.',
+    guidelines: [
+      'Moisturize at least twice a day',
+      'Identify and avoid triggers',
+      'Take shorter, lukewarm baths'
+    ],
     symptoms: [
       'Dry, sensitive skin',
       'Intense itching',
@@ -79,9 +96,14 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['Eczema']
   },
-  'Herpes': {
-    description: 'A viral infection caused by the herpes simplex virus (HSV), typically resulting in sores around the mouth or genitals.',
-    guidelines: ['Keep the area clean and dry', 'Avoid touching the sores', 'Wash hands frequently'],
+  Herpes: {
+    description:
+      'A viral infection caused by the herpes simplex virus (HSV), typically resulting in sores around the mouth or genitals.',
+    guidelines: [
+      'Keep the area clean and dry',
+      'Avoid touching the sores',
+      'Wash hands frequently'
+    ],
     symptoms: [
       'Pain or itching in the affected area',
       'Small red bumps or tiny white blisters',
@@ -95,25 +117,21 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['Herpes']
   },
-  'Clear': {
-    description: 'No significant skin irregularities detected. The skin appears healthy and maintains its natural barrier.',
-    guidelines: ['Maintain current skincare routine', 'Use daily sunscreen (SPF 30+)', 'Stay hydrated'],
-    symptoms: [
-      'Natural elasticity',
-      'Even texture',
-      'Hydrated appearance',
-      'Consistent color'
+  Clear: {
+    description:
+      'No significant skin irregularities detected. The skin appears healthy and maintains its natural barrier.',
+    guidelines: [
+      'Maintain current skincare routine',
+      'Use daily sunscreen (SPF 30+)',
+      'Stay hydrated'
     ],
-    causes: [
-      'Consistent skincare',
-      'Proper hydration',
-      'Sun protection',
-      'Healthy diet'
-    ],
+    symptoms: ['Natural elasticity', 'Even texture', 'Hydrated appearance', 'Consistent color'],
+    causes: ['Consistent skincare', 'Proper hydration', 'Sun protection', 'Healthy diet'],
     color: COLOR_MAP['Clear']
   },
-  'None': {
-    description: 'The uploaded image was flagged as non-skin or outside the operational scope of our dermatological neural backbones.',
+  None: {
+    description:
+      'The uploaded image was flagged as non-skin or outside the operational scope of our dermatological neural backbones.',
     guidelines: [
       'Upload a well-lit, close-up photograph of human skin',
       'Ensure the affected skin lesion is in focus and centered',
@@ -131,8 +149,9 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['None']
   },
-  'OutOfScope': {
-    description: 'This skin condition was detected as an out-of-scope dermatological presentation outside our 3 primary focus conditions (Acne, Eczema, Herpes). It may represent other common conditions such as Psoriasis, Ringworm (Tinea), Vitiligo, Rosacea, Hives, or Melanocytic lesions.',
+  OutOfScope: {
+    description:
+      'This skin condition was detected as an out-of-scope dermatological presentation outside our 3 primary focus conditions (Acne, Eczema, Herpes). It may represent other common conditions such as Psoriasis, Ringworm (Tinea), Vitiligo, Rosacea, Hives, or Melanocytic lesions.',
     guidelines: [
       'Consult a licensed dermatologist for a definitive clinical examination',
       'Do not apply unprescribed acne or eczema topical treatments',
@@ -150,8 +169,9 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     color: COLOR_MAP['OutOfScope']
   },
-  'Inconclusive': {
-    description: 'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). It may represent an out-of-scope dermatological condition or an ambiguous lesion presentation.',
+  Inconclusive: {
+    description:
+      'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). It may represent an out-of-scope dermatological condition or an ambiguous lesion presentation.',
     guidelines: [
       'Consult a licensed dermatologist for a comprehensive in-person medical evaluation',
       'Do not apply unprescribed topical medications or harsh products',
@@ -188,7 +208,8 @@ if (import.meta.client) {
       const parsed = JSON.parse(rawState)
       if (parsed.currentDiagnosis) currentDiagnosis.value = parsed.currentDiagnosis
       if (typeof parsed.isScanned === 'boolean') isScanned.value = parsed.isScanned
-      if (typeof parsed.isProceededToResults === 'boolean') isProceededToResults.value = parsed.isProceededToResults
+      if (typeof parsed.isProceededToResults === 'boolean')
+        isProceededToResults.value = parsed.isProceededToResults
       if (parsed.previewImage) previewImage.value = parsed.previewImage
       if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
     }
@@ -201,13 +222,16 @@ const saveActiveDiagnosisState = () => {
   if (!import.meta.client) return
   try {
     if (currentDiagnosis.value || isScanned.value || previewImage.value || patientUuid.value) {
-      localStorage.setItem('dermassist_active_diagnosis', JSON.stringify({
-        currentDiagnosis: currentDiagnosis.value,
-        isScanned: isScanned.value,
-        isProceededToResults: isProceededToResults.value,
-        previewImage: previewImage.value,
-        patientUuid: patientUuid.value
-      }))
+      localStorage.setItem(
+        'dermassist_active_diagnosis',
+        JSON.stringify({
+          currentDiagnosis: currentDiagnosis.value,
+          isScanned: isScanned.value,
+          isProceededToResults: isProceededToResults.value,
+          previewImage: previewImage.value,
+          patientUuid: patientUuid.value
+        })
+      )
     } else {
       localStorage.removeItem('dermassist_active_diagnosis')
     }
@@ -224,7 +248,10 @@ export const useDiagnosis = () => {
       currentDiagnosis.value.label === 'OutOfScope' ||
       currentDiagnosis.value.label === 'Unsupported' ||
       (currentDiagnosis.value.label === 'Inconclusive' &&
-        (feedback.includes('outside our 3 primary') || feedback.includes('unsupported') || feedback.includes('psoriasis') || feedback.includes('ringworm')))
+        (feedback.includes('outside our 3 primary') ||
+          feedback.includes('unsupported') ||
+          feedback.includes('psoriasis') ||
+          feedback.includes('ringworm')))
     )
   })
 
@@ -233,7 +260,9 @@ export const useDiagnosis = () => {
     return (
       currentDiagnosis.value.is_inconclusive === true ||
       currentDiagnosis.value.label === 'Inconclusive' ||
-      (currentDiagnosis.value.confidence < 0.55 && currentDiagnosis.value.label !== 'None' && currentDiagnosis.value.label !== 'Clear')
+      (currentDiagnosis.value.confidence < 0.55 &&
+        currentDiagnosis.value.label !== 'None' &&
+        currentDiagnosis.value.label !== 'Clear')
     )
   })
 
@@ -258,16 +287,31 @@ export const useDiagnosis = () => {
     }
 
     if (isOutOfScopeState.value) {
-      return [{ label: 'Unsupported Condition (Out of Scope)', value: 100, color: COLOR_MAP['OutOfScope'] }]
+      return [
+        {
+          label: 'Unsupported Condition (Out of Scope)',
+          value: 100,
+          color: COLOR_MAP['OutOfScope']
+        }
+      ]
     }
 
     if (isHealthyState.value) {
       return [{ label: 'No skin disease detected', value: 100, color: COLOR_MAP['Clear'] }]
     }
 
-    if (!currentDiagnosis.value.all_probabilities || Object.keys(currentDiagnosis.value.all_probabilities).length === 0) {
+    if (
+      !currentDiagnosis.value.all_probabilities ||
+      Object.keys(currentDiagnosis.value.all_probabilities).length === 0
+    ) {
       const label = currentDiagnosis.value.label || 'Inconclusive'
-      return [{ label, value: Math.round(currentDiagnosis.value.confidence * 100), color: COLOR_MAP[label] || '#475569' }]
+      return [
+        {
+          label,
+          value: Math.round(currentDiagnosis.value.confidence * 100),
+          color: COLOR_MAP[label] || '#475569'
+        }
+      ]
     }
 
     return Object.entries(currentDiagnosis.value.all_probabilities)

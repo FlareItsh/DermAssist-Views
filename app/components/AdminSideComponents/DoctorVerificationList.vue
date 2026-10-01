@@ -60,7 +60,9 @@
 </script>
 
 <template>
-  <section class="flex h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+  <section
+    class="flex h-[420px] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
+  >
     <div class="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-5 py-4">
       <div class="min-w-0">
         <div class="flex items-center gap-3">

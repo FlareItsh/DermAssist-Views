@@ -1574,7 +1574,10 @@
                   class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
                   title="Copy password to clipboard"
                 >
-                  <UIcon name="i-heroicons-clipboard-document" class="h-3.5 w-3.5" />
+                  <UIcon
+                    name="i-heroicons-clipboard-document"
+                    class="h-3.5 w-3.5"
+                  />
                   Copy
                 </button>
                 <span class="text-gray-300">|</span>
@@ -1584,7 +1587,10 @@
                   class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
                   title="Generate new random password"
                 >
-                  <UIcon name="i-heroicons-arrow-path" class="h-3.5 w-3.5" />
+                  <UIcon
+                    name="i-heroicons-arrow-path"
+                    class="h-3.5 w-3.5"
+                  />
                   Regenerate
                 </button>
               </div>
@@ -1595,14 +1601,17 @@
                 v-model="registerForm.password"
                 required
                 placeholder="Min. 8 characters"
-                class="h-10 w-full rounded-xl border border-gray-200 bg-white pl-3 pr-10 text-xs font-mono font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                class="h-10 w-full rounded-xl border border-gray-200 bg-white pr-10 pl-3 font-mono text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
               />
               <button
                 type="button"
                 @click="showPassword = !showPassword"
-                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                <UIcon :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'" class="h-4 w-4" />
+                <UIcon
+                  :name="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                  class="h-4 w-4"
+                />
               </button>
             </div>
           </div>

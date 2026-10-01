@@ -1,122 +1,127 @@
 <script setup lang="ts">
-import { verificationService } from '~/api/verification/VerificationService'
+  import { verificationService } from '~/api/verification/VerificationService'
 
-definePageMeta({
-  layout: 'dashboard-sidebar-layout'
-})
+  definePageMeta({
+    layout: 'dashboard-sidebar-layout'
+  })
 
-interface User {
-  id: number
-  uuid: string
-  first_name: string
-  middle_name: string | null
-  last_name: string
-  email: string
-  role: string
-  created_at: string
-  updated_at: string
-}
-
-interface Verification {
-  id: number
-  uuid: string
-  prc_number: string
-  id_photo_path: string
-  status: 'pending' | 'verified' | 'declined'
-  user: User
-  created_at: string
-  updated_at: string
-}
-
-const selectedStatus = ref('')
-const searchQuery = ref('')
-const debouncedSearch = ref('')
-let searchTimeout: any = null
-let pollingInterval: any = null
-
-watch(searchQuery, (val) => {
-  if (searchTimeout) clearTimeout(searchTimeout)
-  searchTimeout = setTimeout(() => {
-    debouncedSearch.value = val
-    searchTimeout = null
-  }, 500)
-})
-
-const verifications = ref<{ data: Verification[] } | null>(null)
-const pending = ref(true)
-
-const fetchVerifications = async () => {
-  try {
-    pending.value = true
-    const params: any = {}
-    if (selectedStatus.value) params.status = selectedStatus.value
-    if (debouncedSearch.value) params.search = debouncedSearch.value
-    verifications.value = await verificationService.list(params)
-  } catch (error) {
-    console.error('Failed to fetch verifications:', error)
-  } finally {
-    pending.value = false
-  }
-}
-
-watch([selectedStatus, debouncedSearch], () => {
-  fetchVerifications()
-})
-
-const startPolling = () => {
-  if (pollingInterval) {
-    clearInterval(pollingInterval)
+  interface User {
+    id: number
+    uuid: string
+    first_name: string
+    middle_name: string | null
+    last_name: string
+    email: string
+    role: string
+    created_at: string
+    updated_at: string
   }
 
-  pollingInterval = setInterval(async () => {
-    if (!pending.value && !searchTimeout) {
+  interface Verification {
+    id: number
+    uuid: string
+    prc_number: string
+    id_photo_path: string
+    status: 'pending' | 'verified' | 'declined'
+    user: User
+    created_at: string
+    updated_at: string
+  }
+
+  const selectedStatus = ref('')
+  const searchQuery = ref('')
+  const debouncedSearch = ref('')
+  let searchTimeout: any = null
+  let pollingInterval: any = null
+
+  watch(searchQuery, val => {
+    if (searchTimeout) clearTimeout(searchTimeout)
+    searchTimeout = setTimeout(() => {
+      debouncedSearch.value = val
+      searchTimeout = null
+    }, 500)
+  })
+
+  const verifications = ref<{ data: Verification[] } | null>(null)
+  const pending = ref(true)
+
+  const fetchVerifications = async () => {
+    try {
+      pending.value = true
       const params: any = {}
       if (selectedStatus.value) params.status = selectedStatus.value
       if (debouncedSearch.value) params.search = debouncedSearch.value
       verifications.value = await verificationService.list(params)
+    } catch (error) {
+      console.error('Failed to fetch verifications:', error)
+    } finally {
+      pending.value = false
     }
-  }, 3000)
-}
-
-const stopPolling = () => {
-  if (pollingInterval) {
-    clearInterval(pollingInterval)
-    pollingInterval = null
   }
-}
 
-onMounted(() => {
-  fetchVerifications()
-  startPolling()
-})
+  watch([selectedStatus, debouncedSearch], () => {
+    fetchVerifications()
+  })
 
-onUnmounted(() => {
-  stopPolling()
-})
-
-const refresh = fetchVerifications
-
-const statuses = [
-  { label: 'All', value: '' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Verified', value: 'verified' },
-  { label: 'Declined', value: 'declined' }
-]
-
-const { getStorageUrl } = useStorage()
-
-const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gray' => {
-  switch (status) {
-    case 'pending':
-      return 'warning'
-    case 'verified':
-      return 'success'
-    case 'declined':
-      return 'danger'
-    default:
-      return 'gray'
+  const clearFilters = () => {
+    searchQuery.value = ''
+    selectedStatus.value = ''
   }
-}
+
+  const startPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+    }
+
+    pollingInterval = setInterval(async () => {
+      if (!pending.value && !searchTimeout) {
+        const params: any = {}
+        if (selectedStatus.value) params.status = selectedStatus.value
+        if (debouncedSearch.value) params.search = debouncedSearch.value
+        verifications.value = await verificationService.list(params)
+      }
+    }, 3000)
+  }
+
+  const stopPolling = () => {
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+      pollingInterval = null
+    }
+  }
+
+  onMounted(() => {
+    fetchVerifications()
+    startPolling()
+  })
+
+  onUnmounted(() => {
+    stopPolling()
+  })
+
+  const refresh = fetchVerifications
+
+  const statuses = [
+    { label: 'All', value: '' },
+    { label: 'Pending', value: 'pending' },
+    { label: 'Verified', value: 'verified' },
+    { label: 'Declined', value: 'declined' }
+  ]
+
+  const { getStorageUrl } = useStorage()
+
+  const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gray' => {
+    switch (status) {
+      case 'pending':
+        return 'warning'
+      case 'verified':
+        return 'success'
+      case 'declined':
+        return 'danger'
+      default:
+        return 'gray'
+    }
+  }
 </script>
 
 <template>
@@ -131,75 +136,122 @@ const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gra
         <!-- Search Input -->
         <div class="relative min-w-[300px]">
           <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
-            <Icon name="material-symbols:search-rounded" class="text-xl" />
+            <Icon
+              name="material-symbols:search-rounded"
+              class="text-xl"
+            />
           </span>
-          <input v-model="searchQuery" type="text" placeholder="Search by name or email..."
-            class="h-11 w-full rounded-2xl border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:border-primary/30 focus:ring-4 focus:ring-primary/10" />
-          <button v-if="searchQuery" @click="searchQuery = ''"
-            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600">
-            <Icon name="material-symbols:close-rounded" class="text-lg" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Search by name or email..."
+            class="focus:border-primary/30 focus:ring-primary/10 h-11 w-full rounded-2xl border border-gray-200 bg-white pr-4 pl-11 text-sm font-medium text-gray-900 transition-all outline-none placeholder:text-gray-400 focus:ring-4"
+          />
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+          >
+            <Icon
+              name="material-symbols:close-rounded"
+              class="text-lg"
+            />
           </button>
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
           <div class="flex items-center gap-1 rounded-2xl bg-gray-100 p-1.5">
-            <AppButton v-for="status in statuses" :key="status.value" variant="unstyled" size="unstyled"
-              @click="selectedStatus = status.value" class="rounded-xl px-4 py-2 text-xs font-bold transition-all"
-              :class="selectedStatus === status.value
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-                ">
+            <AppButton
+              v-for="status in statuses"
+              :key="status.value"
+              variant="unstyled"
+              size="unstyled"
+              @click="selectedStatus = status.value"
+              class="rounded-xl px-4 py-2 text-xs font-bold transition-all"
+              :class="
+                selectedStatus === status.value
+                  ? 'text-primary bg-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              "
+            >
               {{ status.label }}
             </AppButton>
           </div>
 
-          <div class="h-8 w-px bg-gray-200 mx-1"></div>
+          <div class="mx-1 h-8 w-px bg-gray-200"></div>
 
-          <AppButton variant="outline" size="sm" @click="refresh" :loading="pending">
+          <AppButton
+            variant="outline"
+            size="sm"
+            @click="refresh"
+            :loading="pending"
+          >
             Refresh
           </AppButton>
         </div>
       </div>
     </div>
 
-    <div v-if="verifications?.data?.length" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div
+      v-if="verifications?.data?.length"
+      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+    >
       <TransitionGroup name="grid">
-        <NuxtLink v-for="verification in verifications.data" :key="verification.id"
+        <NuxtLink
+          v-for="verification in verifications.data"
+          :key="verification.id"
           :to="`/admin/moderation/verification/${verification.uuid}`"
-          class="group relative block overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+          class="group relative block overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+        >
           <!-- Status Badge -->
           <div class="absolute top-5 right-5 z-10">
-            <AppBadge :color="getStatusColor(verification.status)" size="xs">
+            <AppBadge
+              :color="getStatusColor(verification.status)"
+              size="xs"
+            >
               {{ verification.status }}
             </AppBadge>
           </div>
 
           <div class="flex flex-col items-center text-center">
-            <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <div
+              class="bg-primary/10 text-primary mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
+            >
               <span class="text-2xl font-bold uppercase">
                 {{ verification.user.first_name[0] }}{{ verification.user.last_name[0] }}
               </span>
             </div>
 
-            <h2 class="text-xl font-bold text-gray-900 transition-colors group-hover:text-primary">
+            <h2 class="group-hover:text-primary text-xl font-bold text-gray-900 transition-colors">
               {{ verification.user.first_name }} {{ verification.user.last_name }}
             </h2>
             <p class="text-sm font-medium text-gray-500">{{ verification.user.email }}</p>
 
-            <div class="my-6 w-full space-y-4 rounded-2xl bg-gray-50 p-4 transition-colors group-hover:bg-primary/5">
+            <div
+              class="group-hover:bg-primary/5 my-6 w-full space-y-4 rounded-2xl bg-gray-50 p-4 transition-colors"
+            >
               <div class="flex flex-col items-start gap-1">
-                <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">PRC License Number</span>
-                <span class="w-full truncate text-left font-mono text-xs leading-none font-semibold text-gray-900">{{
-                  verification.prc_number }}</span>
+                <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                  >PRC License Number</span
+                >
+                <span
+                  class="w-full truncate text-left font-mono text-xs leading-none font-semibold text-gray-900"
+                  >{{ verification.prc_number }}</span
+                >
               </div>
 
               <div class="flex flex-col items-start gap-1">
-                <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase">ID Verification Photo</span>
+                <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+                  >ID Verification Photo</span
+                >
                 <div
-                  class="group/img relative mt-2 w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-200 transition-colors group-hover:border-primary/40">
-                  <NuxtImg :src="getStorageUrl(verification.id_photo_path)"
+                  class="group/img group-hover:border-primary/40 relative mt-2 w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-200 transition-colors"
+                >
+                  <NuxtImg
+                    :src="getStorageUrl(verification.id_photo_path)"
                     class="aspect-video w-full object-cover transition-transform duration-500 group-hover/img:scale-105"
-                    placeholder />
+                    placeholder
+                  />
                 </div>
               </div>
             </div>
@@ -209,42 +261,65 @@ const getStatusColor = (status: string): 'warning' | 'success' | 'danger' | 'gra
     </div>
 
     <!-- Empty State -->
-    <div v-else-if="verifications"
-      class="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 py-32 text-center">
-      <div class="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50 text-gray-400">
-        <Icon name="material-symbols:search-off-rounded" class="text-4xl" />
+    <div
+      v-else-if="verifications"
+      class="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 py-32 text-center"
+    >
+      <div
+        class="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gray-50 text-gray-400"
+      >
+        <Icon
+          name="material-symbols:search-off-rounded"
+          class="text-4xl"
+        />
       </div>
       <h3 class="text-xl font-bold text-gray-900">No verifications found</h3>
       <p class="mt-2 text-gray-500">
-        <span v-if="searchQuery">No results matching "<strong>{{ searchQuery }}</strong>"</span>
-        <span v-else>There are no {{ selectedStatus || '' }} doctor verification requests at the moment.</span>
+        <span v-if="searchQuery"
+          >No results matching "<strong>{{ searchQuery }}</strong
+          >"</span
+        >
+        <span v-else
+          >There are no {{ selectedStatus || '' }} doctor verification requests at the moment.</span
+        >
       </p>
-      <AppButton v-if="searchQuery || selectedStatus" variant="ghost" class="mt-4"
-        @click="searchQuery = ''; selectedStatus = ''">
+      <AppButton
+        v-if="searchQuery || selectedStatus"
+        variant="ghost"
+        class="mt-4"
+        @click="clearFilters"
+      >
         Clear all filters
       </AppButton>
     </div>
 
     <!-- Skeleton / Loading -->
-    <div v-else-if="pending" class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      <div v-for="i in 4" :key="i" class="h-[480px] animate-pulse rounded-3xl bg-gray-100" />
+    <div
+      v-else-if="pending"
+      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+    >
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="h-[480px] animate-pulse rounded-3xl bg-gray-100"
+      />
     </div>
   </div>
 </template>
 
 <style scoped>
-.grid-enter-active,
-.grid-leave-active {
-  transition: all 0.5s ease;
-}
+  .grid-enter-active,
+  .grid-leave-active {
+    transition: all 0.5s ease;
+  }
 
-.grid-enter-from,
-.grid-leave-to {
-  opacity: 0;
-  transform: translateY(30px) scale(0.95);
-}
+  .grid-enter-from,
+  .grid-leave-to {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
 
-.grid-move {
-  transition: transform 0.5s ease;
-}
+  .grid-move {
+    transition: transform 0.5s ease;
+  }
 </style>

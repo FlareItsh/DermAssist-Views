@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import { patchNoteService, type PatchNote } from '~/api/patchNote/PatchNoteService'
 
+  const { markLatestUpdateAsSeen } = usePatchNotes()
+
   const isLoading = ref(true)
   const notes = ref<PatchNote[]>([])
   const expandedIds = ref<Set<string | number>>(new Set())
@@ -31,6 +33,9 @@
       const res = await patchNoteService.getPublished(50)
       if (res?.status === 'success') {
         notes.value = res.data || []
+        if (notes.value.length > 0) {
+          markLatestUpdateAsSeen(notes.value[0])
+        }
       }
     } catch (err) {
       console.error('Failed to fetch patch notes:', err)
@@ -43,99 +48,170 @@
 <template>
   <div class="space-y-3">
     <!-- Page Header -->
-    <div class="pb-6 border-b border-border/60">
-      <h1 class="text-xl font-semibold text-foreground">Updates & Changelog</h1>
-      <p class="text-sm text-muted-foreground mt-0.5">
+    <div class="border-border/60 border-b pb-6">
+      <h1 class="text-foreground text-xl font-semibold">Updates & Changelog</h1>
+      <p class="text-muted-foreground mt-0.5 text-sm">
         A history of all improvements and new features added to DermAssist.
       </p>
     </div>
 
     <!-- Loading Skeleton -->
-    <div v-if="isLoading" class="space-y-3 pt-2">
+    <div
+      v-if="isLoading"
+      class="space-y-3 pt-2"
+    >
       <div
         v-for="i in 3"
         :key="i"
-        class="animate-pulse rounded-2xl border border-border/50 bg-card p-6"
+        class="border-border/50 bg-card animate-pulse rounded-2xl border p-6"
       >
-        <div class="grid grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-[170px_0.8fr_1.3fr]">
           <div class="space-y-2">
-            <div class="h-4 w-16 rounded bg-muted/60" />
-            <div class="h-3 w-24 rounded bg-muted/40" />
+            <div class="bg-muted/60 h-4 w-16 rounded" />
+            <div class="bg-muted/40 h-3 w-24 rounded" />
           </div>
           <div class="space-y-2">
-            <div class="h-5 w-full rounded bg-muted/50" />
-            <div class="h-5 w-3/4 rounded bg-muted/50" />
+            <div class="bg-muted/50 h-5 w-full rounded" />
+            <div class="bg-muted/50 h-5 w-3/4 rounded" />
           </div>
           <div class="space-y-3">
-            <div class="h-3 w-full rounded bg-muted/40" />
-            <div class="h-3 w-5/6 rounded bg-muted/40" />
-            <div class="h-8 w-full rounded-lg bg-muted/30 mt-3" />
+            <div class="bg-muted/40 h-3 w-full rounded" />
+            <div class="bg-muted/40 h-3 w-5/6 rounded" />
+            <div class="bg-muted/30 mt-3 h-8 w-full rounded-lg" />
           </div>
         </div>
       </div>
     </div>
 
-    <div v-else-if="notes.length > 0" class="space-y-4 pt-2">
+    <div
+      v-else-if="notes.length > 0"
+      class="space-y-4 pt-2"
+    >
       <div
         v-for="(note, index) in notes"
         :key="note.uuid || note.id"
-        class="rounded-2xl border bg-card transition-shadow hover:shadow-sm"
-        :class="index === 0 ? 'border-border/80' : 'border-border/50'"
+        class="bg-card rounded-2xl border transition-all duration-200 hover:shadow-md"
+        :class="[
+          index === 0
+            ? 'border-l-primary border-border/80 border-l-4 shadow-xs'
+            : 'border-border/50 hover:border-border/80'
+        ]"
       >
-        <div class="grid grid-cols-1 md:grid-cols-[180px_1fr_1fr]">
-          <div class="px-6 pt-6 pb-4 md:pb-6 md:border-r border-border/40 shrink-0">
-            <p class="text-md font-medium text-foreground tabular-nums">
-              {{ note.version || '—' }}
-            </p>
-            <p class="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              {{ formatDate(note.published_at) }}
-            </p>
-            <AppBadge
-              v-if="index === 0"
-              color="success"
-              variant="subtle"
-              class="mt-2 text-[10px]"
+        <div class="grid grid-cols-1 md:grid-cols-[170px_0.8fr_1.3fr]">
+          <div class="border-border/40 shrink-0 px-6 pt-6 pb-4 md:border-r md:pb-6">
+            <div class="flex items-center gap-1.5">
+              <span
+                class="bg-muted/70 text-foreground rounded-md px-2 py-0.5 font-mono text-xs font-bold tracking-tight"
+              >
+                {{
+                  note.version
+                    ? note.version.startsWith('v')
+                      ? note.version
+                      : `v${note.version}`
+                    : '—'
+                }}
+              </span>
+            </div>
+            <div
+              class="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs leading-relaxed"
             >
-              Latest
-            </AppBadge>
+              <Icon
+                name="lucide:calendar"
+                class="h-3.5 w-3.5 shrink-0 opacity-70"
+              />
+              <span>{{ formatDate(note.published_at) }}</span>
+            </div>
+            <div
+              v-if="index === 0"
+              class="mt-3"
+            >
+              <span
+                class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-emerald-600 dark:text-emerald-400"
+              >
+                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+                LATEST
+              </span>
+            </div>
           </div>
 
-          <div class="px-6 pt-4 md:pt-6 pb-4 md:pb-6 md:border-r border-border/40 flex items-start">
-            <h2 class="text-2xl font-semibold text-foreground leading-snug">
+          <div
+            class="border-border/40 flex flex-col justify-start px-6 pt-4 pb-4 md:border-r md:pt-6 md:pb-6"
+          >
+            <div class="mb-1.5 flex items-center gap-1.5">
+              <span class="text-primary/80 text-[10px] font-bold tracking-wider uppercase">
+                Release Update
+              </span>
+            </div>
+            <h2 class="text-foreground text-xl leading-snug font-semibold md:text-2xl">
               {{ note.title }}
             </h2>
           </div>
 
-          <div class="px-6 pt-4 md:pt-6 pb-6">
-            <p class="text-sm text-muted-foreground leading-relaxed">
+          <div class="px-6 pt-4 pb-6 md:pt-6">
+            <p class="text-muted-foreground text-sm leading-relaxed md:text-[15px]">
               {{ note.description }}
             </p>
 
             <div
               v-if="note.changes && note.changes.length > 0"
-              class="mt-4 border border-border/50 rounded-xl overflow-hidden"
+              class="border-border/60 bg-muted/15 mt-4 overflow-hidden rounded-xl border transition-all"
             >
-              <AppButton
-                variant="unstyled"
-                class="flex w-full items-center justify-between px-4 py-3 text-sm hover:bg-muted/30 transition-colors cursor-pointer"
+              <button
+                type="button"
+                class="group hover:bg-muted/40 flex w-full cursor-pointer items-center justify-between px-4 py-2.5 text-left transition-colors select-none focus:outline-none"
+                :class="{
+                  'border-border/50 bg-muted/25 border-b': isExpanded(note.uuid || note.id!)
+                }"
                 @click="toggleExpand(note.uuid || note.id!)"
               >
-                <span class="font-normal text-foreground/80">What's New ({{ note.changes.length }})</span>
-                <Icon
-                  name="lucide:chevron-down"
-                  class="text-muted-foreground text-base shrink-0 transition-transform duration-200"
-                  :class="{ 'rotate-180': isExpanded(note.uuid || note.id!) }"
-                />
-              </AppButton>
+                <div class="flex items-center gap-2">
+                  <Icon
+                    name="lucide:sparkles"
+                    class="text-primary h-3.5 w-3.5"
+                  />
+                  <span
+                    class="text-foreground/80 group-hover:text-foreground text-xs font-semibold"
+                  >
+                    What's New
+                  </span>
+                  <span
+                    class="bg-primary/10 text-primary inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[11px] font-bold"
+                  >
+                    {{ note.changes.length }}
+                  </span>
+                </div>
+                <div
+                  class="text-muted-foreground group-hover:text-foreground flex items-center gap-1.5 text-xs transition-colors"
+                >
+                  <span class="hidden text-[11px] font-medium sm:inline">
+                    {{ isExpanded(note.uuid || note.id!) ? 'Hide details' : 'Show details' }}
+                  </span>
+                  <Icon
+                    name="lucide:chevron-down"
+                    class="h-4 w-4 shrink-0 transition-transform duration-200"
+                    :class="{ 'text-primary rotate-180': isExpanded(note.uuid || note.id!) }"
+                  />
+                </div>
+              </button>
 
-              <ul v-if="isExpanded(note.uuid || note.id!)">
+              <ul
+                v-if="isExpanded(note.uuid || note.id!)"
+                class="divide-border/30 bg-card/60 divide-y p-1.5"
+              >
                 <li
                   v-for="(change, idx) in note.changes"
                   :key="idx"
-                  class="flex items-start gap-2.5 px-4 py-2.5 text-xs text-foreground/80 bg-muted/10 border-t border-border/40"
+                  class="group/item text-foreground/85 hover:bg-muted/30 flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs leading-relaxed transition-colors"
                 >
-                  <Icon name="lucide:check" class="text-primary shrink-0 mt-0.5 text-xs" />
-                  <span class="leading-relaxed">{{ change }}</span>
+                  <div
+                    class="bg-primary/10 text-primary group-hover/item:bg-primary group-hover/item:text-primary-foreground mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full transition-colors"
+                  >
+                    <Icon
+                      name="lucide:check"
+                      class="h-2.5 w-2.5 stroke-[2.5]"
+                    />
+                  </div>
+                  <span>{{ change }}</span>
                 </li>
               </ul>
             </div>
@@ -145,13 +221,21 @@
     </div>
 
     <!-- Empty State -->
-    <div v-else class="border border-border/60 bg-card rounded-2xl p-16 text-center space-y-3 mt-2">
-      <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground/40">
-        <Icon name="solar:notes-linear" class="text-2xl" />
+    <div
+      v-else
+      class="border-border/60 bg-card mt-2 space-y-3 rounded-2xl border p-16 text-center"
+    >
+      <div
+        class="bg-muted text-muted-foreground/40 mx-auto flex h-14 w-14 items-center justify-center rounded-full"
+      >
+        <Icon
+          name="solar:notes-linear"
+          class="text-2xl"
+        />
       </div>
       <div class="space-y-1">
-        <h3 class="text-sm font-semibold text-foreground">No updates yet</h3>
-        <p class="text-xs text-muted-foreground max-w-xs mx-auto">
+        <h3 class="text-foreground text-sm font-semibold">No updates yet</h3>
+        <p class="text-muted-foreground mx-auto max-w-xs text-xs">
           There are no published updates at the moment. Check back soon.
         </p>
       </div>

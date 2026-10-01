@@ -28,7 +28,19 @@
   const showResultsModal = ref(false)
 
   const logContainer = ref<HTMLElement | null>(null)
+  const terminalInputRef = ref<HTMLInputElement | null>(null)
   let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  // Real Terminal Controls & CLI State
+  const terminalInput = ref('')
+  const commandHistory = ref<string[]>([])
+  const historyIndex = ref(-1)
+  const isAutoScrollEnabled = ref(true)
+  const isTerminalFullscreen = ref(false)
+  const localSessionLogs = ref<string[]>([
+    'System initialized: dermassist-ai-runtime v2.4.0 (PyTorch 2.x)',
+    'Type "help" to list available commands, or "train" to start pipeline.'
+  ])
 
   const isTrainingActive = computed(() => {
     const s = trainingStatus.value?.status
@@ -189,16 +201,11 @@
       trainingStatus.value = res
 
       await nextTick()
-      if (logContainer.value) {
+      if (isAutoScrollEnabled.value && logContainer.value) {
         logContainer.value.scrollTop = logContainer.value.scrollHeight
       }
 
-      if (
-        res.status === 'completed' ||
-        res.status === 'failed' ||
-        res.status === 'cancelled' ||
-        res.status === 'idle'
-      ) {
+      if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
         stopPolling()
         if (res.status === 'completed') {
           try {
@@ -281,7 +288,6 @@
       toast.info('Training cancellation requested.')
       showCancelConfirm.value = false
       await pollStatus()
-      startPolling()
     } catch (err: any) {
       const errorMsg =
         err?.data?.message ||
@@ -295,12 +301,195 @@
     }
   }
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds || seconds <= 0) return '0s'
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    if (m === 0) return `${s}s`
-    return `${m}m ${s}s`
+  // Unified terminal display logs
+  const displayedTerminalLogs = computed(() => {
+    const backendLogs = trainingStatus.value?.logs || []
+    if (backendLogs.length === 0) {
+      return localSessionLogs.value
+    }
+    // Return backend logs combined with any user executed commands that occurred
+    return backendLogs
+  })
+
+  const scrollToBottom = () => {
+    if (isAutoScrollEnabled.value && logContainer.value) {
+      logContainer.value.scrollTop = logContainer.value.scrollHeight
+    }
+  }
+
+  const toggleAutoScroll = () => {
+    isAutoScrollEnabled.value = !isAutoScrollEnabled.value
+    if (isAutoScrollEnabled.value) {
+      scrollToBottom()
+      toast.success('Terminal auto-scroll enabled')
+    } else {
+      toast.info('Terminal auto-scroll paused')
+    }
+  }
+
+  const toggleFullscreen = () => {
+    isTerminalFullscreen.value = !isTerminalFullscreen.value
+    nextTick(() => {
+      scrollToBottom()
+      terminalInputRef.value?.focus()
+    })
+  }
+
+  const copyTerminalOutput = async () => {
+    const logs = displayedTerminalLogs.value.join('\n')
+    try {
+      await navigator.clipboard.writeText(logs)
+      toast.success('Terminal output copied to clipboard!')
+    } catch {
+      toast.error('Failed to copy terminal logs.')
+    }
+  }
+
+  const clearTerminalBuffer = () => {
+    localSessionLogs.value = [
+      'Console buffer cleared.',
+      'Type "help" to list available commands, or "train" to start pipeline.'
+    ]
+    if (trainingStatus.value) {
+      trainingStatus.value.logs = []
+    }
+    toast.success('Terminal buffer cleared.')
+  }
+
+  const executeTerminalCommand = async () => {
+    const rawCmd = terminalInput.value.trim()
+    if (!rawCmd) return
+
+    // Push to history
+    commandHistory.value.push(rawCmd)
+    historyIndex.value = commandHistory.value.length
+    terminalInput.value = ''
+
+    const logPrompt = `dermassist@ai-worker:~/algorithms$ ${rawCmd}`
+    const pushLog = (line: string) => {
+      if (trainingStatus.value?.logs) {
+        trainingStatus.value.logs.push(line)
+      } else {
+        localSessionLogs.value.push(line)
+      }
+    }
+
+    pushLog(logPrompt)
+
+    const parts = rawCmd.split(' ')
+    const cmd = parts[0].toLowerCase()
+    const arg1 = parts[1]
+
+    if (cmd === 'clear' || cmd === 'cls') {
+      clearTerminalBuffer()
+      return
+    }
+
+    if (cmd === 'help') {
+      pushLog('================== DERMASSIST CLI HELP ==================')
+      pushLog('  train [epochs]     Start multi-model retraining (default: 3)')
+      pushLog('  stop / cancel      Stop the running training pipeline')
+      pushLog('  status             Display current pipeline training metrics')
+      pushLog('  models             List available production .pth checkpoints')
+      pushLog('  sync               Synchronize new patient clinical scans')
+      pushLog('  device             Show compute hardware device (CPU/CUDA)')
+      pushLog('  history            View loss and accuracy training progression')
+      pushLog('  stats              Show gathered dataset counts & classes')
+      pushLog('  clear              Clear the terminal buffer')
+      pushLog('=========================================================')
+    } else if (cmd === 'train' || cmd === 'retrain') {
+      if (isTrainingActive.value) {
+        pushLog('❌ Error: A training pipeline is already active.')
+      } else {
+        const ep = arg1 && !isNaN(Number(arg1)) ? Number(arg1) : Number(selectedEpochs.value)
+        pushLog(`🚀 Triggering Tri-Model retraining for ${ep} epoch(s) per model...`)
+        selectedEpochs.value = ep
+        await handleStartTraining()
+      }
+    } else if (cmd === 'stop' || cmd === 'cancel') {
+      if (!isTrainingActive.value) {
+        pushLog('ℹ No active training pipeline running.')
+      } else {
+        pushLog('🛑 Submitting cancellation signal to Python background worker...')
+        await handleExecuteCancel()
+      }
+    } else if (cmd === 'status') {
+      const s = trainingStatus.value
+      pushLog(`[STATUS] State: ${(s?.status || 'idle').toUpperCase()}`)
+      pushLog(`[STATUS] Active Backbone: ${s?.architecture || 'None'}`)
+      pushLog(`[STATUS] Overall Progress: ${s?.progress ?? 0}%`)
+      pushLog(`[STATUS] Current Batch: ${s?.current_batch ?? 0} / ${s?.total_batches ?? 0}`)
+      pushLog(
+        `[STATUS] Train Loss: ${s?.train_loss ?? '0.0000'} | Train Acc: ${s?.train_acc ?? '0.00'}%`
+      )
+      pushLog(
+        `[STATUS] Val Acc: ${s?.val_acc ?? '0.00'}% | Baseline: ${s?.baseline_val_acc ?? '0.00'}%`
+      )
+      pushLog(
+        `[STATUS] Elapsed: ${formatDuration(s?.elapsed_seconds)} | Remaining: ~${formatDuration(s?.eta_seconds)}`
+      )
+    } else if (cmd === 'models') {
+      const files = stats.value?.ai_service.models_available || [
+        'best_model_swin_transformer.pth',
+        'best_model_resnet50.pth',
+        'best_model_efficientnet_v2.pth'
+      ]
+      pushLog('--- Deployed Production Model Weights ---')
+      files.forEach(f => {
+        pushLog(`  • models/production/${f} [Active Checkpoint]`)
+      })
+    } else if (cmd === 'device') {
+      pushLog('Compute Target: CPU / CUDA Hardware Accelerator')
+      pushLog('Torch Backend: PyTorch 2.x (Optimized float32 / Autocast)')
+      pushLog('Ensemble Mode: Consensus Voting (Swin + ResNet50 + EfficientNet-V2)')
+    } else if (cmd === 'sync') {
+      pushLog('Synchronizing new patient clinical scans from Laravel storage...')
+      await handleSyncDataset()
+    } else if (cmd === 'stats') {
+      const g = stats.value?.gathered_dataset
+      const a = stats.value?.ai_service
+      pushLog(`Baseline Dataset Images: ${a?.total_baseline_images ?? 15719}`)
+      pushLog(
+        `Gathered Clinical Scans : ${g?.total ?? 0} (Acne: ${g?.by_category?.acne ?? 0}, Eczema: ${g?.by_category?.eczema ?? 0}, Herpes: ${g?.by_category?.herpes ?? 0})`
+      )
+      pushLog(`Untrained Scans Pending: ${g?.untrained_count ?? 0}`)
+    } else if (cmd === 'history') {
+      const hist = trainingStatus.value?.history
+      if (!hist || hist.train_loss.length === 0) {
+        pushLog('No historical epoch metrics recorded for current session yet.')
+      } else {
+        pushLog('Epoch | Train Loss | Train Acc | Val Loss | Val Acc')
+        pushLog('------+------------+-----------+----------+--------')
+        for (let i = 0; i < hist.train_loss.length; i++) {
+          pushLog(
+            ` ${i + 1}    |   ${hist.train_loss[i]}   |  ${hist.train_acc[i]}%  |  ${hist.val_loss[i]}  | ${hist.val_acc[i]}%`
+          )
+        }
+      }
+    } else {
+      pushLog(`bash: command not found: ${cmd}. Type "help" for a list of valid commands.`)
+    }
+
+    await nextTick()
+    scrollToBottom()
+  }
+
+  const navigateHistory = (direction: 'up' | 'down') => {
+    if (commandHistory.value.length === 0) return
+    if (direction === 'up') {
+      if (historyIndex.value > 0) {
+        historyIndex.value--
+        terminalInput.value = commandHistory.value[historyIndex.value]
+      }
+    } else if (direction === 'down') {
+      if (historyIndex.value < commandHistory.value.length - 1) {
+        historyIndex.value++
+        terminalInput.value = commandHistory.value[historyIndex.value]
+      } else {
+        historyIndex.value = commandHistory.value.length
+        terminalInput.value = ''
+      }
+    }
   }
 
   onMounted(() => {
@@ -327,7 +516,21 @@
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <NuxtLink to="/admin/ai/expansion">
+          <AppButton
+            variant="outline"
+            class="gap-2 font-medium"
+          >
+            <Icon
+              name="lucide:flask-conical"
+              size="16"
+              class="text-violet-500"
+            />
+            Train with New Disease
+          </AppButton>
+        </NuxtLink>
+
         <AppButton
           variant="outline"
           class="gap-2"
@@ -358,15 +561,13 @@
           v-if="isTrainingActive"
           variant="destructive"
           class="gap-2 shadow-sm"
-          :loading="isCancellingActive || isCancelling"
-          :disabled="isCancellingActive || isCancelling"
           @click="confirmCancelTraining"
         >
           <Icon
             name="lucide:square"
             size="16"
           />
-          {{ isCancellingActive ? 'Stopping...' : 'Stop Pipeline' }}
+          Stop Pipeline
         </AppButton>
       </div>
     </div>
@@ -574,19 +775,6 @@
             variant="solid"
           >
             Evaluating Checkpoint
-          </AppBadge>
-          <AppBadge
-            v-else-if="trainingStatus?.status === 'cancelling'"
-            color="warning"
-            variant="subtle"
-            class="gap-1"
-          >
-            <Icon
-              name="lucide:loader-2"
-              size="12"
-              class="animate-spin"
-            />
-            Stopping...
           </AppBadge>
           <AppBadge
             v-else-if="trainingStatus?.status === 'completed'"
@@ -1095,81 +1283,277 @@
 
       <!-- Right Column: Terminal Activity Console (7 cols) -->
       <div class="space-y-6 lg:col-span-7">
-        <!-- Monospace Console -->
+        <!-- Monospace Console (Normal or Fullscreen) -->
         <div
-          class="flex h-[520px] flex-col overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-950 shadow-xl"
+          class="flex flex-col overflow-hidden rounded-3xl border border-zinc-800/90 bg-zinc-950 shadow-2xl transition-all duration-300"
+          :class="
+            isTerminalFullscreen
+              ? 'fixed inset-4 z-50 h-[calc(100vh-2rem)] shadow-2xl ring-1 ring-zinc-700'
+              : 'h-[560px]'
+          "
         >
-          <!-- Console Top Bar -->
+          <!-- Console Window Top Bar (Authentic Unix/macOS Chrome) -->
           <div
-            class="flex items-center justify-between border-b border-zinc-800 bg-zinc-900/90 px-5 py-3.5"
+            class="flex items-center justify-between border-b border-zinc-800/90 bg-zinc-900/95 px-4 py-3 select-none"
           >
-            <div class="flex items-center gap-2.5">
-              <span class="ml-2 flex items-center gap-2 font-mono text-xs font-bold text-zinc-300">
-                <Icon
-                  name="lucide:terminal"
-                  size="14"
-                  class="text-emerald-400"
-                />
-                Python Training Activity Console
-              </span>
+            <!-- Left: Traffic Lights & Terminal Shell Title -->
+            <div class="flex items-center gap-3">
+              <!-- Window Traffic Light Buttons -->
+              <div class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  title="Close / Clear Terminal Buffer"
+                  class="h-3 w-3 cursor-pointer rounded-full bg-red-500/80 transition-transform hover:bg-red-500 hover:brightness-110 active:scale-95"
+                  @click="clearTerminalBuffer"
+                ></button>
+                <button
+                  type="button"
+                  title="Toggle Auto-Scroll"
+                  class="h-3 w-3 cursor-pointer rounded-full bg-amber-500/80 transition-transform hover:bg-amber-500 hover:brightness-110 active:scale-95"
+                  @click="toggleAutoScroll"
+                ></button>
+                <button
+                  type="button"
+                  title="Toggle Fullscreen Terminal"
+                  class="h-3 w-3 cursor-pointer rounded-full bg-emerald-500/80 transition-transform hover:bg-emerald-500 hover:brightness-110 active:scale-95"
+                  @click="toggleFullscreen"
+                ></button>
+              </div>
+
+              <!-- Terminal Shell Identification Tab -->
+              <div class="flex items-center gap-2 border-l border-zinc-800 pl-2 font-mono text-xs">
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-md bg-zinc-800/80 px-2 py-0.5 text-[11px] font-medium text-zinc-300"
+                >
+                  <Icon
+                    name="lucide:terminal"
+                    size="13"
+                    class="text-emerald-400"
+                  />
+                  dermassist-ai-worker (pty/0)
+                </span>
+                <span
+                  class="flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase"
+                  :class="
+                    isTrainingActive
+                      ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                      : 'bg-zinc-800/50 text-zinc-400'
+                  "
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full"
+                    :class="isTrainingActive ? 'animate-pulse bg-emerald-400' : 'bg-zinc-500'"
+                  ></span>
+                  {{
+                    isTrainingActive ? (trainingStatus?.status || 'Active').toUpperCase() : 'IDLE'
+                  }}
+                </span>
+              </div>
             </div>
 
-            <div class="flex items-center gap-3">
-              <span class="font-mono text-[11px] text-zinc-500">
-                {{ trainingStatus?.logs?.length ?? 0 }} lines
-              </span>
+            <!-- Right: Utility Controls (Auto-Scroll, Copy, Clear, Fullscreen, Stop) -->
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <!-- Auto-Scroll Toggle -->
+              <button
+                type="button"
+                :title="
+                  isAutoScrollEnabled
+                    ? 'Auto-scroll is ON (Click to Pause)'
+                    : 'Auto-scroll is PAUSED (Click to Resume)'
+                "
+                class="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 font-mono text-[11px] font-medium transition-all"
+                :class="
+                  isAutoScrollEnabled
+                    ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                    : 'border border-zinc-700 bg-zinc-800 text-zinc-400'
+                "
+                @click="toggleAutoScroll"
+              >
+                <Icon
+                  :name="isAutoScrollEnabled ? 'lucide:arrow-down-to-line' : 'lucide:pause'"
+                  size="12"
+                />
+                <span class="hidden sm:inline">{{
+                  isAutoScrollEnabled ? 'Auto-Scroll' : 'Paused'
+                }}</span>
+              </button>
+
+              <!-- Copy Output -->
+              <button
+                type="button"
+                title="Copy Terminal Output"
+                class="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700/80 bg-zinc-800/70 p-1.5 font-mono text-[11px] text-zinc-300 transition-colors hover:bg-zinc-800 sm:px-2 sm:py-1"
+                @click="copyTerminalOutput"
+              >
+                <Icon
+                  name="lucide:copy"
+                  size="12"
+                />
+                <span class="hidden sm:inline">Copy</span>
+              </button>
+
+              <!-- Clear Buffer -->
+              <button
+                type="button"
+                title="Clear Output Buffer"
+                class="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700/80 bg-zinc-800/70 p-1.5 font-mono text-[11px] text-zinc-300 transition-colors hover:bg-zinc-800 sm:px-2 sm:py-1"
+                @click="clearTerminalBuffer"
+              >
+                <Icon
+                  name="lucide:trash-2"
+                  size="12"
+                />
+                <span class="hidden sm:inline">Clear</span>
+              </button>
+
+              <!-- Fullscreen Toggle -->
+              <button
+                type="button"
+                :title="isTerminalFullscreen ? 'Exit Fullscreen' : 'Expand Fullscreen'"
+                class="flex cursor-pointer items-center gap-1 rounded-lg border border-zinc-700/80 bg-zinc-800/70 p-1.5 font-mono text-[11px] text-zinc-300 transition-colors hover:bg-zinc-800 sm:px-2 sm:py-1"
+                @click="toggleFullscreen"
+              >
+                <Icon
+                  :name="isTerminalFullscreen ? 'lucide:minimize-2' : 'lucide:maximize-2'"
+                  size="12"
+                />
+              </button>
+
+              <!-- Stop Training Button -->
               <button
                 v-if="isTrainingActive"
                 type="button"
-                class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 font-mono text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                class="ml-1 flex cursor-pointer items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 font-mono text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/20"
                 @click="confirmCancelTraining"
               >
                 <Icon
                   name="lucide:square"
                   size="12"
                 />
-                Stop Pipeline
+                <span class="font-bold">Stop</span>
               </button>
             </div>
           </div>
 
-          <!-- Console Output Box -->
+          <!-- Console Output Box (Monospace Stream) -->
           <div
             ref="logContainer"
-            class="scrollbar-thin scrollbar-thumb-zinc-800 flex-1 space-y-1.5 overflow-y-auto p-5 font-mono text-xs text-zinc-300 select-text"
+            class="scrollbar-thin scrollbar-thumb-zinc-800 flex-1 space-y-1 overflow-y-auto p-4 font-mono text-[12px] text-zinc-300 select-text sm:p-5 sm:text-xs"
           >
+            <!-- Welcome Terminal Banner -->
             <div
-              v-if="!trainingStatus?.logs || trainingStatus.logs.length === 0"
-              class="py-4 text-zinc-500 italic"
+              class="space-y-0.5 border-b border-zinc-900 pb-2 text-[11px] text-zinc-500 select-none"
             >
-              Terminal idle. Click "Start Retraining" to stream live batch outputs and validation
-              metrics...
+              <div>Linux ai-worker 6.5.0-x86_64 #1 SMP PREEMPT DermAssist GNU/Linux</div>
+              <div>
+                Connected to PyTorch GPU/CPU worker at
+                <span class="text-zinc-400">127.0.0.1:8001</span>
+              </div>
+              <div class="pt-1 text-emerald-400/90">
+                Type <code class="rounded bg-zinc-900 px-1 py-0.5 text-emerald-300">help</code> for
+                commands or
+                <code class="rounded bg-zinc-900 px-1 py-0.5 text-emerald-300">train 3</code> to
+                launch pipeline.
+              </div>
             </div>
+
+            <!-- Terminal Output Lines -->
             <div
-              v-for="(log, idx) in trainingStatus?.logs"
+              v-for="(log, idx) in displayedTerminalLogs"
               :key="idx"
-              class="leading-relaxed break-words"
+              class="font-mono leading-relaxed break-all"
               :class="{
-                'font-bold text-emerald-400':
-                  log.includes('SUCCESS') || log.includes('PASSED') || log.includes('promoted'),
+                'font-semibold text-emerald-400':
+                  log.includes('SUCCESS') ||
+                  log.includes('PASSED') ||
+                  log.includes('promoted') ||
+                  log.includes('🚀 Deployed'),
                 'text-amber-400':
                   log.includes('VALIDATION GUARD') ||
                   log.includes('PREVENTED') ||
-                  log.includes('cancelling'),
-                'font-bold text-red-400': log.includes('failed') || log.includes('ERROR'),
-                'text-cyan-400': log.includes('Epoch')
+                  log.includes('cancelling') ||
+                  log.includes('GUARD PRESERVED'),
+                'font-semibold text-red-400':
+                  log.includes('failed') || log.includes('ERROR') || log.includes('❌'),
+                'font-medium text-cyan-400': log.includes('[STEP]') || log.includes('Epoch'),
+                'text-primary font-bold': log.includes('dermassist@ai-worker'),
+                'font-bold text-purple-400': log.includes('TRAINING BACKBONE'),
+                'text-zinc-400':
+                  !log.includes('SUCCESS') &&
+                  !log.includes('PASSED') &&
+                  !log.includes('failed') &&
+                  !log.includes('[STEP]') &&
+                  !log.includes('TRAINING BACKBONE')
               }"
             >
-              {{ log }}
+              <span
+                v-if="log.startsWith('dermassist@ai-worker')"
+                class="font-bold text-emerald-400"
+                >$
+              </span>
+              {{
+                log.startsWith('dermassist@ai-worker')
+                  ? log.replace('dermassist@ai-worker:~/algorithms$ ', '')
+                  : log
+              }}
             </div>
+
+            <!-- Live Active Cursor Indicator when Training is running -->
+            <div
+              v-if="isTrainingActive"
+              class="text-primary flex items-center gap-2 pt-1 font-mono text-xs"
+            >
+              <span class="inline-block h-4 w-2 animate-pulse bg-emerald-400"></span>
+              <span class="text-[11px] text-zinc-500"
+                >Training worker executing in background...</span
+              >
+            </div>
+          </div>
+
+          <!-- Interactive Terminal Prompt Input Bar -->
+          <div
+            class="flex items-center gap-2 border-t border-zinc-800 bg-zinc-900/95 px-4 py-2.5 font-mono text-xs"
+          >
+            <span class="hidden font-bold text-emerald-400 select-none sm:inline"
+              >dermassist@ai-worker:~/algorithms$</span
+            >
+            <span class="font-bold text-emerald-400 select-none sm:hidden">$</span>
+            <input
+              ref="terminalInputRef"
+              v-model="terminalInput"
+              type="text"
+              placeholder="type 'help', 'status', 'train', 'models', or 'clear'..."
+              class="flex-1 bg-transparent font-mono text-xs text-zinc-100 caret-emerald-400 placeholder:text-zinc-600 focus:outline-none"
+              @keydown.enter.prevent="executeTerminalCommand"
+              @keydown.up.prevent="navigateHistory('up')"
+              @keydown.down.prevent="navigateHistory('down')"
+            />
+            <button
+              type="button"
+              class="cursor-pointer rounded bg-zinc-800 px-2.5 py-1 font-mono text-[11px] text-zinc-300 transition-colors select-none hover:bg-zinc-700"
+              @click="executeTerminalCommand"
+            >
+              Enter
+            </button>
           </div>
 
           <!-- Console Footer Bar -->
           <div
-            class="flex items-center justify-between border-t border-zinc-800/80 bg-zinc-900/60 px-5 py-2.5 font-mono text-[11px] text-zinc-500"
+            class="flex items-center justify-between border-t border-zinc-900 bg-zinc-950 px-4 py-2 font-mono text-[11px] text-zinc-500 select-none"
           >
-            <span>Non-blocking FastAPI background worker</span>
-            <span>Hot-reload enabled</span>
+            <span class="flex items-center gap-1.5">
+              <Icon
+                name="lucide:cpu"
+                size="12"
+                class="text-zinc-400"
+              />
+              <span>Non-blocking FastAPI Worker</span>
+            </span>
+            <span class="flex items-center gap-2">
+              <span>{{ displayedTerminalLogs.length }} lines</span>
+              <span class="text-zinc-700">•</span>
+              <span class="text-emerald-500/80">Hot-reload Active</span>
+            </span>
           </div>
         </div>
 

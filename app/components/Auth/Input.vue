@@ -40,7 +40,10 @@
         :aria-describedby="error ? `${id}-error` : undefined"
       />
 
-      <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+      <AppButton
+        variant="unstyled"
+        size="unstyled"
+        rounded="unstyled"
         v-if="type === 'password'"
         type="button"
         @click="togglePassword"

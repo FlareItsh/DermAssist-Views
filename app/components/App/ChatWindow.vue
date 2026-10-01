@@ -46,13 +46,14 @@
   }
   const userRole = useCookie('user_role')
   const { appointments, fetchAppointments } = useAppointments()
-  
+
   const activeAppointment = computed(() => {
     if (!props.conversation) return null
-    return appointments.value.find(a => 
-      a.conversation_uuid === props.conversation.uuid || 
-      a.id === props.conversation.id ||
-      a.id === props.conversation.uuid
+    return appointments.value.find(
+      a =>
+        a.conversation_uuid === props.conversation.uuid ||
+        a.id === props.conversation.id ||
+        a.id === props.conversation.uuid
     )
   })
 
@@ -90,7 +91,12 @@
   >
     <div class="border-border flex items-center justify-between border-b px-8 py-6">
       <h2 class="text-foreground text-3xl font-bold">{{ conversation.name }}</h2>
-      <AppButton variant="unstyled" size="unstyled" rounded="unstyled" class="text-foreground/40 hover:text-primary cursor-pointer transition-colors">
+      <AppButton
+        variant="unstyled"
+        size="unstyled"
+        rounded="unstyled"
+        class="text-foreground/40 hover:text-primary cursor-pointer transition-colors"
+      >
         <Icon
           name="solar:menu-dots-vertical-bold"
           class="text-3xl"
@@ -99,35 +105,60 @@
     </div>
 
     <!-- Active Appointment Bar -->
-    <div v-if="activeAppointment && activeAppointment.status === 'scheduled'" 
-      class="border-b p-4 flex items-center justify-between transition-all"
+    <div
+      v-if="activeAppointment && activeAppointment.status === 'scheduled'"
+      class="flex items-center justify-between border-b p-4 transition-all"
       :class="[
-        isToday(activeAppointment.date) 
-          ? 'bg-amber-50 border-amber-100' 
-          : 'bg-indigo-50 border-indigo-100'
+        isToday(activeAppointment.date)
+          ? 'border-amber-100 bg-amber-50'
+          : 'border-indigo-100 bg-indigo-50'
       ]"
     >
       <div class="flex items-center gap-3">
-        <div class="p-2 rounded-full" :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'">
-          <Icon 
-            :name="isToday(activeAppointment.date) ? 'material-symbols:alarm-on-outline-rounded' : 'material-symbols:calendar-clock-outline-rounded'" 
+        <div
+          class="rounded-full p-2"
+          :class="isToday(activeAppointment.date) ? 'bg-amber-100' : 'bg-indigo-100'"
+        >
+          <Icon
+            :name="
+              isToday(activeAppointment.date)
+                ? 'material-symbols:alarm-on-outline-rounded'
+                : 'material-symbols:calendar-clock-outline-rounded'
+            "
             class="text-xl"
             :class="isToday(activeAppointment.date) ? 'text-amber-600' : 'text-indigo-600'"
           />
         </div>
         <div>
-          <p class="text-sm font-bold" :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'">
+          <p
+            class="text-sm font-bold"
+            :class="isToday(activeAppointment.date) ? 'text-amber-900' : 'text-indigo-900'"
+          >
             {{ isToday(activeAppointment.date) ? 'Appointment Today!' : 'Upcoming Appointment' }}
           </p>
-          <p class="text-xs font-medium" :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'">
-            {{ isToday(activeAppointment.date) ? 'Your appointment is scheduled for today' : activeAppointment.date }} at {{ activeAppointment.time }}
+          <p
+            class="text-xs font-medium"
+            :class="isToday(activeAppointment.date) ? 'text-amber-700' : 'text-indigo-700'"
+          >
+            {{
+              isToday(activeAppointment.date)
+                ? 'Your appointment is scheduled for today'
+                : activeAppointment.date
+            }}
+            at {{ activeAppointment.time }}
           </p>
         </div>
       </div>
-      
+
       <div v-if="userRole?.toLowerCase() === 'doctor'">
-        <AppButton @click="showCompleteConfirm = true" class="bg-indigo-600 text-white px-6 py-2 rounded-xl text-sm font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
-          <Icon name="material-symbols:check-circle-rounded" class="text-lg" />
+        <AppButton
+          @click="showCompleteConfirm = true"
+          class="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 hover:shadow-lg"
+        >
+          <Icon
+            name="material-symbols:check-circle-rounded"
+            class="text-lg"
+          />
           Mark as Accomplished
         </AppButton>
       </div>
@@ -172,7 +203,10 @@
         ></textarea>
 
         <div class="absolute top-1/2 left-6 -translate-y-1/2">
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             class="text-foreground/30 hover:text-primary flex cursor-pointer items-center justify-center transition-colors"
           >
             <Icon
@@ -183,7 +217,10 @@
         </div>
 
         <div class="absolute top-1/2 right-6 -translate-y-1/2">
-          <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
+          <AppButton
+            variant="unstyled"
+            size="unstyled"
+            rounded="unstyled"
             @click="sendMessage"
             class="text-foreground/40 hover:text-primary group-focus-within:text-primary flex cursor-pointer items-center justify-center p-2 transition-colors"
           >
@@ -217,14 +254,20 @@
         class="bg-foreground/40 fixed inset-0 z-[1000] flex items-center justify-center p-4"
         @click.self="showCompleteConfirm = false"
       >
-        <div class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl">
+        <div
+          class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl"
+        >
           <div class="mb-6 flex flex-col items-center text-center">
-            <div class="bg-indigo-100 mb-4 flex h-16 w-16 items-center justify-center rounded-full">
-              <Icon name="material-symbols:check-circle-outline-rounded" class="text-4xl text-indigo-600" />
+            <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100">
+              <Icon
+                name="material-symbols:check-circle-outline-rounded"
+                class="text-4xl text-indigo-600"
+              />
             </div>
             <h3 class="text-2xl font-bold">Complete Appointment?</h3>
             <p class="text-foreground/60 mt-2">
-              Are you sure you want to mark this appointment as completed? This will move it to the patient's records.
+              Are you sure you want to mark this appointment as completed? This will move it to the
+              patient's records.
             </p>
           </div>
 
@@ -239,7 +282,7 @@
             </AppButton>
             <AppButton
               variant="unstyled"
-              class="bg-foreground/5 text-foreground/70 font-bold transition-all hover:bg-foreground/10"
+              class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
               @click="showCompleteConfirm = false"
             >
               Cancel

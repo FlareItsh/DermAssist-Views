@@ -18,19 +18,19 @@
       <div
         class="bg-primary flex h-full w-[520px] flex-col justify-center rounded-t-3xl border-x border-t border-white/10 px-8"
       >
-          <div class="flex items-center gap-4 min-w-0">
-            <slot name="image" />
-            <div class="flex flex-col min-w-0">
-              <span 
-                class="block text-[13px] uppercase truncate"
-                :class="isUrgent ? 'text-red-500 font-medium' : 'text-white/50 font-bold'"
-              >
-                {{ time }}
-              </span>
-              <h3 class="mt-1 truncate text-lg font-bold text-white">{{ title }}</h3>
-            </div>
+        <div class="flex min-w-0 items-center gap-4">
+          <slot name="image" />
+          <div class="flex min-w-0 flex-col">
+            <span
+              class="block truncate text-[13px] uppercase"
+              :class="isUrgent ? 'font-medium text-red-500' : 'font-bold text-white/50'"
+            >
+              {{ time }}
+            </span>
+            <h3 class="mt-1 truncate text-lg font-bold text-white">{{ title }}</h3>
           </div>
-          <slot name="actions" />
+        </div>
+        <slot name="actions" />
       </div>
 
       <div class="-ml-px h-16 w-16">

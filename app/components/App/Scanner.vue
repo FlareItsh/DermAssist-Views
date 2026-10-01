@@ -3,7 +3,16 @@
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { toast } from 'vue-sonner'
 
-  const { isScanning, isScanned, setDiagnosis, clearDiagnosis, qualityError, previewImage, selectedFile, patientUuid } = useDiagnosis()
+  const {
+    isScanning,
+    isScanned,
+    setDiagnosis,
+    clearDiagnosis,
+    qualityError,
+    previewImage,
+    selectedFile,
+    patientUuid
+  } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
   const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -19,7 +28,7 @@
     termsInitialTab.value = tab
     showTermsModal.value = true
   }
-  
+
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
   let wasOnBeforeHidden = true
@@ -64,7 +73,7 @@
     isScanned.value = false
     uploadQualityWarning.value = null
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = e => {
       previewImage.value = e.target?.result as string
       analyzeUploadedImageQuality(previewImage.value)
     }
@@ -132,24 +141,34 @@
             const ctx = canvas.getContext('2d')
             if (!ctx) throw new Error('Canvas context unavailable')
             ctx.drawImage(img, 0, 0)
-            canvas.toBlob((blob) => {
-              toast.dismiss(toastId)
-              if (blob) {
-                const file = new File([blob], 'dropped-image.jpg', { type: 'image/jpeg' })
-                toast.success('Image loaded from link successfully!')
-                processImageFile(file)
-              } else {
-                toast.error('Could not extract image from link. Please save and drop the image file.')
-              }
-            }, 'image/jpeg', 0.9)
+            canvas.toBlob(
+              blob => {
+                toast.dismiss(toastId)
+                if (blob) {
+                  const file = new File([blob], 'dropped-image.jpg', { type: 'image/jpeg' })
+                  toast.success('Image loaded from link successfully!')
+                  processImageFile(file)
+                } else {
+                  toast.error(
+                    'Could not extract image from link. Please save and drop the image file.'
+                  )
+                }
+              },
+              'image/jpeg',
+              0.9
+            )
           } catch (canvasErr) {
             toast.dismiss(toastId)
-            toast.error('Direct link access is protected by CORS. Please right-click > "Save Image As" and drop the file.')
+            toast.error(
+              'Direct link access is protected by CORS. Please right-click > "Save Image As" and drop the file.'
+            )
           }
         }
         img.onerror = () => {
           toast.dismiss(toastId)
-          toast.error('Unable to load image from URL. Please save the image and drop the file directly.')
+          toast.error(
+            'Unable to load image from URL. Please save the image and drop the file directly.'
+          )
         }
         img.src = url
       } catch (fallbackErr) {
@@ -201,7 +220,11 @@
     const textData = dataTransfer.getData('text/plain')
     if (textData) {
       const trimmed = textData.trim()
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('data:image/')
+      ) {
         await processImageUrl(trimmed)
         return
       }
@@ -260,10 +283,11 @@
   const startCamera = async () => {
     isCameraOn.value = true
     errorMessage.value = ''
-    await nextTick() 
-    
+    await nextTick()
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      errorMessage.value = 'Camera API not supported. You must access this app via HTTPS (secure connection) to use the camera.'
+      errorMessage.value =
+        'Camera API not supported. You must access this app via HTTPS (secure connection) to use the camera.'
       isCameraOn.value = false
       return
     }
@@ -274,7 +298,10 @@
           video: { facingMode: { ideal: 'user' } }
         })
       } catch (constraintErr) {
-        console.warn('Camera constraints failed, falling back to simple video stream:', constraintErr)
+        console.warn(
+          'Camera constraints failed, falling back to simple video stream:',
+          constraintErr
+        )
         stream = await navigator.mediaDevices.getUserMedia({ video: true })
       }
 
@@ -298,7 +325,14 @@
   const startQualityLoop = () => {
     if (qualityCheckInterval) clearInterval(qualityCheckInterval)
     qualityCheckInterval = setInterval(() => {
-      if (!videoRef.value || !canvasRef.value || isScanning.value || !isCameraOn.value || previewImage.value) return
+      if (
+        !videoRef.value ||
+        !canvasRef.value ||
+        isScanning.value ||
+        !isCameraOn.value ||
+        previewImage.value
+      )
+        return
       const v = videoRef.value
       const c = canvasRef.value
       const ctx = c.getContext('2d', { willReadFrequently: true })
@@ -331,7 +365,11 @@
     img.src = dataUrl
   }
 
-  const validateImageQuality = (ctx: CanvasRenderingContext2D, width: number, height: number): string | null => {
+  const validateImageQuality = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ): string | null => {
     const imageData = ctx.getImageData(0, 0, width, height)
     const data = imageData.data
     let totalLum = 0
@@ -342,11 +380,11 @@
       const r = (data as any)[i]
       const g = (data as any)[i + 1]
       const b = (data as any)[i + 2]
-      totalLum += (0.299 * r + 0.587 * g + 0.114 * b)
+      totalLum += 0.299 * r + 0.587 * g + 0.114 * b
     }
 
     const avgLum = totalLum / pixelCount
-    
+
     // STRICTER BRIGHTNESS: From 30 -> 80
     if (avgLum < 80) return 'Too dark - use more light'
     // STRICTER GLARE: From 245 -> 230
@@ -362,7 +400,7 @@
 
     // STRICTER DETAIL: From 10 -> 20 (Ensures texture is visible)
     if (variance / (pixelCount / 2) < 20) return 'Get closer or fix focus...'
-    
+
     return null
   }
 
@@ -377,31 +415,35 @@
 
     // Case 2: Capturing from live camera
     if (!videoRef.value || !canvasRef.value || qualityError.value || !isCameraOn.value) return
-    
+
     const video = videoRef.value
     const canvas = canvasRef.value
     const context = canvas.getContext('2d', { willReadFrequently: true })
     if (!context) return
-    
+
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
-    
+
     context.save()
     context.scale(-1, 1)
     context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
     context.restore()
-    
+
     previewImage.value = canvas.toDataURL('image/jpeg')
     stopCamera()
     isCameraOn.value = false
-    
-    canvas.toBlob(async (blob) => {
-      if (blob) {
-        const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' })
-        selectedFile.value = file
-        await performDiagnosis(file)
-      }
-    }, 'image/jpeg', 0.85)
+
+    canvas.toBlob(
+      async blob => {
+        if (blob) {
+          const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' })
+          selectedFile.value = file
+          await performDiagnosis(file)
+        }
+      },
+      'image/jpeg',
+      0.85
+    )
   }
 
   const compressImage = (file: File): Promise<Blob> => {
@@ -426,10 +468,14 @@
         const ctx = canvas.getContext('2d')
         if (!ctx) return reject('Could not get canvas context')
         ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          if (blob) resolve(blob)
-          else reject('Compression failed')
-        }, 'image/jpeg', 0.85)
+        canvas.toBlob(
+          blob => {
+            if (blob) resolve(blob)
+            else reject('Compression failed')
+          },
+          'image/jpeg',
+          0.85
+        )
       }
       img.onerror = reject
       img.src = URL.createObjectURL(file)
@@ -439,7 +485,7 @@
   const performDiagnosis = async (file: File) => {
     isScanning.value = true
     errorMessage.value = ''
-    
+
     try {
       // Compress before sending
       const compressedBlob = await compressImage(file)
@@ -473,7 +519,7 @@
     stream = null
   }
 
-  watch(previewImage, (newVal) => {
+  watch(previewImage, newVal => {
     if (!newVal && !isScanning.value && !isCameraOn.value) {
       startCamera()
     }
@@ -496,7 +542,7 @@
     }
   }
 
-  onMounted(() => { 
+  onMounted(() => {
     if (!previewImage.value) {
       startCamera()
     } else {
@@ -504,35 +550,69 @@
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
   })
-  onUnmounted(() => { 
+  onUnmounted(() => {
     stopCamera()
     document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 </script>
 
 <template>
-  <section class="relative w-full h-full" aria-labelledby="scanner-heading">
-    <div class="bg-primary flex h-full flex-col overflow-hidden rounded-3xl transition-colors duration-500">
-      <div class="sm:mx-10 mb-1 flex flex-1 flex-col items-center min-h-0">
+  <section
+    class="relative h-full w-full"
+    aria-labelledby="scanner-heading"
+  >
+    <div
+      class="bg-primary flex h-full flex-col overflow-hidden rounded-3xl transition-colors duration-500"
+    >
+      <div class="mb-1 flex min-h-0 flex-1 flex-col items-center sm:mx-10">
         <h1
           id="scanner-heading"
-          class="bg-foreground mt-1 w-full max-w-[500px] min-h-[3.5rem] rounded-t-3xl px-4 sm:px-10 py-2 text-center text-2xl font-bold transition-all flex items-center justify-center"
-          :class="[qualityError || errorMessage || (!isCameraOn && !previewImage) ? 'text-destructive' : 'text-green-500']"
+          class="bg-foreground mt-1 flex min-h-[3.5rem] w-full max-w-[500px] items-center justify-center rounded-t-3xl px-4 py-2 text-center text-2xl font-bold transition-all sm:px-10"
+          :class="[
+            qualityError || errorMessage || (!isCameraOn && !previewImage)
+              ? 'text-destructive'
+              : 'text-green-500'
+          ]"
         >
-          <span v-if="isScanning" class="text-destructive uppercase tracking-widest animate-pulse">Analyzing Image...</span>
-          <span v-else-if="errorMessage" class="text-destructive">{{ errorMessage }}</span>
-          <span v-else-if="previewImage" class="text-green-500">Scan Captured</span>
-          <span v-else-if="!isCameraOn" class="text-destructive">Camera is Off</span>
+          <span
+            v-if="isScanning"
+            class="text-destructive animate-pulse tracking-widest uppercase"
+            >Analyzing Image...</span
+          >
+          <span
+            v-else-if="errorMessage"
+            class="text-destructive"
+            >{{ errorMessage }}</span
+          >
+          <span
+            v-else-if="previewImage"
+            class="text-green-500"
+            >Scan Captured</span
+          >
+          <span
+            v-else-if="!isCameraOn"
+            class="text-destructive"
+            >Camera is Off</span
+          >
           <span v-else-if="qualityError">{{ qualityError }}</span>
           <span v-else>Ready for Scan</span>
         </h1>
 
-        <input type="file" ref="fileInput" accept="image/*" class="hidden" @change="handleFileUpload" />
-        <canvas ref="canvasRef" class="hidden"></canvas>
+        <input
+          type="file"
+          ref="fileInput"
+          accept="image/*"
+          class="hidden"
+          @change="handleFileUpload"
+        />
+        <canvas
+          ref="canvasRef"
+          class="hidden"
+        ></canvas>
 
         <div
-          class="relative flex w-full flex-1 min-h-0 flex-col overflow-hidden rounded-3xl rounded-br-none bg-black transition-all duration-300"
-          :class="{ 'ring-4 ring-primary ring-inset': isDraggingOver }"
+          class="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-3xl rounded-br-none bg-black transition-all duration-300"
+          :class="{ 'ring-primary ring-4 ring-inset': isDraggingOver }"
           @dragenter="handleDragEnter"
           @dragover="handleDragOver"
           @dragleave="handleDragLeave"
@@ -541,23 +621,32 @@
           <!-- Drag & Drop Hover Overlay (Active when hovering file/image/link) -->
           <div
             v-if="isDraggingOver && !isScanning"
-            class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md border-4 border-dashed border-primary rounded-3xl m-2 animate-in fade-in zoom-in-95 duration-150 transition-all pointer-events-none"
+            class="border-primary animate-in fade-in zoom-in-95 pointer-events-none absolute inset-0 z-30 m-2 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 backdrop-blur-md transition-all duration-150"
           >
-            <div class="relative flex flex-col items-center p-6 text-center max-w-sm">
-              <div class="h-20 w-20 rounded-full bg-primary/20 text-primary flex items-center justify-center mb-4 ring-8 ring-primary/10 animate-bounce">
-                <Icon name="material-symbols:add-photo-alternate-rounded" class="text-4xl" />
+            <div class="relative flex max-w-sm flex-col items-center p-6 text-center">
+              <div
+                class="bg-primary/20 text-primary ring-primary/10 mb-4 flex h-20 w-20 animate-bounce items-center justify-center rounded-full ring-8"
+              >
+                <Icon
+                  name="material-symbols:add-photo-alternate-rounded"
+                  class="text-4xl"
+                />
               </div>
-              <h3 class="text-xl font-black text-white tracking-tight mb-1">
+              <h3 class="mb-1 text-xl font-black tracking-tight text-white">
                 Drop Image or Link Here
               </h3>
-              <p class="text-sm text-gray-300 leading-relaxed mb-4">
+              <p class="mb-4 text-sm leading-relaxed text-gray-300">
                 Release your image file or web link to load and analyze instantly
               </p>
               <div class="flex items-center gap-2">
-                <span class="text-[11px] font-bold uppercase tracking-wider bg-white/10 text-white/90 px-3 py-1 rounded-full border border-white/15">
+                <span
+                  class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold tracking-wider text-white/90 uppercase"
+                >
                   JPG, PNG, WEBP
                 </span>
-                <span class="text-[11px] font-bold uppercase tracking-wider bg-primary/20 text-primary px-3 py-1 rounded-full border border-primary/30">
+                <span
+                  class="bg-primary/20 text-primary border-primary/30 rounded-full border px-3 py-1 text-[11px] font-bold tracking-wider uppercase"
+                >
                   Image URLs & Links
                 </span>
               </div>
@@ -567,17 +656,20 @@
           <!-- Quality Warning Overlay for Uploaded Images (Augmented style) -->
           <div
             v-if="uploadQualityWarning && !isScanning"
-            class="absolute left-1/2 top-24 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-amber-500/30 bg-amber-950/80 p-4 text-white shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+            class="animate-in fade-in zoom-in-95 absolute top-24 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-amber-500/30 bg-amber-950/80 p-4 text-white shadow-2xl backdrop-blur-md duration-200"
           >
             <div class="flex items-start gap-3">
               <Icon
                 name="material-symbols:warning-outline-rounded"
-                class="text-amber-400 text-2xl shrink-0 mt-0.5"
+                class="mt-0.5 shrink-0 text-2xl text-amber-400"
               />
               <div class="flex-1">
-                <h4 class="font-bold text-sm text-amber-200">Quality Warning: {{ uploadQualityWarning }}</h4>
-                <p class="text-xs text-amber-100/80 mt-1 leading-relaxed">
-                  This image has quality issues which may lead to lower scan accuracy. For best results, we recommend uploading a clearer, well-lit, close-up photo.
+                <h4 class="text-sm font-bold text-amber-200">
+                  Quality Warning: {{ uploadQualityWarning }}
+                </h4>
+                <p class="mt-1 text-xs leading-relaxed text-amber-100/80">
+                  This image has quality issues which may lead to lower scan accuracy. For best
+                  results, we recommend uploading a clearer, well-lit, close-up photo.
                 </p>
               </div>
             </div>
@@ -586,53 +678,98 @@
           <!-- Quality Warning Overlay for Camera (Augmented style) -->
           <div
             v-if="qualityError && isCameraOn && !previewImage && !isScanning"
-            class="absolute left-1/2 top-6 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-red-950/80 p-4 text-white shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+            class="animate-in fade-in zoom-in-95 absolute top-6 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-red-950/80 p-4 text-white shadow-2xl backdrop-blur-md duration-200"
           >
             <div class="flex items-start gap-3">
               <Icon
                 name="material-symbols:warning-outline-rounded"
-                class="text-red-400 text-2xl shrink-0 mt-0.5"
+                class="mt-0.5 shrink-0 text-2xl text-red-400"
               />
               <div class="flex-1">
-                <h4 class="font-bold text-sm text-red-200">Camera Alert: {{ qualityError }}</h4>
-                <p class="text-xs text-red-100/80 mt-1 leading-relaxed">
-                  Please adjust your position, distance, or lighting. High-quality inputs ensure 99% better accuracy.
+                <h4 class="text-sm font-bold text-red-200">Camera Alert: {{ qualityError }}</h4>
+                <p class="mt-1 text-xs leading-relaxed text-red-100/80">
+                  Please adjust your position, distance, or lighting. High-quality inputs ensure 99%
+                  better accuracy.
                 </p>
               </div>
             </div>
           </div>
 
-          <img v-if="previewImage" :src="previewImage" class="absolute inset-0 h-full w-full rounded-4xl object-contain p-2 bg-black transition-opacity duration-500" :class="{ 'opacity-50': isScanning }" />
-          <video v-show="isCameraOn && !previewImage" ref="videoRef" autoplay playsinline muted class="h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500 -scale-x-100" :class="{ 'opacity-30 pointer-events-none': isScanning }"></video>
-          <div v-if="!isCameraOn && !previewImage" class="absolute inset-0 flex flex-col items-center justify-center text-gray-500 gap-4 p-4 text-center">
-             <Icon name="material-symbols:videocam-off-outline-rounded" class="text-6xl sm:text-8xl opacity-20" />
-             <p class="text-lg sm:text-xl font-normal opacity-50">Camera access is paused</p>
+          <img
+            v-if="previewImage"
+            :src="previewImage"
+            class="absolute inset-0 h-full w-full rounded-4xl bg-black object-contain p-2 transition-opacity duration-500"
+            :class="{ 'opacity-50': isScanning }"
+          />
+          <video
+            v-show="isCameraOn && !previewImage"
+            ref="videoRef"
+            autoplay
+            playsinline
+            muted
+            class="h-full w-full -scale-x-100 rounded-4xl object-cover p-1 transition-opacity duration-500"
+            :class="{ 'pointer-events-none opacity-30': isScanning }"
+          ></video>
+          <div
+            v-if="!isCameraOn && !previewImage"
+            class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4 text-center text-gray-500"
+          >
+            <Icon
+              name="material-symbols:videocam-off-outline-rounded"
+              class="text-6xl opacity-20 sm:text-8xl"
+            />
+            <p class="text-lg font-normal opacity-50 sm:text-xl">Camera access is paused</p>
           </div>
 
-          <div v-if="previewImage && !isScanning" class="absolute top-8 left-8">
-            <AppButton variant="unstyled" size="unstyled" rounded="unstyled" @click="resetToCamera" class="bg-white/90 backdrop-blur px-5 py-2 rounded-full font-bold shadow-xl flex items-center gap-2 hover:bg-white active:scale-95 transition-all text-primary">
-              <Icon name="material-symbols:arrow-back-rounded" class="text-xl" />
+          <div
+            v-if="previewImage && !isScanning"
+            class="absolute top-8 left-8"
+          >
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
+              @click="resetToCamera"
+              class="text-primary flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 font-bold shadow-xl backdrop-blur transition-all hover:bg-white active:scale-95"
+            >
+              <Icon
+                name="material-symbols:arrow-back-rounded"
+                class="text-xl"
+              />
               Retake Scan
             </AppButton>
           </div>
-          <div v-if="isCameraOn && !isScanning && !qualityError && !previewImage" class="absolute inset-0 border-[30px] sm:border-[60px] border-black/20 pointer-events-none flex items-center justify-center">
-             <div class="w-2/3 h-2/3 border-2 border-green-500/50 rounded-3xl"></div>
+          <div
+            v-if="isCameraOn && !isScanning && !qualityError && !previewImage"
+            class="pointer-events-none absolute inset-0 flex items-center justify-center border-[30px] border-black/20 sm:border-[60px]"
+          >
+            <div class="h-2/3 w-2/3 rounded-3xl border-2 border-green-500/50"></div>
           </div>
-          <div v-if="isScanning" class="absolute inset-0 flex items-center justify-center">
-             <div class="h-16 w-16 animate-spin rounded-full border-4 border-white border-t-transparent"></div>
+          <div
+            v-if="isScanning"
+            class="absolute inset-0 flex items-center justify-center"
+          >
+            <div
+              class="h-16 w-16 animate-spin rounded-full border-4 border-white border-t-transparent"
+            ></div>
           </div>
-          
+
           <div
             v-if="!isScanning"
-            class="absolute bottom-3 left-2 z-20 flex items-center pointer-events-auto max-w-[calc(100%-23rem)]"
+            class="pointer-events-auto absolute bottom-3 left-2 z-20 flex max-w-[calc(100%-23rem)] items-center"
           >
-            <div class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
-              <Icon name="lucide:info" class="text-primary h-3.5 w-3.5 shrink-0" />
-              <p class="text-[11px] sm:text-xs text-white/90 select-none leading-tight">
+            <div
+              class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md"
+            >
+              <Icon
+                name="lucide:info"
+                class="text-primary h-3.5 w-3.5 shrink-0"
+              />
+              <p class="text-[11px] leading-tight text-white/90 select-none sm:text-xs">
                 AI results are assistive only.
                 <button
                   type="button"
-                  class="text-primary font-bold underline underline-offset-2 hover:opacity-85 cursor-pointer ml-0.5"
+                  class="text-primary ml-0.5 cursor-pointer font-bold underline underline-offset-2 hover:opacity-85"
                   @click.stop="openTermsModal('terms')"
                 >
                   Medical Disclaimer
@@ -640,7 +777,7 @@
                 &
                 <button
                   type="button"
-                  class="text-primary font-bold underline underline-offset-2 hover:opacity-85 cursor-pointer"
+                  class="text-primary cursor-pointer font-bold underline underline-offset-2 hover:opacity-85"
                   @click.stop="openTermsModal('privacy')"
                 >
                   Privacy Policy

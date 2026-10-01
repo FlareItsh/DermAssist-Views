@@ -344,7 +344,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="bg-black/50 fixed inset-0 z-[1000] flex items-center justify-center p-4"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
         @click.self="emit('close')"
       >
         <div
@@ -464,7 +464,8 @@
                     <p class="font-bold">Outside Doctor's Duty Hours</p>
                     <p class="mt-0.5 text-red-500">
                       Appointments must be scheduled during active duty hours on this date:
-                      <strong>{{ dutyRangesLabel }}</strong>.
+                      <strong>{{ dutyRangesLabel }}</strong
+                      >.
                     </p>
                   </div>
                 </div>

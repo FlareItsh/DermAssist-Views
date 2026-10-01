@@ -1,4 +1,8 @@
-import { doctorClinicService, type DoctorClinic, type CreateClinicPayload } from '~/api/doctorClinic/DoctorClinicService'
+import {
+  doctorClinicService,
+  type DoctorClinic,
+  type CreateClinicPayload
+} from '~/api/doctorClinic/DoctorClinicService'
 
 const clinics = ref<DoctorClinic[]>([])
 const isLoading = ref(false)
