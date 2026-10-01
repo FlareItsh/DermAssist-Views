@@ -5,7 +5,7 @@
 </script>
 
 <template>
-  <div class="max-w-3xl mx-auto py-2">
+  <div class="mx-auto max-w-3xl py-2">
     <AppUpdatesPageView />
   </div>
 </template>

@@ -15,7 +15,7 @@ export class DatasetService extends BaseService {
     const formData = new FormData()
     formData.append('image', image)
     formData.append('category', category)
-    
+
     return $api('/dataset', {
       method: 'POST',
       body: formData

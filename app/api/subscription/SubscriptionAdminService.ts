@@ -108,7 +108,9 @@ class SubscriptionAdminService extends BaseService {
   }
 
   async approvePayment(id: number, reference?: string) {
-    return this.request<any>(`/admin/payments/${id}/approve`, 'POST', { transaction_reference: reference })
+    return this.request<any>(`/admin/payments/${id}/approve`, 'POST', {
+      transaction_reference: reference
+    })
   }
 
   async rejectPayment(id: number, reason: string) {

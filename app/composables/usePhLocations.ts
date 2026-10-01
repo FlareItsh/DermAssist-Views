@@ -17,7 +17,9 @@ export const usePhLocations = () => {
 
   const fetchProvinces = async (regionCode: string) => {
     try {
-      const response = await fetch(`https://psgc.gitlab.io/api/regions/${regionCode}/provinces.json`)
+      const response = await fetch(
+        `https://psgc.gitlab.io/api/regions/${regionCode}/provinces.json`
+      )
       provinces.value = await response.json()
     } catch (error) {
       console.error('Failed to fetch provinces:', error)
@@ -27,7 +29,9 @@ export const usePhLocations = () => {
   const fetchCities = async (provinceCode: string) => {
     try {
       // Some cities are in provinces, some are sub-municipalities
-      const response = await fetch(`https://psgc.gitlab.io/api/provinces/${provinceCode}/cities-municipalities.json`)
+      const response = await fetch(
+        `https://psgc.gitlab.io/api/provinces/${provinceCode}/cities-municipalities.json`
+      )
       cities.value = await response.json()
     } catch (error) {
       console.error('Failed to fetch cities:', error)
@@ -36,7 +40,9 @@ export const usePhLocations = () => {
 
   const fetchBarangays = async (cityCode: string) => {
     try {
-      const response = await fetch(`https://psgc.gitlab.io/api/cities-municipalities/${cityCode}/barangays.json`)
+      const response = await fetch(
+        `https://psgc.gitlab.io/api/cities-municipalities/${cityCode}/barangays.json`
+      )
       barangays.value = await response.json()
     } catch (error) {
       console.error('Failed to fetch barangays:', error)
@@ -49,23 +55,33 @@ export const usePhLocations = () => {
       const res = await fetch('https://psgc.gitlab.io/api/provinces.json')
       const all: any[] = await res.json()
       return all.find(p => p.name.toLowerCase() === name.toLowerCase())
-    } catch { return null }
+    } catch {
+      return null
+    }
   }
 
   const findCityByName = async (provinceCode: string, name: string) => {
     try {
-      const res = await fetch(`https://psgc.gitlab.io/api/provinces/${provinceCode}/cities-municipalities.json`)
+      const res = await fetch(
+        `https://psgc.gitlab.io/api/provinces/${provinceCode}/cities-municipalities.json`
+      )
       const all: any[] = await res.json()
       return all.find(c => c.name.toLowerCase() === name.toLowerCase())
-    } catch { return null }
+    } catch {
+      return null
+    }
   }
 
   const findBarangayByName = async (cityCode: string, name: string) => {
     try {
-      const res = await fetch(`https://psgc.gitlab.io/api/cities-municipalities/${cityCode}/barangays.json`)
+      const res = await fetch(
+        `https://psgc.gitlab.io/api/cities-municipalities/${cityCode}/barangays.json`
+      )
       const all: any[] = await res.json()
       return all.find(b => b.name.toLowerCase() === name.toLowerCase())
-    } catch { return null }
+    } catch {
+      return null
+    }
   }
 
   return {

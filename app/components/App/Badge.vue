@@ -20,7 +20,8 @@
     uppercase: true
   })
 
-  const baseClasses = 'inline-flex items-center font-bold tracking-wide transition-colors duration-200'
+  const baseClasses =
+    'inline-flex items-center font-bold tracking-wide transition-colors duration-200'
 
   const sizeClasses: Record<BadgeSize, string> = {
     xs: 'px-2 py-0.5 text-[10px]',

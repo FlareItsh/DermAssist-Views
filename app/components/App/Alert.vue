@@ -1,12 +1,15 @@
 <script setup lang="ts">
-  const props = withDefaults(defineProps<{
-    title?: string
-    description?: string
-    type?: 'warning' | 'error' | 'info' | 'success'
-    icon?: string
-  }>(), {
-    type: 'warning'
-  })
+  const props = withDefaults(
+    defineProps<{
+      title?: string
+      description?: string
+      type?: 'warning' | 'error' | 'info' | 'success'
+      icon?: string
+    }>(),
+    {
+      type: 'warning'
+    }
+  )
 
   // Style configurations based on type
   const config = computed(() => {
@@ -49,15 +52,31 @@
 </script>
 
 <template>
-  <div class="mb-6 rounded-3xl border p-5 flex items-start gap-4 transition-all duration-300" :class="config.wrapper">
-    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl" :class="config.iconWrapper">
-      <Icon :name="config.icon" size="22" />
+  <div
+    class="mb-6 flex items-start gap-4 rounded-3xl border p-5 transition-all duration-300"
+    :class="config.wrapper"
+  >
+    <div
+      class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+      :class="config.iconWrapper"
+    >
+      <Icon
+        :name="config.icon"
+        size="22"
+      />
     </div>
     <div class="flex-1 pt-1">
-      <h3 v-if="title" class="text-sm font-bold" :class="config.title">
+      <h3
+        v-if="title"
+        class="text-sm font-bold"
+        :class="config.title"
+      >
         {{ title }}
       </h3>
-      <p class="text-xs mt-1 font-semibold leading-relaxed" :class="config.desc">
+      <p
+        class="mt-1 text-xs leading-relaxed font-semibold"
+        :class="config.desc"
+      >
         <slot>{{ description }}</slot>
       </p>
     </div>

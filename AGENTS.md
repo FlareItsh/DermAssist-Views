@@ -1,12 +1,14 @@
 # DermAssist Frontend Agent Guidelines
 
-## Mandatory Artifact Usage
+## Mandatory Artifact Usage (Zero Exceptions)
 
 - **CRITICAL**: The AI assistant must **ALWAYS** create or update markdown artifacts for:
-  - **Implementation Plans** (`implementation_plan.md`): Always create a formal plan artifact before starting major or multi-file code modifications, and wait for user approval.
-  - **Evaluations & Analyses** (e.g. `analysis_results.md`, `evaluation_notes.md`): Always save detailed analyses, architectural evaluations, database schema investigations, and design comparisons into an artifact.
-  - **Walkthroughs** (`walkthrough.md`): Always document completed changes, how they were verified, and test outputs in a walkthrough artifact.
-- **Never Dump Large Plans in Chat**: Never output long plans or deep technical analyses solely as chat messages. Always persist them into well-structured markdown artifacts and provide a concise summary in chat pointing to the artifact.
+  - **Implementation Plans** (`implementation_plan.md`): ALWAYS create a formal plan artifact before making any code modifications, refactorings, feature additions, or bug fixes (regardless of whether single-file or multi-file), and wait for user approval.
+  - **Evaluations, Analyses & Suggestions** (e.g. `analysis_results.md`, `evaluation_notes.md`): ALWAYS save detailed analyses, design evaluations, UI suggestions, architectural reviews, and comparisons into a dedicated markdown artifact.
+  - **Walkthroughs** (`walkthrough.md`): ALWAYS document completed changes, how they were verified, and test outputs in a walkthrough artifact upon finishing work.
+- **Strict Prohibition on Dumping Large Text or Plans in Chat**:
+  - NEVER output long multi-point suggestions, design proposals, step-by-step plans, or deep code analyses directly into chat.
+  - ALWAYS write them to an artifact and provide ONLY a concise, high-level summary (1-2 paragraphs) in chat that directly links to the artifact.
 
 ---
 
@@ -28,3 +30,4 @@
 - **Zero Native Browser Prompts**: Strictly no `alert()`, `confirm()`, or `prompt()`. Always use `vue-sonner` toasts and `<AppModalConfirmation>`.
 - **Cookie Notice & Terms Integration**: Cookie notice must remain a minimal, floating glassmorphism pill with direct "Terms & Cookies" hyperlink opening `<AppModalTermsModal initial-tab="cookies" />`. Never show intimidating technical terms (e.g. "bot farms", "device tracking tokens") in initial cookie notices.
 - **Vue Sequential Conditional Rule**: In multi-branch templates (`v-if`, `v-else-if`, `v-else`), `v-else` must **always** be the final terminal branch. Never put `v-else-if` after `v-else`.
+- **AI Retraining Terminal Console**: Live training output must render realistic tqdm-style step progress bars (`[STEP] Epoch ... [=====>...]`) updated in-place (`replace_last`). The UI terminal must feature Unix window controls, auto-scroll toggle, clipboard copy, buffer clear, fullscreen expand, and an interactive prompt (`dermassist@ai-worker:~/algorithms$`) with command history.

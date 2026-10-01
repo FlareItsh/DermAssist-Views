@@ -1,6 +1,11 @@
 import { $api, useApi } from '~/composables/useApi'
 export class BaseService {
-  async request<T>(url: string, method: string, params: object = {}, extraConfig: any = {}): Promise<T> {
+  async request<T>(
+    url: string,
+    method: string,
+    params: object = {},
+    extraConfig: any = {}
+  ): Promise<T> {
     const config: any = {
       method,
       ...extraConfig

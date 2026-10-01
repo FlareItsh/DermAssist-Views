@@ -10,6 +10,7 @@ This skill defines mandatory rules for user prompts, alerts, toasts, confirmatio
 ## 1. Zero Native Browser Dialogs Rule (CRITICAL)
 
 **NEVER use native browser prompts under ANY circumstances**:
+
 - ❌ `window.alert(...)` or `alert(...)`
 - ❌ `window.confirm(...)` or `confirm(...)`
 - ❌ `window.prompt(...)` or `prompt(...)`
@@ -23,6 +24,7 @@ Native browser popups look archaic, disrupt UX, cannot be styled or themed, bloc
 For all transient status updates, validation warnings, errors, and success feedback, **ALWAYS** use `toast` from `'vue-sonner'`.
 
 ### Usage:
+
 ```ts
 import { toast } from 'vue-sonner'
 
@@ -40,6 +42,7 @@ toast.warning('Your subscription plan expires in 3 days.')
 ```
 
 ### Rules:
+
 - `Toaster` is already globally mounted in `views/app/app.vue` with rich colors and custom styling.
 - Catch blocks in async actions must notify the user via `toast.error(...)`, NEVER `alert(...)`.
 - Successful async submissions (create, update, delete, save) must show a concise `toast.success(...)`.
@@ -51,54 +54,58 @@ toast.warning('Your subscription plan expires in 3 days.')
 For all confirmations (revoking seats, removing clinic branches, deleting accounts, cancelling appointments, logging out), **ALWAYS** use `<AppModalConfirmation>`.
 
 ### Component Location:
+
 `views/app/components/App/Modal/Confirmation.vue` (auto-imported by Nuxt as `<AppModalConfirmation>`).
 
 ### Component API:
-| Prop | Type | Default | Description |
-|---|---|---|---|
-| `v-model` | `boolean` | `true` | Controls modal visibility. |
-| `title` | `string` | required | Modal headline (e.g. "Revoke Doctor Seat?"). |
-| `description` / `message` | `string` | `''` | Explanatory context of the action and consequences. |
-| `icon` | `string` | `'lucide:alert-triangle'` | Iconify icon name. |
-| `iconColor` | `'danger' \| 'warning' \| 'primary' \| 'info'` | `'danger'` | Badge color palette for the icon. |
-| `confirmText` | `string` | `'Confirm'` | Label for primary confirm button. |
-| `cancelText` | `string` | `'Cancel'` | Label for cancel button. |
-| `confirmVariant` | `'destructive' \| 'solid' \| 'outline'` | `'destructive'` | Variant of the confirm button. |
-| `loading` | `boolean` | `false` | Shows spinner on confirm button and disables interaction. |
+
+| Prop                      | Type                                           | Default                   | Description                                               |
+| ------------------------- | ---------------------------------------------- | ------------------------- | --------------------------------------------------------- |
+| `v-model`                 | `boolean`                                      | `true`                    | Controls modal visibility.                                |
+| `title`                   | `string`                                       | required                  | Modal headline (e.g. "Revoke Doctor Seat?").              |
+| `description` / `message` | `string`                                       | `''`                      | Explanatory context of the action and consequences.       |
+| `icon`                    | `string`                                       | `'lucide:alert-triangle'` | Iconify icon name.                                        |
+| `iconColor`               | `'danger' \| 'warning' \| 'primary' \| 'info'` | `'danger'`                | Badge color palette for the icon.                         |
+| `confirmText`             | `string`                                       | `'Confirm'`               | Label for primary confirm button.                         |
+| `cancelText`              | `string`                                       | `'Cancel'`                | Label for cancel button.                                  |
+| `confirmVariant`          | `'destructive' \| 'solid' \| 'outline'`        | `'destructive'`           | Variant of the confirm button.                            |
+| `loading`                 | `boolean`                                      | `false`                   | Shows spinner on confirm button and disables interaction. |
 
 ### Events:
+
 - `@confirm`: Emitted when user clicks confirm.
 - `@cancel`: Emitted when user dismisses or clicks cancel.
 
 ### Pattern Example:
+
 ```vue
 <script setup lang="ts">
-import { ref } from 'vue'
-import { toast } from 'vue-sonner'
+  import { ref } from 'vue'
+  import { toast } from 'vue-sonner'
 
-const itemToDelete = ref<any>(null)
-const showConfirmModal = ref(false)
-const isDeleting = ref(false)
+  const itemToDelete = ref<any>(null)
+  const showConfirmModal = ref(false)
+  const isDeleting = ref(false)
 
-const openDeleteConfirm = (item: any) => {
-  itemToDelete.value = item
-  showConfirmModal.value = true
-}
-
-const handleExecuteDelete = async () => {
-  if (!itemToDelete.value) return
-  isDeleting.value = true
-  try {
-    await apiService.delete(itemToDelete.value.id)
-    toast.success('Item deleted successfully.')
-    showConfirmModal.value = false
-    itemToDelete.value = null
-  } catch (err: any) {
-    toast.error(err.data?.message || err.message || 'Failed to delete item.')
-  } finally {
-    isDeleting.value = false
+  const openDeleteConfirm = (item: any) => {
+    itemToDelete.value = item
+    showConfirmModal.value = true
   }
-}
+
+  const handleExecuteDelete = async () => {
+    if (!itemToDelete.value) return
+    isDeleting.value = true
+    try {
+      await apiService.delete(itemToDelete.value.id)
+      toast.success('Item deleted successfully.')
+      showConfirmModal.value = false
+      itemToDelete.value = null
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to delete item.')
+    } finally {
+      isDeleting.value = false
+    }
+  }
 </script>
 
 <template>
@@ -194,7 +201,7 @@ When users interact with in-app notifications (via the Utility Bar bell dropdown
    - **NEVER** pair item click handlers with automatic route navigation (e.g. `navigateTo('/Doctor/Messages/...')`). Clicking an item on a timetable or list grid should open the quick detail modal cleanly without redirecting the user away.
 
 2. **Explicit Modal Action Buttons**:
-   - All secondary workflow actions (e.g., *Clinical Consultation*, *Message Patient*) must be presented as explicit, labeled buttons inside the opened detail modal so healthcare providers retain full control over their navigation.
+   - All secondary workflow actions (e.g., _Clinical Consultation_, _Message Patient_) must be presented as explicit, labeled buttons inside the opened detail modal so healthcare providers retain full control over their navigation.
 
 ---
 
@@ -202,7 +209,7 @@ When users interact with in-app notifications (via the Utility Bar bell dropdown
 
 1. **Cookie Notice Minimal Floating Pill (`AppCookieBanner.vue`)**:
    - Must never display intimidating technical jargon (e.g. avoid terms like "bot farms" or "device tracking tokens").
-   - Display a compact, floating glassmorphism pill with a single clean sentence: *"We use essential cookies to keep your account secure."* and an interactive "Terms & Cookies" hyperlink opening `<AppModalTermsModal initial-tab="cookies" />`.
+   - Display a compact, floating glassmorphism pill with a single clean sentence: _"We use essential cookies to keep your account secure."_ and an interactive "Terms & Cookies" hyperlink opening `<AppModalTermsModal initial-tab="cookies" />`.
 
 2. **TermsModal 3-Tab Architecture (`AppModalTermsModal.vue`)**:
    - Must support 3 distinct tabs:
@@ -213,4 +220,3 @@ When users interact with in-app notifications (via the Utility Bar bell dropdown
 3. **Vue Sequential Conditional Rule (CRITICAL)**:
    - In Vue multi-branch template conditionals (`<template v-if>`, `<template v-else-if>`, `<template v-else>`), `v-else` must **always** be the final terminal branch.
    - **NEVER** place a `<template v-else-if>` after a `<template v-else>`, as this triggers a fatal Vue compiler error: `v-else/v-else-if has no adjacent v-if or v-else-if` and crashes Vite HMR server sockets.
-

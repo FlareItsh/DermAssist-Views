@@ -40,7 +40,7 @@ export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon'],
   image: {
     // Allow the storage host (ngrok, localhost, LAN, etc.) through IPX
-    domains: ['localhost', '127.0.0.1', ...imageDomainsFromEnv],
+    domains: ['localhost', '127.0.0.1', ...imageDomainsFromEnv]
   },
   nitro: {
     publicAssets: [
