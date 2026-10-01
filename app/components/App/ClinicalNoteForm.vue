@@ -2,6 +2,7 @@
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { datasetService } from '~/api/dataset/DatasetService'
+  import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
   import { userService } from '~/api/user/UserService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
@@ -13,6 +14,8 @@
     skipLoad?: boolean
     isFinishMode?: boolean
     contributeToDataset?: boolean
+    contributeToOutOfScopeDataset?: boolean
+    isOutOfScope?: boolean
   }>()
 
   const emit = defineEmits<{
@@ -75,7 +78,7 @@
     return followUpLocation.value.trim()
   })
 
-  watch(followUpTimeOnly, (newStart) => {
+  watch(followUpTimeOnly, newStart => {
     if (!newStart) return
     const [h, m] = newStart.split(':').map(Number)
     const endHour = (h + 1) % 24
@@ -175,7 +178,10 @@
     try {
       if (props.appointmentUuid) {
         const existing = await clinicalNoteService.getByAppointment(props.appointmentUuid)
-        if (existing && (existing.history_of_present_illness || existing.final_diagnosis || existing.prescription)) {
+        if (
+          existing &&
+          (existing.history_of_present_illness || existing.final_diagnosis || existing.prescription)
+        ) {
           note.value = { ...note.value, ...existing }
           parseFollowUpDate(note.value.follow_up_date || '')
         } else {
@@ -194,7 +200,15 @@
 
   // Auto-save draft on note changes
   watch(
-    [note, noFollowUp, followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly, followUpLocation, customFollowUpLocation],
+    [
+      note,
+      noFollowUp,
+      followUpDateOnly,
+      followUpTimeOnly,
+      followUpEndTimeOnly,
+      followUpLocation,
+      customFollowUpLocation
+    ],
     () => {
       if (!isLoaded.value) return
       try {
@@ -227,34 +241,38 @@
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
-    findEarliestAvailableSlot,
+    findEarliestAvailableSlot
   } = useBlockedDates()
   const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
   // Smart autofill clinic location from duty preset when date & time change
-  watch([followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly], ([date, start, end]) => {
-    if (!date || !start) return
-    const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-    if (matchedDuty) {
-      const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-      if (loc) {
-        followUpLocation.value = loc
-        customFollowUpLocation.value = ''
-        wasLocationAutofilled.value = true
-        return
+  watch(
+    [followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly],
+    ([date, start, end]) => {
+      if (!date || !start) return
+      const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
+      if (matchedDuty) {
+        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
+        if (loc) {
+          followUpLocation.value = loc
+          customFollowUpLocation.value = ''
+          wasLocationAutofilled.value = true
+          return
+        }
       }
-    }
 
-    // If no duty schedule found and followUpLocation was previously autofilled or empty
-    if (wasLocationAutofilled.value || !followUpLocation.value) {
-      if (clinics.value.length > 0) {
-        followUpLocation.value = clinics.value[0].name
-        customFollowUpLocation.value = ''
+      // If no duty schedule found and followUpLocation was previously autofilled or empty
+      if (wasLocationAutofilled.value || !followUpLocation.value) {
+        if (clinics.value.length > 0) {
+          followUpLocation.value = clinics.value[0].name
+          customFollowUpLocation.value = ''
+        }
+        wasLocationAutofilled.value = false
       }
-      wasLocationAutofilled.value = false
-    }
-  }, { immediate: true })
+    },
+    { immediate: true }
+  )
 
   const availableTimeSlots = [
     { value: '08:00', label: '08:00 AM' },
@@ -286,8 +304,13 @@
   })
 
   const isFollowUpOutsideDutyHours = computed(() => {
-    if (!followUpDateOnly.value || !followUpTimeOnly.value || !followUpEndTimeOnly.value) return false
-    return !isTimeRangeWithinDutyHours(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)
+    if (!followUpDateOnly.value || !followUpTimeOnly.value || !followUpEndTimeOnly.value)
+      return false
+    return !isTimeRangeWithinDutyHours(
+      followUpDateOnly.value,
+      followUpTimeOnly.value,
+      followUpEndTimeOnly.value
+    )
   })
 
   const dutyRangesLabel = computed(() => {
@@ -298,11 +321,15 @@
   const dateExistingAppts = computed(() => {
     if (!followUpDateOnly.value) return []
     return appointments.value
-      .filter((appt) => {
+      .filter(appt => {
         const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
-        return p.date === followUpDateOnly.value && appt.id !== (scheduledFollowUpUuid.value || props.appointmentUuid) && (appt.raw_scheduled_at || appt.scheduled_at)
+        return (
+          p.date === followUpDateOnly.value &&
+          appt.id !== (scheduledFollowUpUuid.value || props.appointmentUuid) &&
+          (appt.raw_scheduled_at || appt.scheduled_at)
+        )
       })
-      .map((appt) => {
+      .map(appt => {
         const startP = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at)
         let endH = String((Number(startP.startH) + 1) % 24).padStart(2, '0')
         let endM = startP.startM
@@ -380,7 +407,11 @@
 
   const matchedDutyShift = computed(() => {
     if (!followUpDateOnly.value) return null
-    return getDutyClinicForDateAndTime(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)
+    return getDutyClinicForDateAndTime(
+      followUpDateOnly.value,
+      followUpTimeOnly.value,
+      followUpEndTimeOnly.value
+    )
   })
 
   const quickInstructions = [
@@ -410,8 +441,16 @@
 
   const findScheduledAppointment = (value: any): any | undefined => {
     if (!value || typeof value !== 'object') return undefined
-    if (typeof value.uuid === 'string' && (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)) return value
-    if (typeof value.id === 'string' && (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)) return value
+    if (
+      typeof value.uuid === 'string' &&
+      (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)
+    )
+      return value
+    if (
+      typeof value.id === 'string' &&
+      (value.scheduled_at || value.scheduled_end_at || value.conversation_uuid)
+    )
+      return value
     for (const nested of Object.values(value)) {
       const found = findScheduledAppointment(nested)
       if (found) return found
@@ -421,15 +460,22 @@
 
   const isSameScheduledTime = (rawDateTime: string | undefined, date: string, time: string) => {
     if (!rawDateTime) return false
-    return rawDateTime.replace('T', ' ').replace(/Z|(\+\d{2}:\d{2})$/i, '').slice(0, 16) === `${date} ${time}`
+    return (
+      rawDateTime
+        .replace('T', ' ')
+        .replace(/Z|(\+\d{2}:\d{2})$/i, '')
+        .slice(0, 16) === `${date} ${time}`
+    )
   }
 
   const findScheduledFollowUpFromList = () => {
     if (!followUpDateOnly.value || !followUpTimeOnly.value || !patientUuid.value) return undefined
     return appointments.value.find(appt => {
       const apptPatientUuid = (appt as any).patient_uuid || (appt as any).patient?.uuid
-      return apptPatientUuid === patientUuid.value
-        && isSameScheduledTime(appt.raw_scheduled_at, followUpDateOnly.value, followUpTimeOnly.value)
+      return (
+        apptPatientUuid === patientUuid.value &&
+        isSameScheduledTime(appt.raw_scheduled_at, followUpDateOnly.value, followUpTimeOnly.value)
+      )
     })
   }
 
@@ -438,15 +484,20 @@
   const saveNote = async () => {
     followUpError.value = null
     if (!noFollowUp.value && !followUpDateOnly.value) {
-      followUpError.value = "Please select a follow-up appointment date & time, or check 'No follow-up appointment required'."
+      followUpError.value =
+        "Please select a follow-up appointment date & time, or check 'No follow-up appointment required'."
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
       return
     }
 
-    if (!noFollowUp.value && followUpDateOnly.value && followUpEndTimeOnly.value <= followUpTimeOnly.value) {
-      followUpError.value = "Follow-up appointment end time must be after the start time."
+    if (
+      !noFollowUp.value &&
+      followUpDateOnly.value &&
+      followUpEndTimeOnly.value <= followUpTimeOnly.value
+    ) {
+      followUpError.value = 'Follow-up appointment end time must be after the start time.'
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
@@ -457,7 +508,8 @@
       if (existingSelectedFollowUp.value) {
         scheduledFollowUpUuid.value = existingSelectedFollowUp.value.id
       } else {
-        followUpError.value = "An appointment is already scheduled during this time slot. Please choose a different time."
+        followUpError.value =
+          'An appointment is already scheduled during this time slot. Please choose a different time.'
         if (followUpSectionRef.value) {
           followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
         }
@@ -465,16 +517,31 @@
       }
     }
 
-    if (!noFollowUp.value && followUpDateOnly.value && isTimeRangeBlockedOnDate(followUpDateOnly.value, followUpTimeOnly.value, followUpEndTimeOnly.value)) {
-      followUpError.value = "The selected time slot is marked as unavailable on your schedule. Please select another time or date, or check 'No follow-up appointment required'."
+    if (
+      !noFollowUp.value &&
+      followUpDateOnly.value &&
+      isTimeRangeBlockedOnDate(
+        followUpDateOnly.value,
+        followUpTimeOnly.value,
+        followUpEndTimeOnly.value
+      )
+    ) {
+      followUpError.value =
+        "The selected time slot is marked as unavailable on your schedule. Please select another time or date, or check 'No follow-up appointment required'."
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
       return
     }
 
-    if (!noFollowUp.value && followUpDateOnly.value && !patientUuid.value && !props.appointmentUuid) {
-      followUpError.value = "A registered patient account is required to schedule a follow-up appointment. Please click 'Create Patient Account' above to register the patient, or check 'No follow-up appointment required'."
+    if (
+      !noFollowUp.value &&
+      followUpDateOnly.value &&
+      !patientUuid.value &&
+      !props.appointmentUuid
+    ) {
+      followUpError.value =
+        "A registered patient account is required to schedule a follow-up appointment. Please click 'Create Patient Account' above to register the patient, or check 'No follow-up appointment required'."
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
@@ -491,9 +558,9 @@
       syncFollowUpDate()
 
       if (props.diagnosisUuid) {
-        (note.value as any).diagnosis_uuid = props.diagnosisUuid
+        ;(note.value as any).diagnosis_uuid = props.diagnosisUuid
       }
-      
+
       if (props.appointmentUuid) {
         const saved = await clinicalNoteService.save(props.appointmentUuid, note.value)
         note.value = { ...note.value, ...saved }
@@ -501,7 +568,9 @@
         const saved = await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
         note.value = { ...note.value, ...saved }
       } else {
-        throw new Error('Neither appointmentUuid nor diagnosisUuid provided for saving clinical note.')
+        throw new Error(
+          'Neither appointmentUuid nor diagnosisUuid provided for saving clinical note.'
+        )
       }
 
       // Schedule follow-up appointment if patient account exists
@@ -510,13 +579,19 @@
         scheduledFollowUpUuid.value = alreadyScheduledFollowUp.id
         scheduledConversationUuid = alreadyScheduledFollowUp.conversation_uuid
         hasSavedFollowUp.value = true
-      } else if (isExplicitSaveRequested.value && !noFollowUp.value && followUpDateOnly.value && patientUuid.value) {
+      } else if (
+        isExplicitSaveRequested.value &&
+        !noFollowUp.value &&
+        followUpDateOnly.value &&
+        patientUuid.value
+      ) {
         try {
           const scheduled = await userService.scheduleAppointmentForPatient(patientUuid.value, {
             scheduled_at: `${followUpDateOnly.value} ${followUpTimeOnly.value}:00`,
             scheduled_end_at: `${followUpDateOnly.value} ${followUpEndTimeOnly.value}:00`,
             location: effectiveFollowUpLocation.value || 'Doctor Clinic',
-            purpose: note.value.follow_up_instructions || 'Follow-up appointment for diagnosis assessment'
+            purpose:
+              note.value.follow_up_instructions || 'Follow-up appointment for diagnosis assessment'
           })
           didScheduleFollowUp = true
           const scheduledAppointment = findScheduledAppointment(scheduled)
@@ -533,18 +608,31 @@
             scheduledConversationUuid = scheduledFromList.conversation_uuid
             hasSavedFollowUp.value = true
           } else {
-          followUpError.value = err.data?.message || err.message || 'Conflict detected: Failed to schedule appointment.'
-          if (followUpSectionRef.value) {
-            followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          }
-          isSaving.value = false
-          return
+            followUpError.value =
+              err.data?.message ||
+              err.message ||
+              'Conflict detected: Failed to schedule appointment.'
+            if (followUpSectionRef.value) {
+              followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }
+            isSaving.value = false
+            return
           }
         }
       }
 
-      // Save to AI Retraining Dataset only if the doctor has checked the checkbox
-      if (props.contributeToDataset === true && props.diagnosisUuid) {
+      // Save to research dataset based on scan type (out-of-scope → separate storage, standard → normal dataset)
+      if (
+        props.isOutOfScope &&
+        props.contributeToOutOfScopeDataset === true &&
+        props.diagnosisUuid
+      ) {
+        try {
+          await outOfScopeDatasetService.saveFromDiagnosis(props.diagnosisUuid)
+        } catch (datasetErr) {
+          console.error('Failed to save scan to out-of-scope research dataset:', datasetErr)
+        }
+      } else if (!props.isOutOfScope && props.contributeToDataset === true && props.diagnosisUuid) {
         try {
           await datasetService.saveFromDiagnosis(props.diagnosisUuid)
         } catch (datasetErr) {
@@ -558,11 +646,14 @@
       } catch (e) {
         // silent fail
       }
-      
+
       followUpError.value = null
       showSuccess.value = true
-      emit('saved', { conversationUuid: scheduledConversationUuid, followUpScheduled: didScheduleFollowUp })
-      
+      emit('saved', {
+        conversationUuid: scheduledConversationUuid,
+        followUpScheduled: didScheduleFollowUp
+      })
+
       setTimeout(() => {
         showSuccess.value = false
       }, 3000)
@@ -592,11 +683,15 @@
         return
       }
       if (isFollowUpOutsideDutyHours.value) {
-        toast.error(`Cannot schedule follow-up: Time is outside your duty hours (${dutyRangesLabel.value}).`)
+        toast.error(
+          `Cannot schedule follow-up: Time is outside your duty hours (${dutyRangesLabel.value}).`
+        )
         return
       }
       if (isFollowUpConflict.value) {
-        toast.error('Cannot schedule follow-up: The selected time conflicts with an existing appointment.')
+        toast.error(
+          'Cannot schedule follow-up: The selected time conflicts with an existing appointment.'
+        )
         return
       }
     }
@@ -610,55 +705,104 @@
 </script>
 
 <template>
-  <div v-if="!isLoaded" class="flex items-center justify-center py-20">
-    <Icon name="svg-spinners:180-ring-with-bg" class="text-6xl text-primary opacity-50" />
+  <div
+    v-if="!isLoaded"
+    class="flex items-center justify-center py-20"
+  >
+    <Icon
+      name="svg-spinners:180-ring-with-bg"
+      class="text-primary text-6xl opacity-50"
+    />
   </div>
-  <div v-else class="space-y-10 rounded-[2.5rem] bg-white/70 backdrop-blur-xl border border-white/50 py-8 px-0 sm:py-10 sm:px-0 relative overflow-hidden">
-    <div class="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
-    
-    <div class="flex items-center justify-between border-b border-gray-100/50 pb-6 relative z-10">
+  <div
+    v-else
+    class="relative space-y-10 overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/70 px-0 py-8 backdrop-blur-xl sm:px-0 sm:py-10"
+  >
+    <div
+      class="bg-primary/5 pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full blur-3xl"
+    ></div>
+
+    <div class="relative z-10 flex items-center justify-between border-b border-gray-100/50 pb-6">
       <div class="flex items-center gap-4">
-        <div class="bg-primary/10 w-12 h-12 rounded-2xl flex items-center justify-center">
-           <Icon name="material-symbols:edit-document-outline-rounded" class="text-primary text-2xl" />
+        <div class="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-2xl">
+          <Icon
+            name="material-symbols:edit-document-outline-rounded"
+            class="text-primary text-2xl"
+          />
         </div>
         <div>
-          <h2 class="text-2xl font-black text-gray-900 tracking-tight">Clinical SOAP Note</h2>
-          <p class="text-sm font-medium text-gray-500 mt-0.5">Official medical documentation and assessment.</p>
+          <h2 class="text-2xl font-black tracking-tight text-gray-900">Clinical SOAP Note</h2>
+          <p class="mt-0.5 text-sm font-medium text-gray-500">
+            Official medical documentation and assessment.
+          </p>
         </div>
       </div>
-      <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-        <AppButton type="button" :loading="isSaving" @click="handleSaveClick" :class="[showSuccess ? 'bg-green-500 hover:bg-green-600 shadow-green-500/20' : 'bg-primary hover:bg-primary/90 shadow-primary/20', 'text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:shadow-xl active:scale-95 flex items-center gap-2']">
-          <Icon v-if="showSuccess" name="material-symbols:check-circle-rounded" class="text-xl" />
-          <Icon v-else-if="!isSaving" name="material-symbols:save-outline-rounded" class="text-xl" />
-          {{ showSuccess ? 'Saved!' : (isSaving ? 'Saving...' : (isFinishMode ? 'Finish Diagnosis & Save' : 'Save Note')) }}
+      <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+        <AppButton
+          type="button"
+          :loading="isSaving"
+          @click="handleSaveClick"
+          :class="[
+            showSuccess
+              ? 'bg-green-500 shadow-green-500/20 hover:bg-green-600'
+              : 'bg-primary hover:bg-primary/90 shadow-primary/20',
+            'flex items-center gap-2 rounded-2xl px-8 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95'
+          ]"
+        >
+          <Icon
+            v-if="showSuccess"
+            name="material-symbols:check-circle-rounded"
+            class="text-xl"
+          />
+          <Icon
+            v-else-if="!isSaving"
+            name="material-symbols:save-outline-rounded"
+            class="text-xl"
+          />
+          {{
+            showSuccess
+              ? 'Saved!'
+              : isSaving
+                ? 'Saving...'
+                : isFinishMode
+                  ? 'Finish Diagnosis & Save'
+                  : 'Save Note'
+          }}
         </AppButton>
       </div>
     </div>
 
-    <div class="space-y-10 relative z-10">
+    <div class="relative z-10 space-y-10">
       <!-- Subjective -->
       <section class="group">
         <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
-          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-sm font-black text-indigo-600 shadow-sm border border-indigo-100">S</span>
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-sm font-black text-indigo-600 shadow-sm"
+            >S</span
+          >
           Subjective
         </h3>
         <div class="grid gap-6 sm:grid-cols-2">
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">History of Present Illness</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >History of Present Illness</label
+            >
             <textarea
               v-model="note.history_of_present_illness"
               rows="3"
               placeholder="Duration, symptoms, triggers..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition-all outline-none resize-none"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
             ></textarea>
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Systemic Symptoms</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Systemic Symptoms</label
+            >
             <textarea
               v-model="note.systemic_symptoms"
               rows="3"
               placeholder="Fever, fatigue, other affected areas..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition-all outline-none resize-none"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
             ></textarea>
           </div>
         </div>
@@ -667,16 +811,21 @@
       <!-- Objective -->
       <section class="group">
         <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
-          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-sm font-black text-blue-600 shadow-sm border border-blue-100">O</span>
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-600 shadow-sm"
+            >O</span
+          >
           Objective
         </h3>
         <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Physical Exam Findings</label>
+          <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+            >Physical Exam Findings</label
+          >
           <textarea
             v-model="note.physical_exam"
             rows="3"
             placeholder="Visual inspection details, lesion description..."
-            class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-all outline-none resize-none"
+            class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-blue-500 focus:ring-inset"
           ></textarea>
         </div>
       </section>
@@ -684,26 +833,33 @@
       <!-- Assessment -->
       <section class="group">
         <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
-          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-50 text-sm font-black text-emerald-600 shadow-sm border border-emerald-100">A</span>
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-sm font-black text-emerald-600 shadow-sm"
+            >A</span
+          >
           Assessment
         </h3>
         <div class="grid gap-6 sm:grid-cols-2">
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Differential Diagnosis</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Differential Diagnosis</label
+            >
             <textarea
               v-model="note.differential_diagnosis"
               rows="2"
               placeholder="Alternative possible diagnoses..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-emerald-500 transition-all outline-none resize-none"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset"
             ></textarea>
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Final Diagnosis</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Final Diagnosis</label
+            >
             <input
               type="text"
               v-model="note.final_diagnosis"
               placeholder="Primary diagnosis..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-emerald-500 transition-all outline-none"
+              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset"
             />
           </div>
         </div>
@@ -712,62 +868,100 @@
       <!-- Plan -->
       <section class="group">
         <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
-          <span class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-sm font-black text-amber-600 shadow-sm border border-amber-100">P</span>
+          <span
+            class="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-sm font-black text-amber-600 shadow-sm"
+            >P</span
+          >
           Plan
         </h3>
         <div class="grid gap-6 sm:grid-cols-2">
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Prescriptions</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Prescriptions</label
+            >
             <textarea
               v-model="note.prescription"
               rows="4"
               placeholder="Medication name, dosage, frequency, duration..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-amber-500 transition-all outline-none resize-none"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset"
             ></textarea>
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold uppercase tracking-wider text-gray-500">Patient Education & Instructions</label>
+            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              >Patient Education & Instructions</label
+            >
             <textarea
               v-model="note.patient_education"
               rows="4"
               placeholder="Skin care routines, triggers to avoid..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-amber-500 transition-all outline-none resize-none"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset"
             ></textarea>
           </div>
 
-          <div ref="followUpSectionRef" class="flex flex-col gap-4 sm:col-span-2 p-6 rounded-3xl border transition-all shadow-xs" 
-            :class="followUpError ? 'bg-red-50/40 border-red-300 ring-2 ring-red-200' : 'bg-card border-border/80'">
-            
+          <div
+            ref="followUpSectionRef"
+            class="flex flex-col gap-4 rounded-3xl border p-6 shadow-xs transition-all sm:col-span-2"
+            :class="
+              followUpError
+                ? 'border-red-300 bg-red-50/40 ring-2 ring-red-200'
+                : 'bg-card border-border/80'
+            "
+          >
             <!-- Section Header Bar -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div
+              class="border-border/60 flex flex-col justify-between gap-3 border-b pb-3 sm:flex-row sm:items-center"
+            >
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <Icon name="heroicons:calendar-days" class="w-5 h-5" />
+                <div
+                  class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                >
+                  <Icon
+                    name="heroicons:calendar-days"
+                    class="h-5 w-5"
+                  />
                 </div>
                 <div>
-                  <h4 class="text-sm font-bold text-foreground">Follow-Up Consultation Schedule</h4>
-                  <p class="text-xs text-muted-foreground">Book the patient's next clinical visit and auto-match clinic duty shifts.</p>
+                  <h4 class="text-foreground text-sm font-bold">Follow-Up Consultation Schedule</h4>
+                  <p class="text-muted-foreground text-xs">
+                    Book the patient's next clinical visit and auto-match clinic duty shifts.
+                  </p>
                 </div>
               </div>
 
               <!-- Follow-Up Toggle Switch -->
-              <div class="flex items-center gap-1.5 p-1 rounded-2xl bg-foreground/5 border border-border shrink-0">
+              <div
+                class="bg-foreground/5 border-border flex shrink-0 items-center gap-1.5 rounded-2xl border p-1"
+              >
                 <button
                   type="button"
                   @click="noFollowUp = false"
-                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                  :class="!noFollowUp ? 'bg-white text-primary shadow-xs' : 'text-muted-foreground hover:text-foreground'"
+                  class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
+                  :class="
+                    !noFollowUp
+                      ? 'text-primary bg-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  "
                 >
-                  <Icon name="heroicons:check-circle" class="w-3.5 h-3.5" />
+                  <Icon
+                    name="heroicons:check-circle"
+                    class="h-3.5 w-3.5"
+                  />
                   <span>Schedule</span>
                 </button>
                 <button
                   type="button"
                   @click="noFollowUp = true"
-                  class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                  :class="noFollowUp ? 'bg-white text-foreground/80 shadow-xs' : 'text-muted-foreground hover:text-foreground'"
+                  class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
+                  :class="
+                    noFollowUp
+                      ? 'text-foreground/80 bg-white shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  "
                 >
-                  <Icon name="heroicons:no-symbol" class="w-3.5 h-3.5" />
+                  <Icon
+                    name="heroicons:no-symbol"
+                    class="h-3.5 w-3.5"
+                  />
                   <span>Not Required</span>
                 </button>
               </div>
@@ -777,8 +971,13 @@
             <template v-if="!noFollowUp">
               <!-- Quick Interval Shortcuts -->
               <div class="flex flex-wrap items-center gap-2">
-                <span class="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1 mr-1">
-                  <Icon name="heroicons:bolt" class="w-3.5 h-3.5 text-amber-500" />
+                <span
+                  class="text-muted-foreground mr-1 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                >
+                  <Icon
+                    name="heroicons:bolt"
+                    class="h-3.5 w-3.5 text-amber-500"
+                  />
                   Quick Intervals:
                 </span>
                 <button
@@ -792,22 +991,29 @@
                   :key="preset.days"
                   type="button"
                   @click="setQuickInterval(preset.days)"
-                  class="px-3 py-1.5 rounded-xl text-xs font-bold bg-foreground/5 hover:bg-primary/10 hover:text-primary border border-border/80 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                  class="bg-foreground/5 hover:bg-primary/10 hover:text-primary border-border/80 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-bold shadow-2xs transition-all active:scale-95"
                 >
                   {{ preset.label }}
                 </button>
               </div>
 
               <!-- Top Row: Calendar (Left) & Date Summary + Clinic Station (Right) -->
-              <div class="grid gap-5 lg:grid-cols-12 items-start bg-foreground/[0.02] p-4 sm:p-5 rounded-2xl border border-border/60">
+              <div
+                class="bg-foreground/[0.02] border-border/60 grid items-start gap-5 rounded-2xl border p-4 sm:p-5 lg:grid-cols-12"
+              >
                 <!-- Left: Calendar (6 cols) -->
-                <div class="lg:col-span-6 flex flex-col justify-center overflow-visible bg-card p-4 rounded-2xl border border-border/80 shadow-2xs space-y-3">
-                  <div class="flex items-center justify-between border-b border-border/60 pb-2">
-                    <span class="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Icon name="heroicons:calendar" class="w-4 h-4 text-primary" />
+                <div
+                  class="bg-card border-border/80 flex flex-col justify-center space-y-3 overflow-visible rounded-2xl border p-4 shadow-2xs lg:col-span-6"
+                >
+                  <div class="border-border/60 flex items-center justify-between border-b pb-2">
+                    <span class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                      <Icon
+                        name="heroicons:calendar"
+                        class="text-primary h-4 w-4"
+                      />
                       Select Date
                     </span>
-                    <span class="text-[11px] text-muted-foreground">Click a date below</span>
+                    <span class="text-muted-foreground text-[11px]">Click a date below</span>
                   </div>
                   <div class="flex justify-center overflow-visible">
                     <PatientSideComponentsCalendar
@@ -823,41 +1029,82 @@
                 </div>
 
                 <!-- Right: Date Summary & Clinic Branch Station (6 cols) -->
-                <div class="lg:col-span-6 space-y-4">
+                <div class="space-y-4 lg:col-span-6">
                   <!-- Selected Date & Duty Station Status Badge -->
-                  <div class="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+                  <div class="bg-card border-border/80 space-y-3 rounded-2xl border p-4 shadow-2xs">
                     <div class="flex items-center justify-between">
-                      <span class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Target Consultation Date</span>
-                      <span v-if="followUpDateOnly" class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full font-mono">
+                      <span
+                        class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase"
+                        >Target Consultation Date</span
+                      >
+                      <span
+                        v-if="followUpDateOnly"
+                        class="text-primary bg-primary/10 rounded-full px-2 py-0.5 font-mono text-[10px] font-bold"
+                      >
                         {{ followUpDateOnly }}
                       </span>
                     </div>
 
-                    <div v-if="formattedSelectedDate" class="flex items-center gap-2.5 text-foreground font-bold text-base">
-                      <Icon name="heroicons:calendar-days" class="w-5 h-5 text-primary shrink-0" />
+                    <div
+                      v-if="formattedSelectedDate"
+                      class="text-foreground flex items-center gap-2.5 text-base font-bold"
+                    >
+                      <Icon
+                        name="heroicons:calendar-days"
+                        class="text-primary h-5 w-5 shrink-0"
+                      />
                       <span>{{ formattedSelectedDate }}</span>
                     </div>
-                    <div v-else class="flex items-center gap-2 text-muted-foreground text-xs italic">
-                      <Icon name="heroicons:cursor-arrow-rays" class="w-4 h-4 text-primary shrink-0 animate-bounce" />
+                    <div
+                      v-else
+                      class="text-muted-foreground flex items-center gap-2 text-xs italic"
+                    >
+                      <Icon
+                        name="heroicons:cursor-arrow-rays"
+                        class="text-primary h-4 w-4 shrink-0 animate-bounce"
+                      />
                       <span>Pick a date from the calendar or use the quick intervals</span>
                     </div>
 
                     <!-- Matched Duty Shift Badge -->
-                    <div v-if="matchedDutyShift" class="pt-2 border-t border-border/60 flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
-                      <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
-                      <span>Duty Shift: <strong>{{ matchedDutyShift.clinic?.name || matchedDutyShift.location_name }}</strong> ({{ matchedDutyShift.start_time.slice(0, 5) }} - {{ matchedDutyShift.end_time.slice(0, 5) }})</span>
+                    <div
+                      v-if="matchedDutyShift"
+                      class="border-border/60 flex items-center gap-2 rounded-xl border border-t border-emerald-200 bg-emerald-50/70 p-2.5 pt-2 text-xs font-semibold text-emerald-700"
+                    >
+                      <div class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></div>
+                      <span
+                        >Duty Shift:
+                        <strong>{{
+                          matchedDutyShift.clinic?.name || matchedDutyShift.location_name
+                        }}</strong>
+                        ({{ matchedDutyShift.start_time.slice(0, 5) }} -
+                        {{ matchedDutyShift.end_time.slice(0, 5) }})</span
+                      >
                     </div>
                   </div>
 
                   <!-- Clinic / Location Selector -->
-                  <div class="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
+                  <div
+                    class="bg-card border-border/80 space-y-2.5 rounded-2xl border p-4 shadow-2xs"
+                  >
                     <div class="flex items-center justify-between">
-                      <label class="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Icon name="heroicons:building-office-2" class="w-4 h-4 text-primary" />
+                      <label
+                        class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase"
+                      >
+                        <Icon
+                          name="heroicons:building-office-2"
+                          class="text-primary h-4 w-4"
+                        />
                         Clinic Station / Location
                       </label>
-                      <span v-if="wasLocationAutofilled" class="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <Icon name="heroicons:sparkles" class="w-3 h-3 text-emerald-600" />
+                      <span
+                        v-if="wasLocationAutofilled"
+                        class="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                      >
+                        <Icon
+                          name="heroicons:sparkles"
+                          class="h-3 w-3 text-emerald-600"
+                        />
                         Autofilled from Duty Preset
                       </span>
                     </div>
@@ -865,10 +1112,19 @@
                     <select
                       v-if="clinics.length > 0"
                       v-model="followUpLocation"
-                      class="w-full rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2.5 text-xs outline-none focus:border-primary font-bold text-foreground cursor-pointer"
+                      class="border-border bg-foreground/[0.03] focus:border-primary text-foreground w-full cursor-pointer rounded-xl border px-3.5 py-2.5 text-xs font-bold outline-none"
                     >
-                      <option value="" disabled>-- Select a Clinic Location --</option>
-                      <option v-for="c in clinics" :key="c.id" :value="c.name">
+                      <option
+                        value=""
+                        disabled
+                      >
+                        -- Select a Clinic Location --
+                      </option>
+                      <option
+                        v-for="c in clinics"
+                        :key="c.id"
+                        :value="c.name"
+                      >
                         {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
                       </option>
                       <option value="__custom__">+ Other / Custom Location</option>
@@ -879,14 +1135,16 @@
                       type="text"
                       v-model="customFollowUpLocation"
                       placeholder="e.g. SkinCare Clinic, Room 402"
-                      class="w-full rounded-xl border border-border bg-foreground/[0.03] px-3.5 py-2.5 text-xs outline-none focus:border-primary font-medium"
+                      class="border-border bg-foreground/[0.03] focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-xs font-medium outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               <!-- Full-Width Bottom Row: Spacious Consultation Time Window -->
-              <div class="p-5 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-3">
+              <div
+                class="bg-card border-border/80 space-y-3 rounded-2xl border p-5 shadow-2xs sm:p-6"
+              >
                 <AppTimeRangePicker
                   v-model:start-time="followUpTimeOnly"
                   v-model:end-time="followUpEndTimeOnly"
@@ -901,7 +1159,10 @@
                     v-if="followUpEndTimeOnly <= followUpTimeOnly"
                     class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
-                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
                     <p class="font-bold">End time must be after start time.</p>
                   </div>
                 </Transition>
@@ -912,10 +1173,16 @@
                     v-if="followUpDateOnly && hasNoDutyOnFollowUpDate"
                     class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
-                    <Icon name="material-symbols:block-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <Icon
+                      name="material-symbols:block-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
                     <div>
                       <p class="font-bold">Doctor is Off-Duty on this date</p>
-                      <p class="text-red-500 mt-0.5">You have no scheduled duty hours on this date. Please select an available date from the calendar.</p>
+                      <p class="mt-0.5 text-red-500">
+                        You have no scheduled duty hours on this date. Please select an available
+                        date from the calendar.
+                      </p>
                     </div>
                   </div>
                 </Transition>
@@ -923,13 +1190,22 @@
                 <!-- Outside Duty Hours warning -->
                 <Transition name="fade-scale">
                   <div
-                    v-if="followUpDateOnly && !hasNoDutyOnFollowUpDate && isFollowUpOutsideDutyHours"
+                    v-if="
+                      followUpDateOnly && !hasNoDutyOnFollowUpDate && isFollowUpOutsideDutyHours
+                    "
                     class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
-                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
                     <div>
                       <p class="font-bold">Outside Doctor's Duty Hours</p>
-                      <p class="text-red-500 mt-0.5">Appointments must be scheduled during your active duty hours on this date: <strong>{{ dutyRangesLabel }}</strong>.</p>
+                      <p class="mt-0.5 text-red-500">
+                        Appointments must be scheduled during your active duty hours on this date:
+                        <strong>{{ dutyRangesLabel }}</strong
+                        >.
+                      </p>
                     </div>
                   </div>
                 </Transition>
@@ -939,26 +1215,49 @@
                     v-if="!showSuccess && isFollowUpConflict"
                     class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
                   >
-                    <Icon name="material-symbols:warning-rounded" class="mt-0.5 shrink-0 text-sm" />
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
                     <div>
                       <p class="font-bold">Conflicting Appointment</p>
-                      <p class="text-red-500 mt-0.5">An appointment is already scheduled during this time slot. Please choose a different time.</p>
+                      <p class="mt-0.5 text-red-500">
+                        An appointment is already scheduled during this time slot. Please choose a
+                        different time.
+                      </p>
                     </div>
                   </div>
                 </Transition>
               </div>
 
               <!-- Blocked date / away warning banner -->
-              <div v-if="dateBlockedSlots.length > 0" class="text-xs font-bold text-amber-900 bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 flex items-start gap-2.5 shadow-2xs">
-                <Icon name="material-symbols:warning-outline-rounded" class="text-lg text-amber-600 shrink-0 mt-0.5" />
+              <div
+                v-if="dateBlockedSlots.length > 0"
+                class="flex items-start gap-2.5 rounded-2xl border border-amber-200/80 bg-amber-50/90 p-4 text-xs font-bold text-amber-900 shadow-2xs"
+              >
+                <Icon
+                  name="material-symbols:warning-outline-rounded"
+                  class="mt-0.5 shrink-0 text-lg text-amber-600"
+                />
                 <div class="flex flex-col gap-0.5">
                   <span>
-                    {{ isSelectedDateFullyBlocked ? 'Full Day Marked as Away / Unavailable on your schedule' : 'Away / Unavailable schedule set on this date:' }}
+                    {{
+                      isSelectedDateFullyBlocked
+                        ? 'Full Day Marked as Away / Unavailable on your schedule'
+                        : 'Away / Unavailable schedule set on this date:'
+                    }}
                   </span>
-                  <span v-if="!isSelectedDateFullyBlocked" class="text-[11px] text-amber-700 font-semibold">
-                    Blocked ranges: 
-                    <template v-for="(slot, idx) in dateBlockedSlots" :key="idx">
-                      {{ idx > 0 ? ', ' : '' }}{{ slot.start_time.slice(0, 5) }} - {{ slot.end_time.slice(0, 5) }}
+                  <span
+                    v-if="!isSelectedDateFullyBlocked"
+                    class="text-[11px] font-semibold text-amber-700"
+                  >
+                    Blocked ranges:
+                    <template
+                      v-for="(slot, idx) in dateBlockedSlots"
+                      :key="idx"
+                    >
+                      {{ idx > 0 ? ', ' : '' }}{{ slot.start_time.slice(0, 5) }} -
+                      {{ slot.end_time.slice(0, 5) }}
                     </template>
                   </span>
                 </div>
@@ -966,39 +1265,57 @@
             </template>
 
             <!-- Disabled follow up state -->
-            <div v-else class="p-6 bg-foreground/[0.02] rounded-2xl border border-dashed border-border text-center space-y-2">
-              <Icon name="heroicons:calendar-days" class="w-8 h-8 text-muted-foreground mx-auto opacity-50" />
-              <p class="text-xs font-semibold text-muted-foreground">No follow-up appointment will be scheduled for this consultation.</p>
+            <div
+              v-else
+              class="bg-foreground/[0.02] border-border space-y-2 rounded-2xl border border-dashed p-6 text-center"
+            >
+              <Icon
+                name="heroicons:calendar-days"
+                class="text-muted-foreground mx-auto h-8 w-8 opacity-50"
+              />
+              <p class="text-muted-foreground text-xs font-semibold">
+                No follow-up appointment will be scheduled for this consultation.
+              </p>
               <button
                 type="button"
                 @click="noFollowUp = false"
-                class="px-4 py-2 rounded-xl text-xs font-bold text-primary bg-primary/10 hover:bg-primary/20 transition cursor-pointer"
+                class="text-primary bg-primary/10 hover:bg-primary/20 cursor-pointer rounded-xl px-4 py-2 text-xs font-bold transition"
               >
                 Enable Follow-Up Scheduling
               </button>
             </div>
 
             <!-- Follow up validation error -->
-            <div v-if="followUpError" class="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+            <div
+              v-if="followUpError"
+              class="flex flex-col items-start justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-600 shadow-2xs sm:flex-row sm:items-center"
+            >
               <div class="flex items-center gap-2">
-                <Icon name="material-symbols:warning-outline-rounded" class="text-base text-red-500 shrink-0" />
+                <Icon
+                  name="material-symbols:warning-outline-rounded"
+                  class="shrink-0 text-base text-red-500"
+                />
                 <span>{{ followUpError }}</span>
               </div>
               <button
                 v-if="!patientUuid"
                 type="button"
                 @click="saveWithoutAccount"
-                class="shrink-0 bg-red-600 text-white hover:bg-red-700 font-bold text-[11px] px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
+                class="shrink-0 cursor-pointer rounded-xl bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white shadow-xs transition-all hover:bg-red-700 active:scale-95"
               >
                 Save Diagnosis (No Account Required)
               </button>
             </div>
 
             <!-- Follow-up Instructions with Quick Suggestion Chips -->
-            <div class="space-y-2 pt-2 border-t border-border/60">
+            <div class="border-border/60 space-y-2 border-t pt-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-bold uppercase tracking-wider text-gray-700">Follow-up Instructions & Objectives</label>
-                <span class="text-[11px] text-muted-foreground italic">Visible on patient reminder</span>
+                <label class="text-xs font-bold tracking-wider text-gray-700 uppercase"
+                  >Follow-up Instructions & Objectives</label
+                >
+                <span class="text-muted-foreground text-[11px] italic"
+                  >Visible on patient reminder</span
+                >
               </div>
 
               <!-- Suggestion Chips -->
@@ -1008,7 +1325,7 @@
                   :key="chip"
                   type="button"
                   @click="applyQuickInstruction(chip)"
-                  class="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-foreground/5 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer border border-border/60"
+                  class="bg-foreground/5 hover:bg-primary/10 hover:text-primary border-border/60 cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
                 >
                   + {{ chip }}
                 </button>
@@ -1018,7 +1335,7 @@
                 type="text"
                 v-model="note.follow_up_instructions"
                 placeholder="e.g. When to return, what symptoms to monitor, biopsy review..."
-                class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-inset ring-gray-200/50 focus:bg-white focus:ring-2 focus:ring-inset focus:ring-amber-500 transition-all outline-none"
+                class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset"
               />
             </div>
           </div>

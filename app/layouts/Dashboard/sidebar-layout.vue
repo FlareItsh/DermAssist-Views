@@ -11,7 +11,10 @@
     </div>
 
     <!-- Temporary Account Verification Alert Banner -->
-    <AppVerificationBanner :user="currentUser" @verified="handleUserVerified" />
+    <AppVerificationBanner
+      :user="currentUser"
+      @verified="handleUserVerified"
+    />
 
     <div class="flex flex-1 overflow-hidden">
       <!-- Desktop Sidebar (hidden on mobile) -->
@@ -72,7 +75,7 @@
 
   watch(
     () => accountStatus.value,
-    (val) => {
+    val => {
       currentUser.account_status = val || 'active'
     }
   )
@@ -108,7 +111,14 @@
       showBadge: hasUnseenAppeals.value
     },
     { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
-    { icon: 'lucide:brain-circuit', label: 'AI Models', to: '/admin/ai' },
+    {
+      icon: 'lucide:brain-circuit',
+      label: 'AI Models',
+      children: [
+        { icon: 'lucide:refresh-cw', label: 'Retrain Models', to: '/admin/ai' },
+        { icon: 'lucide:flask-conical', label: 'Train New Disease', to: '/admin/ai/expansion' }
+      ]
+    },
     {
       icon: 'lucide:credit-card',
       label: 'Subscriptions',
