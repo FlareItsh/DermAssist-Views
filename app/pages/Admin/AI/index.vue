@@ -238,6 +238,7 @@
   }
 
   const handleStartTraining = async () => {
+    if (isStarting.value || isTrainingActive.value) return
     isStarting.value = true
     try {
       await modelTrainingService.startTraining({
@@ -1057,6 +1058,7 @@
               size="lg"
               class="w-full justify-center gap-2 font-bold shadow-md"
               :loading="isStarting"
+              :disabled="isStarting || isTrainingActive"
               @click="handleStartTraining"
             >
               <Icon

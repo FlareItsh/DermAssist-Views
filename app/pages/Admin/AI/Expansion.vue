@@ -207,6 +207,7 @@
   }
 
   const handleStartExpansionTraining = async () => {
+    if (isStarting.value || isTrainingActive.value) return
     if (hasInsufficientDataset.value) {
       toast.error(
         `Insufficient dataset: At least ${MIN_REQUIRED_DATASET} verified images are required to train with +${selectedDiseaseName.value}. Currently ${selectedCandidateCount.value} available.`
@@ -630,7 +631,7 @@
                   : 'cursor-pointer bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-700'
               ]"
               :loading="isStarting"
-              :disabled="hasInsufficientDataset"
+              :disabled="hasInsufficientDataset || isStarting || isTrainingActive"
               @click="handleStartExpansionTraining"
             >
               <Icon
