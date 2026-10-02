@@ -192,7 +192,7 @@
     {
       id: 'security' as SettingsTab,
       label: 'Account & Security',
-      desc: 'Verification & session security',
+      desc: 'Password, 2FA & session security',
       icon: 'heroicons:shield-check'
     }
   ])
@@ -804,6 +804,91 @@
     }
   }
 
+  // Change Password State
+  const passwordForm = reactive({
+    current_password: '',
+    new_password: '',
+    new_password_confirmation: ''
+  })
+  const isChangingPassword = ref(false)
+  const showCurrentPassword = ref(false)
+  const showNewPassword = ref(false)
+  const showConfirmPassword = ref(false)
+  const passwordError = ref<string | null>(null)
+
+  const handlePasswordChange = async () => {
+    passwordError.value = null
+    if (!passwordForm.current_password) {
+      passwordError.value = 'Please enter your current password.'
+      return
+    }
+    if (passwordForm.new_password.length < 8) {
+      passwordError.value = 'New password must be at least 8 characters long.'
+      return
+    }
+    if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
+      passwordError.value = 'The new password confirmation does not match.'
+      return
+    }
+
+    isChangingPassword.value = true
+    try {
+      await userService.update(useCookie('user_uuid').value as string, {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password,
+        new_password_confirmation: passwordForm.new_password_confirmation
+      })
+      toast.success('Password updated successfully!')
+      passwordForm.current_password = ''
+      passwordForm.new_password = ''
+      passwordForm.new_password_confirmation = ''
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        'Failed to update password.'
+      passwordError.value = msg
+      toast.error(msg)
+    } finally {
+      isChangingPassword.value = false
+    }
+  }
+
+  // Two-Factor Authentication (2FA) Preview State
+  const show2FAModal = ref(false)
+  const twoFACode = ref('')
+  const is2FALoading = ref(false)
+  const isCopiedKey = ref(false)
+  const mock2FASecret = 'DERM-D9K4-8X2M-55QL'
+
+  const copySecretKey = () => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(mock2FASecret)
+      isCopiedKey.value = true
+      toast.success('2FA secret key copied to clipboard!')
+      setTimeout(() => {
+        isCopiedKey.value = false
+      }, 2000)
+    }
+  }
+
+  const handleSimulate2FA = () => {
+    if (!twoFACode.value || twoFACode.value.length < 6) {
+      toast.error('Please enter a valid 6-digit verification code.')
+      return
+    }
+    is2FALoading.value = true
+    setTimeout(() => {
+      is2FALoading.value = false
+      show2FAModal.value = false
+      twoFACode.value = ''
+      toast.success(
+        '2FA configuration verified (Preview Mode). Full enrollment will be activated soon!'
+      )
+    }, 1200)
+  }
+
   const logout = () => {
     isLogoutModalOpen.value = false
     useCookie('auth_token').value = null
@@ -820,7 +905,7 @@
     <!-- Header -->
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
-        <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Doctor Settings</h1>
+        <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
           Manage your professional profile, clinic branches, schedule, and subscription.
         </p>
@@ -2743,7 +2828,7 @@
 
           <div class="bg-border h-px"></div>
 
-          <div class="space-y-4">
+          <div class="space-y-6">
             <!-- Verification Card -->
             <div
               class="border-border bg-foreground/[0.02] flex items-center justify-between gap-4 rounded-2xl border p-5"
@@ -2774,21 +2859,276 @@
               />
             </div>
 
+            <!-- Security Cards Grid (Side-by-side on xl, stacked on mobile/tablet) -->
+            <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+              <!-- Card 1: Change Password Card -->
+              <div
+                class="border-border bg-foreground/[0.01] flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+              >
+                <div>
+                  <div class="mb-5 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                      >
+                        <Icon
+                          name="heroicons:key-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h3 class="text-foreground text-base font-bold">Change Password</h3>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Ensure your account is using a long, secure password to protect clinical
+                          records.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-6 h-px"></div>
+
+                  <form
+                    @submit.prevent="handlePasswordChange"
+                    class="space-y-4"
+                  >
+                    <div
+                      v-if="passwordError"
+                      class="border-destructive/30 bg-destructive/10 text-destructive flex items-center gap-2 rounded-2xl border p-3.5 text-xs font-semibold"
+                    >
+                      <Icon
+                        name="heroicons:exclamation-circle-20-solid"
+                        size="16"
+                        class="shrink-0"
+                      />
+                      <span>{{ passwordError }}</span>
+                    </div>
+
+                    <!-- Current Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                        Current Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          v-model="passwordForm.current_password"
+                          :type="showCurrentPassword ? 'text' : 'password'"
+                          autocomplete="current-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter current password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          @click="showCurrentPassword = !showCurrentPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showCurrentPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- New Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                        >
+                          New Password
+                        </label>
+                        <span class="text-muted-foreground text-[11px]">Min. 8 characters</span>
+                      </div>
+                      <div class="relative">
+                        <input
+                          v-model="passwordForm.new_password"
+                          :type="showNewPassword ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter new password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          @click="showNewPassword = !showNewPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showNewPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Confirm New Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                        Confirm New Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          v-model="passwordForm.new_password_confirmation"
+                          :type="showConfirmPassword ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Confirm new password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          @click="showConfirmPassword = !showConfirmPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showConfirmPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="pt-2">
+                      <AppButton
+                        type="submit"
+                        :loading="isChangingPassword"
+                        :disabled="
+                          isChangingPassword ||
+                          !passwordForm.current_password ||
+                          !passwordForm.new_password
+                        "
+                        class="min-w-[150px]"
+                      >
+                        Update Password
+                      </AppButton>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Card 2: Two-Factor Authentication (2FA) Card -->
+              <div
+                class="border-border bg-foreground/[0.01] flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+              >
+                <div>
+                  <div class="mb-5 flex items-start justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
+                      >
+                        <Icon
+                          name="heroicons:device-phone-mobile-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h3 class="text-foreground text-base font-bold">
+                          Two-Factor Authentication (2FA)
+                        </h3>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Strengthen account security by requiring a verification code when signing
+                          in.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+                    >
+                      <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                      <span>Disabled</span>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <div class="space-y-4">
+                    <!-- Benefits Callout -->
+                    <div
+                      class="border-border bg-foreground/[0.02] space-y-3 rounded-2xl border p-4"
+                    >
+                      <h4 class="text-foreground text-sm font-bold">Why enable 2FA?</h4>
+                      <p class="text-muted-foreground text-xs leading-relaxed">
+                        Two-Factor Authentication prevents unauthorized access to clinical
+                        consultations, patient health records, and prescription data even if your
+                        credentials are leaked.
+                      </p>
+                      <div class="text-muted-foreground space-y-2 pt-1 text-xs">
+                        <div class="flex items-center gap-2">
+                          <Icon
+                            name="heroicons:check-circle"
+                            class="text-primary h-4 w-4 shrink-0"
+                          />
+                          <span>Generates temporary time-based passcodes (TOTP)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <Icon
+                            name="heroicons:check-circle"
+                            class="text-primary h-4 w-4 shrink-0"
+                          />
+                          <span>Compatible with Google Authenticator, Authy, Microsoft</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Authenticator application CTA box -->
+                    <div
+                      class="border-border bg-foreground/[0.02] flex flex-col items-start justify-between gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center"
+                    >
+                      <div class="space-y-1">
+                        <h4 class="text-foreground text-sm font-bold">Authenticator Application</h4>
+                        <p class="text-muted-foreground max-w-lg text-xs leading-relaxed">
+                          Pair your device to start generating one-time passcodes.
+                        </p>
+                      </div>
+                      <AppButton
+                        type="button"
+                        variant="outline"
+                        @click="show2FAModal = true"
+                        class="shrink-0"
+                      >
+                        <Icon
+                          name="heroicons:qr-code-20-solid"
+                          size="16"
+                          class="mr-1.5"
+                        />
+                        Configure 2FA
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Sign Out Row -->
             <div
-              class="flex items-center justify-between gap-4 rounded-2xl border border-red-200/60 bg-red-50/40 p-5"
+              class="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-4 rounded-2xl border p-5"
             >
               <div>
-                <h4 class="text-sm font-bold text-red-900">Sign Out</h4>
-                <p class="mt-0.5 text-xs text-red-600/80">
-                  Terminate your current session on this device.
+                <h4 class="text-destructive text-sm font-bold">Sign Out</h4>
+                <p class="text-muted-foreground mt-0.5 text-xs">
+                  Terminate your current doctor session on this device.
                 </p>
               </div>
 
               <button
                 type="button"
                 @click="isLogoutModalOpen = true"
-                class="cursor-pointer rounded-xl bg-red-100 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-200"
+                class="bg-destructive/10 text-destructive hover:bg-destructive border-destructive/20 cursor-pointer rounded-2xl border px-4 py-2 text-xs font-bold transition-all hover:text-white"
               >
                 Log Out
               </button>
@@ -3236,6 +3576,127 @@
         </p>
       </div>
     </AppModalConfirmation>
+
+    <!-- 2FA Setup Preview Modal -->
+    <Teleport to="body">
+      <div
+        v-if="show2FAModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+      >
+        <div
+          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
+              >
+                <Icon
+                  name="heroicons:qr-code-20-solid"
+                  size="22"
+                />
+              </div>
+              <div>
+                <h3 class="text-foreground text-lg font-bold">Configure 2FA</h3>
+                <p class="text-muted-foreground text-xs">Scan code with your authenticator app</p>
+              </div>
+            </div>
+            <button
+              @click="show2FAModal = false"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+            >
+              <Icon
+                name="heroicons:x-mark-20-solid"
+                size="20"
+              />
+            </button>
+          </div>
+
+          <!-- Preview Badge -->
+          <div
+            class="bg-primary/10 border-primary/20 text-primary flex items-start gap-2.5 rounded-2xl border p-3.5 text-xs"
+          >
+            <Icon
+              name="heroicons:information-circle-20-solid"
+              size="18"
+              class="mt-0.5 shrink-0"
+            />
+            <p class="leading-relaxed">
+              <strong>Preview Mode:</strong> You can preview the setup process below. Automated 2FA
+              login verification will be activated in an upcoming release.
+            </p>
+          </div>
+
+          <!-- Step 1: Scan QR Code -->
+          <div class="space-y-2 text-center">
+            <div
+              class="border-border bg-foreground/[0.03] mx-auto flex h-40 w-40 items-center justify-center rounded-2xl border p-3"
+            >
+              <div class="text-muted-foreground flex flex-col items-center justify-center gap-1.5">
+                <Icon
+                  name="heroicons:qr-code-20-solid"
+                  size="64"
+                  class="text-foreground/70"
+                />
+                <span class="text-[10px] font-semibold tracking-wider uppercase"
+                  >Mock Authenticator QR</span
+                >
+              </div>
+            </div>
+            <div class="flex items-center justify-center gap-2 pt-1">
+              <span class="text-foreground font-mono text-xs font-bold">{{ mock2FASecret }}</span>
+              <button
+                type="button"
+                @click="copySecretKey"
+                class="text-primary hover:text-primary-hover cursor-pointer p-1 text-xs"
+                title="Copy secret key"
+              >
+                <Icon
+                  :name="
+                    isCopiedKey
+                      ? 'heroicons:check-20-solid'
+                      : 'heroicons:clipboard-document-20-solid'
+                  "
+                  size="16"
+                />
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Code Input -->
+          <div class="space-y-2">
+            <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+              Enter 6-Digit Code
+            </label>
+            <input
+              v-model="twoFACode"
+              type="text"
+              maxlength="6"
+              class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-lg font-bold tracking-widest transition-all outline-none"
+              placeholder="000000"
+            />
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <AppButton
+              variant="outline"
+              type="button"
+              @click="show2FAModal = false"
+            >
+              Close
+            </AppButton>
+            <AppButton
+              type="button"
+              :loading="is2FALoading"
+              @click="handleSimulate2FA"
+            >
+              Verify & Activate
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <!-- Logout Modal -->
     <AppModalConfirmation
