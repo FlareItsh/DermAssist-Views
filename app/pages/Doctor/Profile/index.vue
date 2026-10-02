@@ -98,12 +98,14 @@
   const doctorUuid = useCookie('user_uuid').value
   const isUploadingAvatar = ref(false)
   const avatarInputRef = ref<HTMLInputElement | null>(null)
+  const showCropModal = ref(false)
+  const rawAvatarSrc = ref('')
 
   const triggerAvatarUpload = () => {
     avatarInputRef.value?.click()
   }
 
-  const handleAvatarFileChange = async (event: Event) => {
+  const handleAvatarFileChange = (event: Event) => {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     if (!file) return
@@ -115,40 +117,46 @@
       return
     }
 
-    const maxSizeInBytes = 5 * 1024 * 1024
+    const maxSizeInBytes = 10 * 1024 * 1024
     if (file.size > maxSizeInBytes) {
-      toast.error('Image size exceeds 5MB limit. Please choose a smaller image.')
+      toast.error('Image size exceeds 10MB limit. Please choose a smaller image.')
       input.value = ''
       return
     }
 
     const reader = new FileReader()
-    reader.onload = async e => {
+    reader.onload = e => {
       const base64Data = e.target?.result as string
       if (!base64Data) return
-
-      isUploadingAvatar.value = true
-      try {
-        await userService.update(doctorUuid as string, {
-          avatar: base64Data
-        })
-        toast.success('Profile picture updated successfully.')
-        await Promise.all([refresh(), refreshNuxtData(`userProfile-${doctorUuid}`)])
-      } catch (err: any) {
-        console.error('Failed to upload avatar:', err)
-        toast.error(
-          err?.response?.data?.message || err?.message || 'Failed to update profile picture.'
-        )
-      } finally {
-        isUploadingAvatar.value = false
-        input.value = ''
-      }
+      rawAvatarSrc.value = base64Data
+      showCropModal.value = true
+      input.value = ''
     }
     reader.onerror = () => {
       toast.error('Error reading the image file.')
       input.value = ''
     }
     reader.readAsDataURL(file)
+  }
+
+  const handleApplyCroppedAvatar = async (croppedBase64: string) => {
+    isUploadingAvatar.value = true
+    try {
+      await userService.update(doctorUuid as string, {
+        avatar: croppedBase64
+      })
+      toast.success('Profile picture updated successfully.')
+      showCropModal.value = false
+      rawAvatarSrc.value = ''
+      await Promise.all([refresh(), refreshNuxtData(`userProfile-${doctorUuid}`)])
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err)
+      toast.error(
+        err?.response?.data?.message || err?.message || 'Failed to update profile picture.'
+      )
+    } finally {
+      isUploadingAvatar.value = false
+    }
   }
 
   const availabilities = ref<any[]>([])
@@ -3752,6 +3760,15 @@
       confirm-variant="destructive"
       @confirm="logout"
       @cancel="isLogoutModalOpen = false"
+    />
+
+    <!-- Image Cropping Modal -->
+    <AppModalCropImage
+      v-model="showCropModal"
+      :image-src="rawAvatarSrc"
+      :loading="isUploadingAvatar"
+      @crop="handleApplyCroppedAvatar"
+      @cancel="rawAvatarSrc = ''"
     />
   </div>
 </template>
