@@ -1189,6 +1189,7 @@
               :data="displayChartData"
               :size="200"
               :stroke-width="38"
+              :show-legend="false"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
               <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
@@ -1808,8 +1809,8 @@
           v-for="patient in uniquePatients"
           :key="patient.uuid"
           @click="
-            patientUuid = patient.uuid;
-            isPatientModalOpen = false;
+            patientUuid = patient.uuid
+            isPatientModalOpen = false
           "
           class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
           :class="
@@ -1852,8 +1853,8 @@
         <AppButton
           variant="outline"
           @click="
-            patientUuid = null;
-            isPatientModalOpen = false;
+            patientUuid = null
+            isPatientModalOpen = false
           "
           class="rounded-xl px-6 font-bold"
           v-if="patientUuid"

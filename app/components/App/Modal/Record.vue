@@ -268,6 +268,7 @@
             :data="chartData"
             :size="200"
             :stroke-width="35"
+            :show-legend="false"
           />
 
           <div class="flex w-full max-w-[240px] flex-col gap-3">
