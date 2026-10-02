@@ -61,6 +61,12 @@
     prcNumber: ''
   })
 
+  const middleInitial = computed(() => {
+    const m = form.middle_name?.trim()
+    if (!m) return ''
+    return `${m.charAt(0).toUpperCase()}.`
+  })
+
   // Subscription state
   const mySubscription = ref<DoctorSubscription | null>(null)
   const allDoctorPlans = ref<DoctorPlan[]>([])
@@ -798,7 +804,7 @@
       // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
       const userName = useCookie('user_name')
       const authName = useCookie('auth_user_name')
-      const fullDisplayName = [form.first_name, form.middle_name, form.last_name]
+      const fullDisplayName = [form.first_name, middleInitial.value, form.last_name]
         .filter(Boolean)
         .join(' ')
       userName.value = fullDisplayName
@@ -1015,7 +1021,8 @@
             />
           </div>
           <h2 class="text-foreground truncate text-sm font-bold">
-            Dr. {{ form.first_name }} {{ form.last_name }}
+            Dr. {{ form.first_name }} {{ middleInitial ? middleInitial + ' ' : ''
+            }}{{ form.last_name }}
           </h2>
           <p class="text-muted-foreground truncate text-[11px] italic">{{ form.email }}</p>
 
