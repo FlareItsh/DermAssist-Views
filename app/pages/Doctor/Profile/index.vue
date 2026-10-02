@@ -673,6 +673,23 @@
     return JSON.stringify(form) !== initialFormState.value
   })
 
+  const formattedCoordinates = computed(() => {
+    if (
+      form.latitude === null ||
+      form.latitude === undefined ||
+      form.longitude === null ||
+      form.longitude === undefined
+    ) {
+      return null
+    }
+    const lat = Number(form.latitude)
+    const lon = Number(form.longitude)
+    if (!isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
+      return `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`
+    }
+    return null
+  })
+
   const loaded = ref(false)
   watch(
     user,
@@ -687,8 +704,16 @@
         form.city = userData.city || ''
         form.province = userData.province || ''
         form.country = userData.country || 'Philippines'
-        form.latitude = userData.latitude ?? null
-        form.longitude = userData.longitude ?? null
+        form.latitude =
+          userData.latitude !== null && userData.latitude !== undefined && userData.latitude !== ''
+            ? Number(userData.latitude)
+            : null
+        form.longitude =
+          userData.longitude !== null &&
+          userData.longitude !== undefined &&
+          userData.longitude !== ''
+            ? Number(userData.longitude)
+            : null
         form.age = userData.age || ''
         form.gender = userData.gender || ''
         form.affiliation = userData.affiliation || ''
@@ -932,238 +957,355 @@
 
       <!-- Right Main Content Panel (Expanded) -->
       <main class="min-w-0 flex-1">
-        <!-- 1. PROFILE & BIO TAB -->
+        <!-- 1. PROFILE & BIO TAB (2-Column Cards Architecture) -->
         <div
           v-if="activeTab === 'profile'"
-          class="bg-card border-border animate-in fade-in space-y-6 rounded-3xl border p-6 shadow-xs duration-300 sm:p-8"
+          class="animate-in fade-in space-y-6 duration-300"
         >
-          <div>
-            <h2 class="text-foreground text-xl font-bold">Doctor Profile & Credentials</h2>
-            <p class="text-muted-foreground mt-1 text-xs">
-              Manage your professional credentials, PRC license, and practice address.
-            </p>
-          </div>
-
-          <div class="bg-border h-px"></div>
-
           <form
             @submit.prevent="submitProfile"
-            class="flex flex-col gap-6"
+            class="space-y-6"
           >
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >First Name</label
-                >
-                <input
-                  v-model="form.first_name"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter first name"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Last Name</label
-                >
-                <input
-                  v-model="form.last_name"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter last name"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="text-foreground flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Email Address</label
-                >
-                <input
-                  v-model="form.email"
-                  type="email"
-                  disabled
-                  class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-60 outline-none"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >PRC License Number</label
-                >
-                <input
-                  v-model="form.prcNumber"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter PRC license number"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Age</label
-                >
-                <input
-                  v-model="form.age"
-                  type="number"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Your age"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Gender</label
-                >
-                <select
-                  v-model="form.gender"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select gender
-                  </option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Region</label
-                >
-                <select
-                  v-model="codes.region"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select Region
-                  </option>
-                  <option
-                    v-for="r in regions"
-                    :key="r.code"
-                    :value="r.code"
-                  >
-                    {{ r.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Province</label
-                >
-                <select
-                  v-model="codes.province"
-                  :disabled="!provinces.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    {{ provinces.length ? 'Select Province' : 'N/A' }}
-                  </option>
-                  <option
-                    v-for="p in provinces"
-                    :key="p.code"
-                    :value="p.code"
-                  >
-                    {{ p.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >City / Municipality</label
-                >
-                <select
-                  v-model="codes.city"
-                  :disabled="!cities.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select City
-                  </option>
-                  <option
-                    v-for="c in cities"
-                    :key="c.code"
-                    :value="c.code"
-                  >
-                    {{ c.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Barangay</label
-                >
-                <select
-                  v-model="codes.barangay"
-                  :disabled="!barangays.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select Barangay
-                  </option>
-                  <option
-                    v-for="b in barangays"
-                    :key="b.code"
-                    :value="b.code"
-                  >
-                    {{ b.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                >Street Address / Practice Location</label
-              >
-              <input
-                v-model="form.street"
-                type="text"
-                class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                placeholder="House No., Street Name, Clinic/Hospital Rm"
-              />
-            </div>
-
-            <div class="border-border mt-4 flex items-center justify-between border-t pt-2">
+            <!-- 2-Column Cards Grid -->
+            <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+              <!-- Card 1: Doctor Identity & Medical Credentials -->
               <div
-                v-if="isSuccess"
-                class="flex items-center gap-2 text-sm font-bold text-emerald-600"
+                class="bg-card border-border flex flex-col justify-between space-y-6 rounded-3xl border p-6 shadow-xs sm:p-7"
               >
-                <Icon
-                  name="heroicons:check-circle"
-                  size="20"
-                />
-                <span>Doctor profile updated successfully!</span>
+                <div>
+                  <!-- Card Header -->
+                  <div class="mb-5 flex items-start gap-3.5">
+                    <div
+                      class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                    >
+                      <Icon
+                        name="heroicons:identification-20-solid"
+                        size="22"
+                      />
+                    </div>
+                    <div>
+                      <h2 class="text-foreground text-base font-bold sm:text-lg">
+                        Identity & Credentials
+                      </h2>
+                      <p class="text-muted-foreground mt-0.5 text-xs">
+                        Your professional identification, contact details, and license.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <!-- Card 1 Fields -->
+                  <div class="space-y-4">
+                    <!-- First & Last Name -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >First Name</label
+                        >
+                        <input
+                          v-model="form.first_name"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter first name"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Last Name</label
+                        >
+                        <input
+                          v-model="form.last_name"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter last name"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Email & PRC License -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="text-foreground flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Email Address</label
+                        >
+                        <div class="relative">
+                          <input
+                            v-model="form.email"
+                            type="email"
+                            disabled
+                            class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
+                          />
+                          <Icon
+                            name="heroicons:lock-closed-20-solid"
+                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
+                            size="16"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between">
+                          <label
+                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                            >PRC License Number</label
+                          >
+                          <span
+                            v-if="user?.doctor_verification?.status === 'verified'"
+                            class="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide text-emerald-600 uppercase"
+                          >
+                            <Icon
+                              name="heroicons:check-badge-20-solid"
+                              size="12"
+                            />
+                            Verified
+                          </span>
+                        </div>
+                        <input
+                          v-model="form.prcNumber"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter PRC license number"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Age & Gender -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Age</label
+                        >
+                        <input
+                          v-model="form.age"
+                          type="number"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Your age"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Gender</label
+                        >
+                        <select
+                          v-model="form.gender"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select gender
+                          </option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div v-else></div>
+
+              <!-- Card 2: Practice Location & Primary Clinic Address -->
+              <div
+                class="bg-card border-border flex flex-col justify-between space-y-6 rounded-3xl border p-6 shadow-xs sm:p-7"
+              >
+                <div>
+                  <!-- Card Header -->
+                  <div class="mb-5 flex items-start justify-between gap-3">
+                    <div class="flex items-start gap-3.5">
+                      <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600"
+                      >
+                        <Icon
+                          name="heroicons:map-pin-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h2 class="text-foreground text-base font-bold sm:text-lg">
+                          Practice & Clinic Location
+                        </h2>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Where patients will locate your consultation practice.
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Geocoding Status Badge -->
+                    <div
+                      v-if="formattedCoordinates"
+                      class="hidden items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline-flex dark:text-emerald-400"
+                      title="Geographic coordinates mapped for patient search"
+                    >
+                      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+                      <span>{{ formattedCoordinates }} Mapped</span>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <!-- Card 2 Fields -->
+                  <div class="space-y-4">
+                    <!-- Region & Province -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Region</label
+                        >
+                        <select
+                          v-model="codes.region"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select Region
+                          </option>
+                          <option
+                            v-for="r in regions"
+                            :key="r.code"
+                            :value="r.code"
+                          >
+                            {{ r.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Province</label
+                        >
+                        <select
+                          v-model="codes.province"
+                          :disabled="!provinces.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            {{ provinces.length ? 'Select Province' : 'N/A' }}
+                          </option>
+                          <option
+                            v-for="p in provinces"
+                            :key="p.code"
+                            :value="p.code"
+                          >
+                            {{ p.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- City & Barangay -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >City / Municipality</label
+                        >
+                        <select
+                          v-model="codes.city"
+                          :disabled="!cities.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select City
+                          </option>
+                          <option
+                            v-for="c in cities"
+                            :key="c.code"
+                            :value="c.code"
+                          >
+                            {{ c.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Barangay</label
+                        >
+                        <select
+                          v-model="codes.barangay"
+                          :disabled="!barangays.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select Barangay
+                          </option>
+                          <option
+                            v-for="b in barangays"
+                            :key="b.code"
+                            :value="b.code"
+                          >
+                            {{ b.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Street Address / Practice Room -->
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                        >Street Address / Practice Location</label
+                      >
+                      <input
+                        v-model="form.street"
+                        type="text"
+                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        placeholder="House No., Street Name, Clinic/Hospital Room"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unified Bottom Action Bar -->
+            <div
+              class="bg-card border-border flex flex-col items-center justify-between gap-4 rounded-3xl border p-4 shadow-xs sm:flex-row sm:px-6"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  v-if="isSuccess"
+                  class="animate-in fade-in flex items-center gap-2 text-sm font-bold text-emerald-600 duration-200"
+                >
+                  <Icon
+                    name="heroicons:check-circle-20-solid"
+                    size="20"
+                  />
+                  <span>Doctor profile updated successfully!</span>
+                </div>
+                <div
+                  v-else-if="formattedCoordinates"
+                  class="text-muted-foreground flex items-center gap-1.5 text-xs font-medium"
+                >
+                  <Icon
+                    name="heroicons:map-pin"
+                    class="text-emerald-500"
+                    size="16"
+                  />
+                  <span>Practice coordinates are mapped for patient discovery</span>
+                </div>
+                <div
+                  v-else
+                  class="text-muted-foreground text-xs"
+                >
+                  Modify any field above to update your professional information.
+                </div>
+              </div>
 
               <AppButton
                 type="submit"
                 :loading="isLoading"
                 :disabled="isLoading || !hasFormChanges"
-                class="min-w-[140px]"
+                class="w-full min-w-[140px] sm:w-auto"
               >
                 Save Profile
               </AppButton>
