@@ -1,13 +1,25 @@
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
+  import {
+    outOfScopeDatasetService,
+    type OutOfScopeDatasetCategory
+  } from '~/api/dataset/OutOfScopeDatasetService'
   import { toast } from 'vue-sonner'
 
   const { getStorageUrl } = useStorage()
 
-  const props = defineProps<{
-    modelValue: boolean
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      modelValue: boolean
+      datasetType?: 'standard' | 'out_of_scope'
+      initialCategory?: string | null
+    }>(),
+    {
+      datasetType: 'standard',
+      initialCategory: null
+    }
+  )
 
   const emit = defineEmits<{
     'update:modelValue': [value: boolean]
@@ -22,7 +34,7 @@
   // State
   const isLoading = ref(false)
   const isDeleting = ref(false)
-  const dataset = ref<DatasetCategory[]>([])
+  const dataset = ref<(DatasetCategory | OutOfScopeDatasetCategory)[]>([])
   const selectedUrls = ref<Set<string>>(new Set())
   const activeCategory = ref<string | null>(null)
   const showDeleteConfirm = ref(false)
@@ -31,13 +43,26 @@
     isOpen.value = false
   }
 
+  const getActiveService = () => {
+    return props.datasetType === 'out_of_scope' ? outOfScopeDatasetService : datasetService
+  }
+
   const loadDataset = async () => {
     isLoading.value = true
     selectedUrls.value = new Set()
     try {
-      dataset.value = await datasetService.getDataset()
-      if (dataset.value.length > 0 && !activeCategory.value) {
-        activeCategory.value = dataset.value[0].category
+      const service = getActiveService()
+      const data = await service.getDataset()
+      dataset.value = data
+      if (dataset.value.length > 0) {
+        if (props.initialCategory) {
+          const match = dataset.value.find(
+            d => d.category.toLowerCase() === props.initialCategory?.toLowerCase()
+          )
+          activeCategory.value = match ? match.category : dataset.value[0].category
+        } else if (!activeCategory.value) {
+          activeCategory.value = dataset.value[0].category
+        }
       }
     } catch {
       toast.error('Failed to load dataset images.')
@@ -48,7 +73,7 @@
 
   watch(isOpen, val => {
     if (val) {
-      activeCategory.value = null
+      activeCategory.value = props.initialCategory ? props.initialCategory.toLowerCase() : null
       loadDataset()
     } else {
       selectedUrls.value = new Set()
@@ -56,7 +81,7 @@
   })
 
   const activeCategoryData = computed(() =>
-    dataset.value.find(d => d.category === activeCategory.value)
+    dataset.value.find(d => d.category.toLowerCase() === activeCategory.value?.toLowerCase())
   )
 
   const totalImages = computed(() => dataset.value.reduce((acc, d) => acc + d.images.length, 0))
@@ -109,7 +134,8 @@
     const urlsToDelete = [...selectedUrls.value]
 
     try {
-      const res = await datasetService.deleteImages(urlsToDelete)
+      const service = getActiveService()
+      const res = await service.deleteImages(urlsToDelete)
       toast.success(res.message || `${urlsToDelete.length} images deleted.`)
       showDeleteConfirm.value = false
       selectedUrls.value = new Set()
@@ -125,7 +151,15 @@
   const categoryColor: Record<string, string> = {
     acne: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
     eczema: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-    herpes: 'bg-violet-500/10 text-violet-600 border-violet-500/20'
+    herpes: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
+    psoriasis: 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-500/20',
+    ringworm: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+    vitiligo: 'bg-sky-500/10 text-sky-600 border-sky-500/20',
+    melanoma: 'bg-red-500/10 text-red-600 border-red-500/20',
+    hives: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+    warts: 'bg-teal-500/10 text-teal-600 border-teal-500/20',
+    lupus: 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20',
+    rosacea: 'bg-pink-500/10 text-pink-600 border-pink-500/20'
   }
 
   const getCategoryColor = (cat: string) =>
