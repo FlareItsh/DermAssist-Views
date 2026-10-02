@@ -12,6 +12,7 @@
     inputmode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url'
     pattern?: string
     onlyDigits?: boolean
+    onlyLetters?: boolean
   }>()
 
   const emit = defineEmits(['update:modelValue'])
@@ -27,32 +28,39 @@
   })
 
   const isNumericOnly = computed(() => props.onlyDigits || props.inputmode === 'numeric')
+  const isLettersOnly = computed(() => props.onlyLetters)
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    // Allow navigation and edit control keys
+    const allowedKeys = [
+      'Backspace',
+      'Tab',
+      'Enter',
+      'Delete',
+      'Escape',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End'
+    ]
+    if (allowedKeys.includes(event.key)) {
+      return
+    }
+    // Allow clipboard and selection shortcuts: Ctrl/Cmd + A, C, V, X, Z
+    if (event.ctrlKey || event.metaKey) {
+      return
+    }
+
     if (isNumericOnly.value) {
-      // Allow navigation and edit control keys
-      const allowedKeys = [
-        'Backspace',
-        'Tab',
-        'Enter',
-        'Delete',
-        'Escape',
-        'ArrowLeft',
-        'ArrowRight',
-        'ArrowUp',
-        'ArrowDown',
-        'Home',
-        'End'
-      ]
-      if (allowedKeys.includes(event.key)) {
-        return
-      }
-      // Allow clipboard and selection shortcuts: Ctrl/Cmd + A, C, V, X, Z
-      if (event.ctrlKey || event.metaKey) {
-        return
-      }
       // Strictly block non-numeric characters (letters, spaces, punctuation)
       if (!/^[0-9]$/.test(event.key)) {
+        event.preventDefault()
+      }
+    } else if (isLettersOnly.value) {
+      // Strictly block numbers 0-9
+      if (/^[0-9]$/.test(event.key)) {
         event.preventDefault()
       }
     }
@@ -62,6 +70,15 @@
     const target = event.target as HTMLInputElement
     if (isNumericOnly.value) {
       let cleaned = target.value.replace(/\D/g, '')
+      if (props.maxlength) {
+        cleaned = cleaned.slice(0, Number(props.maxlength))
+      }
+      if (target.value !== cleaned) {
+        target.value = cleaned
+      }
+      emit('update:modelValue', cleaned)
+    } else if (isLettersOnly.value) {
+      let cleaned = target.value.replace(/[0-9]/g, '')
       if (props.maxlength) {
         cleaned = cleaned.slice(0, Number(props.maxlength))
       }
@@ -79,6 +96,18 @@
       event.preventDefault()
       const pasteText = event.clipboardData?.getData('text') || ''
       const cleaned = pasteText.replace(/\D/g, '')
+      const target = event.target as HTMLInputElement
+      const current = target.value || ''
+      const start = target.selectionStart ?? current.length
+      const end = target.selectionEnd ?? current.length
+      const max = props.maxlength ? Number(props.maxlength) : Infinity
+      const nextVal = (current.slice(0, start) + cleaned + current.slice(end)).slice(0, max)
+      target.value = nextVal
+      emit('update:modelValue', nextVal)
+    } else if (isLettersOnly.value) {
+      event.preventDefault()
+      const pasteText = event.clipboardData?.getData('text') || ''
+      const cleaned = pasteText.replace(/[0-9]/g, '')
       const target = event.target as HTMLInputElement
       const current = target.value || ''
       const start = target.selectionStart ?? current.length

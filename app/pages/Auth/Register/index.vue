@@ -92,36 +92,76 @@
 
   let debounceTimeout: any = null
 
+  const passwordCriteria = computed(() => {
+    const p = form.password || ''
+    return {
+      minLength: p.length >= 8,
+      hasUpper: /[A-Z]/.test(p),
+      hasLower: /[a-z]/.test(p),
+      hasNumber: /[0-9]/.test(p),
+      hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(p)
+    }
+  })
+
+  const isPasswordStrong = computed(() => {
+    const c = passwordCriteria.value
+    return c.minLength && c.hasUpper && c.hasLower && c.hasNumber && c.hasSpecial
+  })
+
+  const sanitizeForm = () => {
+    form.firstName = (form.firstName || '').trim().replace(/\s+/g, ' ')
+    if (form.middleName) form.middleName = form.middleName.trim().replace(/\s+/g, ' ')
+    form.lastName = (form.lastName || '').trim().replace(/\s+/g, ' ')
+    form.email = (form.email || '').trim().toLowerCase()
+  }
+
   const validateField = (field: string, immediate = false) => {
     if (!touched[field as keyof typeof touched]) return
 
     const runValidation = () => {
       switch (field) {
-        case 'firstName':
-          if (!form.firstName) errors.firstName = 'First name is required'
-          else if (form.firstName.length > 255) errors.firstName = 'Max 255 characters'
+        case 'firstName': {
+          const fn = form.firstName?.trim()
+          if (!fn) errors.firstName = 'First name is required'
+          else if (fn.length < 2) errors.firstName = 'First name must be at least 2 characters'
+          else if (fn.length > 50) errors.firstName = 'Max 50 characters'
+          else if (!/^[\p{L}\s\-'.]+$/u.test(fn))
+            errors.firstName = 'Letters, spaces, hyphens, and apostrophes only'
           else errors.firstName = ''
           break
-        case 'lastName':
-          if (!form.lastName) errors.lastName = 'Last name is required'
-          else if (form.lastName.length > 255) errors.lastName = 'Max 255 characters'
+        }
+        case 'lastName': {
+          const ln = form.lastName?.trim()
+          if (!ln) errors.lastName = 'Last name is required'
+          else if (ln.length < 2) errors.lastName = 'Last name must be at least 2 characters'
+          else if (ln.length > 50) errors.lastName = 'Max 50 characters'
+          else if (!/^[\p{L}\s\-'.]+$/u.test(ln))
+            errors.lastName = 'Letters, spaces, hyphens, and apostrophes only'
           else errors.lastName = ''
           break
-        case 'middleName':
-          if (form.middleName && form.middleName.length > 255)
-            errors.middleName = 'Max 255 characters'
+        }
+        case 'middleName': {
+          const mn = form.middleName?.trim()
+          if (mn && mn.length > 50) errors.middleName = 'Max 50 characters'
+          else if (mn && !/^[\p{L}\s\-'.]+$/u.test(mn))
+            errors.middleName = 'Letters, spaces, hyphens, and apostrophes only'
           else errors.middleName = ''
           break
-        case 'email':
-          if (!form.email) errors.email = 'Email address is required'
-          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
-            errors.email = 'Invalid email format'
-          else if (form.email.length > 255) errors.email = 'Max 255 characters'
+        }
+        case 'email': {
+          const em = form.email?.trim()
+          if (!em) errors.email = 'Email address is required'
+          else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(em))
+            errors.email = 'Please enter a valid email address'
+          else if (em.length > 255) errors.email = 'Max 255 characters'
           else errors.email = ''
           break
+        }
         case 'password':
           if (!form.password) errors.password = 'Password is required'
           else if (form.password.length < 8) errors.password = 'Minimum 8 characters'
+          else if (!isPasswordStrong.value)
+            errors.password = 'Must meet all password criteria below'
           else errors.password = ''
           if (touched.password_confirmation) validateField('password_confirmation', true)
           break
@@ -160,21 +200,33 @@
   // Watchers for Live Validation
   watch(
     () => form.firstName,
-    () => {
+    newVal => {
+      if (newVal) {
+        const sanitized = newVal.replace(/[0-9]/g, '')
+        if (sanitized !== newVal) form.firstName = sanitized
+      }
       errors.firstName = ''
       validateField('firstName')
     }
   )
   watch(
     () => form.lastName,
-    () => {
+    newVal => {
+      if (newVal) {
+        const sanitized = newVal.replace(/[0-9]/g, '')
+        if (sanitized !== newVal) form.lastName = sanitized
+      }
       errors.lastName = ''
       validateField('lastName')
     }
   )
   watch(
     () => form.middleName,
-    () => {
+    newVal => {
+      if (newVal) {
+        const sanitized = newVal.replace(/[0-9]/g, '')
+        if (sanitized !== newVal) form.middleName = sanitized
+      }
       errors.middleName = ''
       validateField('middleName')
     }
@@ -228,14 +280,15 @@
   const isStep1Valid = computed(() => {
     return (
       agreeToTerms.value &&
-      form.firstName &&
-      form.lastName &&
-      form.email &&
+      form.firstName?.trim().length >= 2 &&
+      form.lastName?.trim().length >= 2 &&
+      form.email?.trim() &&
       form.password &&
       form.password === form.password_confirmation &&
-      form.password.length >= 8 &&
+      isPasswordStrong.value &&
       !errors.firstName &&
       !errors.lastName &&
+      !errors.middleName &&
       !errors.email &&
       !errors.password &&
       !errors.password_confirmation
@@ -319,6 +372,7 @@
     isLoading.value = true
 
     try {
+      sanitizeForm()
       const { deviceId, isAccepted } = useDeviceIdentifier()
       const response = await authService.register({
         role: role.value,
@@ -711,39 +765,37 @@
             </AppButton>
           </div>
 
-          <!-- Name Fields: Layout A (First Name 70% + M.I. 30%, Last Name Full-Width) -->
-          <div class="grid grid-cols-12 gap-2.5">
-            <div class="col-span-8">
-              <AuthInput
-                id="first-name"
-                v-model="form.firstName"
-                label="First Name"
-                :error="errors.firstName"
-                @blur="markTouched('firstName')"
-                @input="markTouched('firstName')"
-              />
-            </div>
-            <div class="col-span-4">
-              <AuthInput
-                id="middle-name"
-                v-model="form.middleName"
-                label="M.I."
-                :optional="true"
-                :error="errors.middleName"
-                @blur="markTouched('middleName')"
-                @input="markTouched('middleName')"
-              />
-            </div>
+          <!-- Name Fields: First Name, Middle Name, Last Name (Responsive 3 Columns) -->
+          <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <AuthInput
+              id="first-name"
+              v-model="form.firstName"
+              label="First Name"
+              :only-letters="true"
+              :error="errors.firstName"
+              @blur="markTouched('firstName')"
+              @input="markTouched('firstName')"
+            />
+            <AuthInput
+              id="middle-name"
+              v-model="form.middleName"
+              label="Middle Name"
+              :optional="true"
+              :only-letters="true"
+              :error="errors.middleName"
+              @blur="markTouched('middleName')"
+              @input="markTouched('middleName')"
+            />
+            <AuthInput
+              id="last-name"
+              v-model="form.lastName"
+              label="Last Name"
+              :only-letters="true"
+              :error="errors.lastName"
+              @blur="markTouched('lastName')"
+              @input="markTouched('lastName')"
+            />
           </div>
-
-          <AuthInput
-            id="last-name"
-            v-model="form.lastName"
-            label="Last Name"
-            :error="errors.lastName"
-            @blur="markTouched('lastName')"
-            @input="markTouched('lastName')"
-          />
 
           <AuthInput
             id="email"
@@ -774,6 +826,86 @@
               @blur="markTouched('password_confirmation')"
               @input="markTouched('password_confirmation')"
             />
+          </div>
+
+          <!-- Password Requirements Checklist -->
+          <div
+            v-if="form.password || touched.password"
+            class="bg-muted/30 border-border/50 rounded-xl border p-2.5 transition-all"
+          >
+            <p class="text-foreground/70 mb-1.5 text-[11px] font-medium">Password Requirements:</p>
+            <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+              <div
+                class="flex items-center gap-1.5 transition-colors"
+                :class="
+                  passwordCriteria.minLength
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground'
+                "
+              >
+                <Icon
+                  :name="passwordCriteria.minLength ? 'lucide:check-circle-2' : 'lucide:circle'"
+                  class="h-3.5 w-3.5 shrink-0"
+                />
+                <span>At least 8 characters</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 transition-colors"
+                :class="
+                  passwordCriteria.hasUpper
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground'
+                "
+              >
+                <Icon
+                  :name="passwordCriteria.hasUpper ? 'lucide:check-circle-2' : 'lucide:circle'"
+                  class="h-3.5 w-3.5 shrink-0"
+                />
+                <span>One uppercase letter</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 transition-colors"
+                :class="
+                  passwordCriteria.hasLower
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground'
+                "
+              >
+                <Icon
+                  :name="passwordCriteria.hasLower ? 'lucide:check-circle-2' : 'lucide:circle'"
+                  class="h-3.5 w-3.5 shrink-0"
+                />
+                <span>One lowercase letter</span>
+              </div>
+              <div
+                class="flex items-center gap-1.5 transition-colors"
+                :class="
+                  passwordCriteria.hasNumber
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground'
+                "
+              >
+                <Icon
+                  :name="passwordCriteria.hasNumber ? 'lucide:check-circle-2' : 'lucide:circle'"
+                  class="h-3.5 w-3.5 shrink-0"
+                />
+                <span>One number (0-9)</span>
+              </div>
+              <div
+                class="col-span-2 flex items-center gap-1.5 transition-colors"
+                :class="
+                  passwordCriteria.hasSpecial
+                    ? 'font-medium text-emerald-600 dark:text-emerald-400'
+                    : 'text-muted-foreground'
+                "
+              >
+                <Icon
+                  :name="passwordCriteria.hasSpecial ? 'lucide:check-circle-2' : 'lucide:circle'"
+                  class="h-3.5 w-3.5 shrink-0"
+                />
+                <span>One special symbol (!@#$%^&*...)</span>
+              </div>
+            </div>
           </div>
 
           <!-- Terms and Conditions Agreement Checkbox -->
