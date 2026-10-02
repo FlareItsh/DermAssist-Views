@@ -103,6 +103,7 @@
 
   const form = reactive({
     first_name: '',
+    middle_name: '',
     last_name: '',
     email: '',
     street: '',
@@ -364,6 +365,7 @@
       if (newVal && !loaded.value) {
         const userData = newVal
         form.first_name = userData.first_name || ''
+        form.middle_name = userData.middle_name || ''
         form.last_name = userData.last_name || ''
         form.email = userData.email || ''
         form.street = userData.street || ''
@@ -447,8 +449,11 @@
       // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
       const userName = useCookie('user_name')
       const authName = useCookie('auth_user_name')
-      userName.value = `${form.first_name} ${form.last_name}`
-      authName.value = `${form.first_name} ${form.last_name}`
+      const fullDisplayName = [form.first_name, form.middle_name, form.last_name]
+        .filter(Boolean)
+        .join(' ')
+      userName.value = fullDisplayName
+      authName.value = fullDisplayName
 
       setTimeout(() => {
         isSuccess.value = false
@@ -586,7 +591,7 @@
             @submit.prevent="submitProfile"
             class="flex flex-col gap-6"
           >
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div class="flex flex-col gap-1.5">
                 <label class="text-foreground/70 ml-1 text-sm font-medium">First Name</label>
                 <input
@@ -594,6 +599,15 @@
                   type="text"
                   class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 transition-all outline-none"
                   placeholder="Enter first name"
+                />
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-foreground/70 ml-1 text-sm font-medium">Middle Name</label>
+                <input
+                  v-model="form.middle_name"
+                  type="text"
+                  class="bg-foreground/5 border-sidebar-border focus:border-primary w-full rounded-2xl border px-4 py-3 transition-all outline-none"
+                  placeholder="Enter middle name (optional)"
                 />
               </div>
               <div class="flex flex-col gap-1.5">
