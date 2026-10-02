@@ -667,6 +667,12 @@
     }
   }
 
+  const initialFormState = ref<string>('')
+  const hasFormChanges = computed(() => {
+    if (!initialFormState.value) return false
+    return JSON.stringify(form) !== initialFormState.value
+  })
+
   const loaded = ref(false)
   watch(
     user,
@@ -691,6 +697,7 @@
 
         initDropdowns()
         loaded.value = true
+        initialFormState.value = JSON.stringify(form)
       }
     },
     { immediate: true, deep: true }
@@ -748,9 +755,10 @@
       }
 
       await userService.update(useCookie('user_uuid').value as string, form)
+      initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
-      await refresh()
-      await refreshProfile()
+      toast.success('Doctor profile updated successfully.')
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${doctorUuid}`)])
 
       // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
       const userName = useCookie('user_name')
@@ -760,10 +768,12 @@
 
       setTimeout(() => {
         isSuccess.value = false
-        navigateTo('/doctor')
-      }, 1500)
-    } catch (error) {
+      }, 3500)
+    } catch (error: any) {
       console.error('Failed to update profile:', error)
+      toast.error(
+        error?.response?.data?.message || error?.message || 'Failed to update doctor profile.'
+      )
     } finally {
       isLoading.value = false
     }
@@ -1152,6 +1162,7 @@
               <AppButton
                 type="submit"
                 :loading="isLoading"
+                :disabled="isLoading || !hasFormChanges"
                 class="min-w-[140px]"
               >
                 Save Profile

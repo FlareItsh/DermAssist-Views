@@ -343,6 +343,12 @@
     }
   }
 
+  const initialFormState = ref<string>('')
+  const hasFormChanges = computed(() => {
+    if (!initialFormState.value) return false
+    return JSON.stringify(form) !== initialFormState.value
+  })
+
   const loaded = ref(false)
   watch(
     user,
@@ -367,6 +373,7 @@
 
         initDropdowns()
         loaded.value = true
+        initialFormState.value = JSON.stringify(form)
       }
     },
     { immediate: true, deep: true }
@@ -424,9 +431,10 @@
       }
 
       await userService.update(useCookie('user_uuid').value as string, form)
+      initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
-      await refresh()
-      await refreshProfile()
+      toast.success('Profile updated successfully.')
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
 
       // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
       const userName = useCookie('user_name')
@@ -436,10 +444,10 @@
 
       setTimeout(() => {
         isSuccess.value = false
-        navigateTo('/secretary')
-      }, 1500)
-    } catch (error) {
+      }, 3500)
+    } catch (error: any) {
       console.error('Failed to update profile:', error)
+      toast.error(error?.response?.data?.message || error?.message || 'Failed to update profile.')
     } finally {
       isLoading.value = false
     }
@@ -766,13 +774,14 @@
                   name="heroicons:check-circle"
                   size="20"
                 />
-                <span class="text-sm font-medium">Doctor profile updated!</span>
+                <span class="text-sm font-medium">Profile updated successfully!</span>
               </div>
-              <div v-if="!isSuccess"></div>
+              <div v-else></div>
 
               <AppButton
                 type="submit"
                 :loading="isLoading"
+                :disabled="isLoading || !hasFormChanges"
                 class="min-w-[140px]"
               >
                 Save Profile
