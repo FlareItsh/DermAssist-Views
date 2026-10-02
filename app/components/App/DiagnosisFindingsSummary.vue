@@ -1405,22 +1405,36 @@
           <!-- Inconclusive Advisory Banner -->
           <div
             v-else-if="isInconclusiveState"
-            class="my-2 space-y-1 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-amber-900 dark:text-amber-200"
+            class="my-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
           >
-            <div class="flex items-center gap-1.5 text-xs font-bold">
-              <Icon
-                name="lucide:alert-triangle"
-                size="14"
-                class="shrink-0 text-amber-600 dark:text-amber-400"
-              />
-              <span>Clinical Advisory</span>
+            <div class="flex items-start gap-3">
+              <div
+                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
+              >
+                <Icon
+                  name="lucide:alert-triangle"
+                  size="15"
+                />
+              </div>
+              <div class="flex-1 space-y-1">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-foreground text-xs font-semibold tracking-tight">
+                    Clinical Advisory
+                  </h4>
+                  <span
+                    class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+                  >
+                    Inconclusive
+                  </span>
+                </div>
+                <p class="text-muted-foreground text-xs leading-relaxed">
+                  {{
+                    currentDiagnosis?.clinical_feedback ||
+                    'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+                  }}
+                </p>
+              </div>
             </div>
-            <p class="text-xs leading-relaxed opacity-90">
-              {{
-                currentDiagnosis?.clinical_feedback ||
-                'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
-              }}
-            </p>
           </div>
 
           <!-- Non-Skin Advisory Banner -->
