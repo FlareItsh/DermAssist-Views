@@ -46,13 +46,59 @@
     return currentPath.startsWith(`${itemPath}/`)
   }
 
+  const isChildActive = (child: NavItem, parent?: NavItem): boolean => {
+    const childPath = normalizePath(child.to)
+    const currentPath = normalizePath(route.path)
+
+    if (!childPath) return false
+    if (currentPath === childPath) return true
+
+    if (parent?.children) {
+      const hasMoreSpecificSibling = parent.children.some(sibling => {
+        if (sibling === child) return false
+        const siblingPath = normalizePath(sibling.to)
+        if (!siblingPath) return false
+        if (currentPath === siblingPath) return true
+        return currentPath.startsWith(`${siblingPath}/`) && siblingPath.length > childPath.length
+      })
+      if (hasMoreSpecificSibling) return false
+    }
+
+    if (['/admin', '/doctor', '/patient'].includes(childPath)) return false
+    return currentPath.startsWith(`${childPath}/`)
+  }
+
   const isItemActive = (item: NavItem): boolean => {
     if (isPathActive(item.to)) return true
     if (item.children) {
-      return item.children.some(child => isItemActive(child))
+      return item.children.some(child => isChildActive(child, item))
     }
     return false
   }
+
+  const autoExpandActiveSubmenus = () => {
+    if (!props.items) return
+    for (const item of props.items) {
+      if (item.children && item.children.some(child => isChildActive(child, item))) {
+        expandedMenus.value.add(item.label)
+      }
+    }
+  }
+
+  watch(
+    () => props.items,
+    () => {
+      autoExpandActiveSubmenus()
+    },
+    { immediate: true }
+  )
+
+  watch(
+    () => route.path,
+    () => {
+      autoExpandActiveSubmenus()
+    }
+  )
 
   const triggerLogout = () => {
     isLogoutModalOpen.value = true
@@ -194,7 +240,7 @@
                 @click="toggleSubmenu(item.label)"
                 class="group hover:bg-sidebar-accent flex cursor-pointer items-center rounded-full p-2 transition-all duration-300 active:scale-95"
                 :class="[
-                  isItemActive(item) ? 'bg-sidebar-accent/40' : '',
+                  isItemActive(item) ? 'bg-sidebar-accent shadow-xs' : '',
                   isCollapsed ? 'mx-auto w-14 justify-center' : 'w-full justify-start'
                 ]"
               >
@@ -237,8 +283,13 @@
                   <Icon
                     name="lucide:chevron-right"
                     size="18"
-                    class="text-foreground/50 transition-transform duration-300"
-                    :class="{ 'rotate-90': isSubmenuOpen(item.label) }"
+                    class="transition-transform duration-300"
+                    :class="[
+                      isItemActive(item)
+                        ? 'text-sidebar-accent-foreground'
+                        : 'text-foreground/50 group-hover:text-sidebar-accent-foreground',
+                      { 'rotate-90': isSubmenuOpen(item.label) }
+                    ]"
                   />
                 </div>
               </AppButton>
@@ -261,7 +312,7 @@
                       :to="child.to"
                       class="group hover:bg-sidebar-accent/40 flex items-center gap-3 rounded-xl px-4 py-2.5 transition-all duration-300 active:scale-95"
                       :class="
-                        isItemActive(child)
+                        isChildActive(child, item)
                           ? 'bg-sidebar-accent/60 text-sidebar-accent-foreground font-semibold'
                           : 'text-foreground/80'
                       "
@@ -271,7 +322,7 @@
                         size="18"
                         class="group-hover:text-sidebar-accent-foreground transition-colors duration-300"
                         :class="
-                          isItemActive(child)
+                          isChildActive(child, item)
                             ? 'text-sidebar-accent-foreground'
                             : 'text-foreground/40'
                         "
@@ -283,6 +334,11 @@
                       ></div>
                       <span
                         class="group-hover:text-sidebar-accent-foreground text-[15px] whitespace-nowrap transition-colors duration-300"
+                        :class="
+                          isChildActive(child, item)
+                            ? 'text-sidebar-accent-foreground font-semibold'
+                            : ''
+                        "
                       >
                         {{ child.label }}
                       </span>
