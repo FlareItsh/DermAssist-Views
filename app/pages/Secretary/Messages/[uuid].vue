@@ -43,7 +43,7 @@
 </script>
 
 <template>
-  <div class="-mx-5 mt-0 flex h-full gap-3 md:mx-0 md:mt-0">
+  <div class="mx-0 mt-0 flex h-full gap-3">
     <div class="hidden md:block">
       <AppChatConversationList
         :active-id="uuid"

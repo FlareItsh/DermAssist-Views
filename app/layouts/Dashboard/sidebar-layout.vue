@@ -10,7 +10,6 @@
       </AppNavbar>
     </div>
 
-
     <div class="flex flex-1 overflow-hidden">
       <!-- Desktop Sidebar (hidden on mobile) -->
       <div class="hidden md:block">
@@ -29,7 +28,9 @@
                 ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
                 : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
               : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
-            : '-mt-4 p-5'
+            : isChatPage || isFullHeightPage
+              ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
+              : '-mt-4 p-5'
         ]"
         id="main-content"
       >
@@ -43,7 +44,7 @@
         <div
           class="mx-auto"
           :class="[
-            userRole === 'patient' ? 'px-5 md:p-0' : '',
+            userRole === 'patient' ? (isChatPage ? 'px-0 md:p-0' : 'px-5 md:p-0') : '',
             isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
@@ -287,7 +288,7 @@
   })
 
   const isFullHeightPage = computed(() => {
-    return /^\/(patient|doctor)\/(messages|scan)/i.test(route.path)
+    return /^\/(patient|doctor|secretary)\/(messages|scan)/i.test(route.path)
   })
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)

@@ -49,7 +49,7 @@
       />
     </div>
     <div
-      class="bg-card border-border h-full w-full flex-1 overflow-hidden rounded-2xl border shadow-sm md:rounded-3xl"
+      class="bg-card md:border-border h-full w-full flex-1 overflow-hidden rounded-none border-0 shadow-none md:rounded-3xl md:border md:shadow-sm"
     >
       <AppChatMessageWindow
         :key="uuid"
