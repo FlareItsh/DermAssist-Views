@@ -116,7 +116,14 @@
       showBadge: hasUnseenAppeals.value
     },
     { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
-    { icon: 'lucide:brain-circuit', label: 'AI Models', to: '/admin/ai' },
+    {
+      icon: 'lucide:brain-circuit',
+      label: 'AI Models',
+      children: [
+        { icon: 'lucide:refresh-cw', label: 'Retrain Models', to: '/admin/ai' },
+        { icon: 'lucide:flask-conical', label: 'Train New Disease', to: '/admin/ai/expansion' }
+      ]
+    },
     {
       icon: 'lucide:credit-card',
       label: 'Subscriptions',

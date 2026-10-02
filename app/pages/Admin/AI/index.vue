@@ -44,7 +44,11 @@
 
   const isTrainingActive = computed(() => {
     const s = trainingStatus.value?.status
-    return s === 'syncing' || s === 'training' || s === 'evaluating'
+    return s === 'syncing' || s === 'training' || s === 'evaluating' || s === 'cancelling'
+  })
+
+  const isCancellingActive = computed(() => {
+    return trainingStatus.value?.status === 'cancelling'
   })
 
   const isModelInEnsemble = (filename: string) => {
@@ -241,6 +245,7 @@
   }
 
   const handleStartTraining = async () => {
+    if (isStarting.value || isTrainingActive.value) return
     isStarting.value = true
     try {
       await modelTrainingService.startTraining({
@@ -511,7 +516,21 @@
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <NuxtLink to="/admin/ai/expansion">
+          <AppButton
+            variant="outline"
+            class="gap-2 font-medium"
+          >
+            <Icon
+              name="lucide:flask-conical"
+              size="16"
+              class="text-violet-500"
+            />
+            Train with New Disease
+          </AppButton>
+        </NuxtLink>
+
         <AppButton
           variant="outline"
           class="gap-2"
@@ -1211,13 +1230,15 @@
               variant="destructive"
               size="lg"
               class="w-full justify-center gap-2 font-bold shadow-md"
+              :loading="isCancellingActive || isCancelling"
+              :disabled="isCancellingActive || isCancelling"
               @click="confirmCancelTraining"
             >
               <Icon
                 name="lucide:square"
                 size="18"
               />
-              Stop Pipeline
+              {{ isCancellingActive ? 'Stopping Pipeline...' : 'Stop Pipeline' }}
             </AppButton>
             <AppButton
               v-else
@@ -1225,6 +1246,7 @@
               size="lg"
               class="w-full justify-center gap-2 font-bold shadow-md"
               :loading="isStarting"
+              :disabled="isStarting || isTrainingActive"
               @click="handleStartTraining"
             >
               <Icon

@@ -91,6 +91,7 @@
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
   const contributeToDataset = ref(false)
+  const contributeToOutOfScopeDataset = ref(false)
   const selectedPatientData = ref<any>(null)
 
   watch(
@@ -124,9 +125,26 @@
     patientConsentedToDataset,
     consented => {
       contributeToDataset.value = consented
+      contributeToOutOfScopeDataset.value = consented
     },
     { immediate: true }
   )
+
+  // Whether the active diagnosis was flagged as out-of-scope by OpenCLIP
+  const isOutOfScopeFromDiagnosis = computed(() => {
+    return Boolean(
+      (currentDiagnosis.value as any)?.is_out_of_scope || (props.diagnosis as any)?.is_out_of_scope
+    )
+  })
+
+  // The CLIP-detected out-of-scope category label (e.g. 'psoriasis')
+  const outOfScopeCategoryFromDiagnosis = computed(() => {
+    return (
+      (currentDiagnosis.value as any)?.out_of_scope_category ||
+      (props.diagnosis as any)?.out_of_scope_category ||
+      null
+    )
+  })
 
   const draftPatientKey = computed(() => 'draft_patient_info_' + (props.diagnosisUuid || 'active'))
 
@@ -1065,8 +1083,9 @@
         </div>
       </div>
 
+      <!-- Standard AI Retraining Dataset checkbox (Acne / Eczema / Herpes only) -->
       <div
-        v-if="props.role === 'doctor' && patientConsentedToDataset"
+        v-if="props.role === 'doctor' && patientConsentedToDataset && !isOutOfScopeFromDiagnosis"
         class="border-primary/20 bg-primary/5 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2"
       >
         <input
@@ -1088,6 +1107,32 @@
         </label>
       </div>
 
+      <!-- Out-of-Scope Research Dataset checkbox (mirrors existing, separate storage) -->
+      <div
+        v-if="props.role === 'doctor' && patientConsentedToDataset && isOutOfScopeFromDiagnosis"
+        class="flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2"
+      >
+        <input
+          id="detailed-out-of-scope-dataset-checkbox"
+          v-model="contributeToOutOfScopeDataset"
+          type="checkbox"
+          class="h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 accent-violet-600"
+        />
+        <label
+          for="detailed-out-of-scope-dataset-checkbox"
+          class="text-foreground/80 cursor-pointer text-xs leading-tight font-normal select-none"
+        >
+          <span class="text-foreground block text-[11px] font-medium sm:text-xs"
+            >Include in Out-of-Scope Research Dataset</span
+          >
+          <span class="text-muted-foreground text-[10px]">
+            Save as
+            <strong class="capitalize">{{ outOfScopeCategoryFromDiagnosis ?? 'Unknown' }}</strong>
+            in admin research gallery
+          </span>
+        </label>
+      </div>
+
       <div
         v-if="props.role === 'doctor'"
         class="mt-12 flex flex-col gap-12"
@@ -1099,6 +1144,8 @@
           :skip-load="props.isNewScan"
           :is-finish-mode="props.isNewScan"
           :contribute-to-dataset="contributeToDataset"
+          :contribute-to-out-of-scope-dataset="contributeToOutOfScopeDataset"
+          :is-out-of-scope="isOutOfScopeFromDiagnosis"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />
