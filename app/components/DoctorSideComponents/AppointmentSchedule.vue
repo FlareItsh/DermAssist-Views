@@ -51,7 +51,9 @@
   const goToChat = (conversationUuid: string | undefined) => {
     if (!conversationUuid) return
     closePopover()
-    router.push(`/Doctor/Messages/${conversationUuid}`)
+    const role = useCookie('user_role').value
+    const prefix = role === 'secretary' ? '/Secretary' : '/Doctor'
+    router.push(`${prefix}/Messages/${conversationUuid}`)
   }
 
   // ── Build the 14-day window centered on today + offset ────────────────────────

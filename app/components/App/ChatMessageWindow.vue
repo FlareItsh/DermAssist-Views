@@ -146,6 +146,20 @@
   const { getStorageUrl } = useStorage()
   const { removeFromPriority } = usePriorityList()
 
+  const headerAvatarFailed = ref(false)
+  const messageAvatarErrors = ref(new Set<string>())
+  const hasMessageAvatarError = (id: string) => messageAvatarErrors.value.has(id)
+  const handleMessageAvatarError = (id: string) => {
+    messageAvatarErrors.value.add(id)
+  }
+
+  watch(
+    () => props.otherPersonAvatar,
+    () => {
+      headerAvatarFailed.value = false
+    }
+  )
+
   // --- Attachments ---
   const fileInput = ref<HTMLInputElement | null>(null)
   const selectedFiles = ref<File[]>([])
@@ -839,12 +853,13 @@
             class="text-2xl"
           />
         </NuxtLink>
-        <div class="bg-muted h-12 w-12 overflow-hidden rounded-full">
+        <div class="bg-muted h-12 w-12 shrink-0 overflow-hidden rounded-full">
           <img
-            v-if="otherPersonAvatar"
-            :src="otherPersonAvatar"
+            v-if="otherPersonAvatar && !headerAvatarFailed"
+            :src="getStorageUrl(otherPersonAvatar)"
             :alt="otherPersonName"
             class="h-full w-full object-cover"
+            @error="headerAvatarFailed = true"
           />
           <div
             v-else
@@ -1304,10 +1319,11 @@
         >
           <div class="border-border/50 h-10 w-10 shrink-0 overflow-hidden rounded-full border">
             <img
-              v-if="msg.sender?.avatar"
-              :src="msg.sender.avatar"
+              v-if="msg.sender?.avatar && !hasMessageAvatarError(msg.id)"
+              :src="getStorageUrl(msg.sender.avatar)"
               :alt="msg.sender?.name"
               class="h-full w-full object-cover"
+              @error="handleMessageAvatarError(msg.id)"
             />
             <div
               v-else

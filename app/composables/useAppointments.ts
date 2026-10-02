@@ -92,7 +92,7 @@ export const useAppointments = () => {
     const currentRole = (userRole.value || useCookie('user_role').value || '')
       ?.toString()
       .toLowerCase()
-    return currentRole === 'doctor' ? patientName : doctorName
+    return currentRole === 'doctor' || currentRole === 'secretary' ? patientName : doctorName
   }
 
   const mapAppt = (appt: any) => {

@@ -11,11 +11,20 @@
   const router = useRouter()
   const uuid = route.params.uuid as string
 
-  const { appointments, pending } = useAppointments()
+  const { appointments, completedAppointments, pending, fetchAppointments } = useAppointments()
   const { getStorageUrl } = useStorage()
 
+  onMounted(() => {
+    if (!appointments.value.length) {
+      fetchAppointments()
+    }
+  })
+
   const appointment = computed(() => {
-    return appointments.value.find(a => a.uuid === uuid)
+    return (
+      appointments.value.find(a => a.uuid === uuid || a.id === uuid) ||
+      completedAppointments.value.find(a => a.uuid === uuid || a.id === uuid)
+    )
   })
 
   const formattedDate = computed(() => {

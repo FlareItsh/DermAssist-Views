@@ -32,13 +32,16 @@
     )
   })
 
+  const rolePrefix = computed(() => {
+    const role = useCookie('user_role').value
+    return role === 'secretary' ? '/secretary' : '/doctor'
+  })
+
   const goToRecord = (record: any) => {
     if (record.conversation_uuid) {
-      const role = useCookie('user_role').value
-      const prefix = role === 'secretary' ? '/secretary' : '/doctor'
-      navigateTo(`${prefix}/messages/${record.conversation_uuid}`)
+      navigateTo(`${rolePrefix.value}/messages/${record.conversation_uuid}`)
     } else {
-      navigateTo('/doctor/appointments')
+      navigateTo(`${rolePrefix.value}/appointments`)
     }
   }
 </script>
@@ -60,7 +63,7 @@
         </span>
       </div>
       <NuxtLink
-        to="/doctor/appointments"
+        :to="`${rolePrefix}/appointments`"
         class="text-secondary text-sm font-semibold transition hover:underline"
       >
         Manage ›

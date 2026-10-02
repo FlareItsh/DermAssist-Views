@@ -45,6 +45,7 @@
 
   const form = reactive({
     first_name: '',
+    middle_name: '',
     last_name: '',
     email: '',
     street: '',
@@ -58,6 +59,12 @@
     gender: '',
     affiliation: '',
     prcNumber: ''
+  })
+
+  const middleInitial = computed(() => {
+    const m = form.middle_name?.trim()
+    if (!m) return ''
+    return `${m.charAt(0).toUpperCase()}.`
   })
 
   // Subscription state
@@ -96,6 +103,69 @@
   })
 
   const doctorUuid = useCookie('user_uuid').value
+  const isUploadingAvatar = ref(false)
+  const avatarInputRef = ref<HTMLInputElement | null>(null)
+  const showCropModal = ref(false)
+  const rawAvatarSrc = ref('')
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.value?.click()
+  }
+
+  const handleAvatarFileChange = (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPG, PNG, or WebP).')
+      input.value = ''
+      return
+    }
+
+    const maxSizeInBytes = 10 * 1024 * 1024
+    if (file.size > maxSizeInBytes) {
+      toast.error('Image size exceeds 10MB limit. Please choose a smaller image.')
+      input.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = e => {
+      const base64Data = e.target?.result as string
+      if (!base64Data) return
+      rawAvatarSrc.value = base64Data
+      showCropModal.value = true
+      input.value = ''
+    }
+    reader.onerror = () => {
+      toast.error('Error reading the image file.')
+      input.value = ''
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleApplyCroppedAvatar = async (croppedBase64: string) => {
+    isUploadingAvatar.value = true
+    try {
+      await userService.update(doctorUuid as string, {
+        avatar: croppedBase64
+      })
+      toast.success('Profile picture updated successfully.')
+      showCropModal.value = false
+      rawAvatarSrc.value = ''
+      await Promise.all([refresh(), refreshNuxtData(`userProfile-${doctorUuid}`)])
+    } catch (err: any) {
+      console.error('Failed to upload avatar:', err)
+      toast.error(
+        err?.response?.data?.message || err?.message || 'Failed to update profile picture.'
+      )
+    } finally {
+      isUploadingAvatar.value = false
+    }
+  }
+
   const availabilities = ref<any[]>([])
   const isAvailLoading = ref(false)
   const isAddLoading = ref(false)
@@ -137,7 +207,7 @@
     {
       id: 'security' as SettingsTab,
       label: 'Account & Security',
-      desc: 'Verification & session security',
+      desc: 'Password, 2FA & session security',
       icon: 'heroicons:shield-check'
     }
   ])
@@ -612,6 +682,29 @@
     }
   }
 
+  const initialFormState = ref<string>('')
+  const hasFormChanges = computed(() => {
+    if (!initialFormState.value) return false
+    return JSON.stringify(form) !== initialFormState.value
+  })
+
+  const formattedCoordinates = computed(() => {
+    if (
+      form.latitude === null ||
+      form.latitude === undefined ||
+      form.longitude === null ||
+      form.longitude === undefined
+    ) {
+      return null
+    }
+    const lat = Number(form.latitude)
+    const lon = Number(form.longitude)
+    if (!isNaN(lat) && !isNaN(lon) && (lat !== 0 || lon !== 0)) {
+      return `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`
+    }
+    return null
+  })
+
   const loaded = ref(false)
   watch(
     user,
@@ -619,6 +712,7 @@
       if (newVal && !loaded.value) {
         const userData = newVal
         form.first_name = userData.first_name || ''
+        form.middle_name = userData.middle_name || ''
         form.last_name = userData.last_name || ''
         form.email = userData.email || ''
         form.street = userData.street || ''
@@ -626,8 +720,16 @@
         form.city = userData.city || ''
         form.province = userData.province || ''
         form.country = userData.country || 'Philippines'
-        form.latitude = userData.latitude ?? null
-        form.longitude = userData.longitude ?? null
+        form.latitude =
+          userData.latitude !== null && userData.latitude !== undefined && userData.latitude !== ''
+            ? Number(userData.latitude)
+            : null
+        form.longitude =
+          userData.longitude !== null &&
+          userData.longitude !== undefined &&
+          userData.longitude !== ''
+            ? Number(userData.longitude)
+            : null
         form.age = userData.age || ''
         form.gender = userData.gender || ''
         form.affiliation = userData.affiliation || ''
@@ -636,6 +738,7 @@
 
         initDropdowns()
         loaded.value = true
+        initialFormState.value = JSON.stringify(form)
       }
     },
     { immediate: true, deep: true }
@@ -693,25 +796,133 @@
       }
 
       await userService.update(useCookie('user_uuid').value as string, form)
+      initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
-      await refresh()
-      await refreshProfile()
+      toast.success('Doctor profile updated successfully.')
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${doctorUuid}`)])
 
       // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
       const userName = useCookie('user_name')
       const authName = useCookie('auth_user_name')
-      userName.value = `${form.first_name} ${form.last_name}`
-      authName.value = `${form.first_name} ${form.last_name}`
+      const fullDisplayName = [form.first_name, middleInitial.value, form.last_name]
+        .filter(Boolean)
+        .join(' ')
+      userName.value = fullDisplayName
+      authName.value = fullDisplayName
 
       setTimeout(() => {
         isSuccess.value = false
-        navigateTo('/doctor')
-      }, 1500)
-    } catch (error) {
+      }, 3500)
+    } catch (error: any) {
       console.error('Failed to update profile:', error)
+      toast.error(
+        error?.response?.data?.message || error?.message || 'Failed to update doctor profile.'
+      )
     } finally {
       isLoading.value = false
     }
+  }
+
+  // Change Password State
+  const passwordForm = reactive({
+    current_password: '',
+    new_password: '',
+    new_password_confirmation: ''
+  })
+  const isChangingPassword = ref(false)
+  const showCurrentPassword = ref(false)
+  const showNewPassword = ref(false)
+  const showConfirmPassword = ref(false)
+  const passwordError = ref<string | null>(null)
+
+  // Clear password error on tab switch
+  watch(activeTab, () => {
+    passwordError.value = null
+  })
+
+  const handlePasswordChange = async () => {
+    passwordError.value = null
+    if (!passwordForm.current_password) {
+      passwordError.value = 'Please enter your current password.'
+      return
+    }
+    if (passwordForm.new_password.length < 8) {
+      passwordError.value = 'New password must be at least 8 characters long.'
+      return
+    }
+    if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
+      passwordError.value = 'The new password confirmation does not match.'
+      return
+    }
+
+    isChangingPassword.value = true
+    try {
+      await userService.update(useCookie('user_uuid').value as string, {
+        current_password: passwordForm.current_password,
+        new_password: passwordForm.new_password,
+        new_password_confirmation: passwordForm.new_password_confirmation
+      })
+      toast.success('Password updated successfully!')
+      passwordForm.current_password = ''
+      passwordForm.new_password = ''
+      passwordForm.new_password_confirmation = ''
+    } catch (err: any) {
+      const errors = err?.response?.data?.errors || err?.data?.errors
+      let msg =
+        err?.response?.data?.message ||
+        err?.data?.message ||
+        err?.message ||
+        'Failed to update password.'
+      if (errors && typeof errors === 'object') {
+        const firstKey = Object.keys(errors)[0]
+        if (firstKey && errors[firstKey]?.[0]) {
+          msg = errors[firstKey][0]
+        }
+      }
+      passwordError.value = msg
+      toast.error(msg)
+    } finally {
+      isChangingPassword.value = false
+    }
+  }
+
+  // Two-Factor Authentication (2FA) Preview State
+  const show2FAModal = ref(false)
+  const twoFACode = ref('')
+  const is2FALoading = ref(false)
+  const isCopiedKey = ref(false)
+  const mock2FASecret = 'DERM-D9K4-8X2M-55QL'
+
+  const close2FAModal = () => {
+    show2FAModal.value = false
+    twoFACode.value = ''
+  }
+
+  const copySecretKey = () => {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(mock2FASecret)
+      isCopiedKey.value = true
+      toast.success('2FA secret key copied to clipboard!')
+      setTimeout(() => {
+        isCopiedKey.value = false
+      }, 2000)
+    }
+  }
+
+  const handleSimulate2FA = () => {
+    if (!twoFACode.value || twoFACode.value.length < 6) {
+      toast.error('Please enter a valid 6-digit verification code.')
+      return
+    }
+    is2FALoading.value = true
+    setTimeout(() => {
+      is2FALoading.value = false
+      show2FAModal.value = false
+      twoFACode.value = ''
+      toast.success(
+        '2FA configuration verified (Preview Mode). Full enrollment will be activated soon!'
+      )
+    }, 1200)
   }
 
   const logout = () => {
@@ -730,7 +941,7 @@
     <!-- Header -->
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
-        <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Doctor Settings</h1>
+        <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
           Manage your professional profile, clinic branches, schedule, and subscription.
         </p>
@@ -765,33 +976,53 @@
       <aside class="w-full shrink-0 space-y-3 lg:w-64">
         <!-- Doctor Quick Identity Card -->
         <div class="bg-card border-border rounded-2xl border p-4 text-center shadow-xs">
-          <div
-            class="from-primary/20 to-primary/5 border-primary/20 relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full border bg-linear-to-br p-0.5"
-          >
-            <template v-if="user?.avatar_path">
+          <div class="relative mx-auto mb-3 h-16 w-16">
+            <div
+              class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border bg-linear-to-br p-0.5 shadow-xs"
+            >
               <NuxtImg
+                v-if="user?.avatar_path"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
                 placeholder
               />
-            </template>
-            <div
-              v-else
-              class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-xl font-bold"
-            >
-              Dr. {{ form.last_name?.charAt(0) }}
+              <div
+                v-else
+                class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-base font-bold tracking-tight"
+              >
+                Dr. {{ form.last_name?.charAt(0) || 'D' }}
+              </div>
             </div>
             <button
-              class="bg-primary hover:bg-primary/90 absolute right-0 bottom-0 z-10 cursor-pointer rounded-full p-1 text-white shadow-md transition"
+              type="button"
+              @click="triggerAvatarUpload"
+              :disabled="isUploadingAvatar"
+              title="Upload profile picture"
+              class="bg-primary hover:bg-primary/90 border-background focus:ring-primary/30 absolute -right-1 -bottom-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border-2 text-white shadow-md transition hover:scale-110 focus:ring-2 focus:outline-hidden disabled:pointer-events-none disabled:opacity-50"
             >
               <Icon
+                v-if="!isUploadingAvatar"
                 name="heroicons:camera-20-solid"
-                size="11"
+                size="12"
+              />
+              <Icon
+                v-else
+                name="heroicons:arrow-path-20-solid"
+                class="animate-spin"
+                size="12"
               />
             </button>
+            <input
+              ref="avatarInputRef"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/jpg"
+              class="hidden"
+              @change="handleAvatarFileChange"
+            />
           </div>
           <h2 class="text-foreground truncate text-sm font-bold">
-            Dr. {{ form.first_name }} {{ form.last_name }}
+            Dr. {{ form.first_name }} {{ middleInitial ? middleInitial + ' ' : ''
+            }}{{ form.last_name }}
           </h2>
           <p class="text-muted-foreground truncate text-[11px] italic">{{ form.email }}</p>
 
@@ -848,237 +1079,381 @@
 
       <!-- Right Main Content Panel (Expanded) -->
       <main class="min-w-0 flex-1">
-        <!-- 1. PROFILE & BIO TAB -->
+        <!-- 1. PROFILE & BIO TAB (2-Column Cards Architecture) -->
         <div
           v-if="activeTab === 'profile'"
-          class="bg-card border-border animate-in fade-in space-y-6 rounded-3xl border p-6 shadow-xs duration-300 sm:p-8"
+          class="animate-in fade-in space-y-6 duration-300"
         >
-          <div>
-            <h2 class="text-foreground text-xl font-bold">Doctor Profile & Credentials</h2>
-            <p class="text-muted-foreground mt-1 text-xs">
-              Manage your professional credentials, PRC license, and practice address.
-            </p>
-          </div>
-
-          <div class="bg-border h-px"></div>
-
           <form
             @submit.prevent="submitProfile"
-            class="flex flex-col gap-6"
+            class="space-y-6"
           >
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >First Name</label
-                >
-                <input
-                  v-model="form.first_name"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter first name"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Last Name</label
-                >
-                <input
-                  v-model="form.last_name"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter last name"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="text-foreground flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Email Address</label
-                >
-                <input
-                  v-model="form.email"
-                  type="email"
-                  disabled
-                  class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-60 outline-none"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >PRC License Number</label
-                >
-                <input
-                  v-model="form.prcNumber"
-                  type="text"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Enter PRC license number"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Age</label
-                >
-                <input
-                  v-model="form.age"
-                  type="number"
-                  class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                  placeholder="Your age"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Gender</label
-                >
-                <select
-                  v-model="form.gender"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select gender
-                  </option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Region</label
-                >
-                <select
-                  v-model="codes.region"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select Region
-                  </option>
-                  <option
-                    v-for="r in regions"
-                    :key="r.code"
-                    :value="r.code"
-                  >
-                    {{ r.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Province</label
-                >
-                <select
-                  v-model="codes.province"
-                  :disabled="!provinces.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    {{ provinces.length ? 'Select Province' : 'N/A' }}
-                  </option>
-                  <option
-                    v-for="p in provinces"
-                    :key="p.code"
-                    :value="p.code"
-                  >
-                    {{ p.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >City / Municipality</label
-                >
-                <select
-                  v-model="codes.city"
-                  :disabled="!cities.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select City
-                  </option>
-                  <option
-                    v-for="c in cities"
-                    :key="c.code"
-                    :value="c.code"
-                  >
-                    {{ c.name }}
-                  </option>
-                </select>
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                  >Barangay</label
-                >
-                <select
-                  v-model="codes.barangay"
-                  :disabled="!barangays.length"
-                  class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select Barangay
-                  </option>
-                  <option
-                    v-for="b in barangays"
-                    :key="b.code"
-                    :value="b.code"
-                  >
-                    {{ b.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1.5">
-              <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                >Street Address / Practice Location</label
-              >
-              <input
-                v-model="form.street"
-                type="text"
-                class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                placeholder="House No., Street Name, Clinic/Hospital Rm"
-              />
-            </div>
-
-            <div class="border-border mt-4 flex items-center justify-between border-t pt-2">
+            <!-- 2-Column Cards Grid -->
+            <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+              <!-- Card 1: Doctor Identity & Medical Credentials -->
               <div
-                v-if="isSuccess"
-                class="flex items-center gap-2 text-sm font-bold text-emerald-600"
+                class="bg-card border-border flex flex-col justify-between space-y-6 rounded-3xl border p-6 shadow-xs sm:p-7"
               >
-                <Icon
-                  name="heroicons:check-circle"
-                  size="20"
-                />
-                <span>Doctor profile updated successfully!</span>
+                <div>
+                  <!-- Card Header -->
+                  <div class="mb-5 flex items-start gap-3.5">
+                    <div
+                      class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                    >
+                      <Icon
+                        name="heroicons:identification-20-solid"
+                        size="22"
+                      />
+                    </div>
+                    <div>
+                      <h2 class="text-foreground text-base font-bold sm:text-lg">
+                        Identity & Credentials
+                      </h2>
+                      <p class="text-muted-foreground mt-0.5 text-xs">
+                        Your professional identification, contact details, and license.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <!-- Card 1 Fields -->
+                  <div class="space-y-4">
+                    <!-- First, Middle & Last Name -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >First Name</label
+                        >
+                        <input
+                          v-model="form.first_name"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter first name"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Middle Name</label
+                        >
+                        <input
+                          v-model="form.middle_name"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter middle name (optional)"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Last Name</label
+                        >
+                        <input
+                          v-model="form.last_name"
+                          type="text"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter last name"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Email & PRC License -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="text-foreground flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Email Address</label
+                        >
+                        <div class="relative">
+                          <input
+                            v-model="form.email"
+                            type="email"
+                            disabled
+                            class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
+                          />
+                          <Icon
+                            name="heroicons:lock-closed-20-solid"
+                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
+                            size="16"
+                          />
+                        </div>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <div class="flex items-center justify-between">
+                          <label
+                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                            >PRC License Number</label
+                          >
+                          <span
+                            v-if="user?.doctor_verification?.status === 'verified'"
+                            class="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide text-emerald-600 uppercase"
+                          >
+                            <Icon
+                              name="heroicons:check-badge-20-solid"
+                              size="12"
+                            />
+                            Verified
+                          </span>
+                        </div>
+                        <div class="relative">
+                          <input
+                            v-model="form.prcNumber"
+                            type="text"
+                            disabled
+                            class="bg-foreground/5 text-muted-foreground border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-70"
+                            placeholder="Not registered"
+                          />
+                          <span
+                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2 text-xs"
+                          >
+                            <Icon
+                              name="heroicons:lock-closed-20-solid"
+                              size="16"
+                            />
+                          </span>
+                        </div>
+                        <p class="text-muted-foreground/70 text-[11px] leading-tight">
+                          PRC license number is tied to your professional verification and cannot be
+                          changed directly.
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Age & Gender -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Age</label
+                        >
+                        <input
+                          v-model="form.age"
+                          type="number"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          placeholder="Your age"
+                        />
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Gender</label
+                        >
+                        <select
+                          v-model="form.gender"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select gender
+                          </option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div v-else></div>
+
+              <!-- Card 2: Practice Location & Primary Clinic Address -->
+              <div
+                class="bg-card border-border flex flex-col justify-between space-y-6 rounded-3xl border p-6 shadow-xs sm:p-7"
+              >
+                <div>
+                  <!-- Card Header -->
+                  <div class="mb-5 flex items-start justify-between gap-3">
+                    <div class="flex items-start gap-3.5">
+                      <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600"
+                      >
+                        <Icon
+                          name="heroicons:map-pin-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h2 class="text-foreground text-base font-bold sm:text-lg">
+                          Practice & Clinic Location
+                        </h2>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Where patients will locate your consultation practice.
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Geocoding Status Badge -->
+                    <div
+                      v-if="formattedCoordinates"
+                      class="hidden items-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 sm:inline-flex dark:text-emerald-400"
+                      title="Geographic coordinates mapped for patient search"
+                    >
+                      <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"></span>
+                      <span>{{ formattedCoordinates }} Mapped</span>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <!-- Card 2 Fields -->
+                  <div class="space-y-4">
+                    <!-- Region & Province -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Region</label
+                        >
+                        <select
+                          v-model="codes.region"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select Region
+                          </option>
+                          <option
+                            v-for="r in regions"
+                            :key="r.code"
+                            :value="r.code"
+                          >
+                            {{ r.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Province</label
+                        >
+                        <select
+                          v-model="codes.province"
+                          :disabled="!provinces.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            {{ provinces.length ? 'Select Province' : 'N/A' }}
+                          </option>
+                          <option
+                            v-for="p in provinces"
+                            :key="p.code"
+                            :value="p.code"
+                          >
+                            {{ p.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- City & Barangay -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >City / Municipality</label
+                        >
+                        <select
+                          v-model="codes.city"
+                          :disabled="!cities.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select City
+                          </option>
+                          <option
+                            v-for="c in cities"
+                            :key="c.code"
+                            :value="c.code"
+                          >
+                            {{ c.name }}
+                          </option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1.5">
+                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >Barangay</label
+                        >
+                        <select
+                          v-model="codes.barangay"
+                          :disabled="!barangays.length"
+                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
+                        >
+                          <option
+                            value=""
+                            disabled
+                          >
+                            Select Barangay
+                          </option>
+                          <option
+                            v-for="b in barangays"
+                            :key="b.code"
+                            :value="b.code"
+                          >
+                            {{ b.name }}
+                          </option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Street Address / Practice Room -->
+                    <div class="flex flex-col gap-1.5">
+                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                        >Street Address / Practice Location</label
+                      >
+                      <input
+                        v-model="form.street"
+                        type="text"
+                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                        placeholder="House No., Street Name, Clinic/Hospital Room"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Unified Bottom Action Bar -->
+            <div
+              class="bg-card border-border flex flex-col items-center justify-between gap-4 rounded-3xl border p-4 shadow-xs sm:flex-row sm:px-6"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  v-if="isSuccess"
+                  class="animate-in fade-in flex items-center gap-2 text-sm font-bold text-emerald-600 duration-200"
+                >
+                  <Icon
+                    name="heroicons:check-circle-20-solid"
+                    size="20"
+                  />
+                  <span>Doctor profile updated successfully!</span>
+                </div>
+                <div
+                  v-else-if="formattedCoordinates"
+                  class="text-muted-foreground flex items-center gap-1.5 text-xs font-medium"
+                >
+                  <Icon
+                    name="heroicons:map-pin"
+                    class="text-emerald-500"
+                    size="16"
+                  />
+                  <span>Practice coordinates are mapped for patient discovery</span>
+                </div>
+                <div
+                  v-else
+                  class="text-muted-foreground text-xs"
+                >
+                  Modify any field above to update your professional information.
+                </div>
+              </div>
 
               <AppButton
                 type="submit"
                 :loading="isLoading"
-                class="min-w-[140px]"
+                :disabled="isLoading || !hasFormChanges"
+                class="w-full min-w-[140px] sm:w-auto"
               >
                 Save Profile
               </AppButton>
@@ -2516,7 +2891,7 @@
 
           <div class="bg-border h-px"></div>
 
-          <div class="space-y-4">
+          <div class="space-y-6">
             <!-- Verification Card -->
             <div
               class="border-border bg-foreground/[0.02] flex items-center justify-between gap-4 rounded-2xl border p-5"
@@ -2547,21 +2922,296 @@
               />
             </div>
 
+            <!-- Security Cards Grid (Side-by-side on xl, stacked on mobile/tablet) -->
+            <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
+              <!-- Card 1: Change Password Card -->
+              <div
+                class="border-border bg-foreground/[0.01] flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+              >
+                <div>
+                  <div class="mb-5 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                      >
+                        <Icon
+                          name="heroicons:key-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h3 class="text-foreground text-base font-bold">Change Password</h3>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Ensure your account is using a long, secure password to protect clinical
+                          records.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-6 h-px"></div>
+
+                  <form
+                    @submit.prevent="handlePasswordChange"
+                    class="space-y-4"
+                  >
+                    <div
+                      v-if="passwordError"
+                      class="border-destructive/30 bg-destructive/10 text-destructive flex items-center gap-2 rounded-2xl border p-3.5 text-xs font-semibold"
+                    >
+                      <Icon
+                        name="heroicons:exclamation-circle-20-solid"
+                        size="16"
+                        class="shrink-0"
+                      />
+                      <span>{{ passwordError }}</span>
+                    </div>
+
+                    <!-- Current Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <label
+                        for="doctor_current_password"
+                        class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+                      >
+                        Current Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          id="doctor_current_password"
+                          v-model="passwordForm.current_password"
+                          :type="showCurrentPassword ? 'text' : 'password'"
+                          autocomplete="current-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter current password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          :aria-label="
+                            showCurrentPassword ? 'Hide current password' : 'Show current password'
+                          "
+                          :aria-pressed="showCurrentPassword"
+                          @click="showCurrentPassword = !showCurrentPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showCurrentPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- New Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          for="doctor_new_password"
+                          class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+                        >
+                          New Password
+                        </label>
+                        <span class="text-muted-foreground text-[11px]">Min. 8 characters</span>
+                      </div>
+                      <div class="relative">
+                        <input
+                          id="doctor_new_password"
+                          v-model="passwordForm.new_password"
+                          :type="showNewPassword ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter new password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          :aria-label="showNewPassword ? 'Hide new password' : 'Show new password'"
+                          :aria-pressed="showNewPassword"
+                          @click="showNewPassword = !showNewPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showNewPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Confirm New Password -->
+                    <div class="flex flex-col gap-1.5">
+                      <label
+                        for="doctor_confirm_password"
+                        class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+                      >
+                        Confirm New Password
+                      </label>
+                      <div class="relative">
+                        <input
+                          id="doctor_confirm_password"
+                          v-model="passwordForm.new_password_confirmation"
+                          :type="showConfirmPassword ? 'text' : 'password'"
+                          autocomplete="new-password"
+                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
+                          placeholder="Confirm new password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          :aria-label="
+                            showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                          "
+                          :aria-pressed="showConfirmPassword"
+                          @click="showConfirmPassword = !showConfirmPassword"
+                          class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
+                        >
+                          <Icon
+                            :name="
+                              showConfirmPassword
+                                ? 'heroicons:eye-slash-20-solid'
+                                : 'heroicons:eye-20-solid'
+                            "
+                            size="18"
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="pt-2">
+                      <AppButton
+                        type="submit"
+                        :loading="isChangingPassword"
+                        :disabled="
+                          isChangingPassword ||
+                          !passwordForm.current_password ||
+                          !passwordForm.new_password
+                        "
+                        class="min-w-[150px]"
+                      >
+                        Update Password
+                      </AppButton>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Card 2: Two-Factor Authentication (2FA) Card -->
+              <div
+                class="border-border bg-foreground/[0.01] flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
+              >
+                <div>
+                  <div class="mb-5 flex items-start justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
+                      >
+                        <Icon
+                          name="heroicons:device-phone-mobile-20-solid"
+                          size="22"
+                        />
+                      </div>
+                      <div>
+                        <h3 class="text-foreground text-base font-bold">
+                          Two-Factor Authentication (2FA)
+                        </h3>
+                        <p class="text-muted-foreground mt-0.5 text-xs">
+                          Strengthen account security by requiring a verification code when signing
+                          in.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+                    >
+                      <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                      <span>Disabled</span>
+                    </div>
+                  </div>
+
+                  <div class="bg-border/60 mb-5 h-px"></div>
+
+                  <div class="space-y-4">
+                    <!-- Benefits Callout -->
+                    <div
+                      class="border-border bg-foreground/[0.02] space-y-3 rounded-2xl border p-4"
+                    >
+                      <h4 class="text-foreground text-sm font-bold">Why enable 2FA?</h4>
+                      <p class="text-muted-foreground text-xs leading-relaxed">
+                        Two-Factor Authentication prevents unauthorized access to clinical
+                        consultations, patient health records, and prescription data even if your
+                        credentials are leaked.
+                      </p>
+                      <div class="text-muted-foreground space-y-2 pt-1 text-xs">
+                        <div class="flex items-center gap-2">
+                          <Icon
+                            name="heroicons:check-circle"
+                            class="text-primary h-4 w-4 shrink-0"
+                          />
+                          <span>Generates temporary time-based passcodes (TOTP)</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                          <Icon
+                            name="heroicons:check-circle"
+                            class="text-primary h-4 w-4 shrink-0"
+                          />
+                          <span>Compatible with Google Authenticator, Authy, Microsoft</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Authenticator application CTA box -->
+                    <div
+                      class="border-border bg-foreground/[0.02] flex flex-col items-start justify-between gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center"
+                    >
+                      <div class="space-y-1">
+                        <h4 class="text-foreground text-sm font-bold">Authenticator Application</h4>
+                        <p class="text-muted-foreground max-w-lg text-xs leading-relaxed">
+                          Pair your device to start generating one-time passcodes.
+                        </p>
+                      </div>
+                      <AppButton
+                        type="button"
+                        variant="outline"
+                        @click="show2FAModal = true"
+                        class="shrink-0"
+                      >
+                        <Icon
+                          name="heroicons:qr-code-20-solid"
+                          size="16"
+                          class="mr-1.5"
+                        />
+                        Configure 2FA
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <!-- Sign Out Row -->
             <div
-              class="flex items-center justify-between gap-4 rounded-2xl border border-red-200/60 bg-red-50/40 p-5"
+              class="border-destructive/20 bg-destructive/5 flex items-center justify-between gap-4 rounded-2xl border p-5"
             >
               <div>
-                <h4 class="text-sm font-bold text-red-900">Sign Out</h4>
-                <p class="mt-0.5 text-xs text-red-600/80">
-                  Terminate your current session on this device.
+                <h4 class="text-destructive text-sm font-bold">Sign Out</h4>
+                <p class="text-muted-foreground mt-0.5 text-xs">
+                  Terminate your current doctor session on this device.
                 </p>
               </div>
 
               <button
                 type="button"
                 @click="isLogoutModalOpen = true"
-                class="cursor-pointer rounded-xl bg-red-100 px-4 py-2 text-xs font-bold text-red-600 transition hover:bg-red-200"
+                class="bg-destructive/10 text-destructive hover:bg-destructive border-destructive/20 cursor-pointer rounded-2xl border px-4 py-2 text-xs font-bold transition-all hover:text-white"
               >
                 Log Out
               </button>
@@ -3010,6 +3660,134 @@
       </div>
     </AppModalConfirmation>
 
+    <!-- 2FA Setup Preview Modal -->
+    <Teleport to="body">
+      <div
+        v-if="show2FAModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+      >
+        <div
+          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
+              >
+                <Icon
+                  name="heroicons:qr-code-20-solid"
+                  size="22"
+                />
+              </div>
+              <div>
+                <h3 class="text-foreground text-lg font-bold">Configure 2FA</h3>
+                <p class="text-muted-foreground text-xs">Scan code with your authenticator app</p>
+              </div>
+            </div>
+            <button
+              @click="close2FAModal"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+            >
+              <Icon
+                name="heroicons:x-mark-20-solid"
+                size="20"
+              />
+            </button>
+          </div>
+
+          <!-- Preview Badge -->
+          <div
+            class="bg-primary/10 border-primary/20 text-primary flex items-start gap-2.5 rounded-2xl border p-3.5 text-xs"
+          >
+            <Icon
+              name="heroicons:information-circle-20-solid"
+              size="18"
+              class="mt-0.5 shrink-0"
+            />
+            <p class="leading-relaxed">
+              <strong>Preview Mode:</strong> You can preview the setup process below. Automated 2FA
+              login verification will be activated in an upcoming release.
+            </p>
+          </div>
+
+          <!-- Step 1: Scan QR Code -->
+          <div class="space-y-2 text-center">
+            <div
+              class="border-border bg-foreground/[0.03] mx-auto flex h-40 w-40 items-center justify-center rounded-2xl border p-3"
+            >
+              <div class="text-muted-foreground flex flex-col items-center justify-center gap-1.5">
+                <Icon
+                  name="heroicons:qr-code-20-solid"
+                  size="64"
+                  class="text-foreground/70"
+                />
+                <span class="text-[10px] font-semibold tracking-wider uppercase"
+                  >Mock Authenticator QR</span
+                >
+              </div>
+            </div>
+            <div class="flex items-center justify-center gap-2 pt-1">
+              <span class="text-foreground font-mono text-xs font-bold">{{ mock2FASecret }}</span>
+              <button
+                type="button"
+                @click="copySecretKey"
+                class="text-primary hover:text-primary-hover cursor-pointer p-1 text-xs"
+                title="Copy secret key"
+              >
+                <Icon
+                  :name="
+                    isCopiedKey
+                      ? 'heroicons:check-20-solid'
+                      : 'heroicons:clipboard-document-20-solid'
+                  "
+                  size="16"
+                />
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2: Code Input -->
+          <div class="space-y-2">
+            <label
+              for="doctor_2fa_code"
+              class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+            >
+              Enter 6-Digit Code
+            </label>
+            <input
+              id="doctor_2fa_code"
+              v-model="twoFACode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="one-time-code"
+              maxlength="6"
+              class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-lg font-bold tracking-widest transition-all outline-none"
+              placeholder="000000"
+            />
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <AppButton
+              variant="outline"
+              type="button"
+              @click="close2FAModal"
+            >
+              Close
+            </AppButton>
+            <AppButton
+              type="button"
+              :loading="is2FALoading"
+              @click="handleSimulate2FA"
+            >
+              Verify & Activate
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Logout Modal -->
     <AppModalConfirmation
       v-if="isLogoutModalOpen"
@@ -3020,6 +3798,15 @@
       confirm-variant="destructive"
       @confirm="logout"
       @cancel="isLogoutModalOpen = false"
+    />
+
+    <!-- Image Cropping Modal -->
+    <AppModalCropImage
+      v-model="showCropModal"
+      :image-src="rawAvatarSrc"
+      :loading="isUploadingAvatar"
+      @crop="handleApplyCroppedAvatar"
+      @cancel="rawAvatarSrc = ''"
     />
   </div>
 </template>

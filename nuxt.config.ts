@@ -1,10 +1,14 @@
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { existsSync } from 'node:fs'
 import tailwindcss from '@tailwindcss/vite'
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
-// Corrected path: API project is DermAssist-API, not api
-const apiStoragePath = join(currentDir, '../DermAssist-API/storage/app/public')
+const apiCandidates = [
+  join(currentDir, '../api/storage/app/public'),
+  join(currentDir, '../DermAssist-API/storage/app/public')
+]
+const apiStoragePath = apiCandidates.find(p => existsSync(p)) || apiCandidates[0]
 
 // Dynamically extract the host from NUXT_PUBLIC_STORAGE_BASE so @nuxt/image
 // always allows the configured backend domain (ngrok, localhost, LAN IP, etc.)

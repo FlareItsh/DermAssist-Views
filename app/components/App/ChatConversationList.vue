@@ -32,6 +32,13 @@
   let pollingInterval: any = null
 
   const userRole = useCookie('user_role')
+  const { getStorageUrl } = useStorage()
+  const avatarErrors = ref(new Set<string>())
+
+  const hasAvatarError = (id: string) => avatarErrors.value.has(id)
+  const handleAvatarError = (id: string) => {
+    avatarErrors.value.add(id)
+  }
 
   const { data: conversations, refresh, pending } = await conversationService.useList()
 
@@ -56,7 +63,8 @@
   }
 
   const getPersonAvatar = (person: any) => {
-    return person?.avatar ?? person?.avatar_path ?? null
+    const raw = person?.avatar_path ?? person?.avatar ?? null
+    return raw ? getStorageUrl(raw) : null
   }
 
   const getOtherPerson = (conv: Conversation): ConversationPerson | null => {
@@ -182,10 +190,11 @@
       >
         <div class="bg-muted h-14 w-14 shrink-0 overflow-hidden rounded-2xl">
           <img
-            v-if="getOtherPerson(conv)?.avatar"
+            v-if="getOtherPerson(conv)?.avatar && !hasAvatarError(conv.id)"
             :src="getOtherPerson(conv)!.avatar!"
             :alt="getOtherPerson(conv)?.name || 'User'"
             class="h-full w-full object-cover"
+            @error="handleAvatarError(conv.id)"
           />
           <div
             v-else

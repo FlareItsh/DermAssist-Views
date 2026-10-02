@@ -1855,8 +1855,8 @@
           v-for="patient in uniquePatients"
           :key="patient.uuid"
           @click="
-            patientUuid = patient.uuid
-            isPatientModalOpen = false
+            patientUuid = patient.uuid;
+            isPatientModalOpen = false;
           "
           class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
           :class="
@@ -1899,8 +1899,8 @@
         <AppButton
           variant="outline"
           @click="
-            patientUuid = null
-            isPatientModalOpen = false
+            patientUuid = null;
+            isPatientModalOpen = false;
           "
           class="rounded-xl px-6 font-bold"
           v-if="patientUuid"

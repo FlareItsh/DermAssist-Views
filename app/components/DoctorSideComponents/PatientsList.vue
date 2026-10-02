@@ -152,18 +152,21 @@
     }
   }
 
+  const rolePrefix = computed(() => {
+    const role = useCookie('user_role').value
+    return role === 'secretary' ? '/secretary' : '/doctor'
+  })
+
   const goToChat = (uuid?: string) => {
     if (uuid) {
-      const role = useCookie('user_role').value
-      const prefix = role === 'secretary' ? '/secretary' : '/doctor'
-      navigateTo(`${prefix}/messages/${uuid}`)
+      navigateTo(`${rolePrefix.value}/messages/${uuid}`)
     } else {
-      navigateTo('/doctor/patients')
+      navigateTo(`${rolePrefix.value}/patients`)
     }
   }
 
   const openPatientDirectory = (patient: any) => {
-    navigateTo(`/doctor/patients?search=${encodeURIComponent(patient.name)}`)
+    navigateTo(`${rolePrefix.value}/patients?search=${encodeURIComponent(patient.name)}`)
   }
 </script>
 
@@ -182,7 +185,7 @@
         </span>
       </div>
       <NuxtLink
-        to="/doctor/patients"
+        :to="`${rolePrefix}/patients`"
         class="text-secondary text-sm font-semibold transition hover:underline"
       >
         See more ›

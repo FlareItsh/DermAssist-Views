@@ -10,12 +10,6 @@
       </AppNavbar>
     </div>
 
-    <!-- Temporary Account Verification Alert Banner -->
-    <AppVerificationBanner
-      :user="currentUser"
-      @verified="handleUserVerified"
-    />
-
     <div class="flex flex-1 overflow-hidden">
       <!-- Desktop Sidebar (hidden on mobile) -->
       <div class="hidden md:block">
@@ -34,7 +28,9 @@
                 ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
                 : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
               : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
-            : '-mt-4 p-5'
+            : isChatPage || isFullHeightPage
+              ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
+              : '-mt-4 p-5'
         ]"
         id="main-content"
       >
@@ -48,7 +44,7 @@
         <div
           class="mx-auto"
           :class="[
-            userRole === 'patient' ? 'px-5 md:p-0' : '',
+            userRole === 'patient' ? (isChatPage ? 'px-0 md:p-0' : 'px-5 md:p-0') : '',
             isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
@@ -65,27 +61,6 @@
 <script setup lang="ts">
   const route = useRoute()
   const userRole = useCookie('user_role')
-  const accountStatus = useCookie('account_status')
-  const verificationDeadline = useCookie('verification_deadline')
-
-  const currentUser = reactive({
-    account_status: accountStatus.value || 'active',
-    verification_deadline: verificationDeadline.value || null
-  })
-
-  watch(
-    () => accountStatus.value,
-    val => {
-      currentUser.account_status = val || 'active'
-    }
-  )
-
-  const handleUserVerified = (updatedUser: any) => {
-    currentUser.account_status = updatedUser?.account_status || 'active'
-    currentUser.verification_deadline = null
-    accountStatus.value = 'active'
-    verificationDeadline.value = null
-  }
 
   const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
@@ -320,7 +295,7 @@
   })
 
   const isFullHeightPage = computed(() => {
-    return /^\/(patient|doctor)\/(messages|scan)/i.test(route.path)
+    return /^\/(patient|doctor|secretary)\/(messages|scan)/i.test(route.path)
   })
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)
