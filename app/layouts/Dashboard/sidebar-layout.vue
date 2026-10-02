@@ -10,11 +10,6 @@
       </AppNavbar>
     </div>
 
-    <!-- Temporary Account Verification Alert Banner -->
-    <AppVerificationBanner
-      :user="currentUser"
-      @verified="handleUserVerified"
-    />
 
     <div class="flex flex-1 overflow-hidden">
       <!-- Desktop Sidebar (hidden on mobile) -->
@@ -65,27 +60,6 @@
 <script setup lang="ts">
   const route = useRoute()
   const userRole = useCookie('user_role')
-  const accountStatus = useCookie('account_status')
-  const verificationDeadline = useCookie('verification_deadline')
-
-  const currentUser = reactive({
-    account_status: accountStatus.value || 'active',
-    verification_deadline: verificationDeadline.value || null
-  })
-
-  watch(
-    () => accountStatus.value,
-    val => {
-      currentUser.account_status = val || 'active'
-    }
-  )
-
-  const handleUserVerified = (updatedUser: any) => {
-    currentUser.account_status = updatedUser?.account_status || 'active'
-    currentUser.verification_deadline = null
-    accountStatus.value = 'active'
-    verificationDeadline.value = null
-  }
 
   const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
