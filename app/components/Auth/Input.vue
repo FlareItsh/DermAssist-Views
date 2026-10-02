@@ -8,9 +8,13 @@
     placeholder?: string
     autocomplete?: string
     optional?: boolean
+    maxlength?: number | string
+    inputmode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url'
+    pattern?: string
+    onlyDigits?: boolean
   }>()
 
-  defineEmits(['update:modelValue'])
+  const emit = defineEmits(['update:modelValue'])
 
   const showPassword = ref(false)
   const togglePassword = () => (showPassword.value = !showPassword.value)
@@ -21,6 +25,70 @@
     }
     return props.type || 'text'
   })
+
+  const isNumericOnly = computed(() => props.onlyDigits || props.inputmode === 'numeric')
+
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (isNumericOnly.value) {
+      // Allow navigation and edit control keys
+      const allowedKeys = [
+        'Backspace',
+        'Tab',
+        'Enter',
+        'Delete',
+        'Escape',
+        'ArrowLeft',
+        'ArrowRight',
+        'ArrowUp',
+        'ArrowDown',
+        'Home',
+        'End'
+      ]
+      if (allowedKeys.includes(event.key)) {
+        return
+      }
+      // Allow clipboard and selection shortcuts: Ctrl/Cmd + A, C, V, X, Z
+      if (event.ctrlKey || event.metaKey) {
+        return
+      }
+      // Strictly block non-numeric characters (letters, spaces, punctuation)
+      if (!/^[0-9]$/.test(event.key)) {
+        event.preventDefault()
+      }
+    }
+  }
+
+  const handleInput = (event: Event) => {
+    const target = event.target as HTMLInputElement
+    if (isNumericOnly.value) {
+      let cleaned = target.value.replace(/\D/g, '')
+      if (props.maxlength) {
+        cleaned = cleaned.slice(0, Number(props.maxlength))
+      }
+      if (target.value !== cleaned) {
+        target.value = cleaned
+      }
+      emit('update:modelValue', cleaned)
+    } else {
+      emit('update:modelValue', target.value)
+    }
+  }
+
+  const handlePaste = (event: ClipboardEvent) => {
+    if (isNumericOnly.value) {
+      event.preventDefault()
+      const pasteText = event.clipboardData?.getData('text') || ''
+      const cleaned = pasteText.replace(/\D/g, '')
+      const target = event.target as HTMLInputElement
+      const current = target.value || ''
+      const start = target.selectionStart ?? current.length
+      const end = target.selectionEnd ?? current.length
+      const max = props.maxlength ? Number(props.maxlength) : Infinity
+      const nextVal = (current.slice(0, start) + cleaned + current.slice(end)).slice(0, max)
+      target.value = nextVal
+      emit('update:modelValue', nextVal)
+    }
+  }
 </script>
 
 <template>
@@ -30,8 +98,13 @@
         :type="inputType"
         :id="id"
         :value="modelValue"
+        :maxlength="maxlength"
+        :inputmode="inputmode"
+        :pattern="pattern"
         :autocomplete="autocomplete || (type === 'password' ? 'new-password' : 'off')"
-        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @keydown="handleKeyDown"
+        @input="handleInput"
+        @paste="handlePaste"
         class="peer border-input focus:ring-primary focus:border-primary bg-primary/5 block w-full rounded-xl border pt-5 pb-2 text-sm placeholder-transparent shadow-xs transition-all duration-200 focus:ring-2 focus:outline-none"
         :class="[
           error ? 'border-destructive focus:ring-destructive' : '',

@@ -1193,12 +1193,27 @@
                             Verified
                           </span>
                         </div>
-                        <input
-                          v-model="form.prcNumber"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter PRC license number"
-                        />
+                        <div class="relative">
+                          <input
+                            v-model="form.prcNumber"
+                            type="text"
+                            disabled
+                            class="bg-foreground/5 text-muted-foreground border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-70"
+                            placeholder="Not registered"
+                          />
+                          <span
+                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2 text-xs"
+                          >
+                            <Icon
+                              name="heroicons:lock-closed-20-solid"
+                              size="16"
+                            />
+                          </span>
+                        </div>
+                        <p class="text-muted-foreground/70 text-[11px] leading-tight">
+                          PRC license number is tied to your professional verification and cannot be
+                          changed directly.
+                        </p>
                       </div>
                     </div>
 

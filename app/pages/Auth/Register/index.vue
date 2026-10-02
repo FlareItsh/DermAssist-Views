@@ -33,6 +33,18 @@
     idPhoto: null as string | null // Base64 encoded captured photo
   })
 
+  watch(
+    () => form.prcNumber,
+    newVal => {
+      if (newVal) {
+        const sanitized = newVal.replace(/\D/g, '').slice(0, 7)
+        if (sanitized !== newVal) {
+          form.prcNumber = sanitized
+        }
+      }
+    }
+  )
+
   const errors = reactive({
     firstName: '',
     middleName: '',
@@ -123,7 +135,8 @@
         case 'prcNumber':
           if (role.value === 'doctor') {
             if (!form.prcNumber) errors.prcNumber = 'PRC Number is required'
-            else if (form.prcNumber.length < 7) errors.prcNumber = 'Minimum 7 characters'
+            else if (!/^\d{7}$/.test(form.prcNumber))
+              errors.prcNumber = 'PRC Number must be exactly 7 digits'
             else errors.prcNumber = ''
           } else {
             errors.prcNumber = ''
@@ -231,7 +244,10 @@
 
   const isStep2Valid = computed(() => {
     return (
-      form.prcNumber.length >= 7 && form.idPhoto !== null && !errors.prcNumber && !errors.idPhoto
+      /^\d{7}$/.test(form.prcNumber) &&
+      form.idPhoto !== null &&
+      !errors.prcNumber &&
+      !errors.idPhoto
     )
   })
 
@@ -887,6 +903,10 @@
               v-model="form.prcNumber"
               label="PRC Registration Number"
               placeholder="e.g. 1234567"
+              maxlength="7"
+              inputmode="numeric"
+              pattern="[0-9]{7}"
+              :only-digits="true"
               :error="errors.prcNumber"
               @blur="markTouched('prcNumber')"
               @input="markTouched('prcNumber')"
