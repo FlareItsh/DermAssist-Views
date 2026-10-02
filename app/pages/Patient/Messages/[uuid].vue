@@ -20,8 +20,11 @@
     return fullName || 'Unknown'
   }
 
+  const { getStorageUrl } = useStorage()
+
   const getPersonAvatar = (person: any) => {
-    return person?.avatar ?? person?.avatar_path ?? null
+    const raw = person?.avatar_path ?? person?.avatar ?? null
+    return raw ? getStorageUrl(raw) : null
   }
 
   const otherPerson = computed(() => {
