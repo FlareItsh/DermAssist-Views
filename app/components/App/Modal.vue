@@ -61,7 +61,7 @@
           <div class="p-8 sm:p-10">
             <div
               v-if="title || description"
-              class="mb-8 pr-10 sm:pr-12"
+              class="mb-8"
             >
               <h3
                 v-if="title"

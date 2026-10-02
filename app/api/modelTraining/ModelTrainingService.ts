@@ -7,10 +7,6 @@ export interface ModelStatsResponse {
     untrained_count?: number
     last_trained_at?: string | null
   }
-  out_of_scope_candidates?: {
-    total: number
-    by_category: Record<string, number>
-  }
   ai_service: {
     total_baseline_images: number
     classes: Record<string, number>
@@ -56,16 +52,14 @@ export interface TrainingStatusResponse {
   history: TrainingHistory
   started_at?: string
   completed_at?: string
-  expansion_disease?: string
   error?: string
 }
 
 export interface StartTrainingPayload {
-  architecture?: 'ensemble' | 'swin_transformer' | 'resnet50' | 'efficientnet_v2'
+  architecture?: 'swin_transformer' | 'resnet50' | 'efficientnet_v2'
   epochs?: number
   sync_dataset?: boolean
   learning_rate?: number
-  expansion_disease?: string
 }
 
 export class ModelTrainingService extends BaseService {

@@ -40,11 +40,7 @@
 
   const isTrainingActive = computed(() => {
     const s = trainingStatus.value?.status
-    return s === 'syncing' || s === 'training' || s === 'evaluating' || s === 'cancelling'
-  })
-
-  const isCancellingActive = computed(() => {
-    return trainingStatus.value?.status === 'cancelling'
+    return s === 'syncing' || s === 'training' || s === 'evaluating'
   })
 
   const architectures = [
@@ -90,12 +86,7 @@
         logContainer.value.scrollTop = logContainer.value.scrollHeight
       }
 
-      if (
-        res.status === 'completed' ||
-        res.status === 'failed' ||
-        res.status === 'cancelled' ||
-        res.status === 'idle'
-      ) {
+      if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
         stopPolling()
         if (res.status === 'completed') {
           emit('retrain-complete')
@@ -156,7 +147,6 @@
       toast.info('Training cancellation requested.')
       showCancelConfirm.value = false
       await pollStatus()
-      startPolling()
     } catch (err: any) {
       const errorMsg =
         err?.data?.message ||
@@ -334,18 +324,6 @@
                 Evaluating Checkpoint
               </AppBadge>
               <AppBadge
-                v-else-if="trainingStatus?.status === 'cancelling'"
-                color="warning"
-                variant="subtle"
-                class="gap-1"
-              >
-                <Icon
-                  name="lucide:loader-2"
-                  size="12"
-                  class="animate-spin"
-                />
-                Stopping...
-              </AppBadge>
                 v-else-if="trainingStatus?.status === 'completed'"
                 color="success"
                 variant="solid"
@@ -365,15 +343,13 @@
                 variant="destructive"
                 size="sm"
                 class="gap-1.5"
-                :loading="isCancellingActive || isCancelling"
-                :disabled="isCancellingActive || isCancelling"
                 @click="confirmCancelTraining"
               >
                 <Icon
                   name="lucide:square"
                   size="14"
                 />
-                {{ isCancellingActive ? 'Stopping...' : 'Stop' }}
+                Stop
               </AppButton>
             </div>
           </div>

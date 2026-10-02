@@ -2,7 +2,6 @@
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { datasetService } from '~/api/dataset/DatasetService'
-  import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
   import { userService } from '~/api/user/UserService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
@@ -14,8 +13,6 @@
     skipLoad?: boolean
     isFinishMode?: boolean
     contributeToDataset?: boolean
-    contributeToOutOfScopeDataset?: boolean
-    isOutOfScope?: boolean
   }>()
 
   const emit = defineEmits<{
@@ -621,18 +618,8 @@
         }
       }
 
-      // Save to research dataset based on scan type (out-of-scope → separate storage, standard → normal dataset)
-      if (
-        props.isOutOfScope &&
-        props.contributeToOutOfScopeDataset === true &&
-        props.diagnosisUuid
-      ) {
-        try {
-          await outOfScopeDatasetService.saveFromDiagnosis(props.diagnosisUuid)
-        } catch (datasetErr) {
-          console.error('Failed to save scan to out-of-scope research dataset:', datasetErr)
-        }
-      } else if (!props.isOutOfScope && props.contributeToDataset === true && props.diagnosisUuid) {
+      // Save to AI Retraining Dataset only if the doctor has checked the checkbox
+      if (props.contributeToDataset === true && props.diagnosisUuid) {
         try {
           await datasetService.saveFromDiagnosis(props.diagnosisUuid)
         } catch (datasetErr) {
