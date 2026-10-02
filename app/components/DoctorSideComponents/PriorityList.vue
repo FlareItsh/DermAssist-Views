@@ -176,21 +176,22 @@
     })
   }
 
+  const rolePrefix = computed(() => {
+    const role = useCookie('user_role').value
+    return role === 'secretary' ? '/secretary' : '/doctor'
+  })
+
   const goToChat = (uuid?: string) => {
     if (uuid) {
-      const role = useCookie('user_role').value
-      const prefix = role === 'secretary' ? '/secretary' : '/doctor'
-      navigateTo(`${prefix}/messages/${uuid}`)
+      navigateTo(`${rolePrefix.value}/messages/${uuid}`)
     } else {
-      navigateTo('/doctor/patients')
+      navigateTo(`${rolePrefix.value}/patients`)
     }
   }
 
   const goToCompleteAppointment = (uuid?: string) => {
     if (uuid) {
-      const role = useCookie('user_role').value
-      const prefix = role === 'secretary' ? '/secretary' : '/doctor'
-      navigateTo(`${prefix}/messages/${uuid}?complete=1`)
+      navigateTo(`${rolePrefix.value}/messages/${uuid}?complete=1`)
     }
   }
 
@@ -239,7 +240,7 @@
       </div>
 
       <NuxtLink
-        to="/doctor/patients"
+        :to="`${rolePrefix}/patients`"
         class="text-primary text-xs font-semibold hover:underline"
       >
         View Directory ›

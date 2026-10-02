@@ -154,11 +154,14 @@
     }
   }
 
+  const rolePrefix = computed(() => {
+    const role = useCookie('user_role').value
+    return role === 'secretary' ? '/secretary' : '/doctor'
+  })
+
   const goToChat = (uuid?: string) => {
     if (uuid) {
-      const role = useCookie('user_role').value
-      const prefix = role === 'secretary' ? '/secretary' : '/doctor'
-      navigateTo(`${prefix}/messages/${uuid}`)
+      navigateTo(`${rolePrefix.value}/messages/${uuid}`)
     }
   }
 </script>
@@ -178,7 +181,7 @@
         </span>
       </div>
       <NuxtLink
-        to="/doctor/appointments"
+        :to="`${rolePrefix}/appointments`"
         class="text-secondary text-sm font-semibold transition hover:underline"
       >
         See more ›
