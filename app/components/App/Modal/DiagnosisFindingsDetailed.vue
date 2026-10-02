@@ -923,22 +923,36 @@
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="mb-8 space-y-1.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-900 dark:text-amber-200"
+        class="mb-8 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-4 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
       >
-        <div class="flex items-center gap-2 text-sm font-bold text-amber-700 dark:text-amber-300">
-          <Icon
-            name="lucide:alert-triangle"
-            size="17"
-            class="shrink-0"
-          />
-          <span>Low Confidence &amp; Inconclusive Guard</span>
+        <div class="flex items-start gap-3">
+          <div
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
+          >
+            <Icon
+              name="lucide:alert-triangle"
+              size="17"
+            />
+          </div>
+          <div class="flex-1 space-y-1">
+            <div class="flex items-center justify-between">
+              <h4 class="text-foreground text-sm font-semibold tracking-tight">
+                Low Confidence &amp; Inconclusive Guard
+              </h4>
+              <span
+                class="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+              >
+                Inconclusive
+              </span>
+            </div>
+            <p class="text-muted-foreground text-xs leading-relaxed sm:text-sm">
+              {{
+                currentDiagnosis?.clinical_feedback ||
+                'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+              }}
+            </p>
+          </div>
         </div>
-        <p class="text-xs leading-relaxed opacity-90 sm:text-sm">
-          {{
-            currentDiagnosis?.clinical_feedback ||
-            'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
-          }}
-        </p>
       </div>
 
       <!-- Non-Skin Advisory Notice -->
@@ -1236,6 +1250,7 @@
               :data="displayChartData"
               :size="200"
               :stroke-width="38"
+              :show-legend="false"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
               <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
@@ -1855,8 +1870,8 @@
           v-for="patient in uniquePatients"
           :key="patient.uuid"
           @click="
-            patientUuid = patient.uuid;
-            isPatientModalOpen = false;
+            patientUuid = patient.uuid
+            isPatientModalOpen = false
           "
           class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
           :class="
@@ -1899,8 +1914,8 @@
         <AppButton
           variant="outline"
           @click="
-            patientUuid = null;
-            isPatientModalOpen = false;
+            patientUuid = null
+            isPatientModalOpen = false
           "
           class="rounded-xl px-6 font-bold"
           v-if="patientUuid"
