@@ -68,6 +68,17 @@
     key: `userProfile-${userUuid.value}`
   })
 
+  const userInitials = computed(() => {
+    const raw = (userProfile.value as any)?.data ?? userProfile.value
+    const first = raw?.first_name?.trim()?.charAt(0) || ''
+    const last = raw?.last_name?.trim()?.charAt(0) || ''
+    if (first || last) {
+      return `${first}${last}`.toUpperCase()
+    }
+    if (userRole.value === 'doctor') return 'DR'
+    return 'U'
+  })
+
   // --- Appointments (both doctor and patient) ---
   const {
     appointments,
@@ -583,11 +594,18 @@
           "
         >
           <NuxtImg
-            :src="getStorageUrl(userProfile?.avatar_path) || '/images/lp-img.png'"
+            v-if="userProfile?.avatar_path"
+            :src="getStorageUrl(userProfile.avatar_path)"
             class="h-full w-full object-cover"
             alt="Profile"
             placeholder
           />
+          <div
+            v-else
+            class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-sm font-bold tracking-tight uppercase"
+          >
+            {{ userInitials }}
+          </div>
         </button>
         <!-- Profile incomplete dot -->
         <span

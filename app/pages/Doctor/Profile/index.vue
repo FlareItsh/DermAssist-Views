@@ -96,6 +96,61 @@
   })
 
   const doctorUuid = useCookie('user_uuid').value
+  const isUploadingAvatar = ref(false)
+  const avatarInputRef = ref<HTMLInputElement | null>(null)
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.value?.click()
+  }
+
+  const handleAvatarFileChange = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPG, PNG, or WebP).')
+      input.value = ''
+      return
+    }
+
+    const maxSizeInBytes = 5 * 1024 * 1024
+    if (file.size > maxSizeInBytes) {
+      toast.error('Image size exceeds 5MB limit. Please choose a smaller image.')
+      input.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = async e => {
+      const base64Data = e.target?.result as string
+      if (!base64Data) return
+
+      isUploadingAvatar.value = true
+      try {
+        await userService.update(doctorUuid as string, {
+          avatar: base64Data
+        })
+        toast.success('Profile picture updated successfully.')
+        await Promise.all([refresh(), refreshNuxtData(`userProfile-${doctorUuid}`)])
+      } catch (err: any) {
+        console.error('Failed to upload avatar:', err)
+        toast.error(
+          err?.response?.data?.message || err?.message || 'Failed to update profile picture.'
+        )
+      } finally {
+        isUploadingAvatar.value = false
+        input.value = ''
+      }
+    }
+    reader.onerror = () => {
+      toast.error('Error reading the image file.')
+      input.value = ''
+    }
+    reader.readAsDataURL(file)
+  }
+
   const availabilities = ref<any[]>([])
   const isAvailLoading = ref(false)
   const isAddLoading = ref(false)
@@ -765,30 +820,49 @@
       <aside class="w-full shrink-0 space-y-3 lg:w-64">
         <!-- Doctor Quick Identity Card -->
         <div class="bg-card border-border rounded-2xl border p-4 text-center shadow-xs">
-          <div
-            class="from-primary/20 to-primary/5 border-primary/20 relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full border bg-linear-to-br p-0.5"
-          >
-            <template v-if="user?.avatar_path">
+          <div class="relative mx-auto mb-3 h-16 w-16">
+            <div
+              class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border bg-linear-to-br p-0.5 shadow-xs"
+            >
               <NuxtImg
+                v-if="user?.avatar_path"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
                 placeholder
               />
-            </template>
-            <div
-              v-else
-              class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-xl font-bold"
-            >
-              Dr. {{ form.last_name?.charAt(0) }}
+              <div
+                v-else
+                class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-base font-bold tracking-tight"
+              >
+                Dr. {{ form.last_name?.charAt(0) || 'D' }}
+              </div>
             </div>
             <button
-              class="bg-primary hover:bg-primary/90 absolute right-0 bottom-0 z-10 cursor-pointer rounded-full p-1 text-white shadow-md transition"
+              type="button"
+              @click="triggerAvatarUpload"
+              :disabled="isUploadingAvatar"
+              title="Upload profile picture"
+              class="bg-primary hover:bg-primary/90 border-background focus:ring-primary/30 absolute -right-1 -bottom-1 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border-2 text-white shadow-md transition hover:scale-110 focus:ring-2 focus:outline-hidden disabled:pointer-events-none disabled:opacity-50"
             >
               <Icon
+                v-if="!isUploadingAvatar"
                 name="heroicons:camera-20-solid"
-                size="11"
+                size="12"
+              />
+              <Icon
+                v-else
+                name="heroicons:arrow-path-20-solid"
+                class="animate-spin"
+                size="12"
               />
             </button>
+            <input
+              ref="avatarInputRef"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/jpg"
+              class="hidden"
+              @change="handleAvatarFileChange"
+            />
           </div>
           <h2 class="text-foreground truncate text-sm font-bold">
             Dr. {{ form.first_name }} {{ form.last_name }}

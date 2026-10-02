@@ -1,17 +1,73 @@
 <script setup lang="ts">
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { userService } from '~/api/user/UserService'
+  import { toast } from 'vue-sonner'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
 
-  // Doctors might have verification data
-  const { data: response, refresh } = userService.useShow(useCookie('user_uuid').value as string, {
-    key: `userProfile-${useCookie('user_uuid').value}`
+  const userUuid = useCookie('user_uuid').value as string
+  const { data: response, refresh } = userService.useShow(userUuid, {
+    key: `userProfile-${userUuid}`
   })
   // Laravel JsonResource wraps single resources under `data` — unwrap at source
   const user = computed(() => (response.value as any)?.data ?? response.value)
+
+  const isUploadingAvatar = ref(false)
+  const avatarInputRef = ref<HTMLInputElement | null>(null)
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.value?.click()
+  }
+
+  const handleAvatarFileChange = async (event: Event) => {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPG, PNG, or WebP).')
+      input.value = ''
+      return
+    }
+
+    const maxSizeInBytes = 5 * 1024 * 1024
+    if (file.size > maxSizeInBytes) {
+      toast.error('Image size exceeds 5MB limit. Please choose a smaller image.')
+      input.value = ''
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = async e => {
+      const base64Data = e.target?.result as string
+      if (!base64Data) return
+
+      isUploadingAvatar.value = true
+      try {
+        await userService.update(userUuid, {
+          avatar: base64Data
+        })
+        toast.success('Profile picture updated successfully.')
+        await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
+      } catch (err: any) {
+        console.error('Failed to upload avatar:', err)
+        toast.error(
+          err?.response?.data?.message || err?.message || 'Failed to update profile picture.'
+        )
+      } finally {
+        isUploadingAvatar.value = false
+        input.value = ''
+      }
+    }
+    reader.onerror = () => {
+      toast.error('Error reading the image file.')
+      input.value = ''
+    }
+    reader.readAsDataURL(file)
+  }
 
   const {
     regions,
@@ -436,32 +492,51 @@
         <div
           class="bg-sidebar/40 border-sidebar-border rounded-3xl border p-6 text-center shadow-sm backdrop-blur-sm"
         >
-          <div
-            class="from-primary/20 to-primary/5 border-primary/20 relative mx-auto mb-4 h-32 w-32 overflow-hidden rounded-full border-2 bg-linear-to-br p-1"
-          >
-            <template v-if="user?.avatar_path">
+          <div class="relative mx-auto mb-4 h-32 w-32">
+            <div
+              class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border-2 bg-linear-to-br p-1"
+            >
               <NuxtImg
+                v-if="user?.avatar_path"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
                 placeholder
               />
-            </template>
-            <div
-              v-else
-              class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-4xl font-bold"
-            >
-              Dr. {{ form.last_name?.charAt(0) }}
+              <div
+                v-else
+                class="bg-sidebar/60 text-primary flex h-full w-full items-center justify-center rounded-full text-4xl font-bold"
+              >
+                {{ form.first_name?.charAt(0) }}{{ form.last_name?.charAt(0) }}
+              </div>
             </div>
             <button
-              class="bg-primary hover:bg-primary-hover absolute right-0 bottom-0 z-10 rounded-full p-2 text-white shadow-lg transition-colors"
+              type="button"
+              @click="triggerAvatarUpload"
+              :disabled="isUploadingAvatar"
+              title="Upload profile picture"
+              class="bg-primary hover:bg-primary-hover border-background focus:ring-primary/30 absolute right-0 bottom-0 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-2 text-white shadow-lg transition-transform hover:scale-110 focus:ring-2 focus:outline-hidden disabled:pointer-events-none disabled:opacity-50"
             >
               <Icon
+                v-if="!isUploadingAvatar"
                 name="heroicons:camera-20-solid"
                 size="16"
               />
+              <Icon
+                v-else
+                name="heroicons:arrow-path-20-solid"
+                class="animate-spin"
+                size="16"
+              />
             </button>
+            <input
+              ref="avatarInputRef"
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/jpg"
+              class="hidden"
+              @change="handleAvatarFileChange"
+            />
           </div>
-          <h2 class="text-xl font-bold">Dr. {{ form.first_name }} {{ form.last_name }}</h2>
+          <h2 class="text-xl font-bold">{{ form.first_name }} {{ form.last_name }}</h2>
           <p class="text-foreground/60 text-sm italic">{{ form.email }}</p>
 
           <div class="mt-6 flex flex-col gap-2">
