@@ -588,7 +588,7 @@
     <!-- Progress Indicator -->
     <div
       v-if="role === 'doctor'"
-      class="mx-auto mb-3 flex w-full max-w-md items-center justify-between px-4 transition-all duration-300"
+      class="mx-auto mb-3 flex w-full max-w-xl items-center justify-between px-4 transition-all duration-300"
     >
       <div
         class="flex items-center gap-2"
@@ -633,7 +633,7 @@
     </div>
 
     <!-- Step Transitions -->
-    <div class="relative mx-auto w-full max-w-md">
+    <div class="relative mx-auto w-full max-w-xl">
       <transition
         mode="out-in"
         enter-active-class="transition duration-300 ease-out"
