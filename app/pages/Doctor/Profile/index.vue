@@ -816,6 +816,11 @@
   const showConfirmPassword = ref(false)
   const passwordError = ref<string | null>(null)
 
+  // Clear password error on tab switch
+  watch(activeTab, () => {
+    passwordError.value = null
+  })
+
   const handlePasswordChange = async () => {
     passwordError.value = null
     if (!passwordForm.current_password) {
@@ -843,11 +848,18 @@
       passwordForm.new_password = ''
       passwordForm.new_password_confirmation = ''
     } catch (err: any) {
-      const msg =
+      const errors = err?.response?.data?.errors || err?.data?.errors
+      let msg =
         err?.response?.data?.message ||
         err?.data?.message ||
         err?.message ||
         'Failed to update password.'
+      if (errors && typeof errors === 'object') {
+        const firstKey = Object.keys(errors)[0]
+        if (firstKey && errors[firstKey]?.[0]) {
+          msg = errors[firstKey][0]
+        }
+      }
       passwordError.value = msg
       toast.error(msg)
     } finally {
@@ -861,6 +873,11 @@
   const is2FALoading = ref(false)
   const isCopiedKey = ref(false)
   const mock2FASecret = 'DERM-D9K4-8X2M-55QL'
+
+  const close2FAModal = () => {
+    show2FAModal.value = false
+    twoFACode.value = ''
+  }
 
   const copySecretKey = () => {
     if (navigator?.clipboard) {
@@ -2906,11 +2923,15 @@
 
                     <!-- Current Password -->
                     <div class="flex flex-col gap-1.5">
-                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      <label
+                        for="doctor_current_password"
+                        class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+                      >
                         Current Password
                       </label>
                       <div class="relative">
                         <input
+                          id="doctor_current_password"
                           v-model="passwordForm.current_password"
                           :type="showCurrentPassword ? 'text' : 'password'"
                           autocomplete="current-password"
@@ -2920,6 +2941,10 @@
                         />
                         <button
                           type="button"
+                          :aria-label="
+                            showCurrentPassword ? 'Hide current password' : 'Show current password'
+                          "
+                          :aria-pressed="showCurrentPassword"
                           @click="showCurrentPassword = !showCurrentPassword"
                           class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
                         >
@@ -2939,7 +2964,8 @@
                     <div class="flex flex-col gap-1.5">
                       <div class="flex items-center justify-between">
                         <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          for="doctor_new_password"
+                          class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
                         >
                           New Password
                         </label>
@@ -2947,6 +2973,7 @@
                       </div>
                       <div class="relative">
                         <input
+                          id="doctor_new_password"
                           v-model="passwordForm.new_password"
                           :type="showNewPassword ? 'text' : 'password'"
                           autocomplete="new-password"
@@ -2956,6 +2983,8 @@
                         />
                         <button
                           type="button"
+                          :aria-label="showNewPassword ? 'Hide new password' : 'Show new password'"
+                          :aria-pressed="showNewPassword"
                           @click="showNewPassword = !showNewPassword"
                           class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
                         >
@@ -2973,11 +3002,15 @@
 
                     <!-- Confirm New Password -->
                     <div class="flex flex-col gap-1.5">
-                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      <label
+                        for="doctor_confirm_password"
+                        class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+                      >
                         Confirm New Password
                       </label>
                       <div class="relative">
                         <input
+                          id="doctor_confirm_password"
                           v-model="passwordForm.new_password_confirmation"
                           :type="showConfirmPassword ? 'text' : 'password'"
                           autocomplete="new-password"
@@ -2987,6 +3020,10 @@
                         />
                         <button
                           type="button"
+                          :aria-label="
+                            showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                          "
+                          :aria-pressed="showConfirmPassword"
                           @click="showConfirmPassword = !showConfirmPassword"
                           class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
                         >
@@ -3602,7 +3639,7 @@
               </div>
             </div>
             <button
-              @click="show2FAModal = false"
+              @click="close2FAModal"
               class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
             >
               <Icon
@@ -3665,12 +3702,19 @@
 
           <!-- Step 2: Code Input -->
           <div class="space-y-2">
-            <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+            <label
+              for="doctor_2fa_code"
+              class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+            >
               Enter 6-Digit Code
             </label>
             <input
+              id="doctor_2fa_code"
               v-model="twoFACode"
               type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="one-time-code"
               maxlength="6"
               class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-lg font-bold tracking-widest transition-all outline-none"
               placeholder="000000"
@@ -3682,7 +3726,7 @@
             <AppButton
               variant="outline"
               type="button"
-              @click="show2FAModal = false"
+              @click="close2FAModal"
             >
               Close
             </AppButton>
