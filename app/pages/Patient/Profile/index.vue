@@ -342,15 +342,18 @@
     return JSON.stringify(form) !== initialFormState.value
   })
 
+  const { sanitizeName, blockNameKey, sanitizeAge, blockAgeKey, validateName, validateAge } =
+    useFormSanitizer()
+
   const loaded = ref(false)
   watch(
     user,
     newVal => {
       if (newVal && !loaded.value) {
         const userData = newVal
-        form.first_name = userData.first_name || ''
-        form.middle_name = userData.middle_name || ''
-        form.last_name = userData.last_name || ''
+        form.first_name = sanitizeName(userData.first_name || '')
+        form.middle_name = sanitizeName(userData.middle_name || '')
+        form.last_name = sanitizeName(userData.last_name || '')
         form.email = userData.email || ''
         form.street = userData.street || ''
         form.barangay = userData.barangay || ''
@@ -359,7 +362,7 @@
         form.country = userData.country || 'Philippines'
         form.latitude = userData.latitude ?? null
         form.longitude = userData.longitude ?? null
-        form.age = userData.age || ''
+        form.age = sanitizeAge(userData.age)
         form.gender = userData.gender || ''
         form.consent_dataset = Boolean(userData.consent_dataset)
 
@@ -369,6 +372,79 @@
       }
     },
     { immediate: true, deep: true }
+  )
+
+  const errors = reactive({
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    age: ''
+  })
+
+  const validateFirstName = () => {
+    const res = validateName(form.first_name, 'First Name', 2, 50, true)
+    errors.first_name = res.valid ? '' : res.error
+    return res.valid
+  }
+
+  const validateLastName = () => {
+    const res = validateName(form.last_name, 'Last Name', 2, 50, true)
+    errors.last_name = res.valid ? '' : res.error
+    return res.valid
+  }
+
+  const validateMiddleName = () => {
+    if (form.middle_name) {
+      const res = validateName(form.middle_name, 'Middle Name', 1, 50, false)
+      errors.middle_name = res.valid ? '' : res.error
+      return res.valid
+    }
+    errors.middle_name = ''
+    return true
+  }
+
+  const validateAgeField = () => {
+    if (form.age !== '' && form.age !== null && form.age !== undefined) {
+      const res = validateAge(form.age, 0, 130, false)
+      errors.age = res.valid ? '' : res.error
+      return res.valid
+    }
+    errors.age = ''
+    return true
+  }
+
+  // Real-time input watchers to strip numbers from names and invalid characters from age
+  watch(
+    () => form.first_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.first_name = sanitized
+      validateFirstName()
+    }
+  )
+  watch(
+    () => form.middle_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.middle_name = sanitized
+      validateMiddleName()
+    }
+  )
+  watch(
+    () => form.last_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.last_name = sanitized
+      validateLastName()
+    }
+  )
+  watch(
+    () => form.age,
+    newVal => {
+      const sanitized = sanitizeAge(newVal)
+      if (sanitized !== String(newVal ?? '')) form.age = sanitized
+      validateAgeField()
+    }
   )
 
   const isLoading = ref(false)
@@ -415,6 +491,18 @@
   }
 
   const submitProfile = async () => {
+    // Client-side validation matching registration standards (0-130 age, letters-only names)
+    const isFnValid = validateFirstName()
+    const isLnValid = validateLastName()
+    const isMnValid = validateMiddleName()
+    const isAgeValid = validateAgeField()
+
+    if (!isFnValid || !isLnValid || !isMnValid || !isAgeValid) {
+      const firstError = errors.first_name || errors.last_name || errors.middle_name || errors.age
+      toast.error(firstError || 'Please fix the errors in the form before saving.')
+      return
+    }
+
     isLoading.value = true
     try {
       // Always re-geocode before saving to ensure coordinates match the current address
@@ -647,9 +735,21 @@
                         <input
                           v-model="form.first_name"
                           type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          @keydown="blockNameKey"
+                          :class="
+                            errors.first_name
+                              ? 'border-rose-400 focus:border-rose-500'
+                              : 'border-border focus:border-primary'
+                          "
+                          class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
                           placeholder="Enter first name"
                         />
+                        <p
+                          v-if="errors.first_name"
+                          class="mt-1 text-xs font-medium text-rose-500"
+                        >
+                          {{ errors.first_name }}
+                        </p>
                       </div>
                       <div class="flex flex-col gap-1.5">
                         <label
@@ -660,9 +760,21 @@
                         <input
                           v-model="form.middle_name"
                           type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          @keydown="blockNameKey"
+                          :class="
+                            errors.middle_name
+                              ? 'border-rose-400 focus:border-rose-500'
+                              : 'border-border focus:border-primary'
+                          "
+                          class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
                           placeholder="Enter middle name (optional)"
                         />
+                        <p
+                          v-if="errors.middle_name"
+                          class="mt-1 text-xs font-medium text-rose-500"
+                        >
+                          {{ errors.middle_name }}
+                        </p>
                       </div>
                       <div class="flex flex-col gap-1.5">
                         <label
@@ -673,9 +785,21 @@
                         <input
                           v-model="form.last_name"
                           type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          @keydown="blockNameKey"
+                          :class="
+                            errors.last_name
+                              ? 'border-rose-400 focus:border-rose-500'
+                              : 'border-border focus:border-primary'
+                          "
+                          class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
                           placeholder="Enter last name"
                         />
+                        <p
+                          v-if="errors.last_name"
+                          class="mt-1 text-xs font-medium text-rose-500"
+                        >
+                          {{ errors.last_name }}
+                        </p>
                       </div>
                     </div>
 
@@ -711,9 +835,24 @@
                         <input
                           v-model="form.age"
                           type="number"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                          min="0"
+                          max="130"
+                          inputmode="numeric"
+                          @keydown="blockAgeKey"
+                          :class="
+                            errors.age
+                              ? 'border-rose-400 focus:border-rose-500'
+                              : 'border-border focus:border-primary'
+                          "
+                          class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
                           placeholder="Your age"
                         />
+                        <p
+                          v-if="errors.age"
+                          class="mt-1 text-xs font-medium text-rose-500"
+                        >
+                          {{ errors.age }}
+                        </p>
                       </div>
                       <div class="flex flex-col gap-1.5">
                         <label
