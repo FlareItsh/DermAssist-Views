@@ -17,6 +17,10 @@ export class DoctorSecretaryService extends BaseService {
     return await this.request(this.resource, 'POST', payload)
   }
 
+  async update(uuid: string, payload: any): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}`, 'PUT', payload)
+  }
+
   async delete(uuid: string): Promise<any> {
     return await this.request(`${this.resource}/${uuid}`, 'DELETE')
   }
