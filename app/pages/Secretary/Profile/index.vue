@@ -77,46 +77,16 @@
     }
   }
 
-  // Location & Form Composable Setup
-  const {
-    regions,
-    provinces,
-    cities,
-    barangays,
-    fetchRegions,
-    fetchProvinces,
-    fetchCities,
-    fetchBarangays,
-    findProvinceByName,
-    findCityByName,
-    findBarangayByName
-  } = usePhLocations()
-
   const { getStorageUrl } = useStorage()
-  const { missingDoctorFields, refreshProfile } = useAppNotifications()
-
-  const codes = reactive({
-    region: '',
-    province: '',
-    city: '',
-    barangay: ''
-  })
+  const { missingSecretaryFields, refreshProfile } = useAppNotifications()
 
   const form = reactive({
     first_name: '',
     middle_name: '',
     last_name: '',
     email: '',
-    street: '',
-    barangay: '',
-    city: '',
-    province: '',
-    country: 'Philippines',
-    latitude: null as number | null,
-    longitude: null as number | null,
     age: '',
-    gender: '',
-    affiliation: ''
+    gender: ''
   })
 
   const middleInitial = computed(() => {
@@ -124,89 +94,6 @@
     if (!m) return ''
     return `${m.charAt(0).toUpperCase()}.`
   })
-
-  onMounted(async () => {
-    await fetchRegions()
-  })
-
-  // Cascading logic
-  watch(
-    () => codes.region,
-    async newVal => {
-      if (newVal) {
-        codes.province = ''
-        codes.city = ''
-        codes.barangay = ''
-        const region = regions.value.find(r => r.code === newVal)
-        if (region) form.province = region.name
-        await fetchProvinces(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.province,
-    async newVal => {
-      if (newVal) {
-        codes.city = ''
-        codes.barangay = ''
-        const prov = provinces.value.find(p => p.code === newVal)
-        if (prov) form.province = prov.name
-        await fetchCities(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.city,
-    async newVal => {
-      if (newVal) {
-        codes.barangay = ''
-        const city = cities.value.find(c => c.code === newVal)
-        if (city) form.city = city.name
-        await fetchBarangays(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.barangay,
-    newVal => {
-      if (newVal) {
-        const brgy = barangays.value.find(b => b.code === newVal)
-        if (brgy) form.barangay = brgy.name
-      }
-    }
-  )
-
-  const initDropdowns = async () => {
-    if (form.province) {
-      const prov = await findProvinceByName(form.province)
-      if (prov) {
-        if (prov.region_code) {
-          codes.region = prov.region_code
-          await fetchProvinces(prov.region_code)
-        }
-        codes.province = prov.code
-
-        if (form.city) {
-          const city = await findCityByName(prov.code, form.city)
-          if (city) {
-            await fetchCities(prov.code)
-            codes.city = city.code
-
-            if (form.barangay) {
-              const brgy = await findBarangayByName(city.code, form.barangay)
-              if (brgy) {
-                await fetchBarangays(city.code)
-                codes.barangay = brgy.code
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 
   // Inner Sidebar Tabs
   type SettingsTab = 'profile' | 'security'
@@ -216,7 +103,7 @@
     {
       id: 'profile' as SettingsTab,
       label: 'Personal Profile',
-      desc: 'Identity, contact & address details',
+      desc: 'Identity, contact & account details',
       icon: 'heroicons:user-circle'
     },
     {
@@ -347,27 +234,28 @@
   })
 
   const loaded = ref(false)
+  const {
+    sanitizeName,
+    blockNameKey,
+    sanitizeAge,
+    blockAgeKey,
+    validateName,
+    validateAge,
+    normalizeGender
+  } = useFormSanitizer()
+
   watch(
     user,
     newVal => {
       if (newVal && !loaded.value) {
         const userData = newVal
-        form.first_name = userData.first_name || ''
-        form.middle_name = userData.middle_name || ''
-        form.last_name = userData.last_name || ''
+        form.first_name = sanitizeName(userData.first_name || '')
+        form.middle_name = sanitizeName(userData.middle_name || '')
+        form.last_name = sanitizeName(userData.last_name || '')
         form.email = userData.email || ''
-        form.street = userData.street || ''
-        form.barangay = userData.barangay || ''
-        form.city = userData.city || ''
-        form.province = userData.province || ''
-        form.country = userData.country || 'Philippines'
-        form.latitude = userData.latitude ?? null
-        form.longitude = userData.longitude ?? null
-        form.age = userData.age || ''
-        form.gender = userData.gender || ''
-        form.affiliation = userData.affiliation || ''
+        form.age = sanitizeAge(userData.age)
+        form.gender = normalizeGender(userData.gender)
 
-        initDropdowns()
         loaded.value = true
         initialFormState.value = JSON.stringify(form)
       }
@@ -375,54 +263,98 @@
     { immediate: true, deep: true }
   )
 
+  const errors = reactive({
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    age: ''
+  })
+
+  const validateFirstName = () => {
+    const res = validateName(form.first_name, 'First Name', 2, 50, true)
+    errors.first_name = res.valid ? '' : res.error
+    return res.valid
+  }
+
+  const validateLastName = () => {
+    const res = validateName(form.last_name, 'Last Name', 2, 50, true)
+    errors.last_name = res.valid ? '' : res.error
+    return res.valid
+  }
+
+  const validateMiddleName = () => {
+    if (form.middle_name) {
+      const res = validateName(form.middle_name, 'Middle Name', 1, 50, false)
+      errors.middle_name = res.valid ? '' : res.error
+      return res.valid
+    }
+    errors.middle_name = ''
+    return true
+  }
+
+  const validateAgeField = () => {
+    if (form.age !== '' && form.age !== null && form.age !== undefined) {
+      const res = validateAge(form.age, 0, 130, false)
+      errors.age = res.valid ? '' : res.error
+      return res.valid
+    }
+    errors.age = ''
+    return true
+  }
+
+  // Real-time input watchers to strip numbers from names and invalid characters from age
+  watch(
+    () => form.first_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.first_name = sanitized
+      validateFirstName()
+    }
+  )
+  watch(
+    () => form.middle_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.middle_name = sanitized
+      validateMiddleName()
+    }
+  )
+  watch(
+    () => form.last_name,
+    newVal => {
+      const sanitized = sanitizeName(newVal)
+      if (sanitized !== newVal) form.last_name = sanitized
+      validateLastName()
+    }
+  )
+  watch(
+    () => form.age,
+    newVal => {
+      const sanitized = sanitizeAge(newVal)
+      if (sanitized !== String(newVal ?? '')) form.age = sanitized
+      validateAgeField()
+    }
+  )
+
   const isLoading = ref(false)
-  const isGeoLoading = ref(false)
   const isSuccess = ref(false)
   const isLogoutModalOpen = ref(false)
 
-  const geocodeAddress = async () => {
-    if (!form.city || !form.province) return
-
-    isGeoLoading.value = true
-    try {
-      let query = `${form.street}, ${form.barangay}, ${form.city}, ${form.province}, ${form.country}`
-      let response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
-      )
-      let data = await response.json()
-
-      if (!data || data.length === 0) {
-        query = `${form.barangay}, ${form.city}, ${form.province}, ${form.country}`
-        response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
-        )
-        data = await response.json()
-      }
-
-      if (!data || data.length === 0) {
-        query = `${form.city}, ${form.province}, ${form.country}`
-        response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
-        )
-        data = await response.json()
-      }
-
-      if (data && data.length > 0) {
-        form.latitude = parseFloat(data[0].lat)
-        form.longitude = parseFloat(data[0].lon)
-      }
-    } catch (error) {
-      console.error('Geocoding failed:', error)
-    } finally {
-      isGeoLoading.value = false
-    }
-  }
-
   const submitProfile = async () => {
+    // Client-side validation matching registration standards (0-130 age, letters-only names)
+    const isFnValid = validateFirstName()
+    const isLnValid = validateLastName()
+    const isMnValid = validateMiddleName()
+    const isAgeValid = validateAgeField()
+
+    if (!isFnValid || !isLnValid || !isMnValid || !isAgeValid) {
+      const firstError = errors.first_name || errors.last_name || errors.middle_name || errors.age
+      toast.error(firstError || 'Please fix the errors in the form before saving.')
+      return
+    }
+
     isLoading.value = true
     try {
-      await geocodeAddress()
-
       await userService.update(useCookie('user_uuid').value as string, form)
       initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
@@ -467,12 +399,12 @@
       <div>
         <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Secretary Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
-          Manage your personal details, clinic affiliation, and account security.
+          Manage your personal details and account security.
         </p>
       </div>
 
       <div
-        v-if="user?.city && user?.province && user?.age && user?.gender"
+        v-if="user?.age && user?.gender"
         class="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-3.5 py-1.5 text-emerald-600"
       >
         <Icon
@@ -485,12 +417,12 @@
 
     <!-- Profile Completion Alert -->
     <AppAlert
-      v-if="missingDoctorFields?.length > 0"
+      v-if="missingSecretaryFields?.length > 0"
       title="Profile Setup Required"
       type="error"
     >
       Your profile is incomplete. Please fill out the following fields to complete registration:
-      <span class="font-bold underline">{{ missingDoctorFields.join(', ') }}</span
+      <span class="font-bold underline">{{ missingSecretaryFields.join(', ') }}</span
       >.
     </AppAlert>
 
@@ -553,9 +485,7 @@
             class="border-border/60 mt-3 flex items-center justify-between border-t pt-3 text-[11px]"
           >
             <span class="text-muted-foreground font-medium">Account Status</span>
-            <AppProfileStatusBadge
-              :is-complete="!!(user?.city && user?.province && user?.age && user?.gender)"
-            />
+            <AppProfileStatusBadge :is-complete="!!(user?.age && user?.gender)" />
           </div>
         </div>
 
@@ -609,310 +539,167 @@
             @submit.prevent="submitProfile"
             class="space-y-6"
           >
-            <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
-              <!-- Column 1: Personal Details & Contact -->
-              <div class="flex flex-col gap-6">
-                <!-- Card 1: Identity & Credentials -->
-                <div class="bg-card border-border rounded-3xl border p-6 shadow-xs">
-                  <div class="mb-5 flex items-center gap-3">
-                    <div
-                      class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-                    >
-                      <Icon
-                        name="heroicons:user-circle-20-solid"
-                        size="22"
-                      />
-                    </div>
-                    <div>
-                      <h2 class="text-foreground text-base font-bold sm:text-lg">
-                        Personal Information
-                      </h2>
-                      <p class="text-muted-foreground mt-0.5 text-xs">
-                        Your basic legal identity and contact details.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div class="bg-border/60 mb-5 h-px"></div>
-
-                  <div class="space-y-4">
-                    <!-- First, Middle & Last Name -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          First Name
-                        </label>
-                        <input
-                          v-model="form.first_name"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter first name"
-                        />
-                      </div>
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Middle Name
-                        </label>
-                        <input
-                          v-model="form.middle_name"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter middle name (optional)"
-                        />
-                      </div>
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Last Name
-                        </label>
-                        <input
-                          v-model="form.last_name"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter last name"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Email & Affiliation -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="text-foreground flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Email Address
-                        </label>
-                        <div class="relative">
-                          <input
-                            v-model="form.email"
-                            type="email"
-                            disabled
-                            class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
-                            placeholder="email@example.com"
-                          />
-                          <Icon
-                            name="heroicons:lock-closed-20-solid"
-                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
-                            size="16"
-                          />
-                        </div>
-                      </div>
-
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Clinic Affiliation
-                        </label>
-                        <input
-                          v-model="form.affiliation"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter clinic or hospital name"
-                        />
-                      </div>
-                    </div>
-
-                    <!-- Age & Gender -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Age
-                        </label>
-                        <input
-                          v-model="form.age"
-                          type="number"
-                          min="1"
-                          max="120"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Enter age"
-                        />
-                      </div>
-
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Gender
-                        </label>
-                        <select
-                          v-model="form.gender"
-                          class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select gender
-                          </option>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
+            <!-- Card 1: Identity & Credentials -->
+            <div class="bg-card border-border rounded-3xl border p-6 shadow-xs sm:p-7">
+              <div class="mb-5 flex items-center gap-3">
+                <div
+                  class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                >
+                  <Icon
+                    name="heroicons:user-circle-20-solid"
+                    size="22"
+                  />
+                </div>
+                <div>
+                  <h2 class="text-foreground text-base font-bold sm:text-lg">
+                    Personal Information
+                  </h2>
+                  <p class="text-muted-foreground mt-0.5 text-xs">
+                    Your basic legal identity and contact details.
+                  </p>
                 </div>
               </div>
 
-              <!-- Column 2: Address & Location -->
-              <div class="flex flex-col gap-6">
-                <!-- Card 2: Address & Geographical Area -->
-                <div class="bg-card border-border rounded-3xl border p-6 shadow-xs">
-                  <div class="mb-5 flex items-center gap-3">
-                    <div
-                      class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+              <div class="bg-border/60 mb-5 h-px"></div>
+
+              <div class="space-y-4">
+                <!-- First, Middle & Last Name -->
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      First Name
+                    </label>
+                    <input
+                      v-model="form.first_name"
+                      type="text"
+                      @keydown="blockNameKey"
+                      :class="
+                        errors.first_name
+                          ? 'border-rose-400 focus:border-rose-500'
+                          : 'border-border focus:border-primary'
+                      "
+                      class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      placeholder="Enter first name"
+                    />
+                    <p
+                      v-if="errors.first_name"
+                      class="mt-1 text-xs font-medium text-rose-500"
                     >
-                      <Icon
-                        name="heroicons:map-pin-20-solid"
-                        size="22"
-                      />
-                    </div>
-                    <div>
-                      <h2 class="text-foreground text-base font-bold sm:text-lg">
-                        Location & Address
-                      </h2>
-                      <p class="text-muted-foreground mt-0.5 text-xs">
-                        Clinic office and local administrative assignment.
-                      </p>
-                    </div>
+                      {{ errors.first_name }}
+                    </p>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      Middle Name
+                    </label>
+                    <input
+                      v-model="form.middle_name"
+                      type="text"
+                      @keydown="blockNameKey"
+                      :class="
+                        errors.middle_name
+                          ? 'border-rose-400 focus:border-rose-500'
+                          : 'border-border focus:border-primary'
+                      "
+                      class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      placeholder="Enter middle name (optional)"
+                    />
+                    <p
+                      v-if="errors.middle_name"
+                      class="mt-1 text-xs font-medium text-rose-500"
+                    >
+                      {{ errors.middle_name }}
+                    </p>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      Last Name
+                    </label>
+                    <input
+                      v-model="form.last_name"
+                      type="text"
+                      @keydown="blockNameKey"
+                      :class="
+                        errors.last_name
+                          ? 'border-rose-400 focus:border-rose-500'
+                          : 'border-border focus:border-primary'
+                      "
+                      class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      placeholder="Enter last name"
+                    />
+                    <p
+                      v-if="errors.last_name"
+                      class="mt-1 text-xs font-medium text-rose-500"
+                    >
+                      {{ errors.last_name }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Email Address -->
+                <div class="text-foreground flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                    Email Address
+                  </label>
+                  <div class="relative">
+                    <input
+                      v-model="form.email"
+                      type="email"
+                      disabled
+                      class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
+                      placeholder="email@example.com"
+                    />
+                    <Icon
+                      name="heroicons:lock-closed-20-solid"
+                      class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
+                      size="16"
+                    />
+                  </div>
+                </div>
+
+                <!-- Age & Gender -->
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      Age
+                    </label>
+                    <input
+                      v-model="form.age"
+                      type="number"
+                      min="0"
+                      max="130"
+                      inputmode="numeric"
+                      @keydown="blockAgeKey"
+                      :class="
+                        errors.age
+                          ? 'border-rose-400 focus:border-rose-500'
+                          : 'border-border focus:border-primary'
+                      "
+                      class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      placeholder="Enter age"
+                    />
+                    <p
+                      v-if="errors.age"
+                      class="mt-1 text-xs font-medium text-rose-500"
+                    >
+                      {{ errors.age }}
+                    </p>
                   </div>
 
-                  <div class="bg-border/60 mb-5 h-px"></div>
-
-                  <div class="space-y-4">
-                    <!-- Region & Province -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Region
-                        </label>
-                        <select
-                          v-model="codes.region"
-                          class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select Region
-                          </option>
-                          <option
-                            v-for="r in regions"
-                            :key="r.code"
-                            :value="r.code"
-                          >
-                            {{ r.name }}
-                          </option>
-                        </select>
-                      </div>
-
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Province
-                        </label>
-                        <select
-                          v-model="codes.province"
-                          :disabled="!provinces.length"
-                          class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            {{ provinces.length ? 'Select Province' : 'N/A' }}
-                          </option>
-                          <option
-                            v-for="p in provinces"
-                            :key="p.code"
-                            :value="p.code"
-                          >
-                            {{ p.name }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <!-- City & Barangay -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          City / Municipality
-                        </label>
-                        <select
-                          v-model="codes.city"
-                          :disabled="!cities.length"
-                          class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select City
-                          </option>
-                          <option
-                            v-for="c in cities"
-                            :key="c.code"
-                            :value="c.code"
-                          >
-                            {{ c.name }}
-                          </option>
-                        </select>
-                      </div>
-
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Barangay
-                        </label>
-                        <select
-                          v-model="codes.barangay"
-                          :disabled="!barangays.length"
-                          class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select Barangay
-                          </option>
-                          <option
-                            v-for="b in barangays"
-                            :key="b.code"
-                            :value="b.code"
-                          >
-                            {{ b.name }}
-                          </option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <!-- Street Address -->
-                    <div class="flex flex-col gap-1.5">
-                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
-                        Street Address / Clinic Details
-                      </label>
-                      <input
-                        v-model="form.street"
-                        type="text"
-                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                        placeholder="House No., Street Name, Clinic Building / Floor"
-                      />
-                    </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                      Gender
+                    </label>
+                    <select
+                      v-model="form.gender"
+                      class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                    >
+                      <option value="">Not Set</option>
+                      <option value="Female">Female</option>
+                      <option value="Male">Male</option>
+                      <option value="Other">Other</option>
+                      <option value="Prefer not to say">Prefer not to say</option>
+                    </select>
                   </div>
                 </div>
               </div>

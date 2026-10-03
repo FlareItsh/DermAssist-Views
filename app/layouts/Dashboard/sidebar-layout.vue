@@ -76,11 +76,6 @@
       label: 'Moderation',
       children: [
         { icon: 'lucide:users', label: 'All Users', to: '/admin/moderation/users' },
-        {
-          icon: 'lucide:shield',
-          label: 'Roles & Permissions',
-          to: '/admin/moderation/roles'
-        },
         { icon: 'lucide:badge-check', label: 'Verification', to: '/admin/moderation/verification' }
       ]
     },

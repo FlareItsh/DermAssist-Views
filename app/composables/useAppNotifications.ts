@@ -240,8 +240,6 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'secretary') return []
     const u = userProfile.value
     const fields: string[] = []
-    if (!u.city) fields.push('City')
-    if (!u.province) fields.push('Province')
     if (!u.age || u.age == 0) fields.push('Age')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields

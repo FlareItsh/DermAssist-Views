@@ -1,12 +1,25 @@
 <script setup lang="ts">
   import { doctorSecretaryService } from '~/api/doctorSecretary/DoctorSecretaryService'
   import { toast } from 'vue-sonner'
+  import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
+  import { useFormSanitizer } from '~/composables/useFormSanitizer'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
 
   const { getStorageUrl } = useStorage()
+  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const {
+    blockNameKey,
+    sanitizeName,
+    validateName,
+    blockAgeKey,
+    sanitizeAge,
+    validateAge,
+    normalizeGender
+  } = useFormSanitizer()
+
   const {
     isSubscribed,
     hasFeature,
@@ -84,6 +97,7 @@
   const isSubmitting = ref(false)
   const errorMessage = ref('')
   const successMessage = ref('')
+  const showAddPassword = ref(false)
 
   const openAddModal = () => {
     if (!canHaveSecretary.value) {
@@ -96,27 +110,57 @@
       )
       return
     }
+    const tempPass = generateTemporaryPassword('Secretary')
     form.firstName = ''
     form.middleName = ''
     form.lastName = ''
     form.email = ''
-    form.password = ''
-    form.confirmPassword = ''
+    form.password = tempPass
+    form.confirmPassword = tempPass
+    showAddPassword.value = false
     errorMessage.value = ''
     successMessage.value = ''
     showAddModal.value = true
+  }
+
+  const regenerateAddPassword = () => {
+    const tempPass = generateTemporaryPassword('Secretary')
+    form.password = tempPass
+    form.confirmPassword = tempPass
+    toast.success('Generated new temporary password.')
   }
 
   const handleCreateSecretary = async () => {
     errorMessage.value = ''
     successMessage.value = ''
 
-    if (!form.firstName || !form.lastName || !form.email || !form.password) {
-      errorMessage.value = 'Please fill out all required fields.'
+    // Validate Names
+    const fnVal = validateName(form.firstName, 'First name', 2, 50, true)
+    if (!fnVal.valid) {
+      errorMessage.value = fnVal.error
       return
     }
 
-    if (form.password.length < 8) {
+    const lnVal = validateName(form.lastName, 'Last name', 2, 50, true)
+    if (!lnVal.valid) {
+      errorMessage.value = lnVal.error
+      return
+    }
+
+    if (form.middleName) {
+      const mnVal = validateName(form.middleName, 'Middle name', 1, 50, false)
+      if (!mnVal.valid) {
+        errorMessage.value = mnVal.error
+        return
+      }
+    }
+
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errorMessage.value = 'Please provide a valid email address.'
+      return
+    }
+
+    if (!form.password || form.password.length < 8) {
       errorMessage.value = 'Password must be at least 8 characters long.'
       return
     }
@@ -129,10 +173,10 @@
     try {
       isSubmitting.value = true
       await doctorSecretaryService.create({
-        firstName: form.firstName,
-        middleName: form.middleName || undefined,
-        lastName: form.lastName,
-        email: form.email,
+        firstName: form.firstName.trim(),
+        middleName: form.middleName ? form.middleName.trim() : undefined,
+        lastName: form.lastName.trim(),
+        email: form.email.trim(),
         password: form.password
       })
       toast.success('Secretary account registered successfully.')
@@ -146,6 +190,133 @@
     }
   }
 
+  // View & Edit Secretary Modal State
+  const showEditModal = ref(false)
+  const editingSecretary = ref<any>(null)
+  const editForm = reactive({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    email: '',
+    age: '',
+    gender: '',
+    password: ''
+  })
+  const enablePasswordReset = ref(false)
+  const showResetPassword = ref(false)
+  const isSavingEdit = ref(false)
+  const editErrorMessage = ref('')
+
+  const openEditModal = (secretary: any) => {
+    editingSecretary.value = secretary
+    editForm.firstName = secretary.first_name || ''
+    editForm.middleName = secretary.middle_name || ''
+    editForm.lastName = secretary.last_name || ''
+    editForm.email = secretary.email || ''
+    editForm.age =
+      secretary.age !== null && secretary.age !== undefined ? String(secretary.age) : ''
+    editForm.gender = normalizeGender(secretary.gender)
+    editForm.password = ''
+    enablePasswordReset.value = false
+    showResetPassword.value = false
+    editErrorMessage.value = ''
+    showEditModal.value = true
+  }
+
+  const togglePasswordReset = () => {
+    enablePasswordReset.value = !enablePasswordReset.value
+    if (enablePasswordReset.value) {
+      editForm.password = generateTemporaryPassword('Secretary')
+      showResetPassword.value = true
+    } else {
+      editForm.password = ''
+      showResetPassword.value = false
+    }
+  }
+
+  const regenerateResetPassword = () => {
+    editForm.password = generateTemporaryPassword('Secretary')
+    toast.success('Generated new temporary password.')
+  }
+
+  const handleSaveEdit = async () => {
+    editErrorMessage.value = ''
+
+    // Validate Names
+    const fnVal = validateName(editForm.firstName, 'First name', 2, 50, true)
+    if (!fnVal.valid) {
+      editErrorMessage.value = fnVal.error
+      return
+    }
+
+    const lnVal = validateName(editForm.lastName, 'Last name', 2, 50, true)
+    if (!lnVal.valid) {
+      editErrorMessage.value = lnVal.error
+      return
+    }
+
+    if (editForm.middleName) {
+      const mnVal = validateName(editForm.middleName, 'Middle name', 1, 50, false)
+      if (!mnVal.valid) {
+        editErrorMessage.value = mnVal.error
+        return
+      }
+    }
+
+    // Validate Email
+    if (!editForm.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
+      editErrorMessage.value = 'Please provide a valid email address.'
+      return
+    }
+
+    // Validate Age
+    if (editForm.age) {
+      const ageVal = validateAge(editForm.age, 0, 130, false)
+      if (!ageVal.valid) {
+        editErrorMessage.value = ageVal.error
+        return
+      }
+    }
+
+    // Validate Password if reset is enabled
+    if (enablePasswordReset.value) {
+      if (!editForm.password || editForm.password.length < 8) {
+        editErrorMessage.value = 'Password must be at least 8 characters long.'
+        return
+      }
+    }
+
+    try {
+      isSavingEdit.value = true
+      const payload: any = {
+        firstName: editForm.firstName.trim(),
+        middleName: editForm.middleName ? editForm.middleName.trim() : null,
+        lastName: editForm.lastName.trim(),
+        email: editForm.email.trim(),
+        age: editForm.age !== '' ? parseInt(editForm.age, 10) : null,
+        gender: editForm.gender ? editForm.gender : null
+      }
+
+      if (enablePasswordReset.value && editForm.password) {
+        payload.password = editForm.password
+      }
+
+      await doctorSecretaryService.update(editingSecretary.value.uuid, payload)
+      toast.success('Secretary details updated successfully.')
+      if (enablePasswordReset.value && editForm.password) {
+        toast.info('New temporary password applied. Active sessions were revoked.')
+      }
+      await refresh()
+      showEditModal.value = false
+      editingSecretary.value = null
+    } catch (err: any) {
+      editErrorMessage.value = err.message || 'Failed to update secretary details.'
+      toast.error(err.message || 'Failed to update secretary details.')
+    } finally {
+      isSavingEdit.value = false
+    }
+  }
+
   // Delete / Remove Secretary Confirmation Modal State
   const showDeleteModal = ref(false)
   const selectedSecretary = ref<any>(null)
@@ -156,6 +327,13 @@
     selectedSecretary.value = secretary
     deleteError.value = ''
     showDeleteModal.value = true
+  }
+
+  const handleRemoveFromEditModal = () => {
+    showEditModal.value = false
+    if (editingSecretary.value) {
+      confirmDelete(editingSecretary.value)
+    }
   }
 
   const handleDeleteSecretary = async () => {
@@ -486,6 +664,25 @@
           </span>
         </div>
 
+        <!-- Secretary Attributes Badges -->
+        <div
+          v-if="secretary.age || secretary.gender"
+          class="mt-3 flex flex-wrap items-center gap-1.5"
+        >
+          <span
+            v-if="secretary.age !== null && secretary.age !== undefined && secretary.age !== ''"
+            class="border-border/60 bg-muted/40 text-muted-foreground inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
+          >
+            {{ secretary.age }} yrs old
+          </span>
+          <span
+            v-if="secretary.gender"
+            class="border-border/60 bg-muted/40 text-muted-foreground inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
+          >
+            {{ secretary.gender }}
+          </span>
+        </div>
+
         <div class="border-border/50 mt-5 flex items-center justify-between border-t pt-4">
           <span class="text-muted-foreground text-xs">
             Added
@@ -496,16 +693,31 @@
             }}
           </span>
 
-          <button
-            @click="confirmDelete(secretary)"
-            class="flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-          >
-            <Icon
-              name="heroicons:trash"
-              class="h-3.5 w-3.5"
-            />
-            <span>Remove</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openEditModal(secretary)"
+              class="border-border/80 bg-background hover:bg-muted text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition"
+              title="View and edit secretary profile"
+            >
+              <Icon
+                name="heroicons:pencil-square"
+                class="text-muted-foreground h-3.5 w-3.5"
+              />
+              <span>View & Edit</span>
+            </button>
+
+            <button
+              @click="confirmDelete(secretary)"
+              class="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+              title="Remove secretary account"
+            >
+              <Icon
+                name="heroicons:trash"
+                class="h-3.5 w-3.5"
+              />
+              <span>Remove</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -559,6 +771,8 @@
                   v-model="form.firstName"
                   type="text"
                   required
+                  @keydown="blockNameKey"
+                  @blur="form.firstName = sanitizeName(form.firstName)"
                   placeholder="First name"
                   class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                 />
@@ -571,6 +785,8 @@
                   v-model="form.lastName"
                   type="text"
                   required
+                  @keydown="blockNameKey"
+                  @blur="form.lastName = sanitizeName(form.lastName)"
                   placeholder="Last name"
                   class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                 />
@@ -584,6 +800,8 @@
               <input
                 v-model="form.middleName"
                 type="text"
+                @keydown="blockNameKey"
+                @blur="form.middleName = sanitizeName(form.middleName)"
                 placeholder="Middle name"
                 class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
               />
@@ -602,15 +820,60 @@
               />
             </div>
 
+            <!-- Password Field with Generator -->
             <div>
-              <label class="text-muted-foreground mb-1 block text-xs font-medium">Password *</label>
-              <input
-                v-model="form.password"
-                type="password"
-                required
-                placeholder="At least 8 characters"
-                class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-              />
+              <div class="mb-1 flex items-center justify-between">
+                <label class="text-muted-foreground text-xs font-medium"
+                  >Temporary Password *</label
+                >
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    @click="copyToClipboard(form.password, 'Password')"
+                    class="text-primary hover:text-primary/80 inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold transition"
+                    title="Copy password to clipboard"
+                  >
+                    <Icon
+                      name="heroicons:clipboard-document"
+                      class="h-3.5 w-3.5"
+                    />
+                    <span>Copy</span>
+                  </button>
+                  <span class="text-border">|</span>
+                  <button
+                    type="button"
+                    @click="regenerateAddPassword"
+                    class="text-primary hover:text-primary/80 inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold transition"
+                    title="Generate new temporary password"
+                  >
+                    <Icon
+                      name="heroicons:arrow-path"
+                      class="h-3.5 w-3.5"
+                    />
+                    <span>Regenerate</span>
+                  </button>
+                </div>
+              </div>
+              <div class="relative">
+                <input
+                  v-model="form.password"
+                  :type="showAddPassword ? 'text' : 'password'"
+                  required
+                  placeholder="At least 8 characters"
+                  class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 pr-10 font-mono text-xs focus:ring-2 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  @click="showAddPassword = !showAddPassword"
+                  class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer"
+                  title="Toggle password visibility"
+                >
+                  <Icon
+                    :name="showAddPassword ? 'heroicons:eye-slash' : 'heroicons:eye'"
+                    class="h-4 w-4"
+                  />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -619,10 +882,10 @@
               >
               <input
                 v-model="form.confirmPassword"
-                type="password"
+                :type="showAddPassword ? 'text' : 'password'"
                 required
                 placeholder="Re-enter password"
-                class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 font-mono text-xs focus:ring-2 focus:outline-none"
               />
             </div>
 
@@ -644,6 +907,316 @@
               >
                 <span>{{ isSubmitting ? 'Registering...' : 'Register Secretary' }}</span>
               </AppButton>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- View & Edit Secretary Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showEditModal && editingSecretary"
+        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs"
+      >
+        <div
+          class="bg-card border-border animate-in fade-in zoom-in relative my-8 w-full max-w-lg rounded-2xl border p-6 shadow-2xl duration-200"
+        >
+          <!-- Header -->
+          <div class="border-border/60 mb-5 flex items-start justify-between gap-3 border-b pb-4">
+            <div class="flex items-center gap-3">
+              <div
+                class="bg-primary/10 border-primary/20 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border"
+              >
+                <img
+                  v-if="editingSecretary.avatar_path"
+                  :src="getStorageUrl(editingSecretary.avatar_path)"
+                  :alt="`${editingSecretary.first_name} ${editingSecretary.last_name}`"
+                  class="h-full w-full object-cover"
+                />
+                <span
+                  v-else
+                  class="text-primary text-base font-bold"
+                >
+                  {{ (editingSecretary.first_name || 'S')[0]
+                  }}{{ (editingSecretary.last_name || '')[0] }}
+                </span>
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-foreground text-lg font-bold">
+                    {{ editingSecretary.first_name }} {{ editingSecretary.last_name }}
+                  </h2>
+                  <span
+                    class="rounded-full bg-blue-500/10 px-2 py-0.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400"
+                  >
+                    Secretary
+                  </span>
+                </div>
+                <p class="text-muted-foreground text-xs">
+                  {{ editingSecretary.email }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              @click="showEditModal = false"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1 transition"
+            >
+              <Icon
+                name="heroicons:x-mark"
+                class="h-5 w-5"
+              />
+            </button>
+          </div>
+
+          <!-- Error Alert -->
+          <div
+            v-if="editErrorMessage"
+            class="mb-4 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400"
+          >
+            {{ editErrorMessage }}
+          </div>
+
+          <!-- Edit Form -->
+          <form
+            @submit.prevent="handleSaveEdit"
+            class="space-y-4"
+          >
+            <!-- Personal Information Section -->
+            <div class="space-y-3">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium">
+                    First Name *
+                  </label>
+                  <input
+                    v-model="editForm.firstName"
+                    type="text"
+                    required
+                    @keydown="blockNameKey"
+                    @blur="editForm.firstName = sanitizeName(editForm.firstName)"
+                    placeholder="First name"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium">
+                    Last Name *
+                  </label>
+                  <input
+                    v-model="editForm.lastName"
+                    type="text"
+                    required
+                    @keydown="blockNameKey"
+                    @blur="editForm.lastName = sanitizeName(editForm.lastName)"
+                    placeholder="Last name"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium">
+                    Middle Name (Optional)
+                  </label>
+                  <input
+                    v-model="editForm.middleName"
+                    type="text"
+                    @keydown="blockNameKey"
+                    @blur="editForm.middleName = sanitizeName(editForm.middleName)"
+                    placeholder="Middle name"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium">
+                    Email Address *
+                  </label>
+                  <input
+                    v-model="editForm.email"
+                    type="email"
+                    required
+                    placeholder="secretary@clinic.com"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium"> Age </label>
+                  <input
+                    v-model="editForm.age"
+                    type="text"
+                    inputmode="numeric"
+                    @keydown="blockAgeKey"
+                    @blur="editForm.age = sanitizeAge(editForm.age)"
+                    placeholder="e.g. 28"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label class="text-muted-foreground mb-1 block text-xs font-medium">
+                    Gender
+                  </label>
+                  <select
+                    v-model="editForm.gender"
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+                  >
+                    <option value="">Not Set</option>
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Password Reset Section Card -->
+            <div class="border-border/80 bg-muted/20 space-y-3 rounded-xl border p-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div
+                    class="bg-primary/10 text-primary flex h-7 w-7 items-center justify-center rounded-lg"
+                  >
+                    <Icon
+                      name="heroicons:key"
+                      class="h-4 w-4"
+                    />
+                  </div>
+                  <div>
+                    <h4 class="text-foreground text-xs font-bold">Password & Access</h4>
+                    <p class="text-muted-foreground text-[11px]">
+                      {{
+                        enablePasswordReset
+                          ? 'Generate a temporary password'
+                          : 'Keep current secretary password'
+                      }}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  @click="togglePasswordReset"
+                  class="border-border bg-card text-foreground hover:bg-muted inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition"
+                >
+                  <Icon
+                    :name="enablePasswordReset ? 'heroicons:x-mark' : 'heroicons:arrow-path'"
+                    class="text-primary h-3.5 w-3.5"
+                  />
+                  <span>{{ enablePasswordReset ? 'Cancel Reset' : 'Reset Password' }}</span>
+                </button>
+              </div>
+
+              <!-- When password reset is enabled -->
+              <div
+                v-if="enablePasswordReset"
+                class="border-border/50 space-y-2.5 border-t pt-2"
+              >
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-muted-foreground font-medium">Temporary Password</span>
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="copyToClipboard(editForm.password, 'Password')"
+                      class="text-primary hover:text-primary/80 inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold transition"
+                      title="Copy to clipboard"
+                    >
+                      <Icon
+                        name="heroicons:clipboard-document"
+                        class="h-3.5 w-3.5"
+                      />
+                      <span>Copy</span>
+                    </button>
+                    <span class="text-border">|</span>
+                    <button
+                      type="button"
+                      @click="regenerateResetPassword"
+                      class="text-primary hover:text-primary/80 inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold transition"
+                      title="Generate new temporary password"
+                    >
+                      <Icon
+                        name="heroicons:arrow-path"
+                        class="h-3.5 w-3.5"
+                      />
+                      <span>Regenerate</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="relative">
+                  <input
+                    v-model="editForm.password"
+                    :type="showResetPassword ? 'text' : 'password'"
+                    placeholder="Min. 8 characters"
+                    required
+                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 pr-10 font-mono text-xs focus:ring-2 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    @click="showResetPassword = !showResetPassword"
+                    class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer"
+                    title="Toggle password visibility"
+                  >
+                    <Icon
+                      :name="showResetPassword ? 'heroicons:eye-slash' : 'heroicons:eye'"
+                      class="h-4 w-4"
+                    />
+                  </button>
+                </div>
+
+                <div
+                  class="flex items-start gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-[11px] text-amber-700 dark:text-amber-400"
+                >
+                  <Icon
+                    name="heroicons:information-circle"
+                    class="mt-0.5 h-4 w-4 shrink-0"
+                  />
+                  <span
+                    >Saving a new password will revoke any currently active login sessions for this
+                    secretary.</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer actions -->
+            <div class="border-border/60 flex items-center justify-between border-t pt-2">
+              <button
+                type="button"
+                @click="handleRemoveFromEditModal"
+                class="inline-flex cursor-pointer items-center gap-1.5 text-xs font-medium text-red-600 transition hover:text-red-700 dark:text-red-400"
+              >
+                <Icon
+                  name="heroicons:trash"
+                  class="h-3.5 w-3.5"
+                />
+                <span>Remove Secretary</span>
+              </button>
+
+              <div class="flex items-center gap-2">
+                <AppButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  @click="showEditModal = false"
+                >
+                  Cancel
+                </AppButton>
+                <AppButton
+                  type="submit"
+                  variant="solid"
+                  size="sm"
+                  :loading="isSavingEdit"
+                  :disabled="isSavingEdit"
+                >
+                  <span>{{ isSavingEdit ? 'Saving...' : 'Save Changes' }}</span>
+                </AppButton>
+              </div>
             </div>
           </form>
         </div>

@@ -9,12 +9,17 @@ export class DoctorSecretaryService extends BaseService {
 
   async create(payload: {
     firstName: string
-    middleName?: string
+    middleName?: string | null
     lastName: string
     email: string
     password: string
+    affiliation?: string | string[] | null
   }): Promise<any> {
     return await this.request(this.resource, 'POST', payload)
+  }
+
+  async update(uuid: string, payload: any): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}`, 'PUT', payload)
   }
 
   async delete(uuid: string): Promise<any> {

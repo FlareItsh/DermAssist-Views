@@ -17,6 +17,8 @@
 - **Make No Mistakes**: The AI assistant must operate with extreme precision, diligence, and zero tolerance for syntax, runtime, or architectural errors.
 - **Contextual Awareness**: Always read and inspect adjacent lines, imports, and component hierarchies before proposing code modifications. Never guess or hallucinate props, component names, or imports.
 - **Vue Sequential Conditional Rule**: In multi-branch template conditionals (`v-if`, `v-else-if`, `v-else`), `v-else` must **always** be the final terminal branch. Never put `v-else-if` after `v-else`.
+- **Dedicated Methods for Compound Actions**: Never chain multiple statements or assign state and invoke functions inside template event attributes (e.g. `@click="showModal = false; doAction()"`). Always declare a dedicated function in `<script setup>` (e.g. `handleCloseAndAction()`) to avoid AST syntax errors or formatter line-break semicolon stripping that triggers Vue compiler fatal exceptions.
+- **Prohibition on Concurrent `.nuxt/` Wiping While `pnpm dev` Is Active**: NEVER execute commands that modify, wipe, or regenerate `.nuxt/` (such as `npx nuxi prepare`, `nuxi build`, `npx nuxi cleanup`) while `pnpm dev` is actively running in the background. In Nuxt 4, `@nuxt/vite-builder` communicates over an internal IPC socket; wiping `.nuxt/` concurrently severs the Vite-Node IPC socket pipe, causing all subsequent SSR requests across the entire application to fail with `500 Server Error: IPC connection closed` until dev server restart.
 - **Mandatory Verification**: Always verify Vue templates compile cleanly and format code using Prettier (`npx prettier --write {path}`). Never mark a frontend task complete without testing page rendering and responsiveness.
 
 ---
