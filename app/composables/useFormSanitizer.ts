@@ -125,12 +125,30 @@ export const useFormSanitizer = () => {
     return { valid: true, error: '' }
   }
 
+  /**
+   * Normalizes gender values from various inputs (e.g. 'female', 'Female', 'MALE')
+   * to canonical values: 'Female', 'Male', 'Other', 'Prefer not to say'.
+   * Maps null, undefined, '', 'not set', 'not_set', 'n/a' to empty string '' (which represents Not Set in dropdowns).
+   */
+  const normalizeGender = (val: string | null | undefined): string => {
+    if (!val) return ''
+    const trimmed = String(val).trim().toLowerCase()
+    if (trimmed === 'female') return 'Female'
+    if (trimmed === 'male') return 'Male'
+    if (trimmed === 'other') return 'Other'
+    if (trimmed === 'prefer_not_to_say' || trimmed === 'prefer not to say')
+      return 'Prefer not to say'
+    if (['not set', 'not_set', 'n/a', 'none', 'unset'].includes(trimmed)) return ''
+    return val.charAt(0).toUpperCase() + val.slice(1)
+  }
+
   return {
     sanitizeName,
     blockNameKey,
     sanitizeAge,
     blockAgeKey,
     validateName,
-    validateAge
+    validateAge,
+    normalizeGender
   }
 }

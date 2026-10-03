@@ -706,8 +706,15 @@
   })
 
   const loaded = ref(false)
-  const { sanitizeName, blockNameKey, sanitizeAge, blockAgeKey, validateName, validateAge } =
-    useFormSanitizer()
+  const {
+    sanitizeName,
+    blockNameKey,
+    sanitizeAge,
+    blockAgeKey,
+    validateName,
+    validateAge,
+    normalizeGender
+  } = useFormSanitizer()
 
   watch(
     user,
@@ -734,7 +741,7 @@
             ? Number(userData.longitude)
             : null
         form.age = sanitizeAge(userData.age)
-        form.gender = userData.gender || ''
+        form.gender = normalizeGender(userData.gender)
         form.affiliation = userData.affiliation || ''
 
         form.prcNumber = userData.prcNumber || userData.doctor_verification?.prcNumber || ''
@@ -1377,15 +1384,11 @@
                           v-model="form.gender"
                           class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
                         >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select gender
-                          </option>
-                          <option value="male">Male</option>
-                          <option value="female">Female</option>
-                          <option value="other">Other</option>
+                          <option value="">Not Set</option>
+                          <option value="Female">Female</option>
+                          <option value="Male">Male</option>
+                          <option value="Other">Other</option>
+                          <option value="Prefer not to say">Prefer not to say</option>
                         </select>
                       </div>
                     </div>
