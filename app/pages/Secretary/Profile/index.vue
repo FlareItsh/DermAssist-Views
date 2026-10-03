@@ -86,8 +86,7 @@
     last_name: '',
     email: '',
     age: '',
-    gender: '',
-    affiliation: ''
+    gender: ''
   })
 
   const middleInitial = computed(() => {
@@ -104,7 +103,7 @@
     {
       id: 'profile' as SettingsTab,
       label: 'Personal Profile',
-      desc: 'Identity, contact & clinic affiliation',
+      desc: 'Identity, contact & account details',
       icon: 'heroicons:user-circle'
     },
     {
@@ -256,7 +255,6 @@
         form.email = userData.email || ''
         form.age = sanitizeAge(userData.age)
         form.gender = normalizeGender(userData.gender)
-        form.affiliation = userData.affiliation || ''
 
         loaded.value = true
         initialFormState.value = JSON.stringify(form)
@@ -401,7 +399,7 @@
       <div>
         <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Secretary Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
-          Manage your personal details, clinic affiliation, and account security.
+          Manage your personal details and account security.
         </p>
       </div>
 
@@ -638,37 +636,23 @@
                   </div>
                 </div>
 
-                <!-- Email & Affiliation -->
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div class="text-foreground flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
-                      Email Address
-                    </label>
-                    <div class="relative">
-                      <input
-                        v-model="form.email"
-                        type="email"
-                        disabled
-                        class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
-                        placeholder="email@example.com"
-                      />
-                      <Icon
-                        name="heroicons:lock-closed-20-solid"
-                        class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
-                        size="16"
-                      />
-                    </div>
-                  </div>
-
-                  <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
-                      Clinic Affiliation
-                    </label>
+                <!-- Email Address -->
+                <div class="text-foreground flex flex-col gap-1.5">
+                  <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase">
+                    Email Address
+                  </label>
+                  <div class="relative">
                     <input
-                      v-model="form.affiliation"
-                      type="text"
-                      class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                      placeholder="Enter clinic or hospital name"
+                      v-model="form.email"
+                      type="email"
+                      disabled
+                      class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
+                      placeholder="email@example.com"
+                    />
+                    <Icon
+                      name="heroicons:lock-closed-20-solid"
+                      class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
+                      size="16"
                     />
                   </div>
                 </div>

@@ -78,8 +78,7 @@
       list = list.filter((s: any) => {
         const name = `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase()
         const email = (s.email || '').toLowerCase()
-        const affiliation = (s.affiliation || '').toLowerCase()
-        return name.includes(query) || email.includes(query) || affiliation.includes(query)
+        return name.includes(query) || email.includes(query)
       })
     }
     return list
@@ -199,7 +198,6 @@
     middleName: '',
     lastName: '',
     email: '',
-    affiliation: '',
     age: '',
     gender: '',
     password: ''
@@ -215,7 +213,6 @@
     editForm.middleName = secretary.middle_name || ''
     editForm.lastName = secretary.last_name || ''
     editForm.email = secretary.email || ''
-    editForm.affiliation = secretary.affiliation || ''
     editForm.age =
       secretary.age !== null && secretary.age !== undefined ? String(secretary.age) : ''
     editForm.gender = normalizeGender(secretary.gender)
@@ -296,7 +293,6 @@
         middleName: editForm.middleName ? editForm.middleName.trim() : null,
         lastName: editForm.lastName.trim(),
         email: editForm.email.trim(),
-        affiliation: editForm.affiliation ? editForm.affiliation.trim() : null,
         age: editForm.age !== '' ? parseInt(editForm.age, 10) : null,
         gender: editForm.gender ? editForm.gender : null
       }
@@ -657,16 +653,6 @@
               </h3>
               <p class="text-muted-foreground max-w-[180px] truncate text-xs sm:max-w-[220px]">
                 {{ secretary.email }}
-              </p>
-              <p
-                v-if="secretary.affiliation"
-                class="text-muted-foreground mt-0.5 flex max-w-[180px] items-center gap-1 truncate text-[11px] sm:max-w-[220px]"
-              >
-                <Icon
-                  name="heroicons:building-office"
-                  class="h-3 w-3 shrink-0"
-                />
-                <span class="truncate">{{ secretary.affiliation }}</span>
               </p>
             </div>
           </div>
@@ -1054,24 +1040,6 @@
                     required
                     placeholder="secretary@clinic.com"
                     class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label class="text-muted-foreground mb-1 block text-xs font-medium">
-                  Clinic Affiliation (Optional)
-                </label>
-                <div class="relative">
-                  <input
-                    v-model="editForm.affiliation"
-                    type="text"
-                    placeholder="e.g. Metro Skin & Dermatology Clinic"
-                    class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 pl-8 text-sm focus:ring-2 focus:outline-none"
-                  />
-                  <Icon
-                    name="heroicons:building-office"
-                    class="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2"
                   />
                 </div>
               </div>
