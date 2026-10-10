@@ -14,6 +14,7 @@
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
   const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { calculateAge, todayIsoDate } = useFormSanitizer()
   const showPassword = ref(false)
 
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -133,7 +134,8 @@
         firstName: p.first_name || '',
         lastName: p.last_name || '',
         email: p.email || '',
-        age: p.age || 'N/A',
+        date_of_birth: p.date_of_birth || null,
+        age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
         gender: p.gender || 'N/A',
         location: address,
         avatar: p.avatar_path ? getStorageUrl(p.avatar_path) : null,
@@ -517,6 +519,7 @@
     lastName: '',
     email: '',
     password: generateTemporaryPassword('Patient'),
+    date_of_birth: '',
     age: '',
     gender: 'Female',
     street: '',
@@ -525,12 +528,15 @@
     province: ''
   })
 
+  const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
+
   const resetRegisterForm = () => {
     registerForm.firstName = ''
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.password = generateTemporaryPassword('Patient')
+    registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
     registerForm.street = ''
@@ -561,6 +567,7 @@
         lastName: registerForm.lastName.trim(),
         email: registerForm.email.trim(),
         password: registerForm.password,
+        date_of_birth: registerForm.date_of_birth || undefined,
         age: registerForm.age ? parseInt(String(registerForm.age)) : undefined,
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
@@ -1619,13 +1626,23 @@
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label class="block text-xs font-bold text-gray-700">Age</label>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
+              <span
+                v-if="calculatedRegisterAge !== null"
+                class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              >
+                <Icon
+                  name="heroicons:cake-20-solid"
+                  size="10"
+                />
+                {{ calculatedRegisterAge }} yrs old
+              </span>
+            </div>
             <input
-              type="number"
-              v-model="registerForm.age"
-              min="0"
-              max="130"
-              placeholder="e.g. 28"
+              type="date"
+              v-model="registerForm.date_of_birth"
+              :max="todayIsoDate"
               class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>

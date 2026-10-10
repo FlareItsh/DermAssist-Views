@@ -142,6 +142,107 @@ export const useFormSanitizer = () => {
     return val.charAt(0).toUpperCase() + val.slice(1)
   }
 
+  /**
+   * Calculates dynamic age from a date of birth.
+   * Handles string (YYYY-MM-DD or ISO) and Date objects.
+   * Returns exact integer years, or null if invalid or in the future.
+   */
+  const calculateAge = (dob: string | Date | null | undefined): number | null => {
+    if (!dob) return null
+    // If it's a date string like 'YYYY-MM-DD', parse parts to avoid timezone shift
+    if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob.trim())) {
+      const [year, month, day] = dob.trim().split('-').map(Number)
+      const birthDate = new Date(year, month - 1, day)
+      const today = new Date()
+      let age = today.getFullYear() - birthDate.getFullYear()
+      const m = today.getMonth() - birthDate.getMonth()
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--
+      }
+      return age >= 0 ? age : null
+    }
+
+    const birthDate = typeof dob === 'string' ? new Date(dob) : dob
+    if (isNaN(birthDate.getTime())) return null
+
+    const today = new Date()
+    let age = today.getFullYear() - birthDate.getFullYear()
+    const m = today.getMonth() - birthDate.getMonth()
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--
+    }
+    return age >= 0 ? age : null
+  }
+
+  /**
+   * Formats age for UI display (e.g. "28 yrs").
+   * Prioritizes date of birth calculation, then falls back to provided age.
+   */
+  const formatAge = (
+    dob: string | Date | null | undefined,
+    fallbackAge?: number | string | null
+  ): string => {
+    const calculated = calculateAge(dob)
+    if (calculated !== null) return `${calculated} yrs`
+    if (
+      fallbackAge !== null &&
+      fallbackAge !== undefined &&
+      fallbackAge !== '' &&
+      fallbackAge !== 'N/A'
+    ) {
+      return `${fallbackAge} yrs`
+    }
+    return 'Age N/A'
+  }
+
+  /**
+   * Validates date of birth string (YYYY-MM-DD format).
+   * Ensures not future date and not older than 130 years.
+   */
+  const validateDateOfBirth = (
+    dob: string | null | undefined,
+    required = false
+  ): { valid: boolean; error: string } => {
+    if (!dob || String(dob).trim() === '') {
+      return required
+        ? { valid: false, error: 'Date of birth is required.' }
+        : { valid: true, error: '' }
+    }
+
+    const birthDate =
+      typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob.trim())
+        ? new Date(Number(dob.slice(0, 4)), Number(dob.slice(5, 7)) - 1, Number(dob.slice(8, 10)))
+        : new Date(dob)
+
+    if (isNaN(birthDate.getTime())) {
+      return { valid: false, error: 'Please enter a valid date of birth.' }
+    }
+
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+    if (birthDate > today) {
+      return { valid: false, error: 'Date of birth cannot be in the future.' }
+    }
+
+    const calculated = calculateAge(birthDate)
+    if (calculated !== null && calculated > 130) {
+      return { valid: false, error: 'Date of birth cannot exceed 130 years ago.' }
+    }
+
+    return { valid: true, error: '' }
+  }
+
+  /**
+   * Current date in YYYY-MM-DD format for HTML5 date input :max attribute.
+   */
+  const todayIsoDate = computed(() => {
+    const today = new Date()
+    const yyyy = today.getFullYear()
+    const mm = String(today.getMonth() + 1).padStart(2, '0')
+    const dd = String(today.getDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+  })
+
   return {
     sanitizeName,
     blockNameKey,
@@ -149,6 +250,10 @@ export const useFormSanitizer = () => {
     blockAgeKey,
     validateName,
     validateAge,
-    normalizeGender
+    normalizeGender,
+    calculateAge,
+    formatAge,
+    validateDateOfBirth,
+    todayIsoDate
   }
 }

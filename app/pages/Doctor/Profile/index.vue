@@ -55,6 +55,7 @@
     country: 'Philippines',
     latitude: null as number | null,
     longitude: null as number | null,
+    date_of_birth: '',
     age: '',
     gender: '',
     affiliation: '',
@@ -713,7 +714,10 @@
     blockAgeKey,
     validateName,
     validateAge,
-    normalizeGender
+    normalizeGender,
+    calculateAge,
+    validateDateOfBirth,
+    todayIsoDate
   } = useFormSanitizer()
 
   watch(
@@ -740,6 +744,7 @@
           userData.longitude !== ''
             ? Number(userData.longitude)
             : null
+        form.date_of_birth = userData.date_of_birth || ''
         form.age = sanitizeAge(userData.age)
         form.gender = normalizeGender(userData.gender)
         form.affiliation = userData.affiliation || ''
@@ -758,8 +763,11 @@
     first_name: '',
     middle_name: '',
     last_name: '',
+    date_of_birth: '',
     age: ''
   })
+
+  const calculatedDoctorAge = computed(() => calculateAge(form.date_of_birth))
 
   const validateFirstName = () => {
     const res = validateName(form.first_name, 'First Name', 2, 50, true)
@@ -783,13 +791,17 @@
     return true
   }
 
-  const validateAgeField = () => {
-    if (form.age !== '' && form.age !== null && form.age !== undefined) {
-      const res = validateAge(form.age, 0, 130, false)
-      errors.age = res.valid ? '' : res.error
+  const validateDateOfBirthField = () => {
+    if (
+      form.date_of_birth !== '' &&
+      form.date_of_birth !== null &&
+      form.date_of_birth !== undefined
+    ) {
+      const res = validateDateOfBirth(form.date_of_birth, false)
+      errors.date_of_birth = res.valid ? '' : res.error
       return res.valid
     }
-    errors.age = ''
+    errors.date_of_birth = ''
     return true
   }
 
@@ -819,11 +831,9 @@
     }
   )
   watch(
-    () => form.age,
-    newVal => {
-      const sanitized = sanitizeAge(newVal)
-      if (sanitized !== String(newVal ?? '')) form.age = sanitized
-      validateAgeField()
+    () => form.date_of_birth,
+    () => {
+      validateDateOfBirthField()
     }
   )
 
@@ -875,10 +885,11 @@
     const isFnValid = validateFirstName()
     const isLnValid = validateLastName()
     const isMnValid = validateMiddleName()
-    const isAgeValid = validateAgeField()
+    const isDobValid = validateDateOfBirthField()
 
-    if (!isFnValid || !isLnValid || !isMnValid || !isAgeValid) {
-      const firstError = errors.first_name || errors.last_name || errors.middle_name || errors.age
+    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid) {
+      const firstError =
+        errors.first_name || errors.last_name || errors.middle_name || errors.date_of_birth
       toast.error(firstError || 'Please fix the errors in the form before saving.')
       return
     }
@@ -1348,32 +1359,41 @@
                       </div>
                     </div>
 
-                    <!-- Age & Gender -->
+                    <!-- Date of Birth & Gender -->
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div class="flex flex-col gap-1.5">
-                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >Age</label
-                        >
+                        <div class="flex items-center justify-between">
+                          <label
+                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                            >Date of Birth</label
+                          >
+                          <span
+                            v-if="calculatedDoctorAge !== null"
+                            class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                          >
+                            <Icon
+                              name="heroicons:cake-20-solid"
+                              size="12"
+                            />
+                            {{ calculatedDoctorAge }} yrs old
+                          </span>
+                        </div>
                         <input
-                          v-model="form.age"
-                          type="number"
-                          min="0"
-                          max="130"
-                          inputmode="numeric"
-                          @keydown="blockAgeKey"
+                          v-model="form.date_of_birth"
+                          type="date"
+                          :max="todayIsoDate"
                           :class="
-                            errors.age
+                            errors.date_of_birth
                               ? 'border-rose-400 focus:border-rose-500'
                               : 'border-border focus:border-primary'
                           "
                           class="bg-foreground/5 w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="Your age"
                         />
                         <p
-                          v-if="errors.age"
+                          v-if="errors.date_of_birth"
                           class="mt-1 text-xs font-medium text-rose-500"
                         >
-                          {{ errors.age }}
+                          {{ errors.date_of_birth }}
                         </p>
                       </div>
                       <div class="flex flex-col gap-1.5">

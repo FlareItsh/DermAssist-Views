@@ -2,6 +2,7 @@
   import { userService } from '~/api/user/UserService'
   import { conversationService } from '~/api/conversation/ConversationService'
   import { toast } from 'vue-sonner'
+  import { calculateAge, todayIsoDate } from '~/composables/useFormSanitizer'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -133,7 +134,7 @@
         firstName: p.first_name || '',
         lastName: p.last_name || '',
         email: p.email || '',
-        age: p.age || 'N/A',
+        age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
         gender: p.gender || 'N/A',
         location: address,
         avatar: p.avatar_path ? getStorageUrl(p.avatar_path) : null,
@@ -196,7 +197,11 @@
           firstName: patientObj?.first_name || patientName.split(' ')[0] || '',
           lastName: patientObj?.last_name || patientName.split(' ').slice(1).join(' ') || '',
           email: patientObj?.email || '',
-          age: patientObj?.age || (appt as any).patient_age || 'N/A',
+          age:
+            calculateAge(patientObj?.date_of_birth) ??
+            patientObj?.age ??
+            (appt as any).patient_age ??
+            'N/A',
           gender: patientObj?.gender || (appt as any).patient_gender || 'N/A',
           location: address || 'Cruz Skin Clinic',
           avatar: patientObj?.avatar_path
@@ -517,6 +522,7 @@
     lastName: '',
     email: '',
     password: generateTemporaryPassword('Patient'),
+    date_of_birth: '',
     age: '',
     gender: 'Female',
     street: '',
@@ -525,12 +531,15 @@
     province: ''
   })
 
+  const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
+
   const resetRegisterForm = () => {
     registerForm.firstName = ''
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.password = generateTemporaryPassword('Patient')
+    registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
     registerForm.street = ''
@@ -561,7 +570,10 @@
         lastName: registerForm.lastName.trim(),
         email: registerForm.email.trim(),
         password: registerForm.password,
-        age: registerForm.age ? parseInt(String(registerForm.age)) : undefined,
+        date_of_birth: registerForm.date_of_birth || undefined,
+        age:
+          calculatedRegisterAge.value ??
+          (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
         barangay: registerForm.barangay?.trim() || undefined,
@@ -1619,13 +1631,23 @@
 
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label class="block text-xs font-bold text-gray-700">Age</label>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
+              <span
+                v-if="calculatedRegisterAge !== null"
+                class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              >
+                <Icon
+                  name="heroicons:cake-20-solid"
+                  size="10"
+                />
+                {{ calculatedRegisterAge }} yrs old
+              </span>
+            </div>
             <input
-              type="number"
-              v-model="registerForm.age"
-              min="0"
-              max="130"
-              placeholder="e.g. 28"
+              type="date"
+              v-model="registerForm.date_of_birth"
+              :max="todayIsoDate"
               class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>

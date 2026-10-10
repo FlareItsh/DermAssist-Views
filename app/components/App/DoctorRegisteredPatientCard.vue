@@ -1,7 +1,8 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, computed } from 'vue'
   import { userService } from '~/api/user/UserService'
   import { useStorage } from '~/composables/useStorage'
+  import { calculateAge } from '~/composables/useFormSanitizer'
   import { toast } from 'vue-sonner'
 
   const props = defineProps<{
@@ -13,6 +14,10 @@
   const { getStorageUrl } = useStorage()
   const isActionLoading = ref(false)
   const isScheduling = ref(false)
+
+  const displayAge = computed(() => {
+    return calculateAge(props.patient?.date_of_birth) ?? props.patient?.age ?? null
+  })
   const getTodayStr = () => {
     const now = new Date()
     const year = now.getFullYear()
@@ -195,7 +200,7 @@
           {{ patient.first_name }} {{ patient.last_name }}
         </h3>
         <p class="mt-1 flex items-center gap-2 text-xs text-gray-500">
-          <span>{{ patient.age || 'N/A' }} yrs</span>
+          <span>{{ displayAge !== null ? `${displayAge} yrs` : 'N/A' }}</span>
           <span class="h-1 w-1 rounded-full bg-gray-300"></span>
           <span>{{ patient.gender || 'N/A' }}</span>
         </p>

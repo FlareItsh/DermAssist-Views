@@ -7,6 +7,7 @@
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
+  import { calculateAge, todayIsoDate } from '~/composables/useFormSanitizer'
   import type { DonutEntry } from '../DonutChart.vue'
 
   const userUuid = useCookie('user_uuid')
@@ -100,7 +101,12 @@
       if (uuid) {
         try {
           const res = await userService.show(uuid)
-          selectedPatientData.value = res?.data ?? res
+          const pData = res?.data ?? res
+          selectedPatientData.value = pData
+          const dobAge = pData?.date_of_birth ? calculateAge(pData.date_of_birth) : null
+          if ((dobAge ?? pData?.age) && !editablePatientAge.value) {
+            editablePatientAge.value = String(dobAge ?? pData.age)
+          }
         } catch (e) {
           selectedPatientData.value = null
         }
@@ -241,6 +247,7 @@
     lastName: '',
     email: '',
     password: generateTemporaryPassword('Patient'),
+    date_of_birth: '',
     age: '',
     gender: '',
     street: '',
@@ -249,6 +256,8 @@
     province: '',
     country: 'Philippines'
   })
+
+  const calculatedNewAccountAge = computed(() => calculateAge(newAccountForm.date_of_birth))
 
   // Cascading location watches for account creation modal
   watch(
@@ -320,6 +329,7 @@
     const parts = rawName ? rawName.split(' ') : []
     newAccountForm.firstName = parts[0] || ''
     newAccountForm.lastName = parts.slice(1).join(' ') || ''
+    newAccountForm.date_of_birth = ''
     newAccountForm.age =
       editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
     newAccountForm.email = ''
@@ -362,7 +372,10 @@
         lastName: newAccountForm.lastName.trim(),
         email: newAccountForm.email.trim(),
         password: newAccountForm.password,
-        age: newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined,
+        date_of_birth: newAccountForm.date_of_birth || undefined,
+        age:
+          calculatedNewAccountAge.value ??
+          (newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined),
         gender: newAccountForm.gender || undefined,
         street: newAccountForm.street?.trim() || undefined,
         barangay: newAccountForm.barangay?.trim() || undefined,
@@ -375,8 +388,9 @@
       saveActiveDiagnosisState()
       userName.value = `${createdUser.first_name} ${createdUser.last_name}`
       editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      if (createdUser.age) {
-        editablePatientAge.value = String(createdUser.age)
+      const createdAge = calculateAge(createdUser.date_of_birth) ?? createdUser.age
+      if (createdAge) {
+        editablePatientAge.value = String(createdAge)
       }
 
       if (props.diagnosisUuid) {
@@ -770,7 +784,9 @@
     if (!userUuid.value || props.role === 'doctor') return
     try {
       const res = await userService.show(userUuid.value as string)
-      patientAge.value = res?.age ?? null
+      const data = res?.data ?? res
+      patientAge.value =
+        (data?.date_of_birth ? calculateAge(data.date_of_birth) : null) ?? data?.age ?? null
     } catch (e) {
       console.error('Failed to fetch user age:', e)
     }
@@ -2070,13 +2086,24 @@
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-semibold">Age</label>
+                    <div class="flex items-center justify-between">
+                      <label class="text-foreground/70 text-xs font-semibold">Date of Birth</label>
+                      <span
+                        v-if="calculatedNewAccountAge !== null"
+                        class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      >
+                        <Icon
+                          name="heroicons:cake-20-solid"
+                          size="10"
+                        />
+                        {{ calculatedNewAccountAge }} yrs
+                      </span>
+                    </div>
                     <input
-                      v-model="newAccountForm.age"
-                      type="number"
-                      min="0"
+                      v-model="newAccountForm.date_of_birth"
+                      type="date"
+                      :max="todayIsoDate"
                       class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
-                      placeholder="Age"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">

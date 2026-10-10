@@ -62,6 +62,7 @@ let isAppointmentListenerBound = false
 let activeAppointmentFetch: Promise<void> | null = null
 
 export const useAppointments = () => {
+  const { calculateAge } = useFormSanitizer()
   const userUuid = useCookie('user_uuid')
   const userRole = useCookie('user_role')
 
@@ -118,7 +119,7 @@ export const useAppointments = () => {
       patient_id: appt.patient_id,
       patient_uuid: appt.patient?.uuid,
       patient: appt.patient,
-      patient_age: appt.patient?.age,
+      patient_age: calculateAge(appt.patient?.date_of_birth) ?? appt.patient?.age,
       patient_gender: appt.patient?.gender,
       created_at: appt.created_at,
       info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',

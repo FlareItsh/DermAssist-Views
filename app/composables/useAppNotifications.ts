@@ -219,7 +219,7 @@ export const useAppNotifications = () => {
     const fields: string[] = []
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields
   })
@@ -230,7 +230,7 @@ export const useAppNotifications = () => {
     const fields: string[] = []
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     if (!(u.prc_number || u.prcNumber)) fields.push('PRC Number')
     return fields
@@ -240,7 +240,7 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'secretary') return []
     const u = userProfile.value
     const fields: string[] = []
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields
   })

@@ -17,7 +17,10 @@
     blockAgeKey,
     sanitizeAge,
     validateAge,
-    normalizeGender
+    normalizeGender,
+    calculateAge,
+    validateDateOfBirth,
+    todayIsoDate
   } = useFormSanitizer()
 
   const {
@@ -198,10 +201,12 @@
     middleName: '',
     lastName: '',
     email: '',
+    date_of_birth: '',
     age: '',
     gender: '',
     password: ''
   })
+  const calculatedEditAge = computed(() => calculateAge(editForm.date_of_birth))
   const enablePasswordReset = ref(false)
   const showResetPassword = ref(false)
   const isSavingEdit = ref(false)
@@ -213,6 +218,7 @@
     editForm.middleName = secretary.middle_name || ''
     editForm.lastName = secretary.last_name || ''
     editForm.email = secretary.email || ''
+    editForm.date_of_birth = secretary.date_of_birth || ''
     editForm.age =
       secretary.age !== null && secretary.age !== undefined ? String(secretary.age) : ''
     editForm.gender = normalizeGender(secretary.gender)
@@ -269,11 +275,11 @@
       return
     }
 
-    // Validate Age
-    if (editForm.age) {
-      const ageVal = validateAge(editForm.age, 0, 130, false)
-      if (!ageVal.valid) {
-        editErrorMessage.value = ageVal.error
+    // Validate Date of Birth
+    if (editForm.date_of_birth) {
+      const dobVal = validateDateOfBirth(editForm.date_of_birth, false)
+      if (!dobVal.valid) {
+        editErrorMessage.value = dobVal.error
         return
       }
     }
@@ -293,7 +299,8 @@
         middleName: editForm.middleName ? editForm.middleName.trim() : null,
         lastName: editForm.lastName.trim(),
         email: editForm.email.trim(),
-        age: editForm.age !== '' ? parseInt(editForm.age, 10) : null,
+        date_of_birth: editForm.date_of_birth || null,
+        age: calculatedEditAge.value ?? (editForm.age !== '' ? parseInt(editForm.age, 10) : null),
         gender: editForm.gender ? editForm.gender : null
       }
 
@@ -666,14 +673,17 @@
 
         <!-- Secretary Attributes Badges -->
         <div
-          v-if="secretary.age || secretary.gender"
+          v-if="secretary.date_of_birth || secretary.age || secretary.gender"
           class="mt-3 flex flex-wrap items-center gap-1.5"
         >
           <span
-            v-if="secretary.age !== null && secretary.age !== undefined && secretary.age !== ''"
+            v-if="
+              calculateAge(secretary.date_of_birth) !== null ||
+              (secretary.age !== null && secretary.age !== undefined && secretary.age !== '')
+            "
             class="border-border/60 bg-muted/40 text-muted-foreground inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
           >
-            {{ secretary.age }} yrs old
+            {{ calculateAge(secretary.date_of_birth) ?? secretary.age }} yrs old
           </span>
           <span
             v-if="secretary.gender"
@@ -1046,14 +1056,25 @@
 
               <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label class="text-muted-foreground mb-1 block text-xs font-medium"> Age </label>
+                  <div class="mb-1 flex items-center justify-between">
+                    <label class="text-muted-foreground block text-xs font-medium">
+                      Date of Birth
+                    </label>
+                    <span
+                      v-if="calculatedEditAge !== null"
+                      class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                    >
+                      <Icon
+                        name="heroicons:cake-20-solid"
+                        size="10"
+                      />
+                      {{ calculatedEditAge }} yrs old
+                    </span>
+                  </div>
                   <input
-                    v-model="editForm.age"
-                    type="text"
-                    inputmode="numeric"
-                    @keydown="blockAgeKey"
-                    @blur="editForm.age = sanitizeAge(editForm.age)"
-                    placeholder="e.g. 28"
+                    v-model="editForm.date_of_birth"
+                    type="date"
+                    :max="todayIsoDate"
                     class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
                   />
                 </div>
