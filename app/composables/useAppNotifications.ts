@@ -217,6 +217,7 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'patient') return []
     const u = userProfile.value
     const fields: string[] = []
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
     if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
@@ -228,6 +229,7 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'doctor') return []
     const u = userProfile.value
     const fields: string[] = []
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
     if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
@@ -240,6 +242,7 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'secretary') return []
     const u = userProfile.value
     const fields: string[] = []
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
     if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields

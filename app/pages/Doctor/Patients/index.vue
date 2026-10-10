@@ -14,7 +14,8 @@
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
   const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
-  const { calculateAge, todayIsoDate } = useFormSanitizer()
+  const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
+    useFormSanitizer()
   const showPassword = ref(false)
 
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@
     firstName: string
     lastName: string
     email: string
+    contact_number?: string | null
     age?: number | string
     gender?: string
     location: string
@@ -134,6 +136,7 @@
         firstName: p.first_name || '',
         lastName: p.last_name || '',
         email: p.email || '',
+        contact_number: p.contact_number || p.phone || null,
         date_of_birth: p.date_of_birth || null,
         age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
         gender: p.gender || 'N/A',
@@ -198,6 +201,7 @@
           firstName: patientObj?.first_name || patientName.split(' ')[0] || '',
           lastName: patientObj?.last_name || patientName.split(' ').slice(1).join(' ') || '',
           email: patientObj?.email || '',
+          contact_number: patientObj?.contact_number || patientObj?.phone || null,
           age: patientObj?.age || (appt as any).patient_age || 'N/A',
           gender: patientObj?.gender || (appt as any).patient_gender || 'N/A',
           location: address || 'Cruz Skin Clinic',
@@ -518,6 +522,7 @@
     middleName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: generateTemporaryPassword('Patient'),
     date_of_birth: '',
     age: '',
@@ -535,6 +540,7 @@
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
+    registerForm.contact_number = ''
     registerForm.password = generateTemporaryPassword('Patient')
     registerForm.date_of_birth = ''
     registerForm.age = ''
@@ -557,6 +563,15 @@
       return
     }
 
+    if (registerForm.contact_number) {
+      const parts = splitFullPhoneNumber(registerForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        registerFormError.value = res.error
+        return
+      }
+    }
+
     isRegistering.value = true
     registerFormError.value = null
 
@@ -566,6 +581,7 @@
         middleName: registerForm.middleName?.trim() || undefined,
         lastName: registerForm.lastName.trim(),
         email: registerForm.email.trim(),
+        contact_number: registerForm.contact_number?.trim() || undefined,
         password: registerForm.password,
         date_of_birth: registerForm.date_of_birth || undefined,
         age: registerForm.age ? parseInt(String(registerForm.age)) : undefined,
@@ -1279,6 +1295,16 @@
                 {{ selectedPatientForDetail.gender }}
                 <span class="mx-1">•</span>
                 {{ selectedPatientForDetail.email || 'No email provided' }}
+                <template v-if="selectedPatientForDetail.contact_number">
+                  <span class="mx-1">•</span>
+                  <span class="inline-flex items-center gap-1 font-mono text-indigo-600">
+                    <Icon
+                      name="heroicons:phone-20-solid"
+                      size="12"
+                    />
+                    {{ selectedPatientForDetail.contact_number }}
+                  </span>
+                </template>
               </p>
               <p class="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
                 <Icon
@@ -1657,6 +1683,14 @@
               <option value="Other">Other / Prefer not to say</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <AppPhoneInput
+            v-model="registerForm.contact_number"
+            label="Contact Number"
+            placeholder="917 123 4567"
+          />
         </div>
 
         <!-- Address fields -->

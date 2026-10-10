@@ -7,7 +7,8 @@
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
-  import { calculateAge, todayIsoDate } from '~/composables/useFormSanitizer'
+  const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
+    useFormSanitizer()
   import type { DonutEntry } from '../DonutChart.vue'
 
   const userUuid = useCookie('user_uuid')
@@ -21,6 +22,16 @@
   const showNewAccountPassword = ref(false)
 
   const isPatientModalOpen = ref(false)
+
+  const handleSelectPatient = (uuid: string) => {
+    patientUuid.value = uuid
+    isPatientModalOpen.value = false
+  }
+
+  const handleClearPatientSelection = () => {
+    patientUuid.value = null
+    isPatientModalOpen.value = false
+  }
 
   const uniquePatients = computed(() => {
     const patientsMap = new Map()
@@ -246,6 +257,7 @@
     firstName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: generateTemporaryPassword('Patient'),
     date_of_birth: '',
     age: '',
@@ -363,6 +375,15 @@
       return
     }
 
+    if (newAccountForm.contact_number) {
+      const parts = splitFullPhoneNumber(newAccountForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        createAccountError.value = res.error
+        return
+      }
+    }
+
     isSubmittingAccount.value = true
     createAccountError.value = null
 
@@ -371,6 +392,7 @@
         firstName: newAccountForm.firstName.trim(),
         lastName: newAccountForm.lastName.trim(),
         email: newAccountForm.email.trim(),
+        contact_number: newAccountForm.contact_number?.trim() || undefined,
         password: newAccountForm.password,
         date_of_birth: newAccountForm.date_of_birth || undefined,
         age:
@@ -1885,10 +1907,7 @@
         <button
           v-for="patient in uniquePatients"
           :key="patient.uuid"
-          @click="
-            patientUuid = patient.uuid
-            isPatientModalOpen = false
-          "
+          @click="handleSelectPatient(patient.uuid)"
           class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
           :class="
             patientUuid === patient.uuid
@@ -1929,10 +1948,7 @@
       <template #footer>
         <AppButton
           variant="outline"
-          @click="
-            patientUuid = null
-            isPatientModalOpen = false
-          "
+          @click="handleClearPatientSelection"
           class="rounded-xl px-6 font-bold"
           v-if="patientUuid"
         >
@@ -2124,6 +2140,14 @@
                       <option value="prefer_not_to_say">Prefer not to say</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <AppPhoneInput
+                    v-model="newAccountForm.contact_number"
+                    label="Contact Number"
+                    placeholder="917 123 4567"
+                  />
                 </div>
               </div>
             </div>

@@ -20,7 +20,9 @@
     normalizeGender,
     calculateAge,
     validateDateOfBirth,
-    todayIsoDate
+    todayIsoDate,
+    splitFullPhoneNumber,
+    validatePhoneNumber
   } = useFormSanitizer()
 
   const {
@@ -94,6 +96,7 @@
     middleName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: '',
     confirmPassword: ''
   })
@@ -118,6 +121,7 @@
     form.middleName = ''
     form.lastName = ''
     form.email = ''
+    form.contact_number = ''
     form.password = tempPass
     form.confirmPassword = tempPass
     showAddPassword.value = false
@@ -173,6 +177,15 @@
       return
     }
 
+    if (form.contact_number) {
+      const parts = splitFullPhoneNumber(form.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        errorMessage.value = res.error
+        return
+      }
+    }
+
     try {
       isSubmitting.value = true
       await doctorSecretaryService.create({
@@ -180,6 +193,7 @@
         middleName: form.middleName ? form.middleName.trim() : undefined,
         lastName: form.lastName.trim(),
         email: form.email.trim(),
+        contact_number: form.contact_number ? form.contact_number.trim() : undefined,
         password: form.password
       })
       toast.success('Secretary account registered successfully.')
@@ -201,6 +215,7 @@
     middleName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     date_of_birth: '',
     age: '',
     gender: '',
@@ -218,6 +233,7 @@
     editForm.middleName = secretary.middle_name || ''
     editForm.lastName = secretary.last_name || ''
     editForm.email = secretary.email || ''
+    editForm.contact_number = secretary.contact_number || secretary.phone || ''
     editForm.date_of_birth = secretary.date_of_birth || ''
     editForm.age =
       secretary.age !== null && secretary.age !== undefined ? String(secretary.age) : ''
@@ -284,6 +300,16 @@
       }
     }
 
+    // Validate Contact Number if provided
+    if (editForm.contact_number) {
+      const parts = splitFullPhoneNumber(editForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        editErrorMessage.value = res.error
+        return
+      }
+    }
+
     // Validate Password if reset is enabled
     if (enablePasswordReset.value) {
       if (!editForm.password || editForm.password.length < 8) {
@@ -299,6 +325,7 @@
         middleName: editForm.middleName ? editForm.middleName.trim() : null,
         lastName: editForm.lastName.trim(),
         email: editForm.email.trim(),
+        contact_number: editForm.contact_number ? editForm.contact_number.trim() : null,
         date_of_birth: editForm.date_of_birth || null,
         age: calculatedEditAge.value ?? (editForm.age !== '' ? parseInt(editForm.age, 10) : null),
         gender: editForm.gender ? editForm.gender : null
@@ -673,7 +700,13 @@
 
         <!-- Secretary Attributes Badges -->
         <div
-          v-if="secretary.date_of_birth || secretary.age || secretary.gender"
+          v-if="
+            secretary.date_of_birth ||
+            secretary.age ||
+            secretary.gender ||
+            secretary.contact_number ||
+            secretary.phone
+          "
           class="mt-3 flex flex-wrap items-center gap-1.5"
         >
           <span
@@ -690,6 +723,17 @@
             class="border-border/60 bg-muted/40 text-muted-foreground inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium"
           >
             {{ secretary.gender }}
+          </span>
+          <span
+            v-if="secretary.contact_number || secretary.phone"
+            class="border-border/60 bg-muted/40 text-muted-foreground inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium"
+          >
+            <Icon
+              name="heroicons:phone-20-solid"
+              size="10"
+              class="text-primary/70"
+            />
+            {{ secretary.contact_number || secretary.phone }}
           </span>
         </div>
 
@@ -827,6 +871,14 @@
                 required
                 placeholder="secretary@clinic.com"
                 class="bg-background border-input focus:ring-primary w-full rounded-xl border px-3 py-2 text-sm focus:ring-2 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <AppPhoneInput
+                v-model="form.contact_number"
+                label="Contact Number"
+                placeholder="917 123 4567"
               />
             </div>
 
@@ -1093,6 +1145,14 @@
                     <option value="Prefer not to say">Prefer not to say</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <AppPhoneInput
+                  v-model="editForm.contact_number"
+                  label="Contact Number"
+                  placeholder="917 123 4567"
+                />
               </div>
             </div>
 

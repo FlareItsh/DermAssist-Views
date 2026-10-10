@@ -48,6 +48,7 @@
     middle_name: '',
     last_name: '',
     email: '',
+    contact_number: '',
     street: '',
     barangay: '',
     city: '',
@@ -717,7 +718,9 @@
     normalizeGender,
     calculateAge,
     validateDateOfBirth,
-    todayIsoDate
+    todayIsoDate,
+    splitFullPhoneNumber,
+    validatePhoneNumber
   } = useFormSanitizer()
 
   watch(
@@ -729,6 +732,7 @@
         form.middle_name = sanitizeName(userData.middle_name || '')
         form.last_name = sanitizeName(userData.last_name || '')
         form.email = userData.email || ''
+        form.contact_number = userData.contact_number || userData.phone || ''
         form.street = userData.street || ''
         form.barangay = userData.barangay || ''
         form.city = userData.city || ''
@@ -764,10 +768,22 @@
     middle_name: '',
     last_name: '',
     date_of_birth: '',
-    age: ''
+    age: '',
+    contact_number: ''
   })
 
   const calculatedDoctorAge = computed(() => calculateAge(form.date_of_birth))
+
+  const validateContactNumberField = () => {
+    if (!form.contact_number) {
+      errors.contact_number = ''
+      return true
+    }
+    const parts = splitFullPhoneNumber(form.contact_number)
+    const res = validatePhoneNumber(parts.national, parts.dialCode)
+    errors.contact_number = res.valid ? '' : res.error
+    return res.valid
+  }
 
   const validateFirstName = () => {
     const res = validateName(form.first_name, 'First Name', 2, 50, true)
@@ -886,10 +902,15 @@
     const isLnValid = validateLastName()
     const isMnValid = validateMiddleName()
     const isDobValid = validateDateOfBirthField()
+    const isPhoneValid = validateContactNumberField()
 
-    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid) {
+    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid || !isPhoneValid) {
       const firstError =
-        errors.first_name || errors.last_name || errors.middle_name || errors.date_of_birth
+        errors.first_name ||
+        errors.last_name ||
+        errors.middle_name ||
+        errors.date_of_birth ||
+        errors.contact_number
       toast.error(firstError || 'Please fix the errors in the form before saving.')
       return
     }
@@ -1131,6 +1152,17 @@
             }}{{ form.last_name }}
           </h2>
           <p class="text-muted-foreground truncate text-[11px] italic">{{ form.email }}</p>
+          <p
+            v-if="form.contact_number"
+            class="text-muted-foreground mt-0.5 flex items-center justify-center gap-1 truncate text-[11px]"
+          >
+            <Icon
+              name="heroicons:phone-20-solid"
+              size="11"
+              class="text-primary/70 shrink-0"
+            />
+            <span>{{ form.contact_number }}</span>
+          </p>
 
           <div
             class="border-border/60 mt-3 flex items-center justify-between border-t pt-3 text-[11px]"
@@ -1410,6 +1442,19 @@
                           <option value="Other">Other</option>
                           <option value="Prefer not to say">Prefer not to say</option>
                         </select>
+                      </div>
+                    </div>
+
+                    <!-- Contact Number -->
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-1.5">
+                        <AppPhoneInput
+                          v-model="form.contact_number"
+                          label="Mobile / Contact Number"
+                          :error="errors.contact_number"
+                          placeholder="917 123 4567"
+                          @blur="validateContactNumberField"
+                        />
                       </div>
                     </div>
                   </div>

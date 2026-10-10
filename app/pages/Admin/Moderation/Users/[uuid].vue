@@ -270,6 +270,15 @@
             </p>
           </div>
 
+          <div v-if="userRole !== 'admin'">
+            <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Contact Number
+            </p>
+            <p class="mt-1 font-mono text-sm font-semibold text-gray-800">
+              {{ contactNumber }}
+            </p>
+          </div>
+
           <div>
             <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Joined</p>
             <p class="mt-1 text-sm font-semibold text-gray-800">

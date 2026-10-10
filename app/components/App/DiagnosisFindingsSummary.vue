@@ -6,7 +6,8 @@
   import { userService } from '~/api/user/UserService'
   import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
-  import { calculateAge, todayIsoDate } from '~/composables/useFormSanitizer'
+  const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
+    useFormSanitizer()
   import { toast } from 'vue-sonner'
 
   interface Props {
@@ -364,6 +365,7 @@
     middleName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: generateTemporaryPassword('Patient'),
     date_of_birth: '',
     age: '',
@@ -387,6 +389,7 @@
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
+    registerForm.contact_number = ''
     registerForm.password = generateTemporaryPassword('Patient')
     registerForm.date_of_birth = ''
     registerForm.age = ''
@@ -409,6 +412,15 @@
       return
     }
 
+    if (registerForm.contact_number) {
+      const parts = splitFullPhoneNumber(registerForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        registrationError.value = res.error
+        return
+      }
+    }
+
     isSubmittingRegistration.value = true
     registrationError.value = null
 
@@ -418,6 +430,7 @@
         middleName: registerForm.middleName?.trim() || undefined,
         lastName: registerForm.lastName.trim(),
         email: registerForm.email.trim(),
+        contact_number: registerForm.contact_number?.trim() || undefined,
         password: registerForm.password,
         date_of_birth: registerForm.date_of_birth || undefined,
         age:
@@ -1230,6 +1243,14 @@
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <AppPhoneInput
+                      v-model="registerForm.contact_number"
+                      label="Contact Number"
+                      placeholder="917 123 4567"
+                    />
                   </div>
 
                   <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">

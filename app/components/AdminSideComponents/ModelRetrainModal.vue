@@ -346,6 +346,7 @@
                 />
                 Stopping...
               </AppBadge>
+              <AppBadge
                 v-else-if="trainingStatus?.status === 'completed'"
                 color="success"
                 variant="solid"
