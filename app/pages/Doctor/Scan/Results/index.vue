@@ -53,6 +53,21 @@
     return null
   })
 
+  const patientDateOfBirth = computed<string | null>(() => {
+    if (!patientUuid.value) return null
+
+    if (assignedPatient.value) {
+      return assignedPatient.value.date_of_birth ?? null
+    }
+
+    const allAppointments = [...appointments.value, ...pendingAppointments.value]
+    const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
+    if (match && match.patient) {
+      return match.patient.date_of_birth ?? null
+    }
+    return null
+  })
+
   const appointmentUuid = computed(() => {
     if (!patientUuid.value) return null
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
@@ -160,6 +175,7 @@
         "
         :patient-name="patientName"
         :age="patientAge"
+        :date-of-birth="patientDateOfBirth"
         :appointment-uuid="appointmentUuid"
         :diagnosis-data="chartData"
         :diagnosis-uuid="currentDiagnosis?.uuid"
