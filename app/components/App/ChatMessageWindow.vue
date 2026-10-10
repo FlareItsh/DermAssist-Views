@@ -126,7 +126,9 @@
   const isFetchingOlder = ref(false)
   const pending = ref(false)
 
-  let pollingInterval: any = null
+  const { getEcho } = useEcho()
+  const partnerIsTyping = ref(false)
+  let typingTimeout: any = null
   let isUserNearBottom = true
   const cacheKey = computed(() => `chat_history_${props.conversationUuid}`)
 
@@ -284,6 +286,13 @@
     return (
       pendingAppointments.value.find(a => a.conversation_uuid === props.conversationUuid) ?? null
     )
+  })
+
+  // Synchronize chat messages when appointments update in real-time
+  watch(appointments, () => {
+    if (props.conversationUuid) {
+      fetchMessages(1)
+    }
   })
 
   const scheduleMode = ref<'schedule' | 'reschedule'>('schedule')
@@ -662,25 +671,98 @@
     }
   }
 
-  const startPolling = () => {
-    if (pollingInterval) clearInterval(pollingInterval)
-    pollingInterval = setInterval(async () => {
-      // Only poll the first page for new messages
-      await fetchMessages(1)
-      await markUnreadMessages()
-    }, 3000)
+  const subscribeToChatChannel = (uuid: string) => {
+    if (!uuid || import.meta.server) return
+    const echo = getEcho()
+    if (!echo) return
+
+    // Clean up existing listener on this channel to avoid duplicate handlers
+    echo.leave(`chat.conversation.${uuid}`)
+
+    echo
+      .private(`chat.conversation.${uuid}`)
+      .listen('.ChatMessageSent', (e: any) => {
+        if (!e?.message) return
+        const msg = e.message
+        const msgId = msg.id || msg.uuid
+        const exists = allMessages.value.some(m => msgId && (m.id === msgId || m.uuid === msgId))
+        if (!exists) {
+          allMessages.value.push(msg)
+          scrollToBottom()
+          saveToCache()
+          markUnreadMessages()
+        }
+      })
+      .listen('.ChatMessagesRead', (e: any) => {
+        const uuids = e?.message_uuids || []
+        allMessages.value.forEach(m => {
+          if (uuids.includes(m.uuid) || uuids.includes(m.id)) {
+            m.is_read = true
+          }
+        })
+      })
+      .listen('.ChatMessageEdited', (e: any) => {
+        if (!e?.message) return
+        const updatedMsg = e.message
+        const targetId = updatedMsg.id || updatedMsg.uuid
+        const idx = allMessages.value.findIndex(
+          m => m && (m.id === targetId || m.uuid === targetId)
+        )
+        if (idx !== -1) {
+          allMessages.value[idx] = {
+            ...allMessages.value[idx],
+            ...updatedMsg
+          }
+          saveToCache()
+        }
+      })
+      .listen('.ChatMessageDeleted', (e: any) => {
+        const targetId = e?.message_uuid || e?.message_id
+        if (!targetId) return
+        allMessages.value = allMessages.value.filter(
+          m => m && m.id !== targetId && m.uuid !== targetId
+        )
+        saveToCache()
+      })
+      .listenForWhisper('typing', () => {
+        partnerIsTyping.value = true
+        if (typingTimeout) clearTimeout(typingTimeout)
+        typingTimeout = setTimeout(() => {
+          partnerIsTyping.value = false
+        }, 3000)
+      })
   }
 
-  const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      pollingInterval = null
+  const unsubscribeFromChatChannel = (uuid: string) => {
+    if (!uuid || import.meta.server) return
+    const echo = getEcho()
+    if (echo) {
+      echo.leave(`chat.conversation.${uuid}`)
+    }
+  }
+
+  const broadcastTyping = () => {
+    if (!props.conversationUuid || import.meta.server) return
+    const echo = getEcho()
+    if (echo) {
+      echo.private(`chat.conversation.${props.conversationUuid}`).whisper('typing', {
+        uuid: effectiveUserUuid.value
+      })
+    }
+  }
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible' && props.conversationUuid) {
+      fetchMessages(1).then(markUnreadMessages)
     }
   }
 
   watch(
     () => props.conversationUuid,
     (newUuid, oldUuid) => {
+      if (oldUuid) {
+        unsubscribeFromChatChannel(oldUuid)
+      }
       if (newUuid && newUuid !== oldUuid) {
         allMessages.value = []
         currentPage.value = 1
@@ -696,6 +778,7 @@
           scrollToBottom('instant')
           markUnreadMessages()
         })
+        subscribeToChatChannel(newUuid)
       }
     }
   )
@@ -711,13 +794,16 @@
       markUnreadMessages()
     })
 
-    startPolling()
+    subscribeToChatChannel(props.conversationUuid)
     document.addEventListener('click', closeContextMenu)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   })
 
   onUnmounted(() => {
-    stopPolling()
+    unsubscribeFromChatChannel(props.conversationUuid)
     document.removeEventListener('click', closeContextMenu)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+    if (typingTimeout) clearTimeout(typingTimeout)
   })
 
   // --- Send Message ---
@@ -735,11 +821,17 @@
         text,
         filesToSend
       )
-      // Add immediately to UI for snappiness
+      // Add immediately to UI for snappiness if not already received via websocket
       if (response) {
-        allMessages.value.push(response)
-        scrollToBottom()
-        saveToCache()
+        const resId = response.id || response.uuid
+        const alreadyInList = allMessages.value.some(
+          m => resId && (m.id === resId || m.uuid === resId)
+        )
+        if (!alreadyInList) {
+          allMessages.value.push(response)
+          scrollToBottom()
+          saveToCache()
+        }
       }
     } catch (e) {
       messageTerm.value = text
@@ -777,18 +869,28 @@
   }
 
   const saveEdit = async () => {
-    if (!editingMessageId.value) return
+    const targetId = editingMessageId.value
+    if (!targetId) return
     const trimmed = editingMessageText.value.trim()
     if (!trimmed) return
 
     try {
-      const response = await messageService.update(editingMessageId.value, { message: trimmed })
-      // Update locally
-      const idx = allMessages.value.findIndex(m => m && m.id === editingMessageId.value)
-      if (idx !== -1 && response) allMessages.value[idx] = response
+      const response = await messageService.update(targetId, { message: trimmed })
+      // Update locally immediately
+      const idx = allMessages.value.findIndex(m => m && (m.id === targetId || m.uuid === targetId))
+      if (idx !== -1) {
+        allMessages.value[idx] = {
+          ...allMessages.value[idx],
+          ...(response || {}),
+          message: trimmed,
+          updated_at: response?.updated_at || new Date().toISOString()
+        }
+      }
       cancelEditing()
       saveToCache()
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to save message edit:', e)
+    }
   }
 
   const handleEditKeydown = (e: KeyboardEvent) => {
@@ -807,11 +909,15 @@
 
   const deleteMessage = async () => {
     if (!messageToDelete.value) return
+    const targetId = messageToDelete.value.id || (messageToDelete.value as any).uuid
     try {
-      await messageService.delete(messageToDelete.value.id)
-      allMessages.value = allMessages.value.filter(m => m && m.id !== messageToDelete.value!.id)
+      await messageService.delete(targetId)
+      allMessages.value = allMessages.value.filter(
+        m => m && m.id !== targetId && m.uuid !== targetId
+      )
       saveToCache()
     } catch (e) {
+      console.error('Failed to delete message:', e)
     } finally {
       showDeleteMessageModal.value = false
       messageToDelete.value = null
@@ -1885,6 +1991,15 @@
         </div>
       </div>
 
+      <!-- Live Typing Indicator -->
+      <div
+        v-if="partnerIsTyping"
+        class="text-muted-foreground mb-1 flex items-center gap-1.5 px-3 text-xs"
+      >
+        <span class="bg-primary inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
+        <span class="italic">Typing...</span>
+      </div>
+
       <div class="group relative flex items-end gap-3">
         <!-- Hidden File Input -->
         <input
@@ -1899,6 +2014,7 @@
           <textarea
             v-model="messageTerm"
             placeholder="Type a message..."
+            @input="broadcastTyping"
             @keydown="handleKeydown"
             class="bg-foreground/5 text-foreground placeholder:text-foreground/50 focus:border-primary/30 focus:ring-primary/20 custom-scrollbar border-border/50 mb-3 h-11 w-full resize-none rounded-2xl border py-2.5 pr-24 pl-4 text-sm transition-all outline-none focus:ring-4 md:h-14 md:py-4 md:text-base"
           ></textarea>

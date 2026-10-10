@@ -38,7 +38,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: '', // Overridden by NUXT_PUBLIC_API_BASE environment variable
-      storageBase: '' // Overridden by NUXT_PUBLIC_STORAGE_BASE environment variable
+      storageBase: '', // Overridden by NUXT_PUBLIC_STORAGE_BASE environment variable
+      reverbKey: 'k2sz1zlx9d0xc6plrtoy',
+      reverbHost: 'localhost',
+      reverbPort: '8080',
+      reverbScheme: 'http'
     }
   },
   modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon'],

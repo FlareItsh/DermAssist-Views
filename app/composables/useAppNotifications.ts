@@ -182,19 +182,39 @@ export const useAppNotifications = () => {
     }
   }
 
-  // Singleton Polling: Runs an 8-second interval when browser tab is visible
+  // Singleton Listener: Reverb WebSockets instead of 8s polling
   if (import.meta.client) {
-    if (!notificationPollingTimer) {
-      pollAllNotifications()
-      notificationPollingTimer = setInterval(() => {
-        if (document.visibilityState === 'visible' && userUuid.value) {
-          pollAllNotifications()
-        }
-      }, 8000)
-    }
-
     if (!isNotificationListenerBound && typeof document !== 'undefined') {
       isNotificationListenerBound = true
+      pollAllNotifications()
+
+      const { getEcho } = useEcho()
+      if (userUuid.value) {
+        const echo = getEcho()
+        if (echo) {
+          echo
+            .private(`user.${userUuid.value}`)
+            .listen('.NotificationCountUpdated', () => {
+              pollAllNotifications()
+            })
+            .listen('.AppointmentUpdated', () => {
+              pollAllNotifications()
+            })
+            .listen('.ChatMessageSent', () => {
+              fetchConversations()
+            })
+            .listen('.DoctorVerificationStatusUpdated', () => {
+              refreshProfile()
+            })
+
+          if (userRole.value === 'admin') {
+            echo.private('admin.moderation').listen('.DoctorVerificationStatusUpdated', () => {
+              pollAllNotifications()
+            })
+          }
+        }
+      }
+
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && userUuid.value) {
           pollAllNotifications()

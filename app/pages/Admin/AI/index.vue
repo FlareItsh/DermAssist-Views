@@ -29,6 +29,7 @@
 
   const logContainer = ref<HTMLElement | null>(null)
   const terminalInputRef = ref<HTMLInputElement | null>(null)
+  const { getEcho } = useEcho()
   let pollTimer: ReturnType<typeof setInterval> | null = null
 
   // Real Terminal Controls & CLI State
@@ -195,37 +196,42 @@
     }
   }
 
+  const updateTrainingState = async (res: any) => {
+    if (!res) return
+    trainingStatus.value = res
+
+    await nextTick()
+    if (isAutoScrollEnabled.value && logContainer.value) {
+      logContainer.value.scrollTop = logContainer.value.scrollHeight
+    }
+
+    if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
+      stopPolling()
+      if (res.status === 'completed') {
+        try {
+          await modelTrainingService.markCompleted()
+        } catch (e) {
+          console.error('Failed to mark training completion timestamp', e)
+        }
+        fetchStats()
+        if (res.model_promoted) {
+          toast.success('Retraining complete! New model promoted to production.')
+        } else {
+          toast.info('Retraining complete. Baseline model preserved by Validation Guard.')
+        }
+      } else {
+        fetchStats()
+        if (res.status === 'failed') {
+          toast.error(res.message || 'Training failed.')
+        }
+      }
+    }
+  }
+
   const pollStatus = async () => {
     try {
       const res = await modelTrainingService.getStatus()
-      trainingStatus.value = res
-
-      await nextTick()
-      if (isAutoScrollEnabled.value && logContainer.value) {
-        logContainer.value.scrollTop = logContainer.value.scrollHeight
-      }
-
-      if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
-        stopPolling()
-        if (res.status === 'completed') {
-          try {
-            await modelTrainingService.markCompleted()
-          } catch (e) {
-            console.error('Failed to mark training completion timestamp', e)
-          }
-          fetchStats()
-          if (res.model_promoted) {
-            toast.success('Retraining complete! New model promoted to production.')
-          } else {
-            toast.info('Retraining complete. Baseline model preserved by Validation Guard.')
-          }
-        } else {
-          fetchStats()
-          if (res.status === 'failed') {
-            toast.error(res.message || 'Training failed.')
-          }
-        }
-      }
+      await updateTrainingState(res)
     } catch (err) {
       console.error('Failed to poll status:', err)
     }
@@ -234,7 +240,7 @@
   const startPolling = () => {
     stopPolling()
     pollStatus()
-    pollTimer = setInterval(pollStatus, 1200)
+    pollTimer = setInterval(pollStatus, 5000)
   }
 
   const stopPolling = () => {
@@ -495,10 +501,29 @@
   onMounted(() => {
     fetchStats()
     startPolling()
+
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo
+          .private('admin.ai-retraining')
+          .listen('.ModelTrainingProgressUpdated', (e: any) => {
+            if (e?.status) {
+              updateTrainingState(e.status)
+            }
+          })
+      }
+    }
   })
 
   onBeforeUnmount(() => {
     stopPolling()
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.leave('admin.ai-retraining')
+      }
+    }
   })
 </script>
 

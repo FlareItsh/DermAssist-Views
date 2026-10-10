@@ -32,7 +32,7 @@
   const searchQuery = ref('')
   const debouncedSearch = ref('')
   let searchTimeout: any = null
-  let pollingInterval: any = null
+  const { getEcho } = useEcho()
 
   watch(searchQuery, val => {
     if (searchTimeout) clearTimeout(searchTimeout)
@@ -68,35 +68,34 @@
     selectedStatus.value = ''
   }
 
-  const startPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-    }
-
-    pollingInterval = setInterval(async () => {
-      if (!pending.value && !searchTimeout) {
-        const params: any = {}
-        if (selectedStatus.value) params.status = selectedStatus.value
-        if (debouncedSearch.value) params.search = debouncedSearch.value
-        verifications.value = await verificationService.list(params)
-      }
-    }, 3000)
-  }
-
-  const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      pollingInterval = null
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      fetchVerifications()
     }
   }
 
   onMounted(() => {
     fetchVerifications()
-    startPolling()
+
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.private('admin.moderation').listen('.DoctorVerificationStatusUpdated', () => {
+          fetchVerifications()
+        })
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 
   onUnmounted(() => {
-    stopPolling()
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.leave('admin.moderation')
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 
   const refresh = fetchVerifications

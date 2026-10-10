@@ -287,20 +287,22 @@ export const useAppointments = () => {
     }
   )
 
-  // Singleton Polling: Starts only ONE global interval regardless of how many components call useAppointments()
+  // Singleton Listener: Reverb WebSockets instead of polling
   if (import.meta.client) {
-    if (!appointmentPollingTimer) {
-      fetchAppointments()
-      appointmentPollingTimer = setInterval(() => {
-        // Only poll if tab is visible and user is logged in
-        if (document.visibilityState === 'visible' && userUuid.value) {
-          fetchAppointments()
-        }
-      }, 10000)
-    }
-
     if (!isAppointmentListenerBound && typeof document !== 'undefined') {
       isAppointmentListenerBound = true
+      fetchAppointments()
+
+      const { getEcho } = useEcho()
+      if (userUuid.value) {
+        const echo = getEcho()
+        if (echo) {
+          echo.private(`user.${userUuid.value}`).listen('.AppointmentUpdated', () => {
+            fetchAppointments()
+          })
+        }
+      }
+
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && userUuid.value) {
           fetchAppointments()
