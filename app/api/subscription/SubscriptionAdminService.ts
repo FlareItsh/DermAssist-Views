@@ -49,12 +49,22 @@ export interface Coupon {
   discount_type: 'percentage' | 'fixed_amount'
   value: number
   duration: 'once' | 'repeating' | 'forever'
-  duration_in_months?: number
-  valid_from?: string
-  valid_until?: string
-  max_redemptions?: number
+  duration_in_months?: number | null
+  valid_from?: string | null
+  valid_until?: string | null
+  max_redemptions?: number | null
   times_redeemed?: number
+  max_redemptions_per_user?: number | null
+  min_spend?: number | null
+  applicable_plans?: (number | string)[] | null
+  customer_segment?: 'all' | 'new_doctors' | 'renewals'
   is_active?: boolean
+  is_valid?: boolean
+  is_archived?: boolean
+  deleted_at?: string | null
+  has_redemptions?: boolean
+  created_at?: string
+  updated_at?: string
 }
 
 class SubscriptionAdminService extends BaseService {
@@ -117,20 +127,32 @@ class SubscriptionAdminService extends BaseService {
     return this.request<any>(`/admin/payments/${id}/reject`, 'POST', { reason })
   }
 
-  async getCoupons() {
-    return this.request<any>('/admin/coupons', 'GET')
+  async getCoupons(status?: string) {
+    return this.request<any>('/admin/coupons', 'GET', status ? { status } : undefined)
+  }
+
+  async getCoupon(id: number) {
+    return this.request<any>(`/admin/coupons/${id}`, 'GET')
   }
 
   async createCoupon(data: Coupon) {
     return this.request<any>('/admin/coupons', 'POST', data)
   }
 
+  async updateCoupon(id: number, data: Partial<Coupon>) {
+    return this.request<any>(`/admin/coupons/${id}`, 'PUT', data)
+  }
+
   async toggleCouponActive(id: number) {
     return this.request<any>(`/admin/coupons/${id}/toggle-active`, 'PATCH')
   }
 
-  async deleteCoupon(id: number) {
-    return this.request<any>(`/admin/coupons/${id}`, 'DELETE')
+  async deleteCoupon(id: number, force = false) {
+    return this.request<any>(`/admin/coupons/${id}${force ? '?force=1' : ''}`, 'DELETE')
+  }
+
+  async restoreCoupon(id: number) {
+    return this.request<any>(`/admin/coupons/${id}/restore`, 'POST')
   }
 }
 
