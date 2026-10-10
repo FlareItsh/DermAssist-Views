@@ -18,8 +18,8 @@ export default defineNuxtRouteMiddleware((to, from) => {
     return navigateTo('/auth/login')
   }
 
-  // If trying to access an Auth route while already logged in
-  if (token.value && role.value && isAuthRoute) {
+  // If trying to access an Auth route while already logged in (exempt OAuth callback)
+  if (token.value && role.value && isAuthRoute && path !== '/auth/callback') {
     return navigateTo(`/${role.value}`)
   }
 
