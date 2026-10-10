@@ -303,28 +303,13 @@
     showScheduleModal.value = true
   }
 
-  const reschedulePrefilledDate = ref('')
-  const reschedulePrefilledTime = ref('')
-
-  const openRescheduleModal = () => {
-    if (!activeAppointment.value) return
-    schedulingAppointmentUuid.value = activeAppointment.value.id
-    scheduleMode.value = 'reschedule'
-
-    // Auto-fill with patient's requested date/time if this is a reschedule request
-    const appt = activeAppointment.value
-    if (
-      (appt.status === 'reschedule_requested' || appt.status === 'reschedule_proposed') &&
-      appt.requested_reschedule_date
-    ) {
-      reschedulePrefilledDate.value = appt.requested_reschedule_date
-      reschedulePrefilledTime.value = appt.requested_reschedule_time ?? ''
-    } else {
-      reschedulePrefilledDate.value = ''
-      reschedulePrefilledTime.value = ''
+  const openRescheduleModal = (uuid?: string) => {
+    const targetUuid = typeof uuid === 'string' ? uuid : activeAppointment.value?.id
+    if (!targetUuid) return
+    const found = appointments.value.find(a => a.id === targetUuid) || activeAppointment.value
+    if (found) {
+      rescheduleModalAppt.value = found
     }
-
-    showScheduleModal.value = true
   }
 
   const handleScheduleModalClose = () => {
@@ -2334,13 +2319,11 @@
         </Transition>
       </Teleport>
 
-      <!-- Schedule / Propose Reschedule Modal -->
+      <!-- Schedule Modal -->
       <AppModalAppointmentSchedule
         v-if="showScheduleModal"
         :appointment-uuid="schedulingAppointmentUuid"
         :mode="scheduleMode"
-        :prefill-date="reschedulePrefilledDate"
-        :prefill-time="reschedulePrefilledTime"
         @close="handleScheduleModalClose"
         @scheduled="
           () => {
