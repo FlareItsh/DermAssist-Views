@@ -26,6 +26,8 @@
   const showCancelConfirm = ref(false)
   const showDatasetSlideover = ref(false)
   const showResultsModal = ref(false)
+  const showSelectImagesModal = ref(false)
+  const selectedTrainingImageUuids = ref<string[]>([])
 
   const logContainer = ref<HTMLElement | null>(null)
   const terminalInputRef = ref<HTMLInputElement | null>(null)
@@ -142,7 +144,9 @@
       if (guardIdx !== -1) {
         for (let i = guardIdx; i < Math.min(guardIdx + 6, logs.length); i++) {
           const line = logs[i]
-          const match = line.match(/Baseline:\s*([\d\.]+)%\s*\|\s*Best Achieved:\s*([\d\.]+)%/i)
+          const match = line.match(
+            /Baseline(?:\s*\([^\)]+\))?:\s*([\d\.]+)%\s*\|\s*(?:Session Best|Best Achieved):\s*([\d\.]+)%/i
+          )
           if (match) {
             m.baseline = parseFloat(match[1])
             m.achieved = parseFloat(match[2])
@@ -254,11 +258,15 @@
     if (isStarting.value || isTrainingActive.value) return
     isStarting.value = true
     try {
-      await modelTrainingService.startTraining({
+      const payload: any = {
         architecture: 'ensemble',
         epochs: Number(selectedEpochs.value),
         sync_dataset: syncDataset.value
-      })
+      }
+      if (selectedTrainingImageUuids.value.length > 0) {
+        payload.selected_image_uuids = selectedTrainingImageUuids.value
+      }
+      await modelTrainingService.startTraining(payload)
       toast.success('Tri-Model Ensemble retraining pipeline started!')
       startPolling()
     } catch (err: any) {
@@ -267,6 +275,15 @@
       toast.error(msg)
     } finally {
       isStarting.value = false
+    }
+  }
+
+  const handleImagesSelected = (uuids: string[]) => {
+    selectedTrainingImageUuids.value = uuids
+    if (uuids.length > 0) {
+      toast.success(`${uuids.length} candidate scan(s) selected for retraining.`)
+    } else {
+      toast.info('Defaulting to all ready clinical scans.')
     }
   }
 
@@ -505,13 +522,11 @@
     if (import.meta.client) {
       const echo = getEcho()
       if (echo) {
-        echo
-          .private('admin.ai-retraining')
-          .listen('.ModelTrainingProgressUpdated', (e: any) => {
-            if (e?.status) {
-              updateTrainingState(e.status)
-            }
-          })
+        echo.private('admin.ai-retraining').listen('.ModelTrainingProgressUpdated', (e: any) => {
+          if (e?.status) {
+            updateTrainingState(e.status)
+          }
+        })
       }
     }
   })
@@ -531,7 +546,7 @@
   <div class="space-y-8 pb-16">
     <!-- Page Header -->
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-      <div>
+      <div class="max-w-2xl min-w-0">
         <div class="mb-1 flex items-center gap-2">
           <h1 class="text-foreground text-2xl font-black md:text-3xl">AI Model Intelligence</h1>
         </div>
@@ -541,24 +556,12 @@
         </p>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2.5">
-        <NuxtLink to="/admin/ai/expansion">
-          <AppButton
-            variant="outline"
-            class="gap-2 font-medium"
-          >
-            <Icon
-              name="lucide:flask-conical"
-              size="16"
-              class="text-violet-500"
-            />
-            Train with New Disease
-          </AppButton>
-        </NuxtLink>
-
+      <div
+        class="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2.5"
+      >
         <AppButton
           variant="outline"
-          class="gap-2"
+          class="!h-9 gap-1.5 !px-3 !text-xs md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           @click="showResultsModal = true"
         >
           <Icon
@@ -570,7 +573,7 @@
 
         <AppButton
           variant="outline"
-          class="gap-2"
+          class="!h-9 gap-1.5 !px-3 !text-xs md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           :loading="isSyncing"
           :disabled="isTrainingActive"
           @click="handleSyncDataset"
@@ -585,7 +588,7 @@
         <AppButton
           v-if="isTrainingActive"
           variant="destructive"
-          class="gap-2 shadow-sm"
+          class="!h-9 gap-1.5 !px-3 !text-xs shadow-sm md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           @click="confirmCancelTraining"
         >
           <Icon
@@ -682,9 +685,9 @@
             </h3>
             <span
               v-if="(stats?.gathered_dataset.untrained_count ?? 0) > 0"
-              class="inline-flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-600 shadow-xs dark:text-amber-400"
+              class="border-primary/30 bg-primary/10 text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold shadow-xs"
             >
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
+              <span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
               {{ stats?.gathered_dataset.untrained_count }} new untrained
             </span>
             <span
@@ -736,7 +739,7 @@
     </div>
 
     <!-- Active Pipeline Status & Live Progress Card -->
-    <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+    <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
       <div
         class="border-border flex flex-col justify-between gap-3 border-b pb-4 sm:flex-row sm:items-center"
       >
@@ -1110,10 +1113,10 @@
     </div>
 
     <!-- Main 2-Column Section: Configuration & Console -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+    <div class="grid grid-cols-1 gap-5 md:gap-8 lg:grid-cols-12">
       <!-- Left Column: Unified Ensemble Training Control (5 cols) -->
       <div class="space-y-6 lg:col-span-5">
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <h3 class="text-foreground flex items-center gap-2 text-base font-bold">
               <Icon
@@ -1188,6 +1191,7 @@
               :disabled="isTrainingActive"
               class="bg-background border-border text-foreground focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
             >
+              <option :value="1">1 Epoch / Model (Testing & Fast Verification)</option>
               <option :value="3">3 Epochs / Model (Recommended — Fast & Balanced)</option>
               <option :value="5">5 Epochs / Model (Standard fine-tuning)</option>
               <option :value="10">10 Epochs / Model (Deep convergence)</option>
@@ -1201,17 +1205,79 @@
           <!-- Untrained Notice Banner -->
           <div
             v-if="(stats?.gathered_dataset.untrained_count ?? 0) > 0"
-            class="flex items-center gap-2.5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+            class="border-primary/25 bg-primary/10 flex items-center gap-2.5 rounded-2xl border p-3.5 text-xs"
           >
-            <Icon
-              name="lucide:sparkles"
-              size="16"
-              class="shrink-0 text-amber-500"
-            />
-            <span>
-              <strong>{{ stats?.gathered_dataset.untrained_count }} new scan(s)</strong> ready to be
-              incorporated into the model.
+            <div
+              class="bg-primary/20 text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-xl font-bold"
+            >
+              <Icon
+                name="lucide:sparkles"
+                size="15"
+              />
+            </div>
+            <span class="text-foreground leading-relaxed">
+              <strong class="text-primary font-black"
+                >{{ stats?.gathered_dataset.untrained_count }} new scan(s)</strong
+              >
+              ready to be incorporated into the model.
             </span>
+          </div>
+
+          <!-- Dataset Scope / Selective Retraining Trigger -->
+          <div
+            class="space-y-2 pt-1"
+            :class="{ 'opacity-60': isTrainingActive }"
+          >
+            <label
+              class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
+            >
+              Training Dataset Scope
+            </label>
+            <div
+              class="bg-muted/30 border-border hover:border-primary/40 flex items-center justify-between rounded-2xl border p-3.5 transition-all"
+              :class="isTrainingActive ? 'cursor-not-allowed' : 'cursor-pointer'"
+              @click="!isTrainingActive && (showSelectImagesModal = true)"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                >
+                  <Icon
+                    name="lucide:check-square"
+                    size="18"
+                  />
+                </div>
+                <div>
+                  <span class="text-foreground block text-xs font-bold">
+                    {{
+                      selectedTrainingImageUuids.length > 0
+                        ? `${selectedTrainingImageUuids.length} Scans Curated`
+                        : 'All Ready Scans (Default)'
+                    }}
+                  </span>
+                  <span class="text-muted-foreground block text-[11px]">
+                    {{
+                      selectedTrainingImageUuids.length > 0
+                        ? 'Custom image selection will be ingested'
+                        : 'All tangible unadded scans will be ingested'
+                    }}
+                  </span>
+                </div>
+              </div>
+              <AppButton
+                variant="outline"
+                size="sm"
+                class="h-8 shrink-0 gap-1.5 text-xs font-semibold"
+                :disabled="isTrainingActive"
+                @click.stop="showSelectImagesModal = true"
+              >
+                <Icon
+                  name="lucide:sliders-horizontal"
+                  size="13"
+                />
+                {{ selectedTrainingImageUuids.length > 0 ? 'Edit Scope' : 'Select Images' }}
+              </AppButton>
+            </div>
           </div>
 
           <!-- Sync Toggle -->
@@ -1583,7 +1649,7 @@
         </div>
 
         <!-- Production Model Inventory -->
-        <div class="bg-card border-border space-y-4 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-4 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="flex items-center justify-between">
             <h4 class="text-foreground flex items-center gap-2 text-sm font-bold">
               <Icon
@@ -1649,6 +1715,13 @@
     <AppDatasetSlideover
       v-model="showDatasetSlideover"
       @deleted="fetchStats"
+    />
+
+    <!-- Select Training Images Modal -->
+    <AppModalSelectTrainingImages
+      v-model="showSelectImagesModal"
+      :initial-selected-uuids="selectedTrainingImageUuids"
+      @confirm="handleImagesSelected"
     />
 
     <!-- Comprehensive Retraining Summary Modal -->

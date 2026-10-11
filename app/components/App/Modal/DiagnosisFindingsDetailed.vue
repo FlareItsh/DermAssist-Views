@@ -647,12 +647,19 @@
         newVal === 'Inconclusive / Outside Priority Scope' ||
         newVal === 'Inconclusive Finding'
       ) {
+        const isOutOfScope =
+          Boolean((currentDiagnosis.value as any)?.is_out_of_scope) ||
+          Boolean((currentDiagnosis.value as any)?.out_of_scope_category) ||
+          Boolean((props.diagnosis as any)?.is_out_of_scope)
         const feedback = (currentDiagnosis.value?.clinical_feedback || '').toLowerCase()
         if (
+          isOutOfScope ||
           feedback.includes('outside our 3 primary') ||
           feedback.includes('unsupported') ||
           feedback.includes('psoriasis') ||
-          feedback.includes('ringworm')
+          feedback.includes('ringworm') ||
+          feedback.includes('hives') ||
+          feedback.includes('warts')
         ) {
           activeDisease.value = 'OutOfScope'
         } else {
@@ -667,10 +674,23 @@
     { immediate: true }
   )
 
-  const currentDisease = computed(() => DISEASE_DATABASE[activeDisease.value])
+  const formatCategory = (cat?: string | null) => {
+    if (!cat) return ''
+    const c = cat.toLowerCase()
+    if (c === 'ringworm') return 'Ringworm (Tinea)'
+    if (c === 'hives') return 'Hives / Urticaria'
+    if (c === 'warts') return 'Warts (HPV)'
+    if (c === 'psoriasis') return 'Psoriasis'
+    return cat.charAt(0).toUpperCase() + cat.slice(1)
+  }
 
-  const displaySymptoms = computed(() => props.symptoms ?? currentDisease.value.symptoms)
-  const displayCauses = computed(() => props.causes ?? currentDisease.value.causes)
+  const currentDisease = computed(
+    () =>
+      DISEASE_DATABASE[activeDisease.value] || DISEASE_DATABASE['Clear'] || DISEASE_DATABASE['None']
+  )
+
+  const displaySymptoms = computed(() => props.symptoms ?? currentDisease.value?.symptoms ?? [])
+  const displayCauses = computed(() => props.causes ?? currentDisease.value?.causes ?? [])
   const displayChartData = computed(() => {
     return props.diagnosisData ?? defaultChartData
   })
@@ -1010,18 +1030,27 @@
                 activeDisease === 'None'
                   ? 'Non-Skin Image Detected'
                   : activeDisease === 'OutOfScope'
-                    ? 'Out-of-Scope Condition'
+                    ? outOfScopeCategoryFromDiagnosis
+                      ? `Out-of-Scope: ${formatCategory(outOfScopeCategoryFromDiagnosis)}`
+                      : 'Out-of-Scope Skin Condition'
                     : activeDisease === 'Inconclusive'
-                      ? 'Inconclusive Result'
+                      ? 'Inconclusive Finding'
                       : activeDisease
               }}
             </h1>
             <AppBadge
-              v-if="activeDisease === 'Inconclusive'"
+              v-if="activeDisease === 'OutOfScope'"
+              color="purple"
+              size="sm"
+            >
+              Other Condition (Not in Main 3)
+            </AppBadge>
+            <AppBadge
+              v-else-if="activeDisease === 'Inconclusive'"
               color="warning"
               size="sm"
             >
-              Low Confidence
+              Clinical Advisory
             </AppBadge>
             <AppBadge
               v-else-if="activeDisease === 'None'"
@@ -1456,6 +1485,8 @@
           :contribute-to-dataset="contributeToDataset"
           :contribute-to-out-of-scope-dataset="contributeToOutOfScopeDataset"
           :is-out-of-scope="isOutOfScopeFromDiagnosis"
+          :condition-name="activeDisease"
+          :detected-category="outOfScopeCategoryFromDiagnosis"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />

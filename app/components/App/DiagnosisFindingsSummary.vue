@@ -50,21 +50,31 @@
 
   const showScanReminder = ref(false)
 
+  const formatCategory = (cat?: string | null) => {
+    if (!cat) return ''
+    return cat.charAt(0).toUpperCase() + cat.slice(1)
+  }
+
+  const hasPatient = computed(
+    () => props.role === 'patient' || !!patientUuid.value || !!assignedName.value
+  )
+
   const errorMessage = computed(() => {
     if (showScanReminder.value) return 'Scan required to proceed'
     if (!isScanned.value) return 'Please scan the image first'
+    if (isNoneState.value) return 'Non-skin image detected. Scan skin to proceed.'
+    if (isHealthyState.value) return 'Healthy skin detected. No disease present.'
+    if (props.role === 'doctor' && !hasPatient.value) return 'Please select or register a patient'
     return null
   })
 
   const canProceed = computed(() => {
-    const hasPatient = props.role === 'patient' || !!patientUuid.value || !!assignedName.value
-    return (
-      !!currentDiagnosis.value &&
-      isScanned.value &&
-      !isHealthyState.value &&
-      !isNoneState.value &&
-      hasPatient
-    )
+    const validScan =
+      !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && !isNoneState.value
+    if (props.role === 'doctor') {
+      return validScan && hasPatient.value
+    }
+    return validScan
   })
 
   const handleProceed = async () => {
@@ -85,6 +95,11 @@
         navigateTo('/Patient/Scan/Results')
       }
     } else {
+      if (props.role === 'doctor' && !hasPatient.value) {
+        toast.error('Please assign or register a patient to proceed')
+        isPatientModalOpen.value = true
+        return
+      }
       showScanReminder.value = true
       setTimeout(() => {
         showScanReminder.value = false
@@ -1373,7 +1388,9 @@
                 isNoneState
                   ? 'Non-Skin Image Detected'
                   : isOutOfScopeState
-                    ? 'Out of Scope Condition'
+                    ? currentDiagnosis?.out_of_scope_category
+                      ? `Out-of-Scope: ${formatCategory(currentDiagnosis.out_of_scope_category)}`
+                      : 'Other Condition (Out of Scope)'
                     : isInconclusiveState
                       ? 'Inconclusive Finding'
                       : isHealthyState
@@ -1382,11 +1399,18 @@
               }}
             </p>
             <AppBadge
-              v-if="isInconclusiveState && !isOutOfScopeState"
+              v-if="isOutOfScopeState"
+              color="purple"
+              size="sm"
+            >
+              Other Condition (Out of Scope)
+            </AppBadge>
+            <AppBadge
+              v-else-if="isInconclusiveState"
               color="warning"
               size="sm"
             >
-              Low Confidence
+              Clinical Advisory
             </AppBadge>
             <AppBadge
               v-else-if="isNoneState"

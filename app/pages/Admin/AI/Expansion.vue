@@ -399,11 +399,11 @@
     </div>
 
     <!-- Main 2-Column Grid -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+    <div class="grid grid-cols-1 gap-5 md:gap-8 lg:grid-cols-12">
       <!-- Left Column: Disease Selection & Configuration (7 cols) -->
       <div class="space-y-6 lg:col-span-7">
         <!-- Candidate Disease Selector Card -->
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <div>
               <h3 class="text-foreground flex items-center gap-2 text-base font-bold">
@@ -491,7 +491,7 @@
         </div>
 
         <!-- Training Configuration Card -->
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <h3
             class="text-foreground border-border flex items-center gap-2 border-b pb-3 text-base font-bold"
           >
@@ -627,7 +627,7 @@
             <AppButton
               variant="outline"
               size="lg"
-              class="w-full justify-center gap-2 font-semibold shadow-xs"
+              class="!h-10 w-full justify-center gap-2 !px-3 !text-xs font-semibold shadow-xs md:!h-13 md:!px-6 md:!text-base"
               @click="showDatasetSlideover = true"
             >
               <Icon
@@ -641,7 +641,7 @@
               v-if="isTrainingActive"
               variant="destructive"
               size="lg"
-              class="w-full justify-center gap-2 font-bold shadow-md"
+              class="!h-10 w-full justify-center gap-2 !px-3 !text-xs font-bold shadow-md md:!h-13 md:!px-6 md:!text-base"
               :loading="isCancellingActive || isCancelling"
               :disabled="isCancellingActive || isCancelling"
               @click="confirmCancelTraining"
@@ -656,7 +656,7 @@
               v-else
               variant="solid"
               size="lg"
-              class="w-full justify-center gap-2 font-bold transition-all"
+              class="!h-auto min-h-10 w-full justify-center gap-2 !px-3 !py-2 !text-xs font-bold !whitespace-normal transition-all md:!h-13 md:!px-6 md:!py-3 md:!text-base md:!whitespace-nowrap"
               :class="[
                 hasInsufficientDataset
                   ? 'cursor-not-allowed border border-zinc-300 bg-zinc-200 text-zinc-500 shadow-none hover:bg-zinc-200 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800'
@@ -684,7 +684,7 @@
       <!-- Right Column: Live Console & Progress (5 cols) -->
       <div class="space-y-6 lg:col-span-5">
         <!-- Live Progress Overview Card -->
-        <div class="bg-card border-border space-y-4 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-4 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <h4 class="text-foreground flex items-center gap-2 text-sm font-bold">
               <Icon

@@ -8,6 +8,7 @@
   const { searchQuery } = useSearch()
   const { getStorageUrl } = useStorage()
   const { unreadNotifications } = useAppNotifications()
+  const { hasUnseenUpdate, fetchPublishedPatchNotes } = usePatchNotes()
 
   const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
     key: `userProfile-${useCookie('user_uuid').value}`
@@ -31,6 +32,7 @@
     } catch (error) {
       console.error('Logout failed:', error)
     } finally {
+      useDiagnosis().resetScanner()
       useCookie('auth_token').value = null
       useCookie('user_role').value = null
       useCookie('user_uuid').value = null
@@ -98,6 +100,7 @@
     }
     updateGreeting()
     greetingTimer = setInterval(updateGreeting, 60000)
+    fetchPublishedPatchNotes()
 
     // Attach touch and scroll listeners directly to main-content
     const mainContent = document.getElementById('main-content')
@@ -129,13 +132,19 @@
     <!-- FIXED TOP ROW -->
     <div
       class="bg-primary fixed top-0 right-0 left-0 z-50 px-5 pt-4 pb-4 transition-all duration-150"
-      :class="{ 'rounded-b-[36px] shadow-md': !isDashboard || isScrolled }"
+      :class="[!isDashboard ? 'rounded-b-[36px] shadow-md' : isScrolled ? 'rounded-b-[36px]' : '']"
     >
       <div
-        class="pointer-events-none absolute inset-0 overflow-hidden transition-all duration-150"
-        :class="{ 'rounded-b-[36px]': !isDashboard || isScrolled }"
+        class="pointer-events-none absolute inset-0 transition-all duration-150"
+        :class="[
+          !isDashboard || isScrolled
+            ? 'overflow-hidden rounded-b-[36px]'
+            : 'overflow-x-clip overflow-y-visible'
+        ]"
       >
-        <div class="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/5"></div>
+        <div
+          class="absolute -top-[88px] -right-[88px] h-[256px] w-[256px] rounded-full bg-white/8"
+        ></div>
       </div>
 
       <div class="relative z-20 flex items-center justify-between">
@@ -151,6 +160,26 @@
         </NuxtLink>
 
         <div class="flex items-center gap-2.5">
+          <!-- What's New Pill (appears when there's an unseen update) -->
+          <NuxtLink
+            v-if="hasUnseenUpdate"
+            to="/patient/updates"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
+          >
+            <Icon
+              name="solar:megaphone-loud-bold-duotone"
+              size="15"
+              class="text-amber-300"
+            />
+            <span>What's New</span>
+            <span class="relative flex h-2 w-2">
+              <span
+                class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+              ></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400"></span>
+            </span>
+          </NuxtLink>
+
           <!-- Notification Bell -->
           <NuxtLink
             to="/patient/notifications"
@@ -199,6 +228,27 @@
               class="bg-card border-border absolute right-0 z-50 mt-2 w-48 origin-top-right transform rounded-2xl border py-1 shadow-xl transition-all"
             >
               <NuxtLink
+                to="/patient/updates"
+                @click="isDropdownOpen = false"
+                class="text-foreground hover:bg-muted flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors"
+              >
+                <div class="flex items-center gap-3">
+                  <Icon
+                    name="solar:megaphone-bold-duotone"
+                    class="text-primary shrink-0"
+                    size="16"
+                  />
+                  <span>What's New</span>
+                </div>
+                <span
+                  v-if="hasUnseenUpdate"
+                  class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+                >
+                  New
+                </span>
+              </NuxtLink>
+
+              <NuxtLink
                 to="/patient/profile"
                 @click="isDropdownOpen = false"
                 class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
@@ -236,10 +286,6 @@
       v-if="isDashboard"
       class="bg-primary relative z-10 -mt-6 rounded-b-[36px] px-5 pt-6 pb-10"
     >
-      <div class="pointer-events-none absolute inset-0 overflow-hidden rounded-b-[36px]">
-        <div class="absolute top-10 -right-4 h-20 w-20 rounded-full bg-white/10"></div>
-      </div>
-
       <div
         class="mt-8 transform transition-all duration-300 ease-out"
         :class="

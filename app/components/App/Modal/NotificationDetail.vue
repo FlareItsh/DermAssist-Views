@@ -183,7 +183,7 @@
     >
       <div
         v-if="modelValue && notification"
-        class="bg-foreground/50 fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        class="bg-foreground/50 fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm"
         @click.self="close"
       >
         <Transition

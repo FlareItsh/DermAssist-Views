@@ -227,7 +227,7 @@
       <!-- Empty dropzone -->
       <div
         v-if="filePreviews.length === 0"
-        class="group relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 text-center transition-all"
+        class="group relative flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed p-5 text-center transition-all md:p-8"
         :class="
           isDragging
             ? mode === 'out_of_scope'
@@ -342,25 +342,40 @@
     </div>
 
     <!-- Actions -->
-    <div class="border-border flex items-center justify-between border-t pt-3">
-      <div class="text-muted-foreground flex items-center gap-1.5 text-[11px]">
-        <Icon
-          :name="mode === 'out_of_scope' ? 'lucide:microscope' : 'lucide:shield-check'"
-          size="14"
-          :class="mode === 'out_of_scope' ? 'text-violet-600' : 'text-emerald-500'"
-        />
-        <span v-if="filePreviews.length > 0">
-          {{ filePreviews.length }} image{{ filePreviews.length > 1 ? 's' : '' }} ready for
-          <strong class="text-foreground">{{ selectedCategory }}</strong>
-        </span>
-        <span v-else>Select images to upload</span>
+    <div
+      class="border-border flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div
+        class="text-muted-foreground flex items-center justify-between gap-1.5 text-xs sm:justify-start"
+      >
+        <div class="flex items-center gap-1.5">
+          <Icon
+            :name="mode === 'out_of_scope' ? 'lucide:microscope' : 'lucide:shield-check'"
+            size="14"
+            :class="mode === 'out_of_scope' ? 'text-violet-600' : 'text-emerald-500'"
+          />
+          <span v-if="filePreviews.length > 0">
+            {{ filePreviews.length }} image{{ filePreviews.length > 1 ? 's' : '' }} ready for
+            <strong class="text-foreground">{{ selectedCategory }}</strong>
+          </span>
+          <span v-else>Select images to upload</span>
+        </div>
+
+        <button
+          v-if="filePreviews.length > 0"
+          type="button"
+          class="text-destructive cursor-pointer text-xs font-medium hover:underline sm:hidden"
+          @click="clearAllFiles"
+        >
+          Clear all
+        </button>
       </div>
 
       <div class="flex items-center gap-2">
         <button
           v-if="filePreviews.length > 0"
           type="button"
-          class="text-destructive cursor-pointer text-[11px] font-medium hover:underline"
+          class="text-destructive hidden cursor-pointer text-[11px] font-medium hover:underline sm:inline-block"
           @click="clearAllFiles"
         >
           Clear all
@@ -369,6 +384,7 @@
         <AppButton
           v-if="!inline"
           variant="outline"
+          class="flex-1 sm:flex-initial"
           @click="$emit('close')"
         >
           Cancel
@@ -376,7 +392,7 @@
 
         <AppButton
           variant="solid"
-          class="gap-2 shadow-sm"
+          class="flex-1 gap-2 shadow-sm sm:flex-initial"
           :disabled="selectedFiles.length === 0 || isUploading"
           :loading="isUploading"
           @click="handleUpload"

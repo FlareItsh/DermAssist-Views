@@ -28,6 +28,19 @@ if (storageBaseEnv) {
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  experimental: {
+    appManifest: false
+  },
+  routeRules: {
+    '/Doctor/Scan': { ssr: false },
+    '/Doctor/Scan/**': { ssr: false },
+    '/Patient/Scan': { ssr: false },
+    '/Patient/Scan/**': { ssr: false },
+    '/doctor/scan': { ssr: false },
+    '/doctor/scan/**': { ssr: false },
+    '/patient/scan': { ssr: false },
+    '/patient/scan/**': { ssr: false }
+  },
   css: ['./app/assets/css/main.css', 'vue-sonner/style.css'],
   vite: {
     plugins: [tailwindcss()],

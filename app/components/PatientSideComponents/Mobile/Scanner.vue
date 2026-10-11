@@ -13,7 +13,9 @@
     qualityError,
     previewImage,
     selectedFile,
-    patientUuid
+    patientUuid,
+    isHealthyState,
+    isNoneState
   } = useDiagnosis()
 
   const userUuid = useCookie('user_uuid')
@@ -515,7 +517,15 @@
       })
       if (response) {
         setDiagnosis(response as any)
-        router.push('/Patient/Scan/Results')
+        if (isHealthyState.value) {
+          errorMessage.value = 'Healthy skin detected. No disease present.'
+          toast.info('Healthy skin detected. No disease present.')
+        } else if (isNoneState.value) {
+          errorMessage.value = 'Non-skin image detected. Scan skin to proceed.'
+          toast.error('Non-skin image detected. Scan skin to proceed.')
+        } else {
+          router.push('/Patient/Scan/Results')
+        }
       }
     } catch (err: any) {
       errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'

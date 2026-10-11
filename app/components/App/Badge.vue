@@ -1,6 +1,14 @@
 <script setup lang="ts">
   type BadgeVariant = 'solid' | 'subtle' | 'outline'
-  type BadgeColor = 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'gray'
+  type BadgeColor =
+    | 'primary'
+    | 'success'
+    | 'warning'
+    | 'danger'
+    | 'info'
+    | 'gray'
+    | 'purple'
+    | 'violet'
   type BadgeSize = 'xs' | 'sm' | 'md'
   type BadgeRounded = 'full' | 'lg' | 'none'
 
@@ -65,15 +73,28 @@
       solid: 'bg-gray-600 text-white',
       subtle: 'bg-gray-100 text-gray-700 border border-gray-200',
       outline: 'bg-transparent text-gray-600 border-2 border-gray-200'
+    },
+    purple: {
+      solid: 'bg-purple-600 text-white',
+      subtle: 'bg-purple-100 text-purple-700 border border-purple-200',
+      outline: 'bg-transparent text-purple-600 border-2 border-purple-200'
+    },
+    violet: {
+      solid: 'bg-violet-600 text-white',
+      subtle: 'bg-violet-100 text-violet-700 border border-violet-200',
+      outline: 'bg-transparent text-violet-600 border-2 border-violet-200'
     }
   }
 
   const badgeClasses = computed(() => {
+    const selectedColor = colorVariants[props.color as BadgeColor] || colorVariants.gray
+    const selectedVariantClass =
+      selectedColor[props.variant as BadgeVariant] || selectedColor.subtle
     return [
       baseClasses,
-      sizeClasses[props.size],
-      roundedClasses[props.rounded],
-      colorVariants[props.color][props.variant],
+      sizeClasses[props.size] || sizeClasses.sm,
+      roundedClasses[props.rounded] || roundedClasses.full,
+      selectedVariantClass,
       props.uppercase ? 'uppercase' : ''
     ].join(' ')
   })

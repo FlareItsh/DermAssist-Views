@@ -64,7 +64,7 @@
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <p class="text-xs font-bold tracking-wider text-rose-500 uppercase">Moderation</p>
-        <h1 class="mt-2 text-3xl font-black text-gray-950">Doctor Scan Appeals</h1>
+        <h1 class="mt-2 text-2xl font-black text-gray-950 md:text-3xl">Doctor Scan Appeals</h1>
         <p class="mt-2 max-w-2xl text-sm text-gray-500">
           Review doctors who filed appeals for scans they believe produced an incorrect diagnosis.
         </p>

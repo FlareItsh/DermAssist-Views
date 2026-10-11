@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { computed } from 'vue'
+  import { computed, watch } from 'vue'
   import { userService } from '~/api/user/UserService'
 
   definePageMeta({
@@ -80,6 +80,62 @@
       minute: '2-digit'
     })
   }
+
+  let searchScrollTimer: any = null
+
+  watch(searchQuery, query => {
+    if (searchScrollTimer) clearTimeout(searchScrollTimer)
+
+    const q = query.trim().toLowerCase()
+    if (!q) {
+      const mainContent = document.getElementById('main-content')
+      if (mainContent && mainContent.scrollTop > 0) {
+        mainContent.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+      return
+    }
+
+    searchScrollTimer = setTimeout(() => {
+      if (q.length < 2) return
+
+      const mainContent = document.getElementById('main-content')
+      if (!mainContent) return
+
+      let targetId: string | null = null
+
+      const conditionKeywords = [
+        'acne',
+        'eczema',
+        'hsv',
+        'skin',
+        'condition',
+        'pore',
+        'pimple',
+        'inflam',
+        'viral',
+        'sore'
+      ]
+      const doctorKeywords = ['dr', 'dr.', 'doctor', 'physician', 'derma', 'dermatologist']
+
+      if (conditionKeywords.some(k => q.includes(k) || k.includes(q))) {
+        targetId = 'conditions-section'
+      } else if (filteredAppointments.value.length > 0) {
+        targetId = 'appointments-section'
+      } else if (doctorKeywords.some(k => q.includes(k) || k.includes(q))) {
+        targetId = 'doctors-section'
+      } else {
+        targetId = 'doctors-section'
+      }
+
+      if (targetId) {
+        const el = document.getElementById(targetId)
+        if (el) {
+          const topOffset = el.offsetTop - 90
+          mainContent.scrollTo({ top: Math.max(0, topOffset), behavior: 'smooth' })
+        }
+      }
+    }, 300)
+  })
 </script>
 
 <template>
@@ -278,6 +334,7 @@
         <!-- Upcoming Appointment Strip -->
         <div
           v-if="filteredAppointments.length > 0"
+          id="appointments-section"
           class="rounded-3xl border border-gray-100 bg-white p-4 shadow-sm"
         >
           <div class="mb-3 flex items-center gap-2">
@@ -324,7 +381,9 @@
         </div>
 
         <!-- Skin Conditions Accordion -->
-        <PatientSideComponentsMobileSkinConditionAccordion />
+        <div id="conditions-section">
+          <PatientSideComponentsMobileSkinConditionAccordion />
+        </div>
 
         <!-- Scheduled Action Indicator Banner (Mobile) -->
         <div
@@ -361,7 +420,12 @@
         </div>
 
         <!-- Doctors Nearby -->
-        <PatientSideComponentsMobileDoctorsNearby v-else />
+        <div
+          id="doctors-section"
+          v-else
+        >
+          <PatientSideComponentsMobileDoctorsNearby />
+        </div>
 
         <!-- SaaS Promo -->
         <PatientSideComponentsSaaSPromotion class="mb-2 overflow-hidden rounded-3xl" />

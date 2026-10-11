@@ -125,15 +125,17 @@
 
 <template>
   <div class="">
-    <div class="mb-8 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div
+      class="mb-5 flex flex-col gap-4 md:mb-8 md:gap-6 lg:flex-row lg:items-center lg:justify-between"
+    >
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Doctor Verifications</h1>
+        <h1 class="text-2xl font-bold text-gray-900 md:text-3xl">Doctor Verifications</h1>
         <p class="mt-1 text-gray-500">Review and verify doctor credentials to grant access.</p>
       </div>
 
       <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
         <!-- Search Input -->
-        <div class="relative min-w-[300px]">
+        <div class="relative w-full sm:w-auto sm:min-w-[300px]">
           <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">
             <Icon
               name="material-symbols:search-rounded"
@@ -159,14 +161,16 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <div class="flex items-center gap-1 rounded-2xl bg-gray-100 p-1.5">
+          <div
+            class="scrollbar-none flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-gray-100 p-1.5"
+          >
             <AppButton
               v-for="status in statuses"
               :key="status.value"
               variant="unstyled"
               size="unstyled"
               @click="selectedStatus = status.value"
-              class="rounded-xl px-4 py-2 text-xs font-bold transition-all"
+              class="shrink-0 rounded-xl px-4 py-2 text-xs font-bold whitespace-nowrap transition-all"
               :class="
                 selectedStatus === status.value
                   ? 'text-primary bg-white shadow-sm'
@@ -177,7 +181,7 @@
             </AppButton>
           </div>
 
-          <div class="mx-1 h-8 w-px bg-gray-200"></div>
+          <div class="mx-1 hidden h-8 w-px bg-gray-200 sm:block"></div>
 
           <AppButton
             variant="outline"
@@ -193,7 +197,7 @@
 
     <div
       v-if="verifications?.data?.length"
-      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
     >
       <TransitionGroup name="grid">
         <NuxtLink
@@ -295,7 +299,7 @@
     <!-- Skeleton / Loading -->
     <div
       v-else-if="pending"
-      class="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      class="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3 xl:grid-cols-4"
     >
       <div
         v-for="i in 4"

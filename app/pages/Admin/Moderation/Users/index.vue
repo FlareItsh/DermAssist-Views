@@ -257,7 +257,7 @@
 
 <template>
   <div>
-    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+    <div class="mb-5 grid grid-cols-2 gap-3 md:mb-6 md:grid-cols-2 md:gap-4">
       <AdminSideComponentsMetricCard
         label="Patients"
         :value="patientCount"
@@ -280,7 +280,7 @@
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <div
-        class="flex flex-col gap-4 border-b border-gray-100 px-5 py-4 xl:flex-row xl:items-center xl:justify-between"
+        class="flex flex-col gap-4 border-b border-gray-100 px-4 py-3 md:px-5 md:py-4 xl:flex-row xl:items-center xl:justify-between"
       >
         <div>
           <h2 class="text-base font-black text-gray-950">User Directory</h2>
@@ -303,12 +303,12 @@
             />
           </div>
 
-          <div class="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+          <div class="flex w-full rounded-xl border border-gray-200 bg-gray-50 p-1 md:w-auto">
             <button
               v-for="role in roleOptions"
               :key="role.value"
               type="button"
-              class="rounded-lg px-2.5 py-1 text-xs font-bold transition"
+              class="flex-1 rounded-lg px-2.5 py-1 text-xs font-bold transition md:flex-none"
               :class="
                 selectedRole === role.value
                   ? 'text-primary bg-white shadow-sm'
@@ -322,7 +322,7 @@
 
           <select
             v-model="selectedStatus"
-            class="focus:border-primary/30 focus:ring-primary/10 h-10 rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-gray-600 transition outline-none focus:bg-white focus:ring-4"
+            class="focus:border-primary/30 focus:ring-primary/10 h-10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-bold text-gray-600 transition outline-none focus:bg-white focus:ring-4 md:w-auto"
           >
             <option
               v-for="status in statusOptions"
@@ -337,7 +337,7 @@
 
       <div
         v-if="isLoading"
-        class="space-y-3 p-5"
+        class="space-y-3 p-4 md:p-5"
       >
         <div
           v-for="i in 6"
@@ -354,11 +354,11 @@
           v-for="user in users"
           :key="user.uuid || user.id"
           :to="`/admin/moderation/users/${user.uuid}`"
-          class="grid gap-4 px-5 py-4 transition hover:bg-gray-50 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto]"
+          class="grid gap-2 px-4 py-3 transition hover:bg-gray-50 md:px-5 md:py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] lg:gap-4"
         >
           <div class="flex min-w-0 items-center gap-4">
             <div
-              class="bg-primary/10 text-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl font-black"
+              class="bg-primary/10 text-primary flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl font-black md:h-12 md:w-12"
             >
               {{ getInitials(user) }}
             </div>
@@ -413,7 +413,7 @@
 
       <div
         v-if="!isLoading && totalUsers > 0"
-        class="flex flex-col gap-3 border-t border-gray-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+        class="flex flex-col gap-3 border-t border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-5 md:py-4"
       >
         <p class="text-xs font-medium text-gray-500">
           Showing {{ firstVisibleUser }}-{{ lastVisibleUser }} of {{ totalUsers }} users

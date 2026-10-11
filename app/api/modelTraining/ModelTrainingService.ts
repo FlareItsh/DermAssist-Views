@@ -60,17 +60,47 @@ export interface TrainingStatusResponse {
   error?: string
 }
 
+export interface TrainingImageItem {
+  uuid: string
+  file_name: string
+  original_name?: string
+  image_url: string
+  category: string
+  is_tangible: boolean
+  is_in_raw: boolean
+  is_in_local_storage: boolean
+  storage_status: 'ready' | 'in_raw' | 'in_local_storage'
+  is_contributed: boolean
+  created_at: string
+  has_consent?: boolean
+}
+
+export interface TrainingImagesResponse {
+  images: TrainingImageItem[]
+  total: number
+  tangible_count: number
+  intangible_count: number
+  by_category: Record<string, number>
+}
+
 export interface StartTrainingPayload {
   architecture?: 'ensemble' | 'swin_transformer' | 'resnet50' | 'efficientnet_v2'
   epochs?: number
   sync_dataset?: boolean
   learning_rate?: number
   expansion_disease?: string
+  selected_image_uuids?: string[]
 }
 
 export class ModelTrainingService extends BaseService {
   async getStats(): Promise<ModelStatsResponse> {
     return this.request<ModelStatsResponse>('/admin/model/stats', 'GET')
+  }
+
+  async getTrainingImages(params?: { category?: string }): Promise<TrainingImagesResponse> {
+    const query =
+      params?.category && params.category !== 'all' ? `?category=${params.category}` : ''
+    return this.request<TrainingImagesResponse>(`/admin/model/training-images${query}`, 'GET')
   }
 
   async startTraining(payload: StartTrainingPayload): Promise<any> {
