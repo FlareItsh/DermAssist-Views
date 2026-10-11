@@ -1,344 +1,334 @@
 <script setup lang="ts">
-  import { computed, ref, watchEffect } from 'vue'
-  import type { DonutEntry } from '../DonutChart.vue'
-
-  const emit = defineEmits(['close'])
-
-  const age = useCookie('age')
-  const date = useCookie('date')
+  import { computed, ref } from 'vue'
+  import { DISEASE_DATABASE, COLOR_MAP } from '~/composables/useDiagnosis'
+  import { useStorage } from '~/composables/useStorage'
 
   const props = defineProps<{
     record: any
   }>()
 
+  const emit = defineEmits(['close'])
+
   const userName = useCookie('user_name')
+  const { getStorageUrl } = useStorage()
+  const isImageExpanded = ref(false)
 
-  // ── Disease database (Synced from DiagnosisFindingsDetailed) ─────────────────
-  const diseases = {
-    Eczema: {
-      description:
-        'also known as atopic dermatitis, is a chronic skin condition characterized by patches of skin that become inflamed, itchy, cracked, and rough. It is not contagious, but it can be persistent and often flares up periodically.',
-      symptoms: [
-        'Intense Itching: Often the most burdensome symptom, which can lead to sleep disruption.',
-        'Dry, Sensitive Skin: The skin may feel tight or look scaly.',
-        'Discoloration: On lighter skin, it often appears red or pink. On darker skin, it may look brown, purple, or gray.',
-        'Texture Changes: Small, raised bumps may leak fluid when scratched, or the skin may thicken and become leathery.'
-      ],
-      causes: [
-        'Genetics: It often runs in families, especially those with a history of asthma or hay fever.',
-        'Immune System: An overactive immune response to small triggers.',
-        'Environmental Triggers: Things like harsh soaps, detergents, stress, weather changes, or certain fabrics like wool.'
-      ],
-      color: '#7B5EF5'
-    },
-    Acne: {
-      description:
-        'is a common skin condition that occurs when hair follicles become clogged with oil and dead skin cells. It causes whiteheads, blackheads, or pimples and is most common among teenagers, though it affects people of all ages.',
-      symptoms: [
-        'Whiteheads: Closed clogged pores that appear as small white bumps on the skin.',
-        'Blackheads: Open clogged pores that turn dark due to oxidation on the surface.',
-        'Papules: Small, red, tender bumps that signal inflammation or infection.',
-        'Nodules and Cysts: Large, solid, painful lumps deep in the skin that can cause scarring.'
-      ],
-      causes: [
-        'Excess Oil Production: Sebaceous glands producing too much sebum can clog pores.',
-        'Bacteria: Propionibacterium acnes bacteria on the skin can trigger inflammation.',
-        'Hormonal Changes: Androgens that increase during puberty, pregnancy, or stress can enlarge sebaceous glands.'
-      ],
-      color: '#E53935'
-    },
-    Herpes: {
-      description:
-        'HSV (Herpes Simplex Virus) is a common viral infection that causes sores on the mouth or genitals. HSV-1 typically causes oral herpes while HSV-2 causes genital herpes. The virus remains dormant in the body and can reactivate periodically.',
-      symptoms: [
-        'Cold Sores or Blisters: Fluid-filled blisters around the mouth, lips, or genitals that can break and crust over.',
-        'Pain and Itching: Tingling, itching, or burning sensations often precede the appearance of sores.',
-        'Flu-like Symptoms: During the first outbreak, fever, swollen lymph nodes, and body aches may occur.',
-        'Recurrent Outbreaks: The virus reactivates periodically, often triggered by stress, illness, or sun exposure.'
-      ],
-      causes: [
-        'HSV-1 Transmission: Spread through oral contact such as kissing or sharing utensils with an infected person.',
-        'HSV-2 Transmission: Primarily spread through sexual contact with an infected individual.',
-        'Reactivation Triggers: Stress, weakened immune system, fever, or prolonged sun exposure can trigger outbreaks.'
-      ],
-      color: '#4FC3F7'
-    }
-  }
+  const activeDiseaseInfo = computed(() => {
+    if (!props.record) return null
+    const label = props.record.label || props.record.title || 'None'
+    return DISEASE_DATABASE[label] || DISEASE_DATABASE['None']
+  })
 
-  type DiseaseName = keyof typeof diseases
+  const diseaseColor = computed(() => {
+    if (!props.record) return '#7B5EF5'
+    const label = props.record.label
+    return COLOR_MAP[label] || activeDiseaseInfo.value?.color || '#7B5EF5'
+  })
 
-  const chartData = computed<DonutEntry[]>(() => {
-    if (!props.record?.probabilities) {
-      return [
-        { label: 'Herpes', value: 3, color: '#4FC3F7' },
-        { label: 'Acne', value: 22, color: '#E53935' },
-        { label: 'Eczema', value: 75, color: '#7B5EF5' }
-      ]
-    }
-
+  const probabilityList = computed(() => {
+    if (!props.record?.probabilities) return []
     return Object.entries(props.record.probabilities)
-      .map(([key, value]) => ({
-        label: key,
-        value: Math.round((value as number) * 100),
-        color: diseases[key as DiseaseName]?.color || '#CBD5E1'
+      .map(([label, val]) => ({
+        label,
+        value: Math.round((val as number) * 100),
+        color: COLOR_MAP[label] || '#94a3b8'
       }))
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value)
   })
 
-  const activeDisease = ref<DiseaseName>('Eczema')
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return 'Unknown Date'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  }
 
-  watchEffect(() => {
-    if (!props.record?.title) return
-    if (props.record.title.includes('Acne')) activeDisease.value = 'Acne'
-    else if (props.record.title.includes('Herpes')) activeDisease.value = 'Herpes'
-    else activeDisease.value = 'Eczema'
-  })
-
-  const currentDisease = computed(() => diseases[activeDisease.value])
-  const isImageExpanded = ref(false)
-  const { getStorageUrl } = useStorage()
+  const formatListText = (text: string) => {
+    if (text.includes(':')) {
+      const parts = text.split(':')
+      return `<span class="font-semibold text-gray-800">${parts[0]}:</span>${parts[1]}`
+    }
+    return text
+  }
 </script>
 
 <template>
-  <div class="bg-card flex h-[90vh] overflow-hidden rounded-2xl">
-    <!-- Left Column -->
-    <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-4 sm:p-8 sm:pr-6">
-      <h1 class="text-foreground mb-4 text-xl font-bold sm:mb-6 sm:text-3xl md:text-4xl">
-        {{ record.type === 'doctor_diagnosis' ? 'Clinical Assessment' : activeDisease }}
-      </h1>
+  <div class="flex flex-col gap-4 bg-white p-6 text-gray-900 sm:p-7">
+    <!-- Header Row -->
+    <div class="flex items-center justify-between border-b border-gray-100 pb-3.5">
+      <div class="flex items-center gap-2.5">
+        <div
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+          :style="{ backgroundColor: `${diseaseColor}15`, color: diseaseColor }"
+        >
+          <Icon
+            :name="
+              record.type === 'doctor_diagnosis'
+                ? 'material-symbols:stethoscope-rounded'
+                : 'solar:shield-check-bold-duotone'
+            "
+            size="20"
+          />
+        </div>
+        <div>
+          <h2 class="text-base font-bold text-gray-900 sm:text-lg">
+            {{
+              record.type === 'doctor_diagnosis' ? 'Doctor Clinical Assessment' : 'AI Scan Result'
+            }}
+          </h2>
+          <p class="text-[11px] text-gray-500">
+            Record ID:
+            <span class="font-mono font-medium">#{{ record.uuid?.slice(0, 8) || 'RECORD' }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
 
-      <div class="mb-5 flex flex-col gap-1 text-xs sm:mb-8 sm:text-base">
-        <p v-if="record.patient">
-          <span class="font-bold">Patient Name:</span>
-          <span class="ml-2">{{ record.patient.first_name }} {{ record.patient.last_name }}</span>
-        </p>
-        <p v-else>
-          <span class="font-bold">Patient Name:</span>
-          <span class="ml-2">{{ userName || 'Guest User' }}</span>
-        </p>
-        <p v-if="record.doctor">
-          <span class="font-bold">Attending Doctor:</span>
-          <span class="ml-2">Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}</span>
-        </p>
-        <p>
-          <span class="font-bold">Date:</span>
-          <span class="ml-2">{{
-            new Date(record.created_at || Date.now()).toLocaleDateString()
-          }}</span>
+    <!-- Primary Overview Card -->
+    <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-3.5">
+      <!-- Lesion Image Thumbnail (if available) -->
+      <div
+        v-if="record.image_path"
+        class="group relative shrink-0"
+      >
+        <NuxtImg
+          :src="getStorageUrl(record.image_path)"
+          class="h-20 w-20 cursor-pointer rounded-xl border border-gray-200/80 object-cover shadow-2xs transition-transform group-hover:scale-105"
+          alt="Lesion Scan"
+          @click="isImageExpanded = true"
+        />
+        <div
+          class="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-black/30 opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <Icon
+            name="solar:magnifer-zoom-in-bold"
+            class="text-lg text-white"
+          />
+        </div>
+      </div>
+
+      <div class="min-w-0 flex-1">
+        <span class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+          {{ record.type === 'doctor_diagnosis' ? 'Diagnosed Condition' : 'Primary Detection' }}
+        </span>
+        <h3 class="truncate text-base leading-tight font-bold text-gray-900 sm:text-lg">
+          {{ record.label || record.title }}
+        </h3>
+        <div class="mt-1 flex flex-wrap items-center gap-2">
+          <span
+            v-if="record.confidence"
+            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            :style="{ backgroundColor: `${diseaseColor}15`, color: diseaseColor }"
+          >
+            <span
+              class="h-1.5 w-1.5 rounded-full"
+              :style="{ backgroundColor: diseaseColor }"
+            ></span>
+            {{ Math.round(record.confidence * 100) }}% Confidence
+          </span>
+          <span class="text-[11px] text-gray-500">
+            {{ formatDate(record.created_at) }}
+          </span>
+          <span
+            v-if="record.patient"
+            class="text-[11px] text-gray-400"
+          >
+            • Patient: {{ record.patient.first_name }} {{ record.patient.last_name }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Probability Distribution (if AI scan with probabilities) -->
+    <div
+      v-if="probabilityList.length > 0 && record.type !== 'doctor_diagnosis'"
+      class="rounded-2xl border border-gray-100 bg-white p-3.5 shadow-2xs"
+    >
+      <div class="mb-2 flex items-center justify-between">
+        <span class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+          AI Probability Breakdown
+        </span>
+        <span class="text-[10px] text-gray-400">
+          {{ probabilityList.length }} Conditions Analyzed
+        </span>
+      </div>
+      <div class="flex flex-col gap-2">
+        <div
+          v-for="item in probabilityList"
+          :key="item.label"
+          class="flex items-center gap-2.5 text-xs"
+        >
+          <span class="w-20 truncate font-medium text-gray-700">{{ item.label }}</span>
+          <div class="relative h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              :style="{ width: `${item.value}%`, backgroundColor: item.color }"
+            ></div>
+          </div>
+          <span class="w-10 text-right font-bold text-gray-900">{{ item.value }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Doctor Clinical Assessment View -->
+    <template v-if="record.type === 'doctor_diagnosis'">
+      <!-- Doctor Card -->
+      <div
+        v-if="record.doctor"
+        class="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-2xs"
+      >
+        <img
+          :src="record.doctor.avatar_path ? getStorageUrl(record.doctor.avatar_path) : ''"
+          :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((record.doctor.first_name || 'D') + '+' + (record.doctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
+          class="h-10 w-10 rounded-xl object-cover"
+          alt="Doctor photo"
+        />
+        <div class="min-w-0 flex-1 text-xs">
+          <p class="font-semibold text-gray-900">
+            Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}
+          </p>
+          <p
+            v-if="record.doctor.affiliation"
+            class="truncate text-[11px] text-gray-500"
+          >
+            {{ record.doctor.affiliation }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Prescriptions & Plan Highlight -->
+      <div
+        v-if="record.clinical_note?.prescription"
+        class="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs text-amber-950 shadow-2xs"
+      >
+        <div class="mb-1 flex items-center gap-1.5 font-semibold text-amber-900">
+          <Icon
+            name="material-symbols:prescriptions-outline-rounded"
+            size="16"
+            class="text-amber-700"
+          />
+          <span class="text-[10px] tracking-wider uppercase">Prescriptions & Plan</span>
+        </div>
+        <p class="leading-relaxed font-normal whitespace-pre-wrap">
+          {{ record.clinical_note.prescription }}
         </p>
       </div>
 
-      <!-- Clinical Note View -->
-      <template v-if="record.type === 'doctor_diagnosis' && record.clinical_note">
-        <!-- PRESCRIPTION HIGHLIGHT -->
+      <!-- Clinical Notes Summary -->
+      <div
+        v-if="record.clinical_note"
+        class="space-y-2.5 rounded-2xl border border-gray-100 bg-white p-3.5 text-xs shadow-2xs"
+      >
+        <div v-if="record.clinical_note.final_diagnosis">
+          <p class="font-semibold text-gray-800">Final Diagnosis:</p>
+          <p class="mt-0.5 leading-relaxed text-gray-600">
+            {{ record.clinical_note.final_diagnosis }}
+          </p>
+        </div>
+        <div v-if="record.clinical_note.patient_education">
+          <p class="font-semibold text-gray-800">Patient Education:</p>
+          <p class="mt-0.5 leading-relaxed text-gray-600">
+            {{ record.clinical_note.patient_education }}
+          </p>
+        </div>
         <div
-          class="mb-6 rounded-2xl border border-amber-200 bg-amber-100 p-4 shadow-sm sm:mb-8 sm:p-6"
+          v-if="record.clinical_note.follow_up_instructions || record.clinical_note.follow_up_date"
         >
-          <div class="mb-2 flex items-center gap-2 text-amber-900 sm:mb-3 sm:gap-3">
-            <Icon
-              name="material-symbols:prescriptions-outline-rounded"
-              class="text-2xl sm:text-3xl"
-            />
-            <h2 class="text-base font-bold tracking-wider uppercase sm:text-xl">
-              Prescriptions & Plan
-            </h2>
-          </div>
+          <p class="font-semibold text-gray-800">Follow-up:</p>
           <p
-            class="text-xs leading-relaxed font-medium whitespace-pre-wrap text-amber-950 sm:text-base"
+            v-if="record.clinical_note.follow_up_date"
+            class="mt-0.5 text-gray-600"
           >
-            {{ record.clinical_note.prescription || 'No specific prescriptions noted.' }}
+            Date: {{ record.clinical_note.follow_up_date }}
           </p>
-        </div>
-
-        <div class="space-y-4 text-xs sm:space-y-6 sm:text-sm">
-          <div v-if="record.clinical_note.final_diagnosis">
-            <p class="text-primary mb-1 text-sm font-bold sm:text-lg">Final Diagnosis</p>
-            <p class="whitespace-pre-wrap text-gray-700">
-              {{ record.clinical_note.final_diagnosis }}
-            </p>
-          </div>
-          <div v-if="record.clinical_note.history_of_present_illness">
-            <p class="text-primary mb-1 text-lg font-bold">History of Present Illness</p>
-            <p class="whitespace-pre-wrap text-gray-700">
-              {{ record.clinical_note.history_of_present_illness }}
-            </p>
-          </div>
-          <div v-if="record.clinical_note.physical_exam">
-            <p class="text-primary mb-1 text-lg font-bold">Physical Exam</p>
-            <p class="whitespace-pre-wrap text-gray-700">
-              {{ record.clinical_note.physical_exam }}
-            </p>
-          </div>
-          <div v-if="record.clinical_note.patient_education">
-            <p class="text-primary mb-1 text-lg font-bold">Patient Education</p>
-            <p class="whitespace-pre-wrap text-gray-700">
-              {{ record.clinical_note.patient_education }}
-            </p>
-          </div>
-          <div
-            v-if="
-              record.clinical_note.follow_up_date || record.clinical_note.follow_up_instructions
-            "
+          <p
+            v-if="record.clinical_note.follow_up_instructions"
+            class="mt-0.5 text-gray-600"
           >
-            <p class="text-primary mb-1 text-lg font-bold">Follow-up</p>
-            <p
-              class="whitespace-pre-wrap text-gray-700"
-              v-if="record.clinical_note.follow_up_date"
-            >
-              Date: {{ record.clinical_note.follow_up_date }}
-            </p>
-            <p
-              class="whitespace-pre-wrap text-gray-700"
-              v-if="record.clinical_note.follow_up_instructions"
-            >
-              {{ record.clinical_note.follow_up_instructions }}
-            </p>
-          </div>
-        </div>
-      </template>
-
-      <!-- Standard Scan View -->
-      <template v-else>
-        <div class="mb-6">
-          <p class="text-foreground text-base leading-relaxed">
-            <span class="mr-1 inline-flex items-center gap-2">
-              <span
-                class="inline-block h-3 w-3 shrink-0 rounded-full"
-                :style="{ backgroundColor: currentDisease.color }"
-              ></span>
-              <strong>{{ activeDisease }}</strong>
-            </span>
-            {{ currentDisease.description }}
+            {{ record.clinical_note.follow_up_instructions }}
           </p>
         </div>
+      </div>
+    </template>
 
-        <div class="mb-6">
-          <p class="mb-2 font-semibold">Common Symptoms</p>
-          <p class="mb-2 text-sm text-gray-600">
-            The appearance can vary significantly depending on skin tone and severity:
-          </p>
-          <ul class="list-disc space-y-1 pl-5 text-sm text-gray-700">
-            <li
-              v-for="(symptom, i) in currentDisease.symptoms"
-              :key="i"
-            >
-              {{ symptom }}
-            </li>
-          </ul>
-        </div>
+    <!-- AI Scan Knowledge Guidance -->
+    <template v-else-if="activeDiseaseInfo">
+      <div class="rounded-2xl border border-gray-100 bg-white p-3.5 text-xs shadow-2xs">
+        <span class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+          Clinical Overview
+        </span>
+        <p class="mt-1 leading-relaxed text-gray-600">
+          {{ activeDiseaseInfo.description }}
+        </p>
 
-        <div class="mb-4">
-          <p class="mb-2 font-semibold">What Causes It?</p>
-          <p class="mb-2 text-sm text-gray-600">
-            Generally believed to be a combination of factors:
-          </p>
-          <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
-            <li
-              v-for="(cause, i) in currentDisease.causes"
-              :key="i"
-            >
-              {{ cause }}
-            </li>
-          </ol>
-        </div>
-      </template>
-    </div>
-
-    <!-- Right Column -->
-    <div
-      class="bg-background/50 custom-scrollbar flex w-[450px] shrink-0 flex-col gap-6 overflow-y-auto p-8 pl-6 lg:w-[300px]"
-    >
-      <div class="flex w-full flex-col items-center">
-        <h2 class="mb-8 text-center text-2xl font-bold">Findings</h2>
-        <div class="flex w-full flex-col items-center gap-8">
-          <NuxtImg
-            v-if="record.image_path"
-            :src="getStorageUrl(record.image_path)"
-            class="border-border h-48 w-48 cursor-pointer rounded-2xl border object-cover shadow-lg transition-opacity hover:opacity-90"
-            alt="Scan Image"
-            @click="isImageExpanded = true"
-            loading="lazy"
-          />
-
-          <AppDonutChart
-            :data="chartData"
-            :size="200"
-            :stroke-width="35"
-            :show-legend="false"
-          />
-
-          <div class="flex w-full max-w-[240px] flex-col gap-3">
+        <!-- Common Symptoms Grid -->
+        <div
+          v-if="activeDiseaseInfo.symptoms && activeDiseaseInfo.symptoms.length > 0"
+          class="mt-3 border-t border-gray-100 pt-2.5"
+        >
+          <span class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase">
+            Common Symptoms
+          </span>
+          <div class="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div
-              v-for="(entry, i) in chartData"
+              v-for="(symptom, i) in activeDiseaseInfo.symptoms"
               :key="i"
-              class="hover:bg-background group hover:border-border flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-transparent p-3 transition-all"
-              @click="activeDisease = entry.label as DiseaseName"
+              class="flex items-start gap-2"
             >
-              <div class="flex items-center gap-3">
-                <span
-                  class="h-3 w-3 shrink-0 rounded-full"
-                  :style="{ backgroundColor: entry.color }"
-                ></span>
-                <span
-                  class="text-sm font-bold transition-colors"
-                  :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground/60'"
-                >
-                  {{ entry.value }}% {{ entry.label }}
-                </span>
-              </div>
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full shadow-sm transition-all"
-                :class="
-                  activeDisease === entry.label
-                    ? 'bg-primary text-white'
-                    : 'bg-background text-foreground/20 group-hover:text-foreground/40'
-                "
-              >
-                <Icon
-                  :name="
-                    activeDisease === entry.label
-                      ? 'material-symbols:check-rounded'
-                      : 'material-symbols:search-rounded'
-                  "
-                  class="text-base"
-                />
-              </div>
+              <span
+                class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+                :style="{ backgroundColor: diseaseColor }"
+              ></span>
+              <span
+                class="leading-snug text-gray-600"
+                v-html="formatListText(symptom)"
+              ></span>
             </div>
           </div>
         </div>
       </div>
+    </template>
 
-      <div class="mt-auto space-y-4">
-        <div class="flex gap-4">
-          <AppButton
-            variant="unstyled"
-            size="unstyled"
-            rounded="unstyled"
-            class="bg-foreground text-card flex flex-1 items-center justify-center gap-3 rounded-2xl py-4 text-sm font-bold transition-all hover:opacity-90 active:scale-95"
-          >
-            <Icon name="solar:printer-bold" />
-            Print Medical PDF
-          </AppButton>
-          <AppButton
-            variant="unstyled"
-            size="unstyled"
-            rounded="unstyled"
-            class="bg-primary text-foreground flex w-14 items-center justify-center rounded-2xl font-bold transition-all hover:bg-gray-200 active:scale-95"
-          >
-            <Icon
-              name="solar:share-bold"
-              class="text-lg"
-            />
-          </AppButton>
-        </div>
-        <p class="text-center font-mono text-[10px] tracking-[0.2em] text-gray-400 uppercase">
-          Record generated by DermAssist Engine
-        </p>
+    <!-- Footer Actions -->
+    <div class="flex items-center justify-between border-t border-gray-100 pt-3">
+      <div class="flex items-center gap-2">
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
+          class="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-gray-800 active:scale-95"
+        >
+          <Icon
+            name="solar:printer-bold"
+            size="14"
+          />
+          <span>Print Summary</span>
+        </AppButton>
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
+          class="inline-flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-2xs transition-all hover:bg-gray-50 active:scale-95"
+        >
+          <Icon
+            name="solar:share-bold"
+            size="14"
+          />
+          <span>Share</span>
+        </AppButton>
       </div>
+
+      <button
+        type="button"
+        @click="emit('close')"
+        class="rounded-xl px-4 py-2 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-100"
+      >
+        Close
+      </button>
     </div>
   </div>
 
+  <!-- Expanded Image Lightbox -->
   <Teleport to="body">
     <Transition
       enter-active-class="transition-opacity duration-300"
@@ -353,10 +343,8 @@
         class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 p-8"
         @click="isImageExpanded = false"
       >
-        <AppButton
-          variant="unstyled"
-          size="unstyled"
-          rounded="unstyled"
+        <button
+          type="button"
           @click="isImageExpanded = false"
           class="group absolute top-6 right-6 z-10 rounded-full bg-white/10 p-3 transition-all hover:bg-white/20 active:scale-90"
         >
@@ -364,7 +352,7 @@
             name="material-symbols:close-rounded"
             class="text-3xl text-white"
           />
-        </AppButton>
+        </button>
         <NuxtImg
           :src="getStorageUrl(record.image_path)"
           class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl"

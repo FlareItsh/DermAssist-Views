@@ -134,6 +134,7 @@
         <AppModalRecord
           v-else-if="record"
           :record="record"
+          @close="navigateTo('/Patient/Records')"
         />
       </main>
     </div>

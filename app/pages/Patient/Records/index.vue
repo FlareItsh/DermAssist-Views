@@ -99,7 +99,7 @@
 
     <!-- Tabs for Filtering -->
     <div
-      class="mb-6 grid grid-cols-3 gap-1 rounded-2xl border border-gray-200/80 bg-white/80 p-1 md:mb-8 md:inline-flex md:w-auto md:gap-1.5 md:p-1.5"
+      class="mb-6 grid grid-cols-3 gap-1 rounded-2xl border border-gray-200/80 bg-white/80 p-1 md:mb-8 md:inline-flex md:w-fit md:gap-1.5 md:p-1.5"
     >
       <button
         type="button"
@@ -201,24 +201,12 @@
           @click.self="isOpen = false"
         >
           <div
-            class="modal-container bg-card relative max-h-[90vh] w-[95vw] overflow-y-auto rounded-3xl shadow-2xl md:w-[68vw] md:overflow-hidden md:rounded-4xl"
+            class="modal-container relative max-h-[90vh] w-[95vw] overflow-y-auto rounded-3xl bg-white shadow-2xl md:w-full md:max-w-2xl md:rounded-4xl"
           >
-            <AppButton
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
-              @click="isOpen = false"
-              class="group absolute top-4 right-4 z-10 rounded-full p-2 transition-all hover:bg-gray-100 active:scale-90 md:top-6 md:right-6 md:p-3"
-            >
-              <Icon
-                name="material-symbols:close-rounded"
-                class="group-hover:text-foreground text-2xl text-gray-400 md:text-3xl"
-              />
-            </AppButton>
-
             <AppModalRecord
               v-if="selectedRecord"
               :record="selectedRecord"
+              @close="isOpen = false"
             />
           </div>
         </div>
