@@ -556,10 +556,12 @@
         </p>
       </div>
 
-      <div class="flex shrink-0 items-center justify-end gap-2.5">
+      <div
+        class="flex flex-wrap items-center gap-2 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2.5"
+      >
         <AppButton
           variant="outline"
-          class="gap-2"
+          class="!h-9 gap-1.5 !px-3 !text-xs md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           @click="showResultsModal = true"
         >
           <Icon
@@ -571,7 +573,7 @@
 
         <AppButton
           variant="outline"
-          class="gap-2"
+          class="!h-9 gap-1.5 !px-3 !text-xs md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           :loading="isSyncing"
           :disabled="isTrainingActive"
           @click="handleSyncDataset"
@@ -586,7 +588,7 @@
         <AppButton
           v-if="isTrainingActive"
           variant="destructive"
-          class="gap-2 shadow-sm"
+          class="!h-9 gap-1.5 !px-3 !text-xs shadow-sm md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
           @click="confirmCancelTraining"
         >
           <Icon

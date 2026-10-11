@@ -627,7 +627,7 @@
             <AppButton
               variant="outline"
               size="lg"
-              class="w-full justify-center gap-2 font-semibold shadow-xs"
+              class="!h-10 w-full justify-center gap-2 !px-3 !text-xs font-semibold shadow-xs md:!h-13 md:!px-6 md:!text-base"
               @click="showDatasetSlideover = true"
             >
               <Icon
@@ -641,7 +641,7 @@
               v-if="isTrainingActive"
               variant="destructive"
               size="lg"
-              class="w-full justify-center gap-2 font-bold shadow-md"
+              class="!h-10 w-full justify-center gap-2 !px-3 !text-xs font-bold shadow-md md:!h-13 md:!px-6 md:!text-base"
               :loading="isCancellingActive || isCancelling"
               :disabled="isCancellingActive || isCancelling"
               @click="confirmCancelTraining"
@@ -656,7 +656,7 @@
               v-else
               variant="solid"
               size="lg"
-              class="w-full justify-center gap-2 font-bold transition-all"
+              class="!h-auto min-h-10 w-full justify-center gap-2 !px-3 !py-2 !text-xs font-bold !whitespace-normal transition-all md:!h-13 md:!px-6 md:!py-3 md:!text-base md:!whitespace-nowrap"
               :class="[
                 hasInsufficientDataset
                   ? 'cursor-not-allowed border border-zinc-300 bg-zinc-200 text-zinc-500 shadow-none hover:bg-zinc-200 dark:border-zinc-700/80 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800'

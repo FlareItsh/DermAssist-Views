@@ -177,7 +177,9 @@
 <template>
   <div>
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-4">
+      <div
+        class="flex w-full flex-row-reverse items-start justify-between gap-4 md:w-auto md:flex-row md:items-center md:justify-start"
+      >
         <AppButton
           variant="ghost"
           size="icon"
