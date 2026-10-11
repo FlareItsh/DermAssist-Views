@@ -55,14 +55,14 @@
   <component
     :is="cardComponent"
     :to="to"
-    class="metric-card border-border bg-card text-card-foreground hover:border-primary/30 relative block h-full min-h-32 overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:min-h-40"
+    class="metric-card border-border bg-card text-card-foreground hover:border-primary/30 relative block h-full overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:min-h-40"
     :class="to ? 'cursor-pointer' : ''"
   >
     <div
       class="absolute -top-10 -right-8 h-28 w-28 rounded-full opacity-40 blur-2xl"
       :class="toneClasses.glow"
     />
-    <div class="relative flex h-full flex-col items-start justify-between p-4 md:p-5">
+    <div class="relative flex h-full flex-col items-start justify-between p-3.5 md:p-5">
       <div class="flex w-full justify-between gap-2 md:gap-4">
         <div>
           <p class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
@@ -91,7 +91,7 @@
         </div>
       </div>
 
-      <div class="mt-3 w-full md:mt-5">
+      <div class="mt-2.5 w-full md:mt-5">
         <p class="text-muted-foreground hidden text-sm font-medium sm:block">{{ detail }}</p>
         <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full sm:mt-4">
           <div
