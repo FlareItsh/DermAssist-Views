@@ -1961,7 +1961,7 @@
         >
           <!-- Partner Avatar -->
           <div
-            class="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-gray-100 bg-gray-100 shadow-2xs"
+            class="border-border/50 bg-foreground/5 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
           >
             <img
               v-if="otherPersonAvatar"
@@ -1978,19 +1978,13 @@
             />
           </div>
 
-          <!-- 3 Bouncing Dots Bubble (Messenger Style) -->
+          <!-- 3 Bouncing Dots Bubble (Same style as incoming chat, smaller size) -->
           <div
-            class="flex items-center gap-1 rounded-2xl rounded-bl-xs border border-gray-200/60 bg-gray-100 px-3.5 py-2.5 shadow-2xs dark:border-gray-700/60 dark:bg-gray-800"
+            class="bg-foreground/5 text-foreground flex items-center gap-1.5 rounded-t-2xl rounded-br-2xl px-3.5 py-2.5"
           >
-            <span
-              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
-            ></span>
-            <span
-              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
-            ></span>
-            <span
-              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
-            ></span>
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
           </div>
         </div>
       </Transition>
