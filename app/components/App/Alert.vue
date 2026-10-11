@@ -41,11 +41,11 @@
       case 'warning':
       default:
         return {
-          wrapper: 'border-amber-500/20 bg-amber-500/5',
-          iconWrapper: 'bg-amber-500/10 text-amber-500',
+          wrapper: 'border-warning-border bg-warning-subtle shadow-2xs',
+          iconWrapper: 'bg-warning/15 text-warning',
           icon: props.icon || 'lucide:alert-triangle',
-          title: 'text-amber-600 dark:text-amber-500',
-          desc: 'text-amber-700/80'
+          title: 'text-warning-text font-bold',
+          desc: 'text-warning-text/90'
         }
     }
   })

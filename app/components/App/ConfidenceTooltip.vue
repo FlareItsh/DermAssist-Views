@@ -311,7 +311,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                <span class="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span class="bg-warning h-2 w-2 shrink-0 rounded-full" />
                 Secondary Condition (e.g. Eczema)
               </span>
               <span class="font-mono font-semibold text-gray-900 dark:text-gray-100">10%</span>
@@ -329,11 +329,11 @@
 
       <!-- Friendly Medical Disclaimer Footer (Always visible) -->
       <div
-        class="mt-2.5 flex items-start gap-1.5 rounded-lg border border-amber-200/50 bg-amber-50/80 p-2 text-[10px] text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300"
+        class="border-warning-border bg-warning-subtle text-warning-text mt-2.5 flex items-start gap-1.5 rounded-lg border p-2 text-[10px]"
       >
         <Icon
           name="material-symbols:medical-services-outline-rounded"
-          class="mt-0.5 shrink-0 text-xs text-amber-600 dark:text-amber-400"
+          class="text-warning mt-0.5 shrink-0 text-xs"
         />
         <span>
           This is an AI screening estimate, not a final medical diagnosis. Always consult your

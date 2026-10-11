@@ -211,7 +211,7 @@
       c.includes('dermatitis') ||
       c.includes('rash')
     ) {
-      return 'bg-amber-50 text-amber-700 border-amber-200/80'
+      return 'bg-warning-subtle text-warning-text border-warning-border border'
     }
     if (c.includes('acne') || c.includes('fungal') || c.includes('infection')) {
       return 'bg-purple-50 text-purple-700 border-purple-200/80'
@@ -232,7 +232,7 @@
           <h2 class="text-foreground text-xl font-bold tracking-tight">Priority List</h2>
           <span
             v-if="priorityPatients.length > 0"
-            class="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 text-xs font-bold text-amber-600"
+            class="border-warning-border bg-warning-subtle text-warning-text inline-flex h-5 min-w-5 items-center justify-center rounded-full border px-2 text-xs font-bold"
           >
             {{ priorityPatients.length }}
           </span>
@@ -346,10 +346,12 @@
         v-if="filteredPriority.length === 0"
         class="text-muted-foreground flex flex-col items-center justify-center py-12 text-center"
       >
-        <div class="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/10">
+        <div
+          class="border-warning-border bg-warning-subtle mb-2 flex h-12 w-12 items-center justify-center rounded-full border"
+        >
           <Icon
             name="solar:star-bold"
-            class="text-2xl text-amber-500"
+            class="text-warning text-2xl"
           />
         </div>
         <p class="text-foreground text-sm font-semibold">No priority triage patients</p>

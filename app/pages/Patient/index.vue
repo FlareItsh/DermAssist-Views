@@ -248,7 +248,7 @@
 
         <div
           v-if="isScheduledForAction"
-          class="group relative my-1 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 p-5 shadow-sm backdrop-blur-xs"
+          class="group from-warning/10 relative my-1 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r via-orange-500/10 to-red-500/10 p-5 shadow-sm backdrop-blur-xs"
         >
           <div
             class="pointer-events-none absolute -right-6 -bottom-6 h-32 w-32 rounded-full bg-orange-500/10 blur-2xl"
@@ -388,7 +388,7 @@
         <!-- Scheduled Action Indicator Banner (Mobile) -->
         <div
           v-if="isScheduledForAction"
-          class="relative my-2 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-red-500/10 p-5 shadow-sm"
+          class="from-warning/10 relative my-2 w-full overflow-hidden rounded-3xl border-2 border-orange-500/30 bg-gradient-to-r via-orange-500/10 to-red-500/10 p-5 shadow-sm"
         >
           <div class="flex items-start gap-4">
             <div

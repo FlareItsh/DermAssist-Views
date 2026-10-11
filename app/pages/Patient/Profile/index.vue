@@ -834,7 +834,7 @@
               :class="
                 isExpired
                   ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'border-warning-border bg-warning-subtle text-warning-text border'
               "
               :title="timeRemainingText"
             >
@@ -1032,7 +1032,7 @@
                               :class="
                                 isExpired
                                   ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                  : 'border-warning-border bg-warning-subtle text-warning-text border'
                               "
                             >
                               <Icon
@@ -1068,9 +1068,7 @@
                           <span
                             class="flex items-center gap-1 font-medium"
                             :class="
-                              isExpired
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : 'text-amber-600 dark:text-amber-400'
+                              isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-warning-text'
                             "
                           >
                             <Icon
@@ -1465,7 +1463,7 @@
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                         : isExpired
                           ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                          : 'border-warning-border bg-warning-subtle text-warning border'
                     "
                   >
                     <Icon
@@ -1507,7 +1505,7 @@
                   :class="
                     isExpired
                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                      : 'border-warning-border bg-warning-subtle text-warning-text border'
                   "
                 >
                   <Icon
@@ -1547,7 +1545,7 @@
                           ? 'text-emerald-500'
                           : isExpired
                             ? 'text-rose-500'
-                            : 'text-amber-500'
+                            : 'text-warning'
                       "
                       size="16"
                     />
@@ -1569,7 +1567,7 @@
                           ? 'text-emerald-600 dark:text-emerald-400'
                           : isExpired
                             ? 'text-rose-600 dark:text-rose-400'
-                            : 'text-amber-600 dark:text-amber-400'
+                            : 'text-warning-text font-bold'
                       "
                     >
                       {{ isEmailVerified ? 'Active & Protected' : timeRemainingText }}
@@ -1617,7 +1615,7 @@
                 :class="
                   isExpired
                     ? 'border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300'
-                    : 'border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                    : 'border-warning-border bg-warning-subtle text-warning-text border shadow-2xs'
                 "
               >
                 <Icon
@@ -1854,7 +1852,7 @@
                   <div
                     class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                   >
-                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                    <span class="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                     <span>Disabled</span>
                   </div>
                 </div>

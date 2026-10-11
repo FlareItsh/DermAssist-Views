@@ -431,7 +431,7 @@ export const useAppNotifications = () => {
           : `Please verify your email address to permanently activate your account. You have ${timeRemainingText} before automatic deactivation.`,
         time: isExpired ? 'Expired' : timeRemainingText,
         icon: isExpired ? 'solar:shield-cross-bold' : 'solar:shield-warning-bold-duotone',
-        color: isExpired ? 'text-rose-500' : 'text-amber-500',
+        color: isExpired ? 'text-rose-500' : 'text-warning',
         data: {
           isExpired,
           deadline: verificationDeadline.value
@@ -448,7 +448,7 @@ export const useAppNotifications = () => {
         description: `Your subscription plan (${currentSubscription.value.plan_snapshot?.name || currentSubscription.value.plan?.name || 'Plan'}) has received new features and quota updates! Upgrade or renew now to unlock the latest benefits.`,
         time: 'Update available',
         icon: 'solar:star-fall-minimalistic-bold',
-        color: 'text-amber-500',
+        color: 'text-warning',
         to: '/doctor/subscription'
       })
     }
@@ -473,7 +473,7 @@ export const useAppNotifications = () => {
           description: `Your ${planTitle} expires on ${endsAtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. Renew your plan to ensure uninterrupted AI scan execution and recommendations.`,
           time: diffDays === 0 ? 'Today' : `In ${diffDays}d`,
           icon: 'solar:clock-circle-bold',
-          color: 'text-amber-500',
+          color: 'text-warning',
           to: '/doctor/subscription'
         })
       } else if (
@@ -520,7 +520,7 @@ export const useAppNotifications = () => {
           description: `You have reached your limit of ${maxSecretaries.value} secretary account${maxSecretaries.value > 1 ? 's' : ''}. Upgrade your subscription plan to add more staff to your practice.`,
           time: 'Limit reached',
           icon: 'solar:user-block-rounded-bold',
-          color: 'text-amber-500',
+          color: 'text-warning',
           to: '/doctor/subscription?required=secretary'
         })
       }
@@ -598,7 +598,7 @@ export const useAppNotifications = () => {
             description: `You have an appointment with ${appt.doctor} for ${appt.info} on ${appt.date} at ${appt.time}${appt.location ? ' at ' + appt.location : ''}.`,
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to:
               appt.conversation_uuid && userRole.value === 'doctor'
                 ? `/Doctor/Messages/${appt.conversation_uuid}`
@@ -665,7 +665,7 @@ export const useAppNotifications = () => {
             description: `Don't forget — your appointment with ${appt.doctor} for ${appt.info} is tomorrow at ${appt.time}${appt.location ? ' at ' + appt.location : ''}.`,
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to: appt.conversation_uuid
               ? `/Patient/Messages/${appt.conversation_uuid}`
               : '/Patient/Messages'
@@ -718,7 +718,7 @@ export const useAppNotifications = () => {
             description: `${appt.doctor} proposed a new schedule for your appointment. Please review and accept or propose another date.`,
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to: appt.conversation_uuid
               ? `/Patient/Messages/${appt.conversation_uuid}`
               : '/Patient/Messages'
@@ -737,7 +737,7 @@ export const useAppNotifications = () => {
             description: `The patient proposed a new schedule for an appointment. Please review and accept.`,
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to:
               appt.conversation_uuid && userRole.value === 'doctor'
                 ? `/Doctor/Messages/${appt.conversation_uuid}`
@@ -829,7 +829,7 @@ export const useAppNotifications = () => {
         description: `There ${adminPendingVerifications.value > 1 ? 'are' : 'is'} ${adminPendingVerifications.value} doctor registration verification request${adminPendingVerifications.value > 1 ? 's' : ''} awaiting PRC document approval.`,
         time: 'Action required',
         icon: 'heroicons:shield-exclamation-solid',
-        color: 'text-amber-500',
+        color: 'text-warning',
         to: '/admin/moderation/verification'
       })
     }

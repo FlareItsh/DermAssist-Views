@@ -49,7 +49,7 @@ export const COLOR_MAP: Record<string, string> = {
   Herpes: '#4c0516',
   Clear: '#10b981',
   None: '#6b7280',
-  Inconclusive: '#f59e0b',
+  Inconclusive: '#e05328',
   OutOfScope: '#8b5cf6'
 }
 

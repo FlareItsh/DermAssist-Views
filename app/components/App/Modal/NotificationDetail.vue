@@ -415,9 +415,11 @@
                 </div>
 
                 <!-- Explanatory Notice -->
-                <div class="space-y-2 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                <div
+                  class="border-warning-border bg-warning-subtle space-y-2 rounded-2xl border p-4"
+                >
                   <span
-                    class="block text-[11px] font-black tracking-wider text-amber-600 uppercase dark:text-amber-400"
+                    class="text-warning-text block text-[11px] font-black tracking-wider uppercase"
                   >
                     Access Notice
                   </span>
@@ -498,7 +500,7 @@
                   :class="
                     notification.data?.isExpired
                       ? 'border-rose-500/20 bg-rose-500/5'
-                      : 'border-amber-500/20 bg-amber-500/5'
+                      : 'border-warning-border bg-warning-subtle'
                   "
                 >
                   <div class="mb-3 flex items-center justify-between gap-2">
@@ -507,7 +509,7 @@
                       :class="
                         notification.data?.isExpired
                           ? 'border border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                          : 'border border-amber-500/30 bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                          : 'border-warning-border text-warning-text border bg-white shadow-2xs'
                       "
                     >
                       <Icon

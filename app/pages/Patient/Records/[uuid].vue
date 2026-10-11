@@ -249,19 +249,19 @@
           <!-- Prescriptions Card -->
           <div
             v-if="record.clinical_note.prescription"
-            class="flex flex-col gap-2 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 shadow-xs"
+            class="border-warning-border bg-warning-subtle flex flex-col gap-2 rounded-2xl border p-4 shadow-xs"
           >
-            <div class="flex items-center gap-2 text-amber-900">
+            <div class="text-warning-text flex items-center gap-2">
               <Icon
                 name="material-symbols:prescriptions-outline-rounded"
                 size="18"
-                class="text-amber-700"
+                class="text-warning"
               />
-              <h4 class="text-xs font-semibold tracking-wider text-amber-900 uppercase">
+              <h4 class="text-warning-text text-xs font-semibold tracking-wider uppercase">
                 Prescriptions & Plan
               </h4>
             </div>
-            <p class="text-xs leading-relaxed font-normal whitespace-pre-wrap text-amber-950">
+            <p class="text-warning-text text-xs leading-relaxed font-normal whitespace-pre-wrap">
               {{ record.clinical_note.prescription }}
             </p>
           </div>

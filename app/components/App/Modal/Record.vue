@@ -199,13 +199,13 @@
       <!-- Prescriptions & Plan Highlight -->
       <div
         v-if="record.clinical_note?.prescription"
-        class="rounded-2xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs text-amber-950 shadow-2xs"
+        class="border-warning-border bg-warning-subtle text-warning-text rounded-2xl border p-3.5 text-xs shadow-2xs"
       >
-        <div class="mb-1 flex items-center gap-1.5 font-semibold text-amber-900">
+        <div class="text-warning-text mb-1 flex items-center gap-1.5 font-semibold">
           <Icon
             name="material-symbols:prescriptions-outline-rounded"
             size="16"
-            class="text-amber-700"
+            class="text-warning"
           />
           <span class="text-[10px] tracking-wider uppercase">Prescriptions & Plan</span>
         </div>

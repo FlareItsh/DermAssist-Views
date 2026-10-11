@@ -1380,7 +1380,7 @@
               :class="{
                 'text-gray-500': isHealthyState || isNoneState,
                 'text-purple-600 dark:text-purple-400': isOutOfScopeState,
-                'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
+                'text-warning': isInconclusiveState && !isOutOfScopeState,
                 'text-primary': !isHealthyState && !isInconclusiveState && !isNoneState
               }"
             >
@@ -1478,11 +1478,11 @@
           <!-- Inconclusive Advisory Banner -->
           <div
             v-else-if="isInconclusiveState"
-            class="my-3 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
+            class="border-warning-border bg-warning-subtle my-3 rounded-2xl border p-3.5 shadow-2xs transition-all"
           >
             <div class="flex items-start gap-3">
               <div
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
+                class="border-warning-border text-warning flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border bg-white shadow-2xs"
               >
                 <Icon
                   name="lucide:alert-triangle"
@@ -1495,7 +1495,7 @@
                     Clinical Advisory
                   </h4>
                   <span
-                    class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+                    class="border-warning-border text-warning-text rounded-full border bg-white px-2 py-0.5 text-[10px] font-semibold shadow-2xs"
                   >
                     Inconclusive
                   </span>
