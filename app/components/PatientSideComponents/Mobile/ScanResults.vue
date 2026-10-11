@@ -346,7 +346,7 @@
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 px-4 pb-6">
+  <div class="flex flex-col gap-3.5 pb-6">
     <!-- Header Row -->
     <div class="mt-4 flex items-center justify-between">
       <h2 class="text-foreground text-xl font-bold">Analysis Results</h2>
@@ -359,157 +359,154 @@
       </button>
     </div>
 
-    <!-- Main Results Card -->
-    <div class="flex flex-col gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
-      <!-- Primary Condition Status -->
-      <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+    <!-- Primary Condition Status -->
+    <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+      <div
+        class="flex h-12 w-12 items-center justify-center rounded-full text-lg font-extrabold text-white shadow-sm"
+        :style="{ backgroundColor: activeDiseaseInfo.color || '#3b82f6' }"
+      >
+        <Icon
+          name="solar:shield-warning-bold-duotone"
+          size="24"
+        />
+      </div>
+      <div class="min-w-0 flex-1">
+        <span class="text-[10px] font-black tracking-wider text-gray-400 uppercase"
+          >Detected Condition</span
+        >
+        <h3 class="text-foreground mt-0.5 truncate text-lg leading-tight font-black">
+          {{ activeDiseaseLabel }}
+        </h3>
+        <p
+          class="mt-1 text-xs font-bold"
+          :class="{
+            'text-purple-600 dark:text-purple-400': isOutOfScopeState,
+            'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
+            'text-primary': !isInconclusiveState && !isOutOfScopeState
+          }"
+        >
+          Confidence: {{ confidencePercent }}%
+        </p>
+      </div>
+    </div>
+
+    <!-- Out-of-Scope Advisory Banner (Mobile) -->
+    <div
+      v-if="isOutOfScopeState"
+      class="space-y-2 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 text-purple-950 shadow-sm dark:text-purple-200"
+    >
+      <div class="flex items-center justify-between">
         <div
-          class="flex h-12 w-12 items-center justify-center rounded-full text-lg font-extrabold text-white shadow-sm"
-          :style="{ backgroundColor: activeDiseaseInfo.color || '#3b82f6' }"
+          class="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-300"
         >
           <Icon
-            name="solar:shield-warning-bold-duotone"
-            size="24"
+            name="lucide:stethoscope"
+            size="16"
+            class="shrink-0 text-purple-600 dark:text-purple-400"
           />
+          <span>Out-of-Scope Condition Gate</span>
         </div>
-        <div class="min-w-0 flex-1">
-          <span class="text-[10px] font-black tracking-wider text-gray-400 uppercase"
-            >Detected Condition</span
-          >
-          <h3 class="text-foreground mt-0.5 truncate text-lg leading-tight font-black">
-            {{ activeDiseaseLabel }}
-          </h3>
-          <p
-            class="mt-1 text-xs font-bold"
-            :class="{
-              'text-purple-600 dark:text-purple-400': isOutOfScopeState,
-              'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
-              'text-primary': !isInconclusiveState && !isOutOfScopeState
-            }"
-          >
-            Confidence: {{ confidencePercent }}%
-          </p>
-        </div>
+        <span
+          class="text-[10px] font-bold tracking-wider text-purple-700 uppercase dark:text-purple-400"
+          >Zero-Shot Filter</span
+        >
       </div>
-
-      <!-- Out-of-Scope Advisory Banner (Mobile) -->
-      <div
-        v-if="isOutOfScopeState"
-        class="space-y-2 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 text-purple-950 shadow-sm dark:text-purple-200"
-      >
-        <div class="flex items-center justify-between">
-          <div
-            class="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-300"
-          >
-            <Icon
-              name="lucide:stethoscope"
-              size="16"
-              class="shrink-0 text-purple-600 dark:text-purple-400"
-            />
-            <span>Out-of-Scope Condition Gate</span>
-          </div>
-          <span
-            class="text-[10px] font-bold tracking-wider text-purple-700 uppercase dark:text-purple-400"
-            >Zero-Shot Filter</span
-          >
-        </div>
-        <p class="text-xs leading-relaxed font-semibold text-purple-950 dark:text-purple-100">
-          {{
-            currentDiagnosis?.clinical_feedback ||
-            'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
-          }}
+      <p class="text-xs leading-relaxed font-semibold text-purple-950 dark:text-purple-100">
+        {{
+          currentDiagnosis?.clinical_feedback ||
+          'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+        }}
+      </p>
+      <div class="border-t border-purple-500/20 pt-1.5">
+        <p class="mb-1 text-[10px] font-semibold text-purple-800 dark:text-purple-300">
+          Examples: Psoriasis, Ringworm, Vitiligo, Rosacea, Hives
         </p>
-        <div class="border-t border-purple-500/20 pt-1.5">
-          <p class="mb-1 text-[10px] font-semibold text-purple-800 dark:text-purple-300">
-            Examples: Psoriasis, Ringworm, Vitiligo, Rosacea, Hives
-          </p>
-        </div>
       </div>
+    </div>
 
-      <!-- Inconclusive Advisory Banner (Mobile) -->
-      <div
-        v-else-if="isInconclusiveState"
-        class="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
-      >
-        <div class="flex items-start gap-3">
-          <div
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
-          >
-            <Icon
-              name="lucide:alert-triangle"
-              size="15"
-            />
-          </div>
-          <div class="flex-1 space-y-1">
-            <div class="flex items-center justify-between">
-              <h4 class="text-foreground text-xs font-semibold tracking-tight">
-                Clinical Advisory
-              </h4>
-              <span
-                class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
-              >
-                Inconclusive
-              </span>
-            </div>
-            <p class="text-muted-foreground text-xs leading-relaxed">
-              {{
-                currentDiagnosis?.clinical_feedback ||
-                'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
-              }}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Non-Skin Advisory Banner (Mobile) -->
-      <div
-        v-else-if="isNoneState"
-        class="bg-muted/40 border-border text-muted-foreground space-y-1 rounded-2xl border p-3.5"
-      >
-        <div class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+    <!-- Inconclusive Advisory Banner (Mobile) -->
+    <div
+      v-else-if="isInconclusiveState"
+      class="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
+    >
+      <div class="flex items-start gap-3">
+        <div
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
+        >
           <Icon
-            name="lucide:image-off"
-            size="14"
-            class="shrink-0"
+            name="lucide:alert-triangle"
+            size="15"
           />
-          <span>Non-Skin Image Detected</span>
         </div>
-        <p class="text-xs leading-relaxed">
-          The uploaded image does not appear to be a human skin photo. Please retake or upload a
-          clear, focused photo of the skin lesion.
-        </p>
+        <div class="flex-1 space-y-1">
+          <div class="flex items-center justify-between">
+            <h4 class="text-foreground text-xs font-semibold tracking-tight">Clinical Advisory</h4>
+            <span
+              class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+            >
+              Inconclusive
+            </span>
+          </div>
+          <p class="text-muted-foreground text-xs leading-relaxed">
+            {{
+              currentDiagnosis?.clinical_feedback ||
+              'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+            }}
+          </p>
+        </div>
       </div>
+    </div>
 
-      <!-- Probability Distribution -->
-      <div
-        v-if="chartData && chartData.length > 0"
-        class="mt-1 flex flex-col gap-2"
-      >
-        <h4 class="text-foreground text-xs font-extrabold tracking-wide text-gray-400 uppercase">
-          Diagnosis Probability
-        </h4>
-        <div class="mt-1 flex flex-col gap-3">
-          <div
-            v-for="entry in chartData"
-            :key="entry.label"
-            class="flex flex-col gap-1.5"
-          >
-            <div class="flex items-center justify-between text-xs font-bold">
-              <span class="text-foreground">{{ entry.label }}</span>
-              <span :style="{ color: entry.color }">{{ entry.value }}%</span>
-            </div>
-            <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-              <div
-                class="h-full rounded-full transition-all duration-500"
-                :style="{ width: `${entry.value}%`, backgroundColor: entry.color }"
-              ></div>
-            </div>
+    <!-- Non-Skin Advisory Banner (Mobile) -->
+    <div
+      v-else-if="isNoneState"
+      class="bg-muted/40 border-border text-muted-foreground space-y-1 rounded-2xl border p-3.5"
+    >
+      <div class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+        <Icon
+          name="lucide:image-off"
+          size="14"
+          class="shrink-0"
+        />
+        <span>Non-Skin Image Detected</span>
+      </div>
+      <p class="text-xs leading-relaxed">
+        The uploaded image does not appear to be a human skin photo. Please retake or upload a
+        clear, focused photo of the skin lesion.
+      </p>
+    </div>
+
+    <!-- Probability Distribution -->
+    <div
+      v-if="chartData && chartData.length > 0"
+      class="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
+    >
+      <h4 class="text-foreground text-xs font-extrabold tracking-wide text-gray-400 uppercase">
+        Diagnosis Probability
+      </h4>
+      <div class="mt-1 flex flex-col gap-3">
+        <div
+          v-for="entry in chartData"
+          :key="entry.label"
+          class="flex flex-col gap-1.5"
+        >
+          <div class="flex items-center justify-between text-xs font-bold">
+            <span class="text-foreground">{{ entry.label }}</span>
+            <span :style="{ color: entry.color }">{{ entry.value }}%</span>
+          </div>
+          <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              :style="{ width: `${entry.value}%`, backgroundColor: entry.color }"
+            ></div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Clinical Understanding Description -->
-      <div class="mt-2 border-t border-gray-100 pt-4">
+    <!-- Clinical Understanding & Insights -->
+    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+      <div>
         <h4
           class="text-foreground mb-2 text-xs font-extrabold tracking-wide text-gray-400 uppercase"
         >
@@ -583,240 +580,240 @@
           </li>
         </ul>
       </div>
+    </div>
 
-      <!-- Recommended Doctor Section -->
-      <div class="mt-4 border-t border-gray-100 pt-4">
-        <h3 class="mb-4 text-lg font-bold text-gray-900">
-          {{
-            isDoctorRegistered
-              ? 'Your Attending Doctor'
-              : hasActiveAppointment
-                ? 'Your Preferred Doctor'
-                : 'Nearest Specialist'
-          }}
-        </h3>
+    <!-- Recommended Doctor Section -->
+    <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+      <h3 class="mb-3 text-base font-bold text-gray-900">
+        {{
+          isDoctorRegistered
+            ? 'Your Attending Doctor'
+            : hasActiveAppointment
+              ? 'Your Preferred Doctor'
+              : 'Nearest Specialist'
+        }}
+      </h3>
 
-        <div
-          v-if="isDoctorLoading"
-          class="flex animate-pulse gap-4"
+      <div
+        v-if="isDoctorLoading"
+        class="flex animate-pulse gap-4"
+      >
+        <div class="h-24 w-20 shrink-0 rounded-2xl bg-gray-100"></div>
+        <div class="flex flex-1 flex-col gap-2 pt-1">
+          <div class="h-5 w-3/4 rounded bg-gray-100"></div>
+          <div class="h-3 w-1/2 rounded bg-gray-100"></div>
+          <div class="mt-2 h-8 w-full rounded bg-gray-100"></div>
+        </div>
+      </div>
+
+      <div
+        v-else-if="isProfileIncomplete"
+        class="bg-primary/5 border-primary/10 rounded-2xl border p-6 text-center"
+      >
+        <Icon
+          name="material-symbols:location-on-outline"
+          class="text-primary mb-2 text-3xl"
+        />
+        <h4 class="text-base font-bold text-gray-900">Set Your Location</h4>
+        <p class="mt-1 mb-4 text-xs text-gray-500">
+          Complete your profile to find specialists near you.
+        </p>
+        <button
+          @click="navigateTo('/Patient/profile')"
+          class="bg-primary w-full rounded-xl px-6 py-2.5 text-xs font-bold text-white shadow-md"
         >
-          <div class="h-24 w-20 shrink-0 rounded-2xl bg-gray-100"></div>
-          <div class="flex flex-1 flex-col gap-2 pt-1">
-            <div class="h-5 w-3/4 rounded bg-gray-100"></div>
-            <div class="h-3 w-1/2 rounded bg-gray-100"></div>
-            <div class="mt-2 h-8 w-full rounded bg-gray-100"></div>
+          Complete Profile
+        </button>
+      </div>
+
+      <div
+        v-else-if="!nearestDoctor"
+        class="py-6 text-center text-gray-400"
+      >
+        <Icon
+          name="material-symbols:person-search-outline"
+          class="mb-2 text-4xl opacity-20"
+        />
+        <p class="text-sm font-medium">No verified doctors found nearby.</p>
+      </div>
+
+      <div
+        v-else
+        class="flex flex-col gap-4"
+      >
+        <!-- Availability Status -->
+        <div
+          v-if="isCheckingAvailability"
+          class="h-8 w-full animate-pulse rounded-lg bg-gray-100"
+        ></div>
+        <div v-else-if="availabilityStatus">
+          <div
+            v-if="availabilityStatus.is_available"
+            class="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-green-600"
+          >
+            <span class="relative flex h-2 w-2">
+              <span
+                class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
+              ></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
+            </span>
+            <p class="text-[10px] font-bold tracking-wider uppercase">Available Now</p>
+          </div>
+          <div
+            v-else
+            class="flex flex-col gap-1 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-amber-900"
+          >
+            <div class="flex items-center gap-2 text-amber-800">
+              <Icon
+                name="material-symbols:info-outline-rounded"
+                class="shrink-0 text-base text-amber-600"
+              />
+              <p class="text-[10px] font-bold tracking-wider uppercase">Doctor Away Today</p>
+            </div>
+            <p
+              v-if="availabilityStatus.next_available"
+              class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+            >
+              Dr. {{ nearestDoctor.last_name }} is currently away. Next available on
+              <strong>{{ availabilityStatus.next_available.formatted }}</strong
+              >. You can still send your findings now for review upon return.
+            </p>
+            <p
+              v-else
+              class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+            >
+              Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your findings
+              now for review as soon as possible.
+            </p>
           </div>
         </div>
 
+        <!-- Doctor Info -->
+        <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+          <div class="relative shrink-0">
+            <img
+              :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
+              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
+              class="h-20 w-16 rounded-xl object-cover"
+              alt="Doctor photo"
+            />
+            <div
+              v-if="doctorDistance && doctorDistance > 50"
+              class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[8px] font-black text-white shadow-md"
+            >
+              FAR
+            </div>
+          </div>
+
+          <div class="flex flex-1 flex-col justify-center">
+            <p class="truncate text-lg font-black text-gray-900">
+              Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
+            </p>
+            <div class="text-primary mt-0.5 flex items-center gap-1 text-xs font-bold">
+              <Icon
+                name="material-symbols:verified-outline-rounded"
+                size="14"
+              />
+              <span>Verified</span>
+            </div>
+            <p
+              v-if="nearestDoctor.affiliation"
+              class="mt-1 truncate text-[10px] text-gray-500"
+            >
+              {{ nearestDoctor.affiliation }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Alternative Doctor -->
         <div
-          v-else-if="isProfileIncomplete"
-          class="bg-primary/5 border-primary/10 rounded-2xl border p-6 text-center"
+          v-if="
+            !isDoctorRegistered &&
+            availabilityStatus &&
+            !availabilityStatus.is_available &&
+            availabilityStatus.alternatives &&
+            availabilityStatus.alternatives.length > 0
+          "
+          class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
         >
-          <Icon
-            name="material-symbols:location-on-outline"
-            class="text-primary mb-2 text-3xl"
-          />
-          <h4 class="text-base font-bold text-gray-900">Set Your Location</h4>
-          <p class="mt-1 mb-4 text-xs text-gray-500">
-            Complete your profile to find specialists near you.
-          </p>
+          <div class="flex items-center justify-between">
+            <h4 class="flex items-center gap-1 text-xs font-bold text-gray-900">
+              <Icon
+                name="heroicons:user-group"
+                class="text-primary"
+              />
+              Alternative (Available)
+            </h4>
+          </div>
+          <div class="flex items-center gap-3">
+            <img
+              :src="
+                availabilityStatus.alternatives[0].avatar_path
+                  ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path)
+                  : ''
+              "
+              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=64'`"
+              class="h-12 w-12 shrink-0 rounded-lg object-cover"
+              alt="Alternative Doctor"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-sm font-bold text-gray-900">
+                Dr. {{ availabilityStatus.alternatives[0].first_name }}
+                {{ availabilityStatus.alternatives[0].last_name }}
+              </p>
+            </div>
+          </div>
           <button
-            @click="navigateTo('/Patient/profile')"
-            class="bg-primary w-full rounded-xl px-6 py-2.5 text-xs font-bold text-white shadow-md"
+            @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
+            class="mt-1 w-full rounded-lg bg-gray-100 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200"
           >
-            Complete Profile
+            Select Doctor
           </button>
         </div>
 
-        <div
-          v-else-if="!nearestDoctor"
-          class="py-6 text-center text-gray-400"
-        >
-          <Icon
-            name="material-symbols:person-search-outline"
-            class="mb-2 text-4xl opacity-20"
-          />
-          <p class="text-sm font-medium">No verified doctors found nearby.</p>
-        </div>
-
-        <div
-          v-else
-          class="flex flex-col gap-4"
-        >
-          <!-- Availability Status -->
-          <div
-            v-if="isCheckingAvailability"
-            class="h-8 w-full animate-pulse rounded-lg bg-gray-100"
-          ></div>
-          <div v-else-if="availabilityStatus">
-            <div
-              v-if="availabilityStatus.is_available"
-              class="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2 text-green-600"
-            >
-              <span class="relative flex h-2 w-2">
-                <span
-                  class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
-                ></span>
-                <span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
-              </span>
-              <p class="text-[10px] font-bold tracking-wider uppercase">Available Now</p>
-            </div>
-            <div
-              v-else
-              class="flex flex-col gap-1 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-amber-900"
-            >
-              <div class="flex items-center gap-2 text-amber-800">
-                <Icon
-                  name="material-symbols:info-outline-rounded"
-                  class="shrink-0 text-base text-amber-600"
-                />
-                <p class="text-[10px] font-bold tracking-wider uppercase">Doctor Away Today</p>
-              </div>
-              <p
-                v-if="availabilityStatus.next_available"
-                class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
-              >
-                Dr. {{ nearestDoctor.last_name }} is currently away. Next available on
-                <strong>{{ availabilityStatus.next_available.formatted }}</strong
-                >. You can still send your findings now for review upon return.
-              </p>
-              <p
-                v-else
-                class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
-              >
-                Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your
-                findings now for review as soon as possible.
-              </p>
-            </div>
-          </div>
-
-          <!-- Doctor Info -->
-          <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-            <div class="relative shrink-0">
-              <img
-                :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
-                :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-                class="h-20 w-16 rounded-xl object-cover"
-                alt="Doctor photo"
-              />
-              <div
-                v-if="doctorDistance && doctorDistance > 50"
-                class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[8px] font-black text-white shadow-md"
-              >
-                FAR
-              </div>
-            </div>
-
-            <div class="flex flex-1 flex-col justify-center">
-              <p class="truncate text-lg font-black text-gray-900">
-                Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
-              </p>
-              <div class="text-primary mt-0.5 flex items-center gap-1 text-xs font-bold">
-                <Icon
-                  name="material-symbols:verified-outline-rounded"
-                  size="14"
-                />
-                <span>Verified</span>
-              </div>
-              <p
-                v-if="nearestDoctor.affiliation"
-                class="mt-1 truncate text-[10px] text-gray-500"
-              >
-                {{ nearestDoctor.affiliation }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Alternative Doctor -->
-          <div
-            v-if="
-              !isDoctorRegistered &&
-              availabilityStatus &&
-              !availabilityStatus.is_available &&
-              availabilityStatus.alternatives &&
-              availabilityStatus.alternatives.length > 0
-            "
-            class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+        <!-- Actions -->
+        <div :class="isDoctorRegistered ? 'mt-2 flex' : 'mt-2 grid grid-cols-2 gap-2.5'">
+          <button
+            v-if="!isDoctorRegistered"
+            @click="navigateTo('/Patient/Scan/SelectDoctor')"
+            class="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-gray-100 bg-white px-2 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
           >
-            <div class="flex items-center justify-between">
-              <h4 class="flex items-center gap-1 text-xs font-bold text-gray-900">
-                <Icon
-                  name="heroicons:user-group"
-                  class="text-primary"
-                />
-                Alternative (Available)
-              </h4>
-            </div>
-            <div class="flex items-center gap-3">
-              <img
-                :src="
-                  availabilityStatus.alternatives[0].avatar_path
-                    ? getStorageUrl(availabilityStatus.alternatives[0].avatar_path)
-                    : ''
-                "
-                :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((availabilityStatus.alternatives[0].first_name || 'D') + '+' + (availabilityStatus.alternatives[0].last_name || 'r'))}&background=7B5EF5&color=fff&size=64'`"
-                class="h-12 w-12 shrink-0 rounded-lg object-cover"
-                alt="Alternative Doctor"
-              />
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold text-gray-900">
-                  Dr. {{ availabilityStatus.alternatives[0].first_name }}
-                  {{ availabilityStatus.alternatives[0].last_name }}
-                </p>
-              </div>
-            </div>
-            <button
-              @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
-              class="mt-1 w-full rounded-lg bg-gray-100 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200"
-            >
-              Select Doctor
-            </button>
-          </div>
-
-          <!-- Actions -->
-          <div :class="isDoctorRegistered ? 'mt-2 flex' : 'mt-2 grid grid-cols-2 gap-2.5'">
-            <button
-              v-if="!isDoctorRegistered"
-              @click="navigateTo('/Patient/Scan/SelectDoctor')"
-              class="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-gray-100 bg-white px-2 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
-            >
-              <Icon
-                name="material-symbols:person-search-outline-rounded"
-                size="15"
-                class="shrink-0"
-              />
-              <span class="truncate">Other Doctors</span>
-            </button>
-            <button
-              @click="sendDiagnosis"
-              :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
-              class="bg-primary hover:bg-primary/95 flex w-full items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Icon
-                v-if="isSending"
-                name="svg-spinners:180-ring"
-                size="15"
-                class="shrink-0"
-              />
-              <Icon
-                v-else
-                name="solar:plain-bold-duotone"
-                size="15"
-                class="shrink-0"
-              />
-              <span class="truncate">{{
-                isHealthyState || isNoneState
-                  ? 'Invalid Scan'
-                  : isSending
-                    ? 'Sending...'
-                    : hasActiveAppointment
-                      ? 'Send Findings'
-                      : isDoctorRegistered
-                        ? 'Proceed'
-                        : 'Send Message'
-              }}</span>
-            </button>
-          </div>
+            <Icon
+              name="material-symbols:person-search-outline-rounded"
+              size="15"
+              class="shrink-0"
+            />
+            <span class="truncate">Other Doctors</span>
+          </button>
+          <button
+            @click="sendDiagnosis"
+            :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
+            class="bg-primary hover:bg-primary/95 flex w-full items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon
+              v-if="isSending"
+              name="svg-spinners:180-ring"
+              size="15"
+              class="shrink-0"
+            />
+            <Icon
+              v-else
+              name="solar:plain-bold-duotone"
+              size="15"
+              class="shrink-0"
+            />
+            <span class="truncate">{{
+              isHealthyState || isNoneState
+                ? 'Invalid Scan'
+                : isSending
+                  ? 'Sending...'
+                  : hasActiveAppointment
+                    ? 'Send Findings'
+                    : isDoctorRegistered
+                      ? 'Proceed'
+                      : 'Send Message'
+            }}</span>
+          </button>
         </div>
       </div>
     </div>
