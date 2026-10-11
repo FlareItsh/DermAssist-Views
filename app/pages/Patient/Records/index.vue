@@ -47,7 +47,14 @@
     )
   })
 
+  const activeRecordState = useState<any>('active_patient_record', () => null)
+
   const handleRecordClick = (record: any) => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      activeRecordState.value = record
+      navigateTo(`/Patient/Records/${record.uuid || record.id}`)
+      return
+    }
     selectedRecord.value = record
     isOpen.value = true
   }

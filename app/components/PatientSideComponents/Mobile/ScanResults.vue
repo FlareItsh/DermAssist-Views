@@ -406,84 +406,88 @@
     <!-- Out-of-Scope Advisory Banner (Mobile) -->
     <div
       v-if="isOutOfScopeState"
-      class="space-y-2 rounded-2xl border border-purple-500/30 bg-purple-500/10 p-4 text-purple-950 shadow-sm dark:text-purple-200"
+      class="flex flex-col gap-2.5 rounded-2xl border border-purple-100 bg-white p-4 shadow-xs"
     >
       <div class="flex items-center justify-between">
-        <div
-          class="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-300"
-        >
-          <Icon
-            name="lucide:stethoscope"
-            size="16"
-            class="shrink-0 text-purple-600 dark:text-purple-400"
-          />
-          <span>Out-of-Scope Condition Gate</span>
+        <div class="flex items-center gap-2">
+          <div
+            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600"
+          >
+            <Icon
+              name="lucide:stethoscope"
+              size="14"
+            />
+          </div>
+          <span class="text-xs font-semibold text-gray-900">Out-of-Scope Condition Gate</span>
         </div>
         <span
-          class="text-[10px] font-bold tracking-wider text-purple-700 uppercase dark:text-purple-400"
-          >Zero-Shot Filter</span
+          class="rounded-full border border-purple-200/60 bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-700"
         >
+          Zero-Shot Filter
+        </span>
       </div>
-      <p class="text-xs leading-relaxed font-semibold text-purple-950 dark:text-purple-100">
+      <p class="text-xs leading-relaxed font-normal text-gray-700">
         {{
           currentDiagnosis?.clinical_feedback ||
-          'This skin condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+          'This condition appears to be outside our 3 primary focus areas (Acne, Eczema, Herpes). It may represent an unsupported skin condition (such as Psoriasis, Ringworm, or other lesion). Please consult a licensed dermatologist for comprehensive clinical evaluation.'
         }}
       </p>
-      <div class="border-t border-purple-500/20 pt-1.5">
-        <p class="mb-1 text-[10px] font-semibold text-purple-800 dark:text-purple-300">
-          Examples: Psoriasis, Ringworm, Vitiligo, Rosacea, Hives
-        </p>
+      <div
+        class="flex items-center gap-1.5 border-t border-gray-100 pt-2 text-[11px] text-gray-500"
+      >
+        <span class="font-medium text-purple-700">Examples:</span>
+        <span>Psoriasis, Ringworm, Vitiligo, Rosacea, Hives</span>
       </div>
     </div>
 
     <!-- Inconclusive Advisory Banner (Mobile) -->
     <div
       v-else-if="isInconclusiveState"
-      class="rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-3.5 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
+      class="flex flex-col gap-2.5 rounded-2xl border border-amber-100 bg-white p-4 shadow-xs"
     >
-      <div class="flex items-start gap-3">
-        <div
-          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
-        >
-          <Icon
-            name="lucide:alert-triangle"
-            size="15"
-          />
-        </div>
-        <div class="flex-1 space-y-1">
-          <div class="flex items-center justify-between">
-            <h4 class="text-foreground text-xs font-semibold tracking-tight">Clinical Advisory</h4>
-            <span
-              class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
-            >
-              Inconclusive
-            </span>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div
+            class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600"
+          >
+            <Icon
+              name="lucide:alert-triangle"
+              size="14"
+            />
           </div>
-          <p class="text-muted-foreground text-xs leading-relaxed">
-            {{
-              currentDiagnosis?.clinical_feedback ||
-              'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
-            }}
-          </p>
+          <span class="text-xs font-semibold text-gray-900">Clinical Advisory</span>
         </div>
+        <span
+          class="rounded-full border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700"
+        >
+          Inconclusive
+        </span>
       </div>
+      <p class="text-xs leading-relaxed font-normal text-gray-700">
+        {{
+          currentDiagnosis?.clinical_feedback ||
+          'This skin scan could not be matched with high certainty to our 3 priority conditions (Acne, Eczema, Herpes). Please consult a licensed dermatologist for comprehensive evaluation.'
+        }}
+      </p>
     </div>
 
     <!-- Non-Skin Advisory Banner (Mobile) -->
     <div
       v-else-if="isNoneState"
-      class="bg-muted/40 border-border text-muted-foreground space-y-1 rounded-2xl border p-3.5"
+      class="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
     >
-      <div class="text-foreground flex items-center gap-1.5 text-xs font-bold">
-        <Icon
-          name="lucide:image-off"
-          size="14"
-          class="shrink-0"
-        />
+      <div class="flex items-center gap-2 text-xs font-semibold text-gray-900">
+        <div
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600"
+        >
+          <Icon
+            name="lucide:image-off"
+            size="14"
+          />
+        </div>
         <span>Non-Skin Image Detected</span>
       </div>
-      <p class="text-xs leading-relaxed">
+      <p class="text-xs leading-relaxed font-normal text-gray-600">
         The uploaded image does not appear to be a human skin photo. Please retake or upload a
         clear, focused photo of the skin lesion.
       </p>
