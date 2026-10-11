@@ -41,14 +41,14 @@
 
         <!-- Modal Container -->
         <div
-          class="modal-container relative w-full overflow-hidden rounded-[2.5rem] bg-white shadow-2xl transition-all"
+          class="modal-container relative max-h-[92vh] w-full overflow-y-auto rounded-[2rem] bg-white shadow-2xl transition-all sm:rounded-[2.5rem]"
           :class="sizeClasses[size]"
         >
           <!-- Close Button -->
           <AppButton
             variant="ghost"
             size="icon"
-            class="absolute top-6 right-6 z-10 rounded-full hover:bg-gray-100"
+            class="absolute top-4 right-4 z-10 rounded-full hover:bg-gray-100 sm:top-6 sm:right-6"
             @click="close"
           >
             <Icon
@@ -58,20 +58,20 @@
           </AppButton>
 
           <!-- Content -->
-          <div class="p-8 sm:p-10">
+          <div class="p-6 sm:p-10">
             <div
               v-if="title || description"
-              class="mb-8 pr-10 sm:pr-12"
+              class="mb-6 pr-8 sm:mb-8 sm:pr-12"
             >
               <h3
                 v-if="title"
-                class="text-2xl font-bold text-gray-900"
+                class="text-xl font-bold text-gray-900 sm:text-2xl"
               >
                 {{ title }}
               </h3>
               <p
                 v-if="description"
-                class="mt-2 text-gray-500"
+                class="mt-1.5 text-xs text-gray-500 sm:mt-2 sm:text-base"
               >
                 {{ description }}
               </p>
