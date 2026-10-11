@@ -67,11 +67,11 @@
 </script>
 
 <template>
-  <div class="mt-6 flex min-h-screen flex-col pb-24 md:pb-0">
+  <div class="mt-4 flex min-h-screen flex-col pb-24 md:mt-6 md:pb-0">
     <!-- Mobile Search Bar (hidden on desktop) -->
-    <div class="mb-6 block md:hidden">
+    <div class="mb-4 block md:hidden">
       <div
-        class="flex items-center gap-3 rounded-2xl border border-gray-200/50 bg-gray-100 px-4 py-3"
+        class="flex items-center gap-2.5 rounded-2xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-2xs"
       >
         <Icon
           name="solar:magnifer-linear"
@@ -80,9 +80,9 @@
         />
         <input
           type="text"
-          placeholder="Search records..."
+          placeholder="Search records by condition or title..."
           v-model="searchQuery"
-          class="text-foreground flex-1 bg-transparent text-sm font-medium placeholder-gray-400 outline-none"
+          class="text-foreground flex-1 bg-transparent text-xs font-medium placeholder-gray-400 outline-none"
         />
         <button
           v-if="searchQuery"
@@ -98,33 +98,49 @@
     </div>
 
     <!-- Tabs for Filtering -->
-    <div class="mb-8 flex flex-wrap gap-2 md:gap-4">
-      <AppButton
-        variant="outline"
-        :class="activeTab === 'all' ? 'bg-primary text-white' : ''"
+    <div
+      class="mb-6 grid grid-cols-3 gap-1 rounded-2xl border border-gray-200/80 bg-white/80 p-1 md:mb-8 md:inline-flex md:w-auto md:gap-1.5 md:p-1.5"
+    >
+      <button
+        type="button"
         @click="activeTab = 'all'"
-        class="px-3 text-xs md:px-5 md:text-sm"
+        class="flex items-center justify-center rounded-xl px-2.5 py-2.5 text-center text-xs font-semibold transition-all active:scale-95 md:px-5 md:py-2 md:text-sm"
+        :class="
+          activeTab === 'all'
+            ? 'bg-primary text-white shadow-xs'
+            : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'
+        "
       >
-        All Records
-      </AppButton>
-      <AppButton
-        variant="outline"
-        :class="activeTab === 'scan' ? 'bg-primary text-white' : ''"
-        @click="activeTab = 'scan'"
-        class="px-3 text-xs md:px-5 md:text-sm"
-      >
-        Self-Assessment Scans
-      </AppButton>
-      <AppButton
-        variant="outline"
-        :class="activeTab === 'doctor_diagnosis' ? 'bg-primary text-white' : ''"
-        @click="activeTab = 'doctor_diagnosis'"
-        class="px-3 text-xs md:px-5 md:text-sm"
-      >
-        Doctor's Diagnoses
-      </AppButton>
-    </div>
+        <span>All Records</span>
+      </button>
 
+      <button
+        type="button"
+        @click="activeTab = 'scan'"
+        class="flex items-center justify-center rounded-xl px-2.5 py-2.5 text-center text-xs font-semibold transition-all active:scale-95 md:px-5 md:py-2 md:text-sm"
+        :class="
+          activeTab === 'scan'
+            ? 'bg-primary text-white shadow-xs'
+            : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'
+        "
+      >
+        <span>Self-Scans</span>
+      </button>
+
+      <button
+        type="button"
+        @click="activeTab = 'doctor_diagnosis'"
+        class="flex items-center justify-center rounded-xl px-2.5 py-2.5 text-center text-xs font-semibold transition-all active:scale-95 md:px-5 md:py-2 md:text-sm"
+        :class="
+          activeTab === 'doctor_diagnosis'
+            ? 'bg-primary text-white shadow-xs'
+            : 'text-gray-600 hover:bg-white/60 hover:text-gray-900'
+        "
+      >
+        <span class="sm:hidden">Doctor Notes</span>
+        <span class="hidden sm:inline">Doctor Diagnoses</span>
+      </button>
+    </div>
     <div
       v-if="isLoading"
       class="flex items-center justify-center py-20"
