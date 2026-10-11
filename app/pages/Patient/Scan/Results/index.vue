@@ -11,12 +11,13 @@
   const userName = useCookie('user_name')
 
   definePageMeta({
+    ssr: false,
     layout: 'dashboard-sidebar-layout'
   })
 
-  // Redirect to scanner if no diagnosis is present
+  // Redirect to scanner if no diagnosis is present or if scan is healthy/non-skin
   onMounted(() => {
-    if (!currentDiagnosis.value || !isScanned.value) {
+    if (!currentDiagnosis.value || !isScanned.value || isHealthyState.value || isNoneState.value) {
       navigateTo('/Patient/Scan')
     }
   })
@@ -77,30 +78,46 @@
 
       <!-- Main Content -->
       <main class="min-h-0 flex-1">
-        <AppModalDiagnosisFindingsDetailed
-          v-if="currentDiagnosis"
-          role="patient"
-          :condition-name="
-            isNoneState
-              ? 'None'
-              : isOutOfScopeState
-                ? 'OutOfScope'
-                : isInconclusiveState
-                  ? 'Inconclusive'
-                  : isHealthyState
-                    ? 'Clear'
-                    : currentDiagnosis?.label
-          "
-          :patient-name="userName"
-          :diagnosis-data="chartData"
-          :diagnosis-uuid="currentDiagnosis?.uuid"
-        />
+        <ClientOnly>
+          <AppModalDiagnosisFindingsDetailed
+            v-if="currentDiagnosis"
+            role="patient"
+            :condition-name="
+              isNoneState
+                ? 'None'
+                : isOutOfScopeState
+                  ? 'OutOfScope'
+                  : isInconclusiveState
+                    ? 'Inconclusive'
+                    : isHealthyState
+                      ? 'Clear'
+                      : currentDiagnosis?.label
+            "
+            :patient-name="userName"
+            :diagnosis-data="chartData"
+            :diagnosis-uuid="currentDiagnosis?.uuid"
+          />
+          <template #fallback>
+            <div class="flex h-full w-full items-center justify-center p-8">
+              <div class="flex flex-col items-center gap-3">
+                <div
+                  class="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+                ></div>
+                <span class="text-xs font-semibold text-gray-500"
+                  >Loading Clinical Assessment...</span
+                >
+              </div>
+            </div>
+          </template>
+        </ClientOnly>
       </main>
     </div>
 
     <!-- Mobile Layout -->
-    <div class="mobile-only -mx-5 min-h-screen bg-gray-50 px-5">
-      <PatientSideComponentsMobileScanResults />
+    <div class="mobile-only -mx-5 bg-gray-50 px-5">
+      <ClientOnly>
+        <PatientSideComponentsMobileScanResults />
+      </ClientOnly>
     </div>
   </div>
 </template>

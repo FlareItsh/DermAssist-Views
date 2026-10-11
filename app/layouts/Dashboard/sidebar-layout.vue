@@ -290,6 +290,9 @@
   })
 
   const isFullHeightPage = computed(() => {
+    if (/\/scan\/results/i.test(route.path)) {
+      return false
+    }
     return /^\/(patient|doctor|secretary)\/(messages|scan)/i.test(route.path)
   })
 

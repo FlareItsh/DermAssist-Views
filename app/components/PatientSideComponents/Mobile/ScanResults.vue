@@ -337,12 +337,16 @@
   }
 
   onMounted(() => {
+    if (isHealthyState.value || isNoneState.value) {
+      navigateTo('/Patient/Scan')
+      return
+    }
     fetchNearestDoctor()
   })
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 px-4 pb-20">
+  <div class="flex flex-col gap-4 px-4 pb-6">
     <!-- Header Row -->
     <div class="mt-4 flex items-center justify-between">
       <h2 class="text-foreground text-xl font-bold">Analysis Results</h2>
@@ -770,35 +774,38 @@
           </div>
 
           <!-- Actions -->
-          <div :class="isDoctorRegistered ? 'mt-2 flex' : 'mt-2 grid grid-cols-2 gap-3'">
+          <div :class="isDoctorRegistered ? 'mt-2 flex' : 'mt-2 grid grid-cols-2 gap-2.5'">
             <button
               v-if="!isDoctorRegistered"
               @click="navigateTo('/Patient/Scan/SelectDoctor')"
-              class="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-gray-100 bg-white py-3 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
+              class="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-gray-100 bg-white px-2 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
             >
               <Icon
                 name="material-symbols:person-search-outline-rounded"
-                size="16"
+                size="15"
+                class="shrink-0"
               />
-              Other Doctors
+              <span class="truncate">Other Doctors</span>
             </button>
             <button
               @click="sendDiagnosis"
-              :disabled="isSending || !nearestDoctor || isHealthyState"
-              class="bg-primary hover:bg-primary/95 flex w-full items-center justify-center gap-1.5 rounded-xl py-3 text-sm font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+              :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
+              class="bg-primary hover:bg-primary/95 flex w-full items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon
                 v-if="isSending"
                 name="svg-spinners:180-ring"
-                size="16"
+                size="15"
+                class="shrink-0"
               />
               <Icon
                 v-else
                 name="solar:plain-bold-duotone"
-                size="16"
+                size="15"
+                class="shrink-0"
               />
-              <span>{{
-                isHealthyState
+              <span class="truncate">{{
+                isHealthyState || isNoneState
                   ? 'Invalid Scan'
                   : isSending
                     ? 'Sending...'

@@ -16,6 +16,8 @@
     contributeToDataset?: boolean
     contributeToOutOfScopeDataset?: boolean
     isOutOfScope?: boolean
+    conditionName?: string
+    detectedCategory?: string | null
   }>()
 
   const emit = defineEmits<{
@@ -169,8 +171,18 @@
 
   onMounted(async () => {
     await fetchClinics()
-    if (props.skipLoad) {
+    if (props.skipLoad || props.isFinishMode) {
       loadDraftIfExists()
+      if (!note.value.final_diagnosis && props.isOutOfScope && props.detectedCategory) {
+        const cat = props.detectedCategory.toLowerCase()
+        if (cat === 'ringworm') note.value.final_diagnosis = 'Ringworm (Tinea)'
+        else if (cat === 'hives') note.value.final_diagnosis = 'Hives / Urticaria'
+        else if (cat === 'warts') note.value.final_diagnosis = 'Warts (HPV)'
+        else if (cat === 'psoriasis') note.value.final_diagnosis = 'Psoriasis'
+        else
+          note.value.final_diagnosis =
+            props.detectedCategory.charAt(0).toUpperCase() + props.detectedCategory.slice(1)
+      }
       isLoaded.value = true
       return
     }
@@ -852,9 +864,16 @@
             ></textarea>
           </div>
           <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Final Diagnosis</label
-            >
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Final Diagnosis</label
+              >
+              <span
+                v-if="props.isOutOfScope"
+                class="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700 uppercase"
+                >Other Condition (Not in Main 3)</span
+              >
+            </div>
             <input
               type="text"
               v-model="note.final_diagnosis"
