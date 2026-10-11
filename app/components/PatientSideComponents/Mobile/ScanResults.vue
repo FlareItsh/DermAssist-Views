@@ -770,52 +770,52 @@
             Select Doctor
           </button>
         </div>
-
-        <!-- Actions -->
-        <div :class="isDoctorRegistered ? 'mt-2 flex' : 'mt-2 grid grid-cols-2 gap-2.5'">
-          <button
-            v-if="!isDoctorRegistered"
-            @click="navigateTo('/Patient/Scan/SelectDoctor')"
-            class="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-gray-100 bg-white px-2 py-2.5 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
-          >
-            <Icon
-              name="material-symbols:person-search-outline-rounded"
-              size="15"
-              class="shrink-0"
-            />
-            <span class="truncate">Other Doctors</span>
-          </button>
-          <button
-            @click="sendDiagnosis"
-            :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
-            class="bg-primary hover:bg-primary/95 flex w-full items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <Icon
-              v-if="isSending"
-              name="svg-spinners:180-ring"
-              size="15"
-              class="shrink-0"
-            />
-            <Icon
-              v-else
-              name="solar:plain-bold-duotone"
-              size="15"
-              class="shrink-0"
-            />
-            <span class="truncate">{{
-              isHealthyState || isNoneState
-                ? 'Invalid Scan'
-                : isSending
-                  ? 'Sending...'
-                  : hasActiveAppointment
-                    ? 'Send Findings'
-                    : isDoctorRegistered
-                      ? 'Proceed'
-                      : 'Send Message'
-            }}</span>
-          </button>
-        </div>
       </div>
+    </div>
+
+    <!-- Actions -->
+    <div :class="isDoctorRegistered ? 'mt-1 flex' : 'mt-1 grid grid-cols-2 gap-2.5'">
+      <button
+        v-if="!isDoctorRegistered"
+        @click="navigateTo('/Patient/Scan/SelectDoctor')"
+        class="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-2 text-xs font-bold text-gray-700 shadow-xs transition-all hover:bg-gray-50 active:scale-95"
+      >
+        <Icon
+          name="material-symbols:person-search-outline-rounded"
+          size="16"
+          class="shrink-0"
+        />
+        <span class="truncate">Other Doctors</span>
+      </button>
+      <button
+        @click="sendDiagnosis"
+        :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
+        class="bg-primary hover:bg-primary/95 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Icon
+          v-if="isSending"
+          name="svg-spinners:180-ring"
+          size="16"
+          class="shrink-0"
+        />
+        <Icon
+          v-else
+          name="solar:plain-bold-duotone"
+          size="16"
+          class="shrink-0"
+        />
+        <span class="truncate">{{
+          isHealthyState || isNoneState
+            ? 'Invalid Scan'
+            : isSending
+              ? 'Sending...'
+              : hasActiveAppointment
+                ? 'Send Findings'
+                : isDoctorRegistered
+                  ? 'Proceed'
+                  : 'Send Message'
+        }}</span>
+      </button>
     </div>
   </div>
 </template>

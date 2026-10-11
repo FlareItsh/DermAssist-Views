@@ -114,7 +114,7 @@
     </div>
 
     <!-- Mobile Layout -->
-    <div class="mobile-only -mx-5 bg-gray-50 px-3">
+    <div class="mobile-only -mx-5 px-3">
       <ClientOnly>
         <PatientSideComponentsMobileScanResults />
       </ClientOnly>
