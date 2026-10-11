@@ -7,6 +7,7 @@
   const route = useRoute()
   const { searchQuery } = useSearch()
   const { getStorageUrl } = useStorage()
+  const { unreadNotifications } = useAppNotifications()
 
   const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
     key: `userProfile-${useCookie('user_uuid').value}`
@@ -138,64 +139,90 @@
       </div>
 
       <div class="relative z-20 flex items-center justify-between">
-        <NuxtImg
-          src="/DA_Logo.png"
-          class="h-12 brightness-0 invert"
-          alt="DermAssist"
-        />
-        <div class="relative">
-          <button
-            @click="isDropdownOpen = !isDropdownOpen"
-            class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none"
+        <NuxtLink
+          to="/patient"
+          class="flex items-center"
+        >
+          <NuxtImg
+            src="/DA_Logo.png"
+            class="h-12 brightness-0 invert"
+            alt="DermAssist"
+          />
+        </NuxtLink>
+
+        <div class="flex items-center gap-2.5">
+          <!-- Notification Bell -->
+          <NuxtLink
+            to="/patient/notifications"
+            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none"
+            title="Notifications"
           >
-            <NuxtImg
-              v-if="user?.avatar_path"
-              :src="getStorageUrl(user.avatar_path)"
-              class="h-full w-full object-cover"
+            <Icon
+              name="solar:bell-bold"
+              class="text-xl"
             />
             <span
-              v-else
-              class="text-sm font-bold text-white"
-              >{{ firstName.charAt(0).toUpperCase() }}</span
+              v-if="unreadNotifications.length > 0"
+              class="bg-destructive absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white"
             >
-          </button>
+              {{ unreadNotifications.length > 9 ? '9+' : unreadNotifications.length }}
+            </span>
+          </NuxtLink>
 
-          <!-- Click outside overlay -->
-          <div
-            v-if="isDropdownOpen"
-            class="fixed inset-0 z-40 bg-transparent"
-            @click="isDropdownOpen = false"
-          ></div>
-
-          <!-- Dropdown Menu -->
-          <div
-            v-if="isDropdownOpen"
-            class="bg-card border-border absolute right-0 z-50 mt-2 w-48 origin-top-right transform rounded-2xl border py-1 shadow-xl transition-all"
-          >
-            <NuxtLink
-              to="/patient/profile"
-              @click="isDropdownOpen = false"
-              class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
-            >
-              <Icon
-                name="solar:user-bold-duotone"
-                class="text-primary shrink-0"
-                size="16"
-              />
-              <span>Profile Settings</span>
-            </NuxtLink>
-
+          <div class="relative">
             <button
-              @click="triggerLogout"
-              class="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors"
+              @click="isDropdownOpen = !isDropdownOpen"
+              class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none"
             >
-              <Icon
-                name="solar:logout-bold-duotone"
-                class="text-destructive shrink-0"
-                size="16"
+              <NuxtImg
+                v-if="user?.avatar_path"
+                :src="getStorageUrl(user.avatar_path)"
+                class="h-full w-full object-cover"
               />
-              <span>Log Out</span>
+              <span
+                v-else
+                class="text-sm font-bold text-white"
+                >{{ firstName.charAt(0).toUpperCase() }}</span
+              >
             </button>
+
+            <!-- Click outside overlay -->
+            <div
+              v-if="isDropdownOpen"
+              class="fixed inset-0 z-40 bg-transparent"
+              @click="isDropdownOpen = false"
+            ></div>
+
+            <!-- Dropdown Menu -->
+            <div
+              v-if="isDropdownOpen"
+              class="bg-card border-border absolute right-0 z-50 mt-2 w-48 origin-top-right transform rounded-2xl border py-1 shadow-xl transition-all"
+            >
+              <NuxtLink
+                to="/patient/profile"
+                @click="isDropdownOpen = false"
+                class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
+              >
+                <Icon
+                  name="solar:user-bold-duotone"
+                  class="text-primary shrink-0"
+                  size="16"
+                />
+                <span>Profile Settings</span>
+              </NuxtLink>
+
+              <button
+                @click="triggerLogout"
+                class="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors"
+              >
+                <Icon
+                  name="solar:logout-bold-duotone"
+                  class="text-destructive shrink-0"
+                  size="16"
+                />
+                <span>Log Out</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

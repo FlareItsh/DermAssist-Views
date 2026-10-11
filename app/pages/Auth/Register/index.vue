@@ -438,28 +438,41 @@
         })
         verificationDeadlineCookie.value = userData?.verification_deadline || null
 
+        if (userData?.account_status === 'pending_verification') {
+          toast.info(
+            'Account created! Please check your email to verify your account within 48 hours.'
+          )
+        } else {
+          toast.success('Registration successful!')
+        }
+
         // Redirect based on role
         await navigateTo(`/${baseRole}`)
       }
     } catch (err: any) {
       console.error('Registration Error:', err)
 
-      if (err.response?.status === 422) {
-        const validationErrors = err.response._data.errors
+      if (err.status === 422 || err.statusCode === 422 || err.response?.status === 422) {
+        const validationErrors = err.data?.errors || err.response?._data?.errors || {}
         // Map backend snake_case errors to frontend camelCase keys
         Object.keys(validationErrors).forEach(key => {
-          if (key === 'first_name') errors.firstName = validationErrors[key][0]
-          else if (key === 'middle_name') errors.middleName = validationErrors[key][0]
-          else if (key === 'last_name') errors.lastName = validationErrors[key][0]
-          else if (key === 'firstName') errors.firstName = validationErrors[key][0]
-          else if (key === 'middleName') errors.middleName = validationErrors[key][0]
-          else if (key === 'lastName') errors.lastName = validationErrors[key][0]
+          if (key === 'first_name' || key === 'firstName')
+            errors.firstName = validationErrors[key][0]
+          else if (key === 'middle_name' || key === 'middleName')
+            errors.middleName = validationErrors[key][0]
+          else if (key === 'last_name' || key === 'lastName')
+            errors.lastName = validationErrors[key][0]
           else if (key === 'password_confirmation')
             errors.password_confirmation = validationErrors[key][0]
+          else if (key === 'email') errors.email = validationErrors[key][0]
           else if (key in errors) (errors as any)[key] = validationErrors[key][0]
         })
+        if (err.data?.message && !Object.keys(validationErrors).length) {
+          errors.general = err.data.message
+        }
       } else {
-        errors.general = err.data?.message || 'Registration failed. Please try again.'
+        errors.general =
+          err.data?.message || err.message || 'Registration failed. Please try again.'
       }
     } finally {
       isLoading.value = false

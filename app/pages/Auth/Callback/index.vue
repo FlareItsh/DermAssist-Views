@@ -23,14 +23,31 @@
       return
     }
 
-    const token = route.query.token as string
-    if (!token) {
-      errorMessage.value = 'No authentication token provided.'
-      toast.error('Authentication token missing.')
+    const code = route.query.code as string
+    let token = route.query.token as string
+    let userData: any = null
+
+    if (!code && !token) {
+      errorMessage.value = 'No authentication code or token provided.'
+      toast.error('Authentication credentials missing.')
       return
     }
 
     try {
+      if (code) {
+        // Exchange one-time authorization code securely for Sanctum token
+        const exchangeRes: any = await $api('/auth/google/exchange', {
+          method: 'POST',
+          body: { code }
+        })
+        token = exchangeRes?.token
+        userData = exchangeRes?.user
+      }
+
+      if (!token) {
+        throw new Error('Failed to obtain authentication token.')
+      }
+
       // Store Sanctum token cookie
       const tokenCookie = useCookie('auth_token', {
         maxAge: 60 * 60 * 24 * 7,
@@ -38,11 +55,9 @@
       })
       tokenCookie.value = token
 
-      let userData: any = null
-
-      // Check if user payload was passed directly in redirect query
+      // Check if user payload was passed directly in redirect query (for legacy fallback)
       const encodedUser = route.query.user as string
-      if (encodedUser) {
+      if (!userData && encodedUser) {
         try {
           const jsonStr = atob(decodeURIComponent(encodedUser))
           userData = JSON.parse(jsonStr)

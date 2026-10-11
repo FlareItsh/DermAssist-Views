@@ -44,6 +44,8 @@ export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
+  const accountStatusCookie = useCookie('account_status')
+  const verificationDeadlineCookie = useCookie('verification_deadline')
 
   const {
     publishedPatchNotes,
@@ -272,6 +274,15 @@ export const useAppNotifications = () => {
   const isDoctorProfileIncomplete = computed(() => missingDoctorFields.value.length > 0)
   const isSecretaryProfileIncomplete = computed(() => missingSecretaryFields.value.length > 0)
 
+  const isAccountPendingVerification = computed(() => {
+    const status = userProfile.value?.account_status || accountStatusCookie.value
+    return status === 'pending_verification'
+  })
+
+  const verificationDeadline = computed(() => {
+    return userProfile.value?.verification_deadline || verificationDeadlineCookie.value || null
+  })
+
   const profileRoute = computed(() => {
     if (userRole.value === 'doctor') return '/doctor/profile'
     if (userRole.value === 'patient') return '/patient/profile'
@@ -391,6 +402,40 @@ export const useAppNotifications = () => {
         icon: 'solar:user-id-linear',
         color: 'text-red-500',
         to: profileRoute.value
+      })
+    }
+
+    // Account Email Verification Notification (48h Window or Expired)
+    if (isAccountPendingVerification.value) {
+      let isExpired = false
+      let timeRemainingText = '48 hours'
+
+      if (verificationDeadline.value) {
+        const diff = new Date(verificationDeadline.value).getTime() - Date.now()
+        if (diff <= 0) {
+          isExpired = true
+          timeRemainingText = 'Expired'
+        } else {
+          const hours = Math.floor(diff / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          timeRemainingText = hours > 0 ? `${hours}h ${minutes}m left` : `${minutes}m left`
+        }
+      }
+
+      list.unshift({
+        id: 'account-pending-verification',
+        type: 'verification',
+        title: isExpired ? 'Email Verification Expired' : 'Verify Your Email Address',
+        description: isExpired
+          ? 'Your 48-hour verification window has expired. Resend verification to keep your account active.'
+          : `Please verify your email address to permanently activate your account. You have ${timeRemainingText} before automatic deactivation.`,
+        time: isExpired ? 'Expired' : timeRemainingText,
+        icon: isExpired ? 'solar:shield-cross-bold' : 'solar:shield-warning-bold-duotone',
+        color: isExpired ? 'text-rose-500' : 'text-amber-500',
+        data: {
+          isExpired,
+          deadline: verificationDeadline.value
+        }
       })
     }
 
@@ -839,7 +884,8 @@ export const useAppNotifications = () => {
       if (
         n.id === 'profile-incomplete-patient' ||
         n.id === 'profile-incomplete-doctor' ||
-        n.id === 'profile-incomplete-secretary'
+        n.id === 'profile-incomplete-secretary' ||
+        n.id === 'account-pending-verification'
       )
         return true
       return !arr.includes(n.id)
@@ -852,7 +898,8 @@ export const useAppNotifications = () => {
       if (
         n.id === 'profile-incomplete-patient' ||
         n.id === 'profile-incomplete-doctor' ||
-        n.id === 'profile-incomplete-secretary'
+        n.id === 'profile-incomplete-secretary' ||
+        n.id === 'account-pending-verification'
       )
         return true
       return !read.includes(n.id)
@@ -887,6 +934,8 @@ export const useAppNotifications = () => {
     acknowledgeRevocation,
     doctorSecretaries,
     patientRecentRecords,
-    pollAllNotifications
+    pollAllNotifications,
+    isAccountPendingVerification,
+    verificationDeadline
   }
 }
