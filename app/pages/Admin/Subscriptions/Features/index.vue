@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <AdminSideComponentsSubscriptionNavHeader
       title="System Features Manager"
-      description="Configure normalized plan feature flags, rename display labels, and manage system access privileges."
+      description="Configure normalized plan feature flags,<br />rename display labels, and manage system access privileges."
       icon="lucide:sparkles"
       current-tab="features"
     >
@@ -11,6 +11,7 @@
           @click="openCreateModal"
           variant="solid"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
         >
           <Icon
             name="lucide:plus"

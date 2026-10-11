@@ -7,7 +7,7 @@
       current-tab="payments"
     >
       <template #actions>
-        <!-- Status Filter Tabs -->
+        <!-- Status Filter Tabs (Stacked under nav filter on the right side) -->
         <div
           class="scrollbar-none flex max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1"
         >
@@ -18,7 +18,7 @@
             class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
             :class="
               activeTab === tab.value
-                ? 'bg-white text-gray-950 shadow-sm'
+                ? 'bg-primary shadow-primary/25 text-white shadow-sm'
                 : 'text-gray-500 hover:text-gray-900'
             "
           >

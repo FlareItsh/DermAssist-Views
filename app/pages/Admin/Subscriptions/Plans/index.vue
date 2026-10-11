@@ -11,6 +11,7 @@
           @click="openCreateModal"
           variant="solid"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
         >
           <Icon
             name="lucide:plus"
