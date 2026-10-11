@@ -261,233 +261,236 @@
     </section>
 
     <!-- Create / Edit Plan Dialog Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
+        v-if="showModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       >
-        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-          <h3 class="text-lg font-black text-gray-950">
-            {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
-          </h3>
-          <button
-            @click="showModal = false"
-            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Icon
-              name="lucide:x"
-              class="text-lg"
-            />
-          </button>
-        </div>
-
-        <form
-          @submit.prevent="savePlan"
-          class="space-y-4"
+        <div
+          class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
         >
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Plan Name</label
-            >
-            <input
-              v-model="form.name"
-              type="text"
-              required
-              placeholder="e.g. Solo Practitioner"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Subscription Tier Type</label
-            >
-            <select
-              v-model="form.tier_type"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
-            >
-              <option value="individual">Individual (1 Doctor, 1 Clinic)</option>
-              <option value="doctor_multi_clinic">One Doctor, Multiple Clinics</option>
-              <option value="clinic_multi_doctor">One Clinic, Multiple Doctors</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Monthly Price (₱)</label
-              >
-              <input
-                v-model.number="form.price_monthly"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Annual Price (₱)</label
-              >
-              <input
-                v-model.number="form.price_annual"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Doctors (Seats)</label
-              >
-              <input
-                v-model.number="form.max_doctors"
-                type="number"
-                min="1"
-                placeholder="Empty = Unltd"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Clinics (Branches)</label
-              >
-              <input
-                v-model.number="form.max_clinics"
-                type="number"
-                min="1"
-                placeholder="Empty = Unltd"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Secretaries (Seats)</label
-              >
-              <input
-                v-model.number="form.max_secretaries"
-                type="number"
-                min="0"
-                placeholder="0 = None"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Free Trial Days</label
-              >
-              <input
-                v-model.number="form.trial_period_days"
-                type="number"
-                min="0"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Grace Period Days</label
-              >
-              <input
-                v-model.number="form.grace_period_days"
-                type="number"
-                min="0"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <!-- Custom Marketing Feature Bullet Items -->
-          <div class="space-y-1.5 border-t border-gray-100 pt-3">
-            <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Custom Feature Highlights (One per line)</label
-            >
-            <textarea
-              v-model="customFeaturesText"
-              rows="3"
-              placeholder="e.g. 24/7 Priority Support&#10;Custom Clinic Branding&#10;Dedicated Account Manager"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            ></textarea>
-          </div>
-
-          <!-- Dynamic Feature Flags Checkboxes -->
-          <div class="space-y-2 border-t border-gray-100 pt-3">
-            <div class="flex items-center justify-between">
-              <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Feature Access Flags</label
-              >
-              <NuxtLink
-                to="/admin/subscriptions/features"
-                class="text-primary flex items-center gap-1 text-[11px] font-bold hover:underline"
-              >
-                <Icon
-                  name="lucide:settings"
-                  class="text-xs"
-                />
-                <span>Manage Features</span>
-              </NuxtLink>
-            </div>
-            <div
-              v-if="isLoadingFeatures"
-              class="py-3 text-center text-xs text-gray-400"
-            >
-              Loading system features...
-            </div>
-            <div
-              v-else
-              class="space-y-2 text-xs"
-            >
-              <label
-                v-for="feature in availableFeatures"
-                :key="feature.id"
-                class="flex cursor-pointer items-center gap-2.5 font-bold text-gray-700 hover:text-gray-900"
-              >
-                <input
-                  v-model="form.features[feature.code || '']"
-                  type="checkbox"
-                  class="text-primary focus:ring-primary/20 h-4 w-4 rounded border-gray-300"
-                />
-                <div class="flex flex-col">
-                  <span>{{ feature.name }}</span>
-                  <span
-                    v-if="feature.description"
-                    class="text-[10px] font-normal text-gray-400"
-                    >{{ feature.description }}</span
-                  >
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 class="text-lg font-black text-gray-950">
+              {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
+            </h3>
             <button
-              type="button"
               @click="showModal = false"
-              class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
-            >
-              {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
+              <Icon
+                name="lucide:x"
+                class="text-lg"
+              />
             </button>
           </div>
-        </form>
+
+          <form
+            @submit.prevent="savePlan"
+            class="space-y-4"
+          >
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Plan Name</label
+              >
+              <input
+                v-model="form.name"
+                type="text"
+                required
+                placeholder="e.g. Solo Practitioner"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Subscription Tier Type</label
+              >
+              <select
+                v-model="form.tier_type"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
+              >
+                <option value="individual">Individual (1 Doctor, 1 Clinic)</option>
+                <option value="doctor_multi_clinic">One Doctor, Multiple Clinics</option>
+                <option value="clinic_multi_doctor">One Clinic, Multiple Doctors</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Monthly Price (₱)</label
+                >
+                <input
+                  v-model.number="form.price_monthly"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Annual Price (₱)</label
+                >
+                <input
+                  v-model.number="form.price_annual"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Doctors (Seats)</label
+                >
+                <input
+                  v-model.number="form.max_doctors"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Clinics (Branches)</label
+                >
+                <input
+                  v-model.number="form.max_clinics"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Secretaries (Seats)</label
+                >
+                <input
+                  v-model.number="form.max_secretaries"
+                  type="number"
+                  min="0"
+                  placeholder="0 = None"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Free Trial Days</label
+                >
+                <input
+                  v-model.number="form.trial_period_days"
+                  type="number"
+                  min="0"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Grace Period Days</label
+                >
+                <input
+                  v-model.number="form.grace_period_days"
+                  type="number"
+                  min="0"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <!-- Custom Marketing Feature Bullet Items -->
+            <div class="space-y-1.5 border-t border-gray-100 pt-3">
+              <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Custom Feature Highlights (One per line)</label
+              >
+              <textarea
+                v-model="customFeaturesText"
+                rows="3"
+                placeholder="e.g. 24/7 Priority Support&#10;Custom Clinic Branding&#10;Dedicated Account Manager"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              ></textarea>
+            </div>
+
+            <!-- Dynamic Feature Flags Checkboxes -->
+            <div class="space-y-2 border-t border-gray-100 pt-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Feature Access Flags</label
+                >
+                <NuxtLink
+                  to="/admin/subscriptions/features"
+                  class="text-primary flex items-center gap-1 text-[11px] font-bold hover:underline"
+                >
+                  <Icon
+                    name="lucide:settings"
+                    class="text-xs"
+                  />
+                  <span>Manage Features</span>
+                </NuxtLink>
+              </div>
+              <div
+                v-if="isLoadingFeatures"
+                class="py-3 text-center text-xs text-gray-400"
+              >
+                Loading system features...
+              </div>
+              <div
+                v-else
+                class="space-y-2 text-xs"
+              >
+                <label
+                  v-for="feature in availableFeatures"
+                  :key="feature.id"
+                  class="flex cursor-pointer items-center gap-2.5 font-bold text-gray-700 hover:text-gray-900"
+                >
+                  <input
+                    v-model="form.features[feature.code || '']"
+                    type="checkbox"
+                    class="text-primary focus:ring-primary/20 h-4 w-4 rounded border-gray-300"
+                  />
+                  <div class="flex flex-col">
+                    <span>{{ feature.name }}</span>
+                    <span
+                      v-if="feature.description"
+                      class="text-[10px] font-normal text-gray-400"
+                      >{{ feature.description }}</span
+                    >
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                @click="showModal = false"
+                class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isSubmitting"
+                class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+              >
+                {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
+
     <!-- Confirm Delete Modal -->
     <AdminSideComponentsConfirmModal
       :show="showDeleteModal"

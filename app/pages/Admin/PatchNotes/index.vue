@@ -499,180 +499,186 @@
     </section>
 
     <!-- Create / Edit Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="border-border/60 bg-card custom-scrollbar max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl border p-4 shadow-2xl md:p-6"
+        v-if="showModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       >
-        <div class="border-border/40 flex items-center justify-between border-b pb-3">
-          <div class="flex items-center gap-3">
-            <div
-              class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-            >
-              <Icon
-                :name="isEditing ? 'lucide:pencil' : 'solar:notes-bold-duotone'"
-                class="text-xl"
-              />
-            </div>
-            <div>
-              <h3 class="text-foreground text-lg font-semibold">
-                {{ isEditing ? 'Edit Patch Note' : 'Create & Broadcast Patch Note' }}
-              </h3>
-              <p class="text-muted-foreground text-xs">
-                Broadcast new feature releases and updates to all users.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            @click="showModal = false"
-            class="text-muted-foreground hover:bg-muted/40 hover:text-foreground cursor-pointer rounded-full p-2 transition"
-          >
-            <Icon
-              name="lucide:x"
-              class="text-lg"
-            />
-          </button>
-        </div>
-
-        <form
-          @submit.prevent="handleSave"
-          class="space-y-4"
+        <div
+          class="border-border/60 bg-card custom-scrollbar max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl border p-4 shadow-2xl md:p-6"
         >
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div>
-              <label
-                class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
-                >Version Tag</label
-              >
-              <input
-                v-model="form.version"
-                type="text"
-                placeholder="e.g. v1.4.0"
-                class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 font-mono text-xs font-medium transition outline-none focus:ring-4"
-              />
-            </div>
-
-            <div class="sm:col-span-2">
-              <label
-                class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
-                >Title / Headline *</label
-              >
-              <input
-                v-model="form.title"
-                type="text"
-                placeholder="e.g. AI Retraining & UI Polish"
-                required
-                class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 text-sm font-medium transition outline-none focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
-              >Description *</label
-            >
-            <textarea
-              v-model="form.description"
-              rows="3"
-              placeholder="Provide a comprehensive summary of the update, why it was made, and how doctors/patients can use it..."
-              required
-              class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 text-xs leading-relaxed font-normal transition outline-none focus:ring-4"
-            ></textarea>
-          </div>
-
-          <!-- Feature / Changes bullet list -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <label
-                class="text-muted-foreground block text-xs font-medium tracking-wider uppercase"
-                >Key Feature Bullets & Fixes</label
-              >
-              <button
-                type="button"
-                @click="addChangeField"
-                class="text-primary flex cursor-pointer items-center gap-1 text-xs font-medium hover:underline"
+          <div class="border-border/40 flex items-center justify-between border-b pb-3">
+            <div class="flex items-center gap-3">
+              <div
+                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
               >
                 <Icon
-                  name="lucide:plus"
-                  class="text-xs"
+                  :name="isEditing ? 'lucide:pencil' : 'solar:notes-bold-duotone'"
+                  class="text-xl"
                 />
-                Add Item
-              </button>
-            </div>
-
-            <div class="space-y-2">
-              <div
-                v-for="(change, idx) in form.changes"
-                :key="idx"
-                class="flex items-center gap-2"
-              >
-                <input
-                  v-model="form.changes[idx]"
-                  type="text"
-                  placeholder="e.g. Added option to contribute diagnosis scan to AI retraining dataset"
-                  class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 flex-1 rounded-2xl border px-3.5 py-2 text-xs font-normal transition outline-none focus:ring-4"
-                />
-                <button
-                  type="button"
-                  @click="removeChangeField(idx)"
-                  class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-xl p-2 transition"
-                >
-                  <Icon
-                    name="lucide:trash-2"
-                    class="text-sm"
-                  />
-                </button>
+              </div>
+              <div>
+                <h3 class="text-foreground text-lg font-semibold">
+                  {{ isEditing ? 'Edit Patch Note' : 'Create & Broadcast Patch Note' }}
+                </h3>
+                <p class="text-muted-foreground text-xs">
+                  Broadcast new feature releases and updates to all users.
+                </p>
               </div>
             </div>
-          </div>
-
-          <!-- Publish Checkbox -->
-          <div
-            class="border-primary/20 bg-primary/5 flex items-center gap-3 rounded-2xl border p-4"
-          >
-            <input
-              id="publish-patch-checkbox"
-              v-model="form.is_published"
-              type="checkbox"
-              class="text-primary focus:ring-primary/20 h-4 w-4 cursor-pointer rounded"
-            />
-            <label
-              for="publish-patch-checkbox"
-              class="text-foreground cursor-pointer text-xs font-normal select-none"
-            >
-              Publish immediately and alert all users in their notification bell
-            </label>
-          </div>
-
-          <!-- Actions -->
-          <div class="border-border/40 flex items-center justify-end gap-3 border-t pt-4">
-            <AppButton
-              variant="ghost"
+            <button
               type="button"
-              class="font-medium"
               @click="showModal = false"
-              :disabled="isSaving"
+              class="text-muted-foreground hover:bg-muted/40 hover:text-foreground cursor-pointer rounded-full p-2 transition"
             >
-              Cancel
-            </AppButton>
-            <AppButton
-              variant="solid"
-              type="submit"
-              class="font-medium"
-              :loading="isSaving"
-            >
-              {{
-                isEditing ? 'Save Changes' : form.is_published ? 'Publish Update' : 'Save as Draft'
-              }}
-            </AppButton>
+              <Icon
+                name="lucide:x"
+                class="text-lg"
+              />
+            </button>
           </div>
-        </form>
+
+          <form
+            @submit.prevent="handleSave"
+            class="space-y-4"
+          >
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label
+                  class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
+                  >Version Tag</label
+                >
+                <input
+                  v-model="form.version"
+                  type="text"
+                  placeholder="e.g. v1.4.0"
+                  class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 font-mono text-xs font-medium transition outline-none focus:ring-4"
+                />
+              </div>
+
+              <div class="sm:col-span-2">
+                <label
+                  class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
+                  >Title / Headline *</label
+                >
+                <input
+                  v-model="form.title"
+                  type="text"
+                  placeholder="e.g. AI Retraining & UI Polish"
+                  required
+                  class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 text-sm font-medium transition outline-none focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                class="text-muted-foreground mb-1.5 block text-xs font-medium tracking-wider uppercase"
+                >Description *</label
+              >
+              <textarea
+                v-model="form.description"
+                rows="3"
+                placeholder="Provide a comprehensive summary of the update, why it was made, and how doctors/patients can use it..."
+                required
+                class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 w-full rounded-2xl border px-3.5 py-2.5 text-xs leading-relaxed font-normal transition outline-none focus:ring-4"
+              ></textarea>
+            </div>
+
+            <!-- Feature / Changes bullet list -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label
+                  class="text-muted-foreground block text-xs font-medium tracking-wider uppercase"
+                  >Key Feature Bullets & Fixes</label
+                >
+                <button
+                  type="button"
+                  @click="addChangeField"
+                  class="text-primary flex cursor-pointer items-center gap-1 text-xs font-medium hover:underline"
+                >
+                  <Icon
+                    name="lucide:plus"
+                    class="text-xs"
+                  />
+                  Add Item
+                </button>
+              </div>
+
+              <div class="space-y-2">
+                <div
+                  v-for="(change, idx) in form.changes"
+                  :key="idx"
+                  class="flex items-center gap-2"
+                >
+                  <input
+                    v-model="form.changes[idx]"
+                    type="text"
+                    placeholder="e.g. Added option to contribute diagnosis scan to AI retraining dataset"
+                    class="border-border/60 bg-muted/20 text-foreground placeholder:text-muted-foreground focus:border-primary/40 focus:ring-primary/10 flex-1 rounded-2xl border px-3.5 py-2 text-xs font-normal transition outline-none focus:ring-4"
+                  />
+                  <button
+                    type="button"
+                    @click="removeChangeField(idx)"
+                    class="text-muted-foreground hover:bg-destructive/10 hover:text-destructive cursor-pointer rounded-xl p-2 transition"
+                  >
+                    <Icon
+                      name="lucide:trash-2"
+                      class="text-sm"
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Publish Checkbox -->
+            <div
+              class="border-primary/20 bg-primary/5 flex items-center gap-3 rounded-2xl border p-4"
+            >
+              <input
+                id="publish-patch-checkbox"
+                v-model="form.is_published"
+                type="checkbox"
+                class="text-primary focus:ring-primary/20 h-4 w-4 cursor-pointer rounded"
+              />
+              <label
+                for="publish-patch-checkbox"
+                class="text-foreground cursor-pointer text-xs font-normal select-none"
+              >
+                Publish immediately and alert all users in their notification bell
+              </label>
+            </div>
+
+            <!-- Actions -->
+            <div class="border-border/40 flex items-center justify-end gap-3 border-t pt-4">
+              <AppButton
+                variant="ghost"
+                type="button"
+                class="font-medium"
+                @click="showModal = false"
+                :disabled="isSaving"
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                variant="solid"
+                type="submit"
+                class="font-medium"
+                :loading="isSaving"
+              >
+                {{
+                  isEditing
+                    ? 'Save Changes'
+                    : form.is_published
+                      ? 'Publish Update'
+                      : 'Save as Draft'
+                }}
+              </AppButton>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Confirmation Modal for Deletion -->
     <AppModalConfirmation
