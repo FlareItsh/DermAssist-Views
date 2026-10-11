@@ -129,6 +129,7 @@
   const { getEcho } = useEcho()
   const partnerIsTyping = ref(false)
   let typingTimeout: any = null
+  let lastTypingBroadcast = 0
   let isUserNearBottom = true
   const cacheKey = computed(() => `chat_history_${props.conversationUuid}`)
 
@@ -711,6 +712,7 @@
       })
       .listenForWhisper('typing', () => {
         partnerIsTyping.value = true
+        scrollToBottom('smooth')
         if (typingTimeout) clearTimeout(typingTimeout)
         typingTimeout = setTimeout(() => {
           partnerIsTyping.value = false
@@ -728,6 +730,10 @@
 
   const broadcastTyping = () => {
     if (!props.conversationUuid || import.meta.server) return
+    const now = Date.now()
+    if (now - lastTypingBroadcast < 1500) return
+    lastTypingBroadcast = now
+
     const echo = getEcho()
     if (echo) {
       echo.private(`chat.conversation.${props.conversationUuid}`).whisper('typing', {
@@ -1938,6 +1944,55 @@
           </div>
         </div>
       </div>
+
+      <!-- Live Messenger-Style Typing Bubble -->
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-1"
+      >
+        <div
+          v-if="partnerIsTyping"
+          class="flex items-end gap-2 pt-1 pb-1.5"
+        >
+          <!-- Partner Avatar -->
+          <div
+            class="relative h-7 w-7 shrink-0 overflow-hidden rounded-full border border-gray-100 bg-gray-100 shadow-2xs"
+          >
+            <img
+              v-if="otherPersonAvatar"
+              :src="getStorageUrl(otherPersonAvatar)"
+              :alt="otherPersonName"
+              class="h-full w-full object-cover"
+              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName || 'User')}&background=7B5EF5&color=fff&size=128'`"
+            />
+            <img
+              v-else
+              :src="`https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName || 'User')}&background=7B5EF5&color=fff&size=128`"
+              :alt="otherPersonName"
+              class="h-full w-full object-cover"
+            />
+          </div>
+
+          <!-- 3 Bouncing Dots Bubble (Messenger Style) -->
+          <div
+            class="flex items-center gap-1 rounded-2xl rounded-bl-xs border border-gray-200/60 bg-gray-100 px-3.5 py-2.5 shadow-2xs dark:border-gray-700/60 dark:bg-gray-800"
+          >
+            <span
+              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
+            ></span>
+            <span
+              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
+            ></span>
+            <span
+              class="typing-dot inline-block h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-300"
+            ></span>
+          </div>
+        </div>
+      </Transition>
     </div>
 
     <!-- Input Area -->
@@ -1974,15 +2029,6 @@
             />
           </button>
         </div>
-      </div>
-
-      <!-- Live Typing Indicator -->
-      <div
-        v-if="partnerIsTyping"
-        class="text-muted-foreground mb-1 flex items-center gap-1.5 px-3 text-xs"
-      >
-        <span class="bg-primary inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
-        <span class="italic">Typing...</span>
       </div>
 
       <div class="group relative flex items-end gap-3">
@@ -2406,5 +2452,34 @@
   .modal-leave-to .modal-container {
     opacity: 0;
     transform: scale(0.95);
+  }
+
+  @keyframes messengerDotBounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+    40% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+
+  .typing-dot {
+    animation: messengerDotBounce 1.3s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  .typing-dot:nth-child(3) {
+    animation-delay: 0s;
   }
 </style>
