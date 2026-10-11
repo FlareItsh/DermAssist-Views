@@ -92,11 +92,11 @@
 
 <template>
   <div
-    class="-mx-5 flex flex-col px-3 sm:mx-0 sm:h-[calc(100vh-8rem)] sm:overflow-hidden sm:rounded-[2.5rem] sm:border sm:border-gray-100 sm:bg-white sm:px-0 sm:shadow-sm"
+    class="flex flex-col sm:h-[calc(100vh-8rem)] sm:overflow-hidden sm:rounded-[2.5rem] sm:border sm:border-gray-100 sm:bg-white sm:shadow-sm"
   >
     <!-- Header -->
     <header
-      class="flex shrink-0 items-center justify-between gap-2 px-1 py-4 sm:border-b sm:border-gray-100 sm:px-10 sm:py-6"
+      class="flex shrink-0 items-center justify-between gap-2 py-4 sm:border-b sm:border-gray-100 sm:px-10 sm:py-6"
     >
       <AppButton
         variant="unstyled"
@@ -138,7 +138,7 @@
 
       <div
         v-else
-        class="mx-auto flex max-w-5xl flex-col gap-3 sm:grid sm:grid-cols-1 sm:gap-5 md:grid-cols-2"
+        class="mx-auto flex max-w-5xl flex-col gap-3 pt-2.5 pb-6 sm:grid sm:grid-cols-1 sm:gap-5 sm:pt-3 sm:pb-0 md:grid-cols-2"
       >
         <div
           v-if="isDoctorRegistered"
@@ -162,10 +162,14 @@
         >
           <!-- Nearest Match Badge -->
           <div
-            v-if="index === 0 && doc.distance > 0"
-            class="absolute -top-2.5 left-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-gray-200/90 bg-white px-2.5 py-0.5 text-[10px] font-medium text-gray-700 shadow-2xs sm:left-6"
+            v-if="index === 0 && !isDoctorRegistered"
+            class="bg-primary absolute -top-2.5 left-4 z-10 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-white shadow-xs sm:-top-3 sm:left-6 sm:px-3 sm:py-0.5 sm:text-xs"
           >
-            <span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
+            <Icon
+              name="solar:shield-check-bold"
+              size="12"
+              class="shrink-0"
+            />
             <span>Nearest Specialist</span>
           </div>
 

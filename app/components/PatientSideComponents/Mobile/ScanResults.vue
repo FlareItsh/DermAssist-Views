@@ -348,7 +348,7 @@
 <template>
   <div class="flex flex-col gap-3.5 pb-6">
     <!-- Header Row -->
-    <div class="mt-3 flex items-center justify-between px-1">
+    <div class="mt-3 flex items-center justify-between">
       <h2 class="text-base font-semibold tracking-tight text-gray-900">Analysis Results</h2>
       <button
         @click="router.push('/Patient/Scan')"

@@ -103,34 +103,25 @@
 <template>
   <div class="bg-card flex h-[90vh] overflow-hidden rounded-2xl">
     <!-- Left Column -->
-    <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-8 pr-6">
-      <h1 class="text-foreground mb-6 text-4xl font-black">
+    <div class="custom-scrollbar flex flex-1 flex-col overflow-y-auto p-4 sm:p-8 sm:pr-6">
+      <h1 class="text-foreground mb-4 text-xl font-bold sm:mb-6 sm:text-3xl md:text-4xl">
         {{ record.type === 'doctor_diagnosis' ? 'Clinical Assessment' : activeDisease }}
       </h1>
 
-      <div class="mb-8 flex flex-col gap-1">
-        <p
-          class="text-base"
-          v-if="record.patient"
-        >
+      <div class="mb-5 flex flex-col gap-1 text-xs sm:mb-8 sm:text-base">
+        <p v-if="record.patient">
           <span class="font-bold">Patient Name:</span>
           <span class="ml-2">{{ record.patient.first_name }} {{ record.patient.last_name }}</span>
         </p>
-        <p
-          class="text-base"
-          v-else
-        >
+        <p v-else>
           <span class="font-bold">Patient Name:</span>
           <span class="ml-2">{{ userName || 'Guest User' }}</span>
         </p>
-        <p
-          class="text-base"
-          v-if="record.doctor"
-        >
+        <p v-if="record.doctor">
           <span class="font-bold">Attending Doctor:</span>
           <span class="ml-2">Dr. {{ record.doctor.first_name }} {{ record.doctor.last_name }}</span>
         </p>
-        <p class="text-base">
+        <p>
           <span class="font-bold">Date:</span>
           <span class="ml-2">{{
             new Date(record.created_at || Date.now()).toLocaleDateString()
@@ -141,22 +132,28 @@
       <!-- Clinical Note View -->
       <template v-if="record.type === 'doctor_diagnosis' && record.clinical_note">
         <!-- PRESCRIPTION HIGHLIGHT -->
-        <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-100 p-6 shadow-sm">
-          <div class="mb-3 flex items-center gap-3 text-amber-900">
+        <div
+          class="mb-6 rounded-2xl border border-amber-200 bg-amber-100 p-4 shadow-sm sm:mb-8 sm:p-6"
+        >
+          <div class="mb-2 flex items-center gap-2 text-amber-900 sm:mb-3 sm:gap-3">
             <Icon
               name="material-symbols:prescriptions-outline-rounded"
-              class="text-3xl"
+              class="text-2xl sm:text-3xl"
             />
-            <h2 class="text-xl font-bold tracking-wider uppercase">Prescriptions & Plan</h2>
+            <h2 class="text-base font-bold tracking-wider uppercase sm:text-xl">
+              Prescriptions & Plan
+            </h2>
           </div>
-          <p class="text-base leading-relaxed font-medium whitespace-pre-wrap text-amber-950">
+          <p
+            class="text-xs leading-relaxed font-medium whitespace-pre-wrap text-amber-950 sm:text-base"
+          >
             {{ record.clinical_note.prescription || 'No specific prescriptions noted.' }}
           </p>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-4 text-xs sm:space-y-6 sm:text-sm">
           <div v-if="record.clinical_note.final_diagnosis">
-            <p class="text-primary mb-1 text-lg font-bold">Final Diagnosis</p>
+            <p class="text-primary mb-1 text-sm font-bold sm:text-lg">Final Diagnosis</p>
             <p class="whitespace-pre-wrap text-gray-700">
               {{ record.clinical_note.final_diagnosis }}
             </p>
