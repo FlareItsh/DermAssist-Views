@@ -49,7 +49,9 @@
 
     <!-- Recent Subscriptions Table Section -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div
+        class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 md:px-5 md:py-4"
+      >
         <div>
           <h2 class="text-base font-black text-gray-950">Recent Subscribers</h2>
           <p class="mt-1 text-xs text-gray-500">
@@ -62,7 +64,82 @@
         >
       </div>
 
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading subscription accounts...</span>
+        </div>
+        <div
+          v-else-if="recentSubscribers.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:inbox"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">No doctor subscriptions found.</p>
+        </div>
+        <template v-else>
+          <article
+            v-for="sub in recentSubscribers"
+            :key="sub.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate font-bold text-gray-950">
+                  Dr. {{ sub.user?.first_name || '' }}
+                  {{ sub.user?.last_name || sub.user?.name || 'Doctor' }}
+                </p>
+                <p class="truncate text-xs font-medium text-gray-500">{{ sub.user?.email }}</p>
+              </div>
+              <span
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold capitalize"
+                :class="{
+                  'border border-emerald-200/60 bg-emerald-50 text-emerald-700':
+                    sub.status === 'active',
+                  'border border-amber-200/60 bg-amber-50 text-amber-700':
+                    sub.status === 'trialing' || sub.status === 'pending',
+                  'border border-rose-200/60 bg-rose-50 text-rose-700':
+                    sub.status === 'past_due' || sub.status === 'expired'
+                }"
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="{
+                    'bg-emerald-500': sub.status === 'active',
+                    'bg-amber-500': sub.status === 'trialing' || sub.status === 'pending',
+                    'bg-rose-500': sub.status === 'past_due' || sub.status === 'expired'
+                  }"
+                ></span>
+                {{ sub.status }}
+              </span>
+            </div>
+
+            <p class="text-sm">
+              <span class="font-bold text-gray-900">{{ sub.plan?.name || 'Standard Plan' }}</span>
+              <span class="text-xs font-medium text-gray-500 capitalize">
+                · {{ sub.billing_cycle }}
+              </span>
+            </p>
+
+            <p class="font-mono text-xs font-medium text-gray-500">
+              {{ sub.starts_at ? new Date(sub.starts_at).toLocaleDateString() : 'N/A' }}
+              →
+              {{ sub.ends_at ? new Date(sub.ends_at).toLocaleDateString() : 'N/A' }}
+            </p>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"

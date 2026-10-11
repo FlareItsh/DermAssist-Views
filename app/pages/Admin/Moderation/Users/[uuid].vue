@@ -177,7 +177,9 @@
 <template>
   <div>
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-4">
+      <div
+        class="flex w-full flex-row-reverse items-start justify-between gap-4 md:w-auto md:flex-row md:items-center md:justify-start"
+      >
         <AppButton
           variant="ghost"
           size="icon"
@@ -191,7 +193,7 @@
         </AppButton>
 
         <div>
-          <h1 class="text-2xl font-black text-gray-950">User Profile</h1>
+          <h1 class="text-xl font-black text-gray-950 md:text-2xl">User Profile</h1>
           <p class="mt-1 text-sm text-gray-500">Review account details and profile information.</p>
         </div>
       </div>
@@ -232,7 +234,7 @@
 
     <div
       v-else
-      class="grid gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]"
+      class="grid gap-4 md:gap-6 lg:grid-cols-[minmax(280px,0.8fr)_minmax(0,1.4fr)]"
     >
       <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         <div class="flex flex-col items-center px-6 py-8 text-center">
@@ -262,7 +264,7 @@
           </AppBadge>
         </div>
 
-        <div class="space-y-4 border-t border-gray-100 px-6 py-5">
+        <div class="space-y-4 border-t border-gray-100 px-4 py-5 md:px-6">
           <div>
             <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Email</p>
             <p class="mt-1 text-sm font-semibold break-all text-gray-800">
@@ -289,12 +291,12 @@
       </section>
 
       <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="border-b border-gray-100 px-6 py-5">
+        <div class="border-b border-gray-100 px-4 py-4 md:px-6 md:py-5">
           <h2 class="text-lg font-black text-gray-950">Profile Details</h2>
           <p class="mt-1 text-sm text-gray-500">Account and role-specific information.</p>
         </div>
 
-        <div class="grid gap-4 p-6 md:grid-cols-2">
+        <div class="grid gap-3 p-4 md:grid-cols-2 md:gap-4 md:p-6">
           <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
             <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">UUID</p>
             <p class="mt-1 font-mono text-sm font-semibold break-all text-gray-800">

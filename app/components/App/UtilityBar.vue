@@ -281,6 +281,7 @@
     } catch (e) {
       console.error('Backend logout failed:', e)
     } finally {
+      useDiagnosis().resetScanner()
       useCookie('auth_token').value = null
       useCookie('user_role').value = null
       useCookie('user_uuid').value = null

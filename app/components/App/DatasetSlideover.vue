@@ -172,7 +172,7 @@
     <Transition name="backdrop">
       <div
         v-if="isOpen"
-        class="fixed inset-0 z-40 bg-black/40"
+        class="fixed inset-0 z-[90] bg-black/40"
         @click="close"
       />
     </Transition>
@@ -181,7 +181,7 @@
     <Transition name="slideover">
       <div
         v-if="isOpen"
-        class="bg-card border-border fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l shadow-2xl"
+        class="bg-card border-border fixed inset-y-0 right-0 z-[100] flex w-full max-w-lg flex-col border-l shadow-2xl"
       >
         <!-- Header -->
         <div class="border-border flex shrink-0 items-center justify-between border-b px-6 py-4">

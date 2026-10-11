@@ -7,6 +7,7 @@
   })
 
   definePageMeta({
+    ssr: false,
     layout: 'dashboard-sidebar-layout'
   })
 </script>
@@ -16,17 +17,23 @@
     <!-- Desktop Layout -->
     <div class="desktop-only flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
       <div class="h-full min-w-0 flex-1">
-        <AppScanner />
+        <ClientOnly>
+          <AppScanner />
+        </ClientOnly>
       </div>
 
       <div class="h-full w-[450px] shrink-0">
-        <AppDiagnosisFindingsSummary />
+        <ClientOnly>
+          <AppDiagnosisFindingsSummary />
+        </ClientOnly>
       </div>
     </div>
 
     <!-- Mobile Layout - fullscreen, no scroll -->
     <div class="mobile-only fixed inset-0 z-40 bg-black">
-      <PatientSideComponentsMobileScanner />
+      <ClientOnly>
+        <PatientSideComponentsMobileScanner />
+      </ClientOnly>
     </div>
   </div>
 </template>

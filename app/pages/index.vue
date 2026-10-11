@@ -13,7 +13,7 @@
         alt="CTA"
       />
       <NuxtLink
-        to="/admin/dashboard"
+        to="/Doctor"
         class="absolute z-10 cursor-pointer rounded-full"
         style="top: 112%; left: 6.7%; width: 16.8%; height: 8%"
       >

@@ -28,6 +28,7 @@
   }
 
   definePageMeta({
+    ssr: false,
     layout: 'dashboard-sidebar-layout'
   })
 </script>
@@ -158,11 +159,15 @@
       </div>
 
       <!-- Normal Scanner Component -->
-      <AppScanner v-else />
+      <ClientOnly v-else>
+        <AppScanner />
+      </ClientOnly>
     </div>
 
     <div class="sticky top-0 w-[450px] shrink-0">
-      <AppDiagnosisFindingsSummary role="doctor" />
+      <ClientOnly>
+        <AppDiagnosisFindingsSummary role="doctor" />
+      </ClientOnly>
     </div>
 
     <!-- Confirm Discard Modal -->

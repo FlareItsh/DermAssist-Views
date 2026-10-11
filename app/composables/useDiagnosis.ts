@@ -20,6 +20,8 @@ export interface DiagnosisResult {
   all_probabilities: Record<string, number>
   image_quality?: ImageQuality
   is_inconclusive?: boolean
+  is_out_of_scope?: boolean
+  out_of_scope_category?: string | null
   clinical_feedback?: string
 }
 
@@ -199,32 +201,90 @@ const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
+const boundUserUuid = ref<string | null>(null)
 
-// Restore active diagnosis state from localStorage on client side init
-if (import.meta.client) {
+const getStorageKey = (uuid?: string | null): string | null => {
+  if (!import.meta.client) return null
+  const effectiveUuid = uuid || useCookie('user_uuid').value
+  return effectiveUuid ? `dermassist_active_diagnosis_${effectiveUuid}` : null
+}
+
+const resetScannerInMemory = () => {
+  currentDiagnosis.value = null
+  isScanning.value = false
+  isScanned.value = false
+  isProceededToResults.value = false
+  qualityError.value = null
+  previewImage.value = null
+  selectedFile.value = null
+  patientUuid.value = null
+  boundUserUuid.value = null
+}
+
+// Restore active diagnosis state from user-scoped localStorage on client side init
+const restoreActiveDiagnosisState = () => {
+  if (!import.meta.client) return
   try {
-    const rawState = localStorage.getItem('dermassist_active_diagnosis')
+    // Purge legacy non-scoped key so it never leaks across accounts
+    localStorage.removeItem('dermassist_active_diagnosis')
+
+    const currentUuid = useCookie('user_uuid').value
+    if (!currentUuid) {
+      resetScannerInMemory()
+      return
+    }
+
+    const key = getStorageKey(currentUuid)
+    if (!key) {
+      resetScannerInMemory()
+      return
+    }
+
+    const rawState = localStorage.getItem(key)
     if (rawState) {
       const parsed = JSON.parse(rawState)
-      if (parsed.currentDiagnosis) currentDiagnosis.value = parsed.currentDiagnosis
-      if (typeof parsed.isScanned === 'boolean') isScanned.value = parsed.isScanned
-      if (typeof parsed.isProceededToResults === 'boolean')
-        isProceededToResults.value = parsed.isProceededToResults
-      if (parsed.previewImage) previewImage.value = parsed.previewImage
-      if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
+      if (parsed && parsed.userUuid === currentUuid) {
+        boundUserUuid.value = currentUuid
+        if (parsed.currentDiagnosis) currentDiagnosis.value = parsed.currentDiagnosis
+        if (typeof parsed.isScanned === 'boolean') isScanned.value = parsed.isScanned
+        if (typeof parsed.isProceededToResults === 'boolean')
+          isProceededToResults.value = parsed.isProceededToResults
+        if (parsed.previewImage) previewImage.value = parsed.previewImage
+        if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
+        return
+      } else {
+        localStorage.removeItem(key)
+      }
     }
+    resetScannerInMemory()
   } catch (e) {
     console.error('Failed to restore active diagnosis state', e)
+    resetScannerInMemory()
   }
+}
+
+if (import.meta.client) {
+  restoreActiveDiagnosisState()
 }
 
 const saveActiveDiagnosisState = () => {
   if (!import.meta.client) return
   try {
+    const currentUuid = useCookie('user_uuid').value
+    if (!currentUuid) {
+      localStorage.removeItem('dermassist_active_diagnosis')
+      return
+    }
+
+    const key = getStorageKey(currentUuid)
+    if (!key) return
+
     if (currentDiagnosis.value || isScanned.value || previewImage.value || patientUuid.value) {
+      boundUserUuid.value = currentUuid
       localStorage.setItem(
-        'dermassist_active_diagnosis',
+        key,
         JSON.stringify({
+          userUuid: currentUuid,
           currentDiagnosis: currentDiagnosis.value,
           isScanned: isScanned.value,
           isProceededToResults: isProceededToResults.value,
@@ -233,16 +293,29 @@ const saveActiveDiagnosisState = () => {
         })
       )
     } else {
-      localStorage.removeItem('dermassist_active_diagnosis')
+      localStorage.removeItem(key)
     }
   } catch (e) {
     console.error('Failed to save active diagnosis state', e)
   }
 }
 
+const clearAllStoredDiagnosis = (uuid?: string | null) => {
+  if (!import.meta.client) return
+  try {
+    localStorage.removeItem('dermassist_active_diagnosis')
+    const key = getStorageKey(uuid)
+    if (key) localStorage.removeItem(key)
+  } catch (e) {
+    console.error('Failed to clear stored diagnosis', e)
+  }
+}
+
 export const useDiagnosis = () => {
   const isOutOfScopeState = computed(() => {
     if (!currentDiagnosis.value) return false
+    if (currentDiagnosis.value.is_out_of_scope) return true
+    if (Boolean(currentDiagnosis.value.out_of_scope_category)) return true
     const feedback = (currentDiagnosis.value.clinical_feedback || '').toLowerCase()
     return (
       currentDiagnosis.value.label === 'OutOfScope' ||
@@ -251,7 +324,9 @@ export const useDiagnosis = () => {
         (feedback.includes('outside our 3 primary') ||
           feedback.includes('unsupported') ||
           feedback.includes('psoriasis') ||
-          feedback.includes('ringworm')))
+          feedback.includes('ringworm') ||
+          feedback.includes('hives') ||
+          feedback.includes('warts')))
     )
   })
 
@@ -273,7 +348,7 @@ export const useDiagnosis = () => {
 
   const isHealthyState = computed(() => {
     if (!currentDiagnosis.value) return false
-    if (isInconclusiveState.value || isNoneState.value) return false
+    if (isInconclusiveState.value || isNoneState.value || isOutOfScopeState.value) return false
     return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'Clear'
   })
 
@@ -287,9 +362,13 @@ export const useDiagnosis = () => {
     }
 
     if (isOutOfScopeState.value) {
+      const rawCat = currentDiagnosis.value?.out_of_scope_category
+      const formattedCat = rawCat
+        ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1)
+        : 'Other Condition'
       return [
         {
-          label: 'Unsupported Condition (Out of Scope)',
+          label: `Out-of-Scope: ${formattedCat}`,
           value: 100,
           color: COLOR_MAP['OutOfScope']
         }
@@ -338,11 +417,17 @@ export const useDiagnosis = () => {
   }
 
   const resetScanner = () => {
-    previewImage.value = null
-    selectedFile.value = null
-    isScanned.value = false
-    patientUuid.value = null
-    clearDiagnosis()
+    const currentUuid = useCookie('user_uuid').value
+    resetScannerInMemory()
+    clearAllStoredDiagnosis(currentUuid)
+  }
+
+  // Ensure active user diagnosis state is synchronized
+  if (import.meta.client) {
+    const currentUuid = useCookie('user_uuid').value
+    if (currentUuid !== boundUserUuid.value) {
+      restoreActiveDiagnosisState()
+    }
   }
 
   return {
@@ -362,6 +447,7 @@ export const useDiagnosis = () => {
     setDiagnosis,
     clearDiagnosis,
     resetScanner,
-    saveActiveDiagnosisState
+    saveActiveDiagnosisState,
+    restoreActiveDiagnosisState
   }
 }

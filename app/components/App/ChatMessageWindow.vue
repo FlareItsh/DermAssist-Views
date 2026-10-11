@@ -27,6 +27,8 @@
     message: string
     is_read: boolean
     read_at: string | null
+    is_edited?: boolean
+    edited_at?: string | null
     created_at: string
     updated_at: string
     attachments?: Attachment[]
@@ -129,6 +131,7 @@
   const { getEcho } = useEcho()
   const partnerIsTyping = ref(false)
   let typingTimeout: any = null
+  let lastTypingBroadcast = 0
   let isUserNearBottom = true
   const cacheKey = computed(() => `chat_history_${props.conversationUuid}`)
 
@@ -711,6 +714,7 @@
       })
       .listenForWhisper('typing', () => {
         partnerIsTyping.value = true
+        scrollToBottom('smooth')
         if (typingTimeout) clearTimeout(typingTimeout)
         typingTimeout = setTimeout(() => {
           partnerIsTyping.value = false
@@ -728,6 +732,10 @@
 
   const broadcastTyping = () => {
     if (!props.conversationUuid || import.meta.server) return
+    const now = Date.now()
+    if (now - lastTypingBroadcast < 1500) return
+    lastTypingBroadcast = now
+
     const echo = getEcho()
     if (echo) {
       echo.private(`chat.conversation.${props.conversationUuid}`).whisper('typing', {
@@ -923,8 +931,7 @@
   }
 
   const isEdited = (msg: Message) => {
-    // Standard comparison to check if message was updated after creation
-    return msg.created_at !== msg.updated_at
+    return Boolean(msg.is_edited || msg.edited_at)
   }
 </script>
 
@@ -1938,6 +1945,49 @@
           </div>
         </div>
       </div>
+
+      <!-- Live Messenger-Style Typing Bubble -->
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 translate-y-1"
+        enter-to-class="opacity-100 translate-y-0"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0"
+        leave-to-class="opacity-0 translate-y-1"
+      >
+        <div
+          v-if="partnerIsTyping"
+          class="flex items-end gap-2 pt-1 pb-1.5"
+        >
+          <!-- Partner Avatar (Identical to message avatar, proportionally compact) -->
+          <div
+            class="border-border/50 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
+          >
+            <img
+              v-if="otherPersonAvatar && !headerAvatarFailed"
+              :src="getStorageUrl(otherPersonAvatar)"
+              :alt="otherPersonName"
+              class="h-full w-full object-cover"
+              @error="headerAvatarFailed = true"
+            />
+            <div
+              v-else
+              class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-[11px] font-bold uppercase"
+            >
+              {{ (otherPersonName || '?').charAt(0) }}
+            </div>
+          </div>
+
+          <!-- 3 Bouncing Dots Bubble (Same style as incoming chat, smaller size) -->
+          <div
+            class="bg-foreground/5 text-foreground flex items-center gap-1.5 rounded-t-2xl rounded-br-2xl px-3.5 py-2.5"
+          >
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
+            <span class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"></span>
+          </div>
+        </div>
+      </Transition>
     </div>
 
     <!-- Input Area -->
@@ -1974,15 +2024,6 @@
             />
           </button>
         </div>
-      </div>
-
-      <!-- Live Typing Indicator -->
-      <div
-        v-if="partnerIsTyping"
-        class="text-muted-foreground mb-1 flex items-center gap-1.5 px-3 text-xs"
-      >
-        <span class="bg-primary inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
-        <span class="italic">Typing...</span>
       </div>
 
       <div class="group relative flex items-end gap-3">
@@ -2406,5 +2447,34 @@
   .modal-leave-to .modal-container {
     opacity: 0;
     transform: scale(0.95);
+  }
+
+  @keyframes messengerDotBounce {
+    0%,
+    80%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.45;
+    }
+    40% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
+  }
+
+  .typing-dot {
+    animation: messengerDotBounce 1.3s infinite ease-in-out both;
+  }
+
+  .typing-dot:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+
+  .typing-dot:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+
+  .typing-dot:nth-child(3) {
+    animation-delay: 0s;
   }
 </style>

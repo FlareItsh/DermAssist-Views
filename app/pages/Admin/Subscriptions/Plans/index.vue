@@ -11,6 +11,7 @@
           @click="openCreateModal"
           variant="solid"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
         >
           <Icon
             name="lucide:plus"
@@ -23,7 +24,119 @@
 
     <!-- Plans Table -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading subscription plans...</span>
+        </div>
+        <div
+          v-else-if="plans.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:sliders-horizontal"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">
+            No plans created yet. Tap "Create New Plan" to add one.
+          </p>
+        </div>
+        <template v-else>
+          <article
+            v-for="plan in plans"
+            :key="plan.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate font-bold text-gray-950">{{ plan.name }}</p>
+                <p class="truncate font-mono text-xs text-gray-400">{{ plan.slug }}</p>
+              </div>
+              <button
+                @click="toggleActive(plan)"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition"
+                :class="
+                  plan.is_active
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-gray-200 bg-gray-100 text-gray-500'
+                "
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="plan.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                ></span>
+                {{ plan.is_active ? 'Active' : 'Disabled' }}
+              </button>
+            </div>
+
+            <span
+              class="bg-primary/10 text-primary border-primary/20 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold capitalize"
+            >
+              {{ plan.tier_type?.replace(/_/g, ' ') }}
+            </span>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Monthly</p>
+                <p class="font-mono text-sm font-bold text-gray-950">
+                  ₱{{
+                    Number(plan.price_monthly).toLocaleString('en-US', {
+                      minimumFractionDigits: 2
+                    })
+                  }}
+                </p>
+              </div>
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Annual</p>
+                <p class="font-mono text-sm font-bold text-gray-950">
+                  ₱{{
+                    Number(plan.price_annual).toLocaleString('en-US', {
+                      minimumFractionDigits: 2
+                    })
+                  }}
+                </p>
+              </div>
+            </div>
+
+            <p class="text-xs font-medium text-gray-600">
+              Doctors:
+              <span class="font-mono text-gray-500">{{ plan.max_doctors ?? 'Unlimited' }}</span>
+              · Clinics:
+              <span class="font-mono text-gray-500">{{ plan.max_clinics ?? 'Unlimited' }}</span>
+              · Secretaries:
+              <span class="font-mono text-gray-500">{{
+                plan.max_secretaries !== null && plan.max_secretaries !== undefined
+                  ? plan.max_secretaries
+                  : 'Unlimited'
+              }}</span>
+            </p>
+
+            <div class="flex gap-2">
+              <button
+                @click="editPlan(plan)"
+                class="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition active:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                @click="deletePlan(plan)"
+                class="flex-1 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition active:bg-rose-50"
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"
@@ -149,233 +262,236 @@
     </section>
 
     <!-- Create / Edit Plan Dialog Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        v-if="showModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       >
-        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-          <h3 class="text-lg font-black text-gray-950">
-            {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
-          </h3>
-          <button
-            @click="showModal = false"
-            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Icon
-              name="lucide:x"
-              class="text-lg"
-            />
-          </button>
-        </div>
-
-        <form
-          @submit.prevent="savePlan"
-          class="space-y-4"
+        <div
+          class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
         >
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Plan Name</label
-            >
-            <input
-              v-model="form.name"
-              type="text"
-              required
-              placeholder="e.g. Solo Practitioner"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Subscription Tier Type</label
-            >
-            <select
-              v-model="form.tier_type"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
-            >
-              <option value="individual">Individual (1 Doctor, 1 Clinic)</option>
-              <option value="doctor_multi_clinic">One Doctor, Multiple Clinics</option>
-              <option value="clinic_multi_doctor">One Clinic, Multiple Doctors</option>
-            </select>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Monthly Price (₱)</label
-              >
-              <input
-                v-model.number="form.price_monthly"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Annual Price (₱)</label
-              >
-              <input
-                v-model.number="form.price_annual"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Doctors (Seats)</label
-              >
-              <input
-                v-model.number="form.max_doctors"
-                type="number"
-                min="1"
-                placeholder="Empty = Unltd"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Clinics (Branches)</label
-              >
-              <input
-                v-model.number="form.max_clinics"
-                type="number"
-                min="1"
-                placeholder="Empty = Unltd"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Secretaries (Seats)</label
-              >
-              <input
-                v-model.number="form.max_secretaries"
-                type="number"
-                min="0"
-                placeholder="0 = None"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Free Trial Days</label
-              >
-              <input
-                v-model.number="form.trial_period_days"
-                type="number"
-                min="0"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Grace Period Days</label
-              >
-              <input
-                v-model.number="form.grace_period_days"
-                type="number"
-                min="0"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <!-- Custom Marketing Feature Bullet Items -->
-          <div class="space-y-1.5 border-t border-gray-100 pt-3">
-            <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Custom Feature Highlights (One per line)</label
-            >
-            <textarea
-              v-model="customFeaturesText"
-              rows="3"
-              placeholder="e.g. 24/7 Priority Support&#10;Custom Clinic Branding&#10;Dedicated Account Manager"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            ></textarea>
-          </div>
-
-          <!-- Dynamic Feature Flags Checkboxes -->
-          <div class="space-y-2 border-t border-gray-100 pt-3">
-            <div class="flex items-center justify-between">
-              <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Feature Access Flags</label
-              >
-              <NuxtLink
-                to="/admin/subscriptions/features"
-                class="text-primary flex items-center gap-1 text-[11px] font-bold hover:underline"
-              >
-                <Icon
-                  name="lucide:settings"
-                  class="text-xs"
-                />
-                <span>Manage Features</span>
-              </NuxtLink>
-            </div>
-            <div
-              v-if="isLoadingFeatures"
-              class="py-3 text-center text-xs text-gray-400"
-            >
-              Loading system features...
-            </div>
-            <div
-              v-else
-              class="space-y-2 text-xs"
-            >
-              <label
-                v-for="feature in availableFeatures"
-                :key="feature.id"
-                class="flex cursor-pointer items-center gap-2.5 font-bold text-gray-700 hover:text-gray-900"
-              >
-                <input
-                  v-model="form.features[feature.code || '']"
-                  type="checkbox"
-                  class="text-primary focus:ring-primary/20 h-4 w-4 rounded border-gray-300"
-                />
-                <div class="flex flex-col">
-                  <span>{{ feature.name }}</span>
-                  <span
-                    v-if="feature.description"
-                    class="text-[10px] font-normal text-gray-400"
-                    >{{ feature.description }}</span
-                  >
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 class="text-lg font-black text-gray-950">
+              {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
+            </h3>
             <button
-              type="button"
               @click="showModal = false"
-              class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
-            >
-              {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
+              <Icon
+                name="lucide:x"
+                class="text-lg"
+              />
             </button>
           </div>
-        </form>
+
+          <form
+            @submit.prevent="savePlan"
+            class="space-y-4"
+          >
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Plan Name</label
+              >
+              <input
+                v-model="form.name"
+                type="text"
+                required
+                placeholder="e.g. Solo Practitioner"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Subscription Tier Type</label
+              >
+              <select
+                v-model="form.tier_type"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
+              >
+                <option value="individual">Individual (1 Doctor, 1 Clinic)</option>
+                <option value="doctor_multi_clinic">One Doctor, Multiple Clinics</option>
+                <option value="clinic_multi_doctor">One Clinic, Multiple Doctors</option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Monthly Price (₱)</label
+                >
+                <input
+                  v-model.number="form.price_monthly"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Annual Price (₱)</label
+                >
+                <input
+                  v-model.number="form.price_annual"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Doctors (Seats)</label
+                >
+                <input
+                  v-model.number="form.max_doctors"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Clinics (Branches)</label
+                >
+                <input
+                  v-model.number="form.max_clinics"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Secretaries (Seats)</label
+                >
+                <input
+                  v-model.number="form.max_secretaries"
+                  type="number"
+                  min="0"
+                  placeholder="0 = None"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Free Trial Days</label
+                >
+                <input
+                  v-model.number="form.trial_period_days"
+                  type="number"
+                  min="0"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Grace Period Days</label
+                >
+                <input
+                  v-model.number="form.grace_period_days"
+                  type="number"
+                  min="0"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <!-- Custom Marketing Feature Bullet Items -->
+            <div class="space-y-1.5 border-t border-gray-100 pt-3">
+              <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Custom Feature Highlights (One per line)</label
+              >
+              <textarea
+                v-model="customFeaturesText"
+                rows="3"
+                placeholder="e.g. 24/7 Priority Support&#10;Custom Clinic Branding&#10;Dedicated Account Manager"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              ></textarea>
+            </div>
+
+            <!-- Dynamic Feature Flags Checkboxes -->
+            <div class="space-y-2 border-t border-gray-100 pt-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Feature Access Flags</label
+                >
+                <NuxtLink
+                  to="/admin/subscriptions/features"
+                  class="text-primary flex items-center gap-1 text-[11px] font-bold hover:underline"
+                >
+                  <Icon
+                    name="lucide:settings"
+                    class="text-xs"
+                  />
+                  <span>Manage Features</span>
+                </NuxtLink>
+              </div>
+              <div
+                v-if="isLoadingFeatures"
+                class="py-3 text-center text-xs text-gray-400"
+              >
+                Loading system features...
+              </div>
+              <div
+                v-else
+                class="space-y-2 text-xs"
+              >
+                <label
+                  v-for="feature in availableFeatures"
+                  :key="feature.id"
+                  class="flex cursor-pointer items-center gap-2.5 font-bold text-gray-700 hover:text-gray-900"
+                >
+                  <input
+                    v-model="form.features[feature.code || '']"
+                    type="checkbox"
+                    class="text-primary focus:ring-primary/20 h-4 w-4 rounded border-gray-300"
+                  />
+                  <div class="flex flex-col">
+                    <span>{{ feature.name }}</span>
+                    <span
+                      v-if="feature.description"
+                      class="text-[10px] font-normal text-gray-400"
+                      >{{ feature.description }}</span
+                    >
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                @click="showModal = false"
+                class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isSubmitting"
+                class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+              >
+                {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
+
     <!-- Confirm Delete Modal -->
     <AdminSideComponentsConfirmModal
       :show="showDeleteModal"

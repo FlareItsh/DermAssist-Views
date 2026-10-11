@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <AdminSideComponentsSubscriptionNavHeader
       title="System Features Manager"
-      description="Configure normalized plan feature flags, rename display labels, and manage system access privileges."
+      description="Configure normalized plan feature flags,<br />rename display labels, and manage system access privileges."
       icon="lucide:sparkles"
       current-tab="features"
     >
@@ -11,6 +11,7 @@
           @click="openCreateModal"
           variant="solid"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
         >
           <Icon
             name="lucide:plus"
@@ -23,7 +24,84 @@
 
     <!-- Features Table -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading system features...</span>
+        </div>
+        <div
+          v-else-if="features.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:sparkles"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">No features created yet.</p>
+        </div>
+        <template v-else>
+          <article
+            v-for="feature in features"
+            :key="feature.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-bold text-gray-950">{{ feature.name }}</p>
+                <p class="text-primary truncate font-mono text-xs font-semibold">
+                  {{ feature.code }}
+                </p>
+              </div>
+              <button
+                @click="toggleActive(feature)"
+                class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition"
+                :class="
+                  feature.is_active
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-gray-200 bg-gray-100 text-gray-500'
+                "
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="feature.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                ></span>
+                {{ feature.is_active ? 'Active' : 'Inactive' }}
+              </button>
+            </div>
+
+            <p class="text-xs text-gray-500">
+              {{ feature.description || 'No description provided.' }}
+            </p>
+            <p class="font-mono text-[11px] text-gray-400">
+              Sort order: {{ feature.sort_order ?? 0 }}
+            </p>
+
+            <div class="flex gap-2">
+              <button
+                @click="openEditModal(feature)"
+                class="flex-1 cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition active:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                @click="promptDeleteFeature(feature)"
+                class="flex-1 cursor-pointer rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition active:bg-rose-50"
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"
@@ -119,113 +197,115 @@
     </section>
 
     <!-- Create / Edit Feature Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        v-if="showModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       >
-        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-          <div class="flex items-center gap-2.5">
-            <div
-              class="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-xl"
+        <div
+          class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
+        >
+          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-xl"
+              >
+                <Icon
+                  :name="isEditing ? 'lucide:pencil' : 'lucide:sparkles'"
+                  class="text-base"
+                />
+              </div>
+              <h3 class="text-lg font-black text-gray-950">
+                {{ isEditing ? 'Edit System Feature' : 'Create System Feature' }}
+              </h3>
+            </div>
+            <button
+              @click="showModal = false"
+              class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
               <Icon
-                :name="isEditing ? 'lucide:pencil' : 'lucide:sparkles'"
-                class="text-base"
+                name="lucide:x"
+                class="text-lg"
+              />
+            </button>
+          </div>
+
+          <form
+            @submit.prevent="handleSubmit"
+            class="space-y-4"
+          >
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Feature Display Name</label
+              >
+              <input
+                v-model="form.name"
+                type="text"
+                placeholder="e.g. Doctor AI Skin Scanner Execution"
+                required
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
               />
             </div>
-            <h3 class="text-lg font-black text-gray-950">
-              {{ isEditing ? 'Edit System Feature' : 'Create System Feature' }}
-            </h3>
-          </div>
-          <button
-            @click="showModal = false"
-            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Icon
-              name="lucide:x"
-              class="text-lg"
-            />
-          </button>
+
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >System Code Key (Slug)</label
+              >
+              <input
+                v-model="form.code"
+                type="text"
+                placeholder="e.g. can_execute_scan"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 font-mono text-xs text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              />
+              <p class="mt-1 text-[11px] text-gray-400">
+                Unique code key used for programmatic backend & UI authorization.
+              </p>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Description</label
+              >
+              <textarea
+                v-model="form.description"
+                rows="3"
+                placeholder="Describe what access or privileges this feature enables for subscribed doctors..."
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              ></textarea>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Sort Order</label
+              >
+              <input
+                v-model.number="form.sort_order"
+                type="number"
+                min="0"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              />
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                @click="showModal = false"
+                class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isSubmitting"
+                class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+              >
+                {{ isSubmitting ? 'Saving...' : isEditing ? 'Update Feature' : 'Create Feature' }}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <form
-          @submit.prevent="handleSubmit"
-          class="space-y-4"
-        >
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Feature Display Name</label
-            >
-            <input
-              v-model="form.name"
-              type="text"
-              placeholder="e.g. Doctor AI Skin Scanner Execution"
-              required
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >System Code Key (Slug)</label
-            >
-            <input
-              v-model="form.code"
-              type="text"
-              placeholder="e.g. can_execute_scan"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 font-mono text-xs text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            />
-            <p class="mt-1 text-[11px] text-gray-400">
-              Unique code key used for programmatic backend & UI authorization.
-            </p>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Description</label
-            >
-            <textarea
-              v-model="form.description"
-              rows="3"
-              placeholder="Describe what access or privileges this feature enables for subscribed doctors..."
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            ></textarea>
-          </div>
-
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Sort Order</label
-            >
-            <input
-              v-model.number="form.sort_order"
-              type="number"
-              min="0"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-            />
-          </div>
-
-          <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
-            <button
-              type="button"
-              @click="showModal = false"
-              class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
-            >
-              {{ isSubmitting ? 'Saving...' : isEditing ? 'Update Feature' : 'Create Feature' }}
-            </button>
-          </div>
-        </form>
       </div>
-    </div>
+    </Teleport>
 
     <!-- Confirm Delete Modal -->
     <AdminSideComponentsConfirmModal

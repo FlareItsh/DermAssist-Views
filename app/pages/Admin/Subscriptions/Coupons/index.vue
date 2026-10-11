@@ -11,6 +11,7 @@
           @click="showModal = true"
           variant="solid"
           size="sm"
+          class="shrink-0 whitespace-nowrap"
         >
           <Icon
             name="lucide:plus"
@@ -23,7 +24,100 @@
 
     <!-- Coupons Table Section -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading promo codes...</span>
+        </div>
+        <div
+          v-else-if="coupons.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:ticket"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">No promo codes generated yet.</p>
+        </div>
+        <template v-else>
+          <article
+            v-for="coupon in coupons"
+            :key="coupon.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-primary truncate font-mono font-bold tracking-wider">
+                  {{ coupon.code }}
+                </p>
+                <p class="font-bold text-gray-950">
+                  {{
+                    coupon.discount_type === 'percentage'
+                      ? `${coupon.value}% OFF`
+                      : `₱${coupon.value} OFF`
+                  }}
+                </p>
+              </div>
+              <button
+                @click="toggleActive(coupon)"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition"
+                :class="
+                  coupon.is_active
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-gray-200 bg-gray-100 text-gray-500'
+                "
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="coupon.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                ></span>
+                {{ coupon.is_active ? 'Active' : 'Inactive' }}
+              </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Duration</p>
+                <p class="font-mono text-xs font-semibold text-gray-700 capitalize">
+                  {{ coupon.duration }}
+                </p>
+              </div>
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Used</p>
+                <p class="font-mono text-xs font-semibold text-gray-700">
+                  {{ coupon.times_redeemed || 0 }} / {{ coupon.max_redemptions ?? '∞' }}
+                </p>
+              </div>
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Until</p>
+                <p class="font-mono text-xs font-semibold text-gray-700">
+                  {{
+                    coupon.valid_until
+                      ? new Date(coupon.valid_until).toLocaleDateString()
+                      : 'No expiry'
+                  }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              @click="deleteCoupon(coupon)"
+              class="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition active:bg-rose-50"
+            >
+              Delete
+            </button>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"
@@ -125,114 +219,116 @@
     </section>
 
     <!-- Create Coupon Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-    >
+    <Teleport to="body">
       <div
-        class="w-full max-w-md space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        v-if="showModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
       >
-        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-          <h3 class="text-lg font-black text-gray-950">Generate New Coupon</h3>
-          <button
-            @click="showModal = false"
-            class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Icon
-              name="lucide:x"
-              class="text-lg"
-            />
-          </button>
-        </div>
-
-        <form
-          @submit.prevent="createCoupon"
-          class="space-y-4"
+        <div
+          class="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
         >
-          <div>
-            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Coupon Code</label
-            >
-            <input
-              v-model="form.code"
-              type="text"
-              required
-              placeholder="e.g. DERM2026"
-              class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 font-mono text-sm font-bold text-gray-900 uppercase transition outline-none focus:bg-white focus:ring-4"
-            />
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Discount Type</label
-              >
-              <select
-                v-model="form.discount_type"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
-              >
-                <option value="percentage">Percentage (%)</option>
-                <option value="fixed_amount">Fixed Amount (₱)</option>
-              </select>
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Value</label
-              >
-              <input
-                v-model.number="form.value"
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Max Redemptions</label
-              >
-              <input
-                v-model.number="form.max_redemptions"
-                type="number"
-                placeholder="Unlimited"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Valid Until</label
-              >
-              <input
-                v-model="form.valid_until"
-                type="date"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
-              />
-            </div>
-          </div>
-
-          <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <h3 class="text-lg font-black text-gray-950">Generate New Coupon</h3>
             <button
-              type="button"
               @click="showModal = false"
-              class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              :disabled="isSubmitting"
-              class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
-            >
-              {{ isSubmitting ? 'Generating...' : 'Save Coupon' }}
+              <Icon
+                name="lucide:x"
+                class="text-lg"
+              />
             </button>
           </div>
-        </form>
+
+          <form
+            @submit.prevent="createCoupon"
+            class="space-y-4"
+          >
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                >Coupon Code</label
+              >
+              <input
+                v-model="form.code"
+                type="text"
+                required
+                placeholder="e.g. DERM2026"
+                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 font-mono text-sm font-bold text-gray-900 uppercase transition outline-none focus:bg-white focus:ring-4"
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Discount Type</label
+                >
+                <select
+                  v-model="form.discount_type"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
+                >
+                  <option value="percentage">Percentage (%)</option>
+                  <option value="fixed_amount">Fixed Amount (₱)</option>
+                </select>
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Value</label
+                >
+                <input
+                  v-model.number="form.value"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Max Redemptions</label
+                >
+                <input
+                  v-model.number="form.max_redemptions"
+                  type="number"
+                  placeholder="Unlimited"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Valid Until</label
+                >
+                <input
+                  v-model="form.valid_until"
+                  type="date"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+              <button
+                type="button"
+                @click="showModal = false"
+                class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                :disabled="isSubmitting"
+                class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+              >
+                {{ isSubmitting ? 'Generating...' : 'Save Coupon' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
     <!-- Confirm Delete Coupon Modal -->
     <AdminSideComponentsConfirmModal
       :show="showDeleteModal"
