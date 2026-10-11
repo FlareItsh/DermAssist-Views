@@ -16,6 +16,7 @@
   const { appointments, pendingAppointments } = useAppointments()
   const userName = useCookie('user_name')
   import { userService } from '~/api/user/UserService'
+  import { calculateAge } from '~/composables/useFormSanitizer'
 
   const { data: patientResponse } = userService.useShow(patientUuid.value || '', {
     immediate: !!patientUuid.value
@@ -41,13 +42,28 @@
     if (!patientUuid.value) return null
 
     if (assignedPatient.value) {
-      return assignedPatient.value.age
+      return calculateAge(assignedPatient.value.date_of_birth) ?? assignedPatient.value.age ?? null
     }
 
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
     const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
     if (match && match.patient) {
-      return match.patient.age
+      return calculateAge(match.patient.date_of_birth) ?? match.patient.age ?? null
+    }
+    return null
+  })
+
+  const patientDateOfBirth = computed<string | null>(() => {
+    if (!patientUuid.value) return null
+
+    if (assignedPatient.value) {
+      return assignedPatient.value.date_of_birth ?? null
+    }
+
+    const allAppointments = [...appointments.value, ...pendingAppointments.value]
+    const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
+    if (match && match.patient) {
+      return match.patient.date_of_birth ?? null
     }
     return null
   })
@@ -159,6 +175,7 @@
         "
         :patient-name="patientName"
         :age="patientAge"
+        :date-of-birth="patientDateOfBirth"
         :appointment-uuid="appointmentUuid"
         :diagnosis-data="chartData"
         :diagnosis-uuid="currentDiagnosis?.uuid"

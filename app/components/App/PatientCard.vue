@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed } from 'vue'
+  import { calculateAge } from '~/composables/useFormSanitizer'
 
   const props = defineProps({
     patient: {
@@ -13,6 +14,10 @@
   })
 
   const emit = defineEmits(['toggle-priority'])
+
+  const displayAge = computed(() => {
+    return calculateAge(props.patient?.date_of_birth) ?? props.patient?.age ?? 'N/A'
+  })
 
   const isRecentVisit = computed(() => {
     const visit = props.patient.lastVisit?.toLowerCase() || ''
@@ -67,7 +72,7 @@
         <div class="flex flex-col">
           <h3 class="text-foreground text-lg font-bold">{{ patient.name }}</h3>
           <p class="text-muted-foreground mt-0.5 text-xs font-semibold">
-            {{ patient.age }} yrs • {{ patient.gender }}
+            {{ displayAge }} yrs • {{ patient.gender }}
           </p>
         </div>
       </div>
@@ -130,7 +135,7 @@
         <div class="flex flex-col">
           <h3 class="text-foreground font-bold">{{ patient.name }}</h3>
           <p class="text-muted-foreground mt-0.5 text-xs font-semibold">
-            {{ patient.age }} yrs • {{ patient.gender }}
+            {{ displayAge }} yrs • {{ patient.gender }}
           </p>
         </div>
       </div>

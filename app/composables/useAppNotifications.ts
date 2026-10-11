@@ -182,19 +182,39 @@ export const useAppNotifications = () => {
     }
   }
 
-  // Singleton Polling: Runs an 8-second interval when browser tab is visible
+  // Singleton Listener: Reverb WebSockets instead of 8s polling
   if (import.meta.client) {
-    if (!notificationPollingTimer) {
-      pollAllNotifications()
-      notificationPollingTimer = setInterval(() => {
-        if (document.visibilityState === 'visible' && userUuid.value) {
-          pollAllNotifications()
-        }
-      }, 8000)
-    }
-
     if (!isNotificationListenerBound && typeof document !== 'undefined') {
       isNotificationListenerBound = true
+      pollAllNotifications()
+
+      const { getEcho } = useEcho()
+      if (userUuid.value) {
+        const echo = getEcho()
+        if (echo) {
+          echo
+            .private(`user.${userUuid.value}`)
+            .listen('.NotificationCountUpdated', () => {
+              pollAllNotifications()
+            })
+            .listen('.AppointmentUpdated', () => {
+              pollAllNotifications()
+            })
+            .listen('.ChatMessageSent', () => {
+              fetchConversations()
+            })
+            .listen('.DoctorVerificationStatusUpdated', () => {
+              refreshProfile()
+            })
+
+          if (userRole.value === 'admin') {
+            echo.private('admin.moderation').listen('.DoctorVerificationStatusUpdated', () => {
+              pollAllNotifications()
+            })
+          }
+        }
+      }
+
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible' && userUuid.value) {
           pollAllNotifications()
@@ -217,9 +237,10 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'patient') return []
     const u = userProfile.value
     const fields: string[] = []
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields
   })
@@ -228,9 +249,10 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'doctor') return []
     const u = userProfile.value
     const fields: string[] = []
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
     if (!u.city) fields.push('City')
     if (!u.province) fields.push('Province')
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     if (!(u.prc_number || u.prcNumber)) fields.push('PRC Number')
     return fields
@@ -240,7 +262,8 @@ export const useAppNotifications = () => {
     if (!userProfile.value || userRole.value !== 'secretary') return []
     const u = userProfile.value
     const fields: string[] = []
-    if (!u.age || u.age == 0) fields.push('Age')
+    if (!u.contact_number && !u.phone) fields.push('Contact Number')
+    if (!u.date_of_birth && (!u.age || u.age == 0)) fields.push('Date of Birth')
     if (!u.gender || u.gender === '') fields.push('Gender')
     return fields
   })

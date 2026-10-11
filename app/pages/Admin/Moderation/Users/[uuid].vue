@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
+  import { calculateAge } from '~/composables/useFormSanitizer'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -17,6 +18,7 @@
     status?: string
     gender?: string | null
     age?: number | string | null
+    date_of_birth?: string | null
     contact_number?: string | null
     phone?: string | null
     street?: string | null
@@ -161,6 +163,15 @@
       minute: '2-digit'
     }).format(new Date(date))
   }
+
+  const formatBirthDate = (date?: string) => {
+    if (!date) return 'Not provided'
+    return new Intl.DateTimeFormat('en', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(new Date(date))
+  }
 </script>
 
 <template>
@@ -259,6 +270,15 @@
             </p>
           </div>
 
+          <div v-if="userRole !== 'admin'">
+            <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Contact Number
+            </p>
+            <p class="mt-1 font-mono text-sm font-semibold text-gray-800">
+              {{ contactNumber }}
+            </p>
+          </div>
+
           <div>
             <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Joined</p>
             <p class="mt-1 text-sm font-semibold text-gray-800">
@@ -292,8 +312,33 @@
           </div>
 
           <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+              Date of Birth
+            </p>
+            <p class="mt-1 text-sm font-semibold text-gray-800">
+              {{ user.date_of_birth ? formatBirthDate(user.date_of_birth) : 'Not provided' }}
+            </p>
+          </div>
+
+          <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
             <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Age</p>
-            <p class="mt-1 text-sm font-semibold text-gray-800">{{ user.age || 'Not provided' }}</p>
+            <p class="mt-1 text-sm font-semibold text-gray-800">
+              {{
+                (user.date_of_birth ? calculateAge(user.date_of_birth) : null) ??
+                user.age ??
+                'Not provided'
+              }}
+              <span
+                v-if="
+                  ((user.date_of_birth ? calculateAge(user.date_of_birth) : null) ?? user.age) !==
+                    null &&
+                  ((user.date_of_birth ? calculateAge(user.date_of_birth) : null) ?? user.age) !==
+                    undefined
+                "
+              >
+                yrs old
+              </span>
+            </p>
           </div>
 
           <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">

@@ -6,7 +6,15 @@
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+  import { toast } from 'vue-sonner'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
+  const {
+    calculateAge,
+    todayIsoDate,
+    validateDateOfBirth,
+    splitFullPhoneNumber,
+    validatePhoneNumber
+  } = useFormSanitizer()
   import type { DonutEntry } from '../DonutChart.vue'
 
   const userUuid = useCookie('user_uuid')
@@ -20,6 +28,16 @@
   const showNewAccountPassword = ref(false)
 
   const isPatientModalOpen = ref(false)
+
+  const handleSelectPatient = (uuid: string) => {
+    patientUuid.value = uuid
+    isPatientModalOpen.value = false
+  }
+
+  const handleClearPatientSelection = () => {
+    patientUuid.value = null
+    isPatientModalOpen.value = false
+  }
 
   const uniquePatients = computed(() => {
     const patientsMap = new Map()
@@ -65,6 +83,7 @@
     conditionName?: string
     patientName?: string
     age?: number | string
+    dateOfBirth?: string | null
     date?: string
     description?: string
     symptoms?: string[]
@@ -90,9 +109,133 @@
   // ── Doctor-editable patient info ──────────────────────────────────
   const editablePatientName = ref('')
   const editablePatientAge = ref('')
+  const isEditingDob = ref(false)
+  const inputDob = ref('')
+  const isSavingDob = ref(false)
+  const dobValidationError = ref('')
   const contributeToDataset = ref(false)
   const contributeToOutOfScopeDataset = ref(false)
   const selectedPatientData = ref<any>(null)
+
+  const patientDateOfBirth = computed<string | null>(() => {
+    return selectedPatientData.value?.date_of_birth || props.dateOfBirth || null
+  })
+
+  const calculatedInputAge = computed<number | null>(() => {
+    if (!inputDob.value) return null
+    return calculateAge(inputDob.value)
+  })
+
+  const effectivePatientAge = computed<number | null>(() => {
+    if (patientDateOfBirth.value) {
+      return calculateAge(patientDateOfBirth.value)
+    }
+    if (patientAge.value !== null && patientAge.value !== undefined && patientAge.value !== '') {
+      return typeof patientAge.value === 'number'
+        ? patientAge.value
+        : parseInt(String(patientAge.value), 10) || null
+    }
+    if (selectedPatientData.value?.age) {
+      return selectedPatientData.value.age
+    }
+    return null
+  })
+
+  const formatDobDisplay = (dobStr: string | null | undefined): string => {
+    if (!dobStr) return ''
+    try {
+      const parts = dobStr.split('-').map(Number)
+      if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+        const dateObj = new Date(parts[0], parts[1] - 1, parts[2])
+        return dateObj.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        })
+      }
+      return new Date(dobStr).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    } catch {
+      return dobStr
+    }
+  }
+
+  const startEditDob = () => {
+    inputDob.value = patientDateOfBirth.value || ''
+    dobValidationError.value = ''
+    isEditingDob.value = true
+  }
+
+  const cancelEditDob = () => {
+    isEditingDob.value = false
+    inputDob.value = ''
+    dobValidationError.value = ''
+  }
+
+  const savePatientDob = async () => {
+    dobValidationError.value = ''
+    if (!inputDob.value) {
+      dobValidationError.value = 'Date of birth is required.'
+      return
+    }
+
+    const validation = validateDateOfBirth(inputDob.value, true)
+    if (!validation.valid) {
+      dobValidationError.value = validation.error
+      return
+    }
+
+    if (patientUuid.value) {
+      isSavingDob.value = true
+      try {
+        await userService.update(patientUuid.value, {
+          date_of_birth: inputDob.value
+        })
+        if (selectedPatientData.value) {
+          selectedPatientData.value = {
+            ...selectedPatientData.value,
+            date_of_birth: inputDob.value,
+            age: calculateAge(inputDob.value) ?? selectedPatientData.value.age
+          }
+        }
+        const newAge = calculateAge(inputDob.value)
+        if (newAge !== null) {
+          editablePatientAge.value = String(newAge)
+          patientAge.value = newAge
+        }
+        toast.success('Patient date of birth saved successfully')
+        isEditingDob.value = false
+      } catch (err: any) {
+        const message =
+          err?.response?.data?.message || err?.message || 'Failed to update patient date of birth.'
+        dobValidationError.value = message
+        toast.error(message)
+      } finally {
+        isSavingDob.value = false
+      }
+    } else {
+      if (selectedPatientData.value) {
+        selectedPatientData.value = {
+          ...selectedPatientData.value,
+          date_of_birth: inputDob.value
+        }
+      }
+      const newAge = calculateAge(inputDob.value)
+      if (newAge !== null) {
+        editablePatientAge.value = String(newAge)
+        patientAge.value = newAge
+      }
+      newAccountForm.date_of_birth = inputDob.value
+      if (newAge !== null) {
+        newAccountForm.age = String(newAge)
+      }
+      toast.success('Date of birth set for unassigned patient')
+      isEditingDob.value = false
+    }
+  }
 
   watch(
     patientUuid,
@@ -100,7 +243,16 @@
       if (uuid) {
         try {
           const res = await userService.show(uuid)
-          selectedPatientData.value = res?.data ?? res
+          const pData = res?.data ?? res
+          selectedPatientData.value = pData
+          const dobAge = pData?.date_of_birth ? calculateAge(pData.date_of_birth) : null
+          if (dobAge !== null) {
+            patientAge.value = dobAge
+            editablePatientAge.value = String(dobAge)
+          } else if (pData?.age && !editablePatientAge.value) {
+            patientAge.value = pData.age
+            editablePatientAge.value = String(pData.age)
+          }
         } catch (e) {
           selectedPatientData.value = null
         }
@@ -240,7 +392,9 @@
     firstName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: generateTemporaryPassword('Patient'),
+    date_of_birth: '',
     age: '',
     gender: '',
     street: '',
@@ -249,6 +403,8 @@
     province: '',
     country: 'Philippines'
   })
+
+  const calculatedNewAccountAge = computed(() => calculateAge(newAccountForm.date_of_birth))
 
   // Cascading location watches for account creation modal
   watch(
@@ -320,8 +476,11 @@
     const parts = rawName ? rawName.split(' ') : []
     newAccountForm.firstName = parts[0] || ''
     newAccountForm.lastName = parts.slice(1).join(' ') || ''
+    newAccountForm.date_of_birth = inputDob.value || patientDateOfBirth.value || ''
     newAccountForm.age =
-      editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
+      effectivePatientAge.value !== null
+        ? String(effectivePatientAge.value)
+        : editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
     newAccountForm.email = ''
     newAccountForm.password = generateTemporaryPassword('Patient')
     newAccountForm.gender = ''
@@ -353,6 +512,15 @@
       return
     }
 
+    if (newAccountForm.contact_number) {
+      const parts = splitFullPhoneNumber(newAccountForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        createAccountError.value = res.error
+        return
+      }
+    }
+
     isSubmittingAccount.value = true
     createAccountError.value = null
 
@@ -361,8 +529,12 @@
         firstName: newAccountForm.firstName.trim(),
         lastName: newAccountForm.lastName.trim(),
         email: newAccountForm.email.trim(),
+        contact_number: newAccountForm.contact_number?.trim() || undefined,
         password: newAccountForm.password,
-        age: newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined,
+        date_of_birth: newAccountForm.date_of_birth || undefined,
+        age:
+          calculatedNewAccountAge.value ??
+          (newAccountForm.age ? parseInt(String(newAccountForm.age)) : undefined),
         gender: newAccountForm.gender || undefined,
         street: newAccountForm.street?.trim() || undefined,
         barangay: newAccountForm.barangay?.trim() || undefined,
@@ -375,8 +547,9 @@
       saveActiveDiagnosisState()
       userName.value = `${createdUser.first_name} ${createdUser.last_name}`
       editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      if (createdUser.age) {
-        editablePatientAge.value = String(createdUser.age)
+      const createdAge = calculateAge(createdUser.date_of_birth) ?? createdUser.age
+      if (createdAge) {
+        editablePatientAge.value = String(createdAge)
       }
 
       if (props.diagnosisUuid) {
@@ -770,7 +943,9 @@
     if (!userUuid.value || props.role === 'doctor') return
     try {
       const res = await userService.show(userUuid.value as string)
-      patientAge.value = res?.age ?? null
+      const data = res?.data ?? res
+      patientAge.value =
+        (data?.date_of_birth ? calculateAge(data.date_of_birth) : null) ?? data?.age ?? null
     } catch (e) {
       console.error('Failed to fetch user age:', e)
     }
@@ -1059,27 +1234,148 @@
           >
         </div>
 
-        <div class="flex flex-col gap-1.5 border-x border-gray-200 px-6">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
-            >Clinical Age</span
-          >
+        <div class="flex min-w-[220px] flex-col gap-1.5 border-x border-gray-200 px-6">
+          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase">
+            Date of Birth & Age
+          </span>
+
+          <!-- Inline Edit Mode for Doctor -->
           <div
-            v-if="props.role === 'doctor'"
+            v-if="props.role === 'doctor' && isEditingDob"
+            class="flex flex-col gap-2"
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <div
+                class="focus-within:border-primary focus-within:ring-primary/15 relative flex items-center rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-2xs transition-all focus-within:ring-2"
+              >
+                <Icon
+                  name="lucide:calendar"
+                  class="mr-2 h-3.5 w-3.5 shrink-0 text-gray-400"
+                />
+                <input
+                  v-model="inputDob"
+                  type="date"
+                  :max="todayIsoDate"
+                  class="cursor-pointer bg-transparent text-xs font-bold text-gray-900 outline-none"
+                  :disabled="isSavingDob"
+                />
+              </div>
+
+              <!-- Live dynamic age calculation pill -->
+              <span
+                v-if="calculatedInputAge !== null"
+                class="bg-primary/10 text-primary inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+              >
+                <Icon
+                  name="heroicons:cake-20-solid"
+                  size="11"
+                />
+                {{ calculatedInputAge }} yrs old
+              </span>
+            </div>
+
+            <!-- Polished micro action buttons -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                @click="savePatientDob"
+                :disabled="isSavingDob"
+                class="bg-primary hover:bg-primary/90 inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold text-white shadow-2xs transition-all disabled:opacity-50"
+              >
+                <Icon
+                  v-if="isSavingDob"
+                  name="lucide:loader-2"
+                  class="h-3 w-3 animate-spin"
+                />
+                <Icon
+                  v-else
+                  name="lucide:check"
+                  class="h-3 w-3"
+                />
+                <span>Save</span>
+              </button>
+
+              <button
+                type="button"
+                @click="cancelEditDob"
+                :disabled="isSavingDob"
+                class="cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <span
+              v-if="dobValidationError"
+              class="text-[10px] font-semibold text-rose-500"
+            >
+              {{ dobValidationError }}
+            </span>
+          </div>
+
+          <!-- Display Mode (Doctor & Patient) -->
+          <div
+            v-else
             class="flex items-center gap-2"
           >
-            <input
-              v-model="editablePatientAge"
-              type="number"
-              min="0"
-              class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
-              placeholder="Age"
-            />
+            <!-- When DOB or Age is Available -->
+            <div
+              v-if="patientDateOfBirth || effectivePatientAge !== null"
+              class="flex flex-col gap-0.5"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-base font-bold text-gray-900">
+                  {{ effectivePatientAge !== null ? `${effectivePatientAge} yrs old` : 'Age N/A' }}
+                </span>
+                <AppButton
+                  v-if="props.role === 'doctor'"
+                  variant="ghost"
+                  size="sm"
+                  class="hover:text-primary rounded-xl text-xs font-bold text-gray-500"
+                  @click="startEditDob"
+                >
+                  Change
+                </AppButton>
+              </div>
+              <span
+                v-if="patientDateOfBirth"
+                class="text-muted-foreground flex items-center gap-1 text-[11px] font-medium"
+              >
+                <Icon
+                  name="lucide:calendar"
+                  class="h-3 w-3 text-gray-400"
+                />
+                <span>Born {{ formatDobDisplay(patientDateOfBirth) }}</span>
+              </span>
+            </div>
+
+            <!-- When DOB is NOT set -->
+            <div
+              v-else
+              class="flex flex-col gap-1"
+            >
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex items-center gap-1 rounded-md border border-amber-200/60 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700"
+                >
+                  <Icon
+                    name="lucide:alert-circle"
+                    class="h-3 w-3 text-amber-500"
+                  />
+                  DOB Not Set
+                </span>
+                <AppButton
+                  v-if="props.role === 'doctor'"
+                  variant="ghost"
+                  size="sm"
+                  class="hover:text-primary text-primary rounded-xl text-xs font-bold"
+                  @click="startEditDob"
+                >
+                  Set Date
+                </AppButton>
+              </div>
+            </div>
           </div>
-          <span
-            v-else
-            class="text-base font-bold text-gray-900"
-            >{{ patientAge || '--' }} years old</span
-          >
         </div>
 
         <div class="flex flex-col gap-1.5 pl-6">
@@ -1869,10 +2165,7 @@
         <button
           v-for="patient in uniquePatients"
           :key="patient.uuid"
-          @click="
-            patientUuid = patient.uuid
-            isPatientModalOpen = false
-          "
+          @click="handleSelectPatient(patient.uuid)"
           class="flex w-full items-center gap-4 rounded-2xl border p-4 text-left transition-all"
           :class="
             patientUuid === patient.uuid
@@ -1913,10 +2206,7 @@
       <template #footer>
         <AppButton
           variant="outline"
-          @click="
-            patientUuid = null
-            isPatientModalOpen = false
-          "
+          @click="handleClearPatientSelection"
           class="rounded-xl px-6 font-bold"
           v-if="patientUuid"
         >
@@ -2070,13 +2360,24 @@
 
                 <div class="grid grid-cols-2 gap-3">
                   <div class="flex flex-col gap-1.5">
-                    <label class="text-foreground/70 text-xs font-semibold">Age</label>
+                    <div class="flex items-center justify-between">
+                      <label class="text-foreground/70 text-xs font-semibold">Date of Birth</label>
+                      <span
+                        v-if="calculatedNewAccountAge !== null"
+                        class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      >
+                        <Icon
+                          name="heroicons:cake-20-solid"
+                          size="10"
+                        />
+                        {{ calculatedNewAccountAge }} yrs
+                      </span>
+                    </div>
                     <input
-                      v-model="newAccountForm.age"
-                      type="number"
-                      min="0"
+                      v-model="newAccountForm.date_of_birth"
+                      type="date"
+                      :max="todayIsoDate"
                       class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
-                      placeholder="Age"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
@@ -2097,6 +2398,14 @@
                       <option value="prefer_not_to_say">Prefer not to say</option>
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <AppPhoneInput
+                    v-model="newAccountForm.contact_number"
+                    label="Contact Number"
+                    placeholder="917 123 4567"
+                  />
                 </div>
               </div>
             </div>

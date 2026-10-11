@@ -6,6 +6,8 @@
   import { userService } from '~/api/user/UserService'
   import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
+  const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
+    useFormSanitizer()
   import { toast } from 'vue-sonner'
 
   interface Props {
@@ -244,7 +246,7 @@
         patient_uuid: appt.patient_uuid || patient.uuid,
         patientName,
         patientEmail: patient.email || '',
-        patientAge: patient.age || appt.patient_age,
+        patientAge: calculateAge(patient.date_of_birth) ?? patient.age ?? appt.patient_age,
         patientGender: patient.gender || appt.patient_gender,
         avatar_path: patient.avatar_path
       })
@@ -363,7 +365,9 @@
     middleName: '',
     lastName: '',
     email: '',
+    contact_number: '',
     password: generateTemporaryPassword('Patient'),
+    date_of_birth: '',
     age: '',
     gender: 'Female',
     street: '',
@@ -373,6 +377,7 @@
   })
   const isSubmittingRegistration = ref(false)
   const registrationError = ref<string | null>(null)
+  const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
 
   const openRegistrationForm = () => {
     resetRegisterForm()
@@ -384,7 +389,9 @@
     registerForm.middleName = ''
     registerForm.lastName = ''
     registerForm.email = ''
+    registerForm.contact_number = ''
     registerForm.password = generateTemporaryPassword('Patient')
+    registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
     registerForm.street = ''
@@ -405,6 +412,15 @@
       return
     }
 
+    if (registerForm.contact_number) {
+      const parts = splitFullPhoneNumber(registerForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        registrationError.value = res.error
+        return
+      }
+    }
+
     isSubmittingRegistration.value = true
     registrationError.value = null
 
@@ -414,8 +430,12 @@
         middleName: registerForm.middleName?.trim() || undefined,
         lastName: registerForm.lastName.trim(),
         email: registerForm.email.trim(),
+        contact_number: registerForm.contact_number?.trim() || undefined,
         password: registerForm.password,
-        age: registerForm.age ? parseInt(String(registerForm.age)) : undefined,
+        date_of_birth: registerForm.date_of_birth || undefined,
+        age:
+          calculatedRegisterAge.value ??
+          (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
         barangay: registerForm.barangay?.trim() || undefined,
@@ -1035,10 +1055,21 @@
                             class="truncate"
                             >{{ patient.email }}</span
                           >
-                          <span v-if="patient.email && (patient.gender || patient.age)">•</span>
-                          <span v-if="patient.gender || patient.age">
+                          <span
+                            v-if="
+                              patient.email &&
+                              (patient.gender || patient.age || patient.date_of_birth)
+                            "
+                            >•</span
+                          >
+                          <span v-if="patient.gender || patient.age || patient.date_of_birth">
                             {{
-                              [patient.gender, patient.age ? `${patient.age} yrs` : '']
+                              [
+                                patient.gender,
+                                (calculateAge(patient.date_of_birth) ?? patient.age)
+                                  ? `${calculateAge(patient.date_of_birth) ?? patient.age} yrs`
+                                  : ''
+                              ]
                                 .filter(Boolean)
                                 .join(', ')
                             }}
@@ -1181,13 +1212,23 @@
 
                   <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                     <div>
-                      <label class="mb-1 block text-xs font-bold text-gray-700">Age</label>
+                      <div class="mb-1 flex items-center justify-between">
+                        <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
+                        <span
+                          v-if="calculatedRegisterAge !== null"
+                          class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        >
+                          <Icon
+                            name="heroicons:cake-20-solid"
+                            size="10"
+                          />
+                          {{ calculatedRegisterAge }} yrs old
+                        </span>
+                      </div>
                       <input
-                        v-model="registerForm.age"
-                        type="number"
-                        min="0"
-                        max="130"
-                        placeholder="e.g. 28"
+                        v-model="registerForm.date_of_birth"
+                        type="date"
+                        :max="todayIsoDate"
                         class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
                       />
                     </div>
@@ -1202,6 +1243,14 @@
                         <option value="Other">Other</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div>
+                    <AppPhoneInput
+                      v-model="registerForm.contact_number"
+                      label="Contact Number"
+                      placeholder="917 123 4567"
+                    />
                   </div>
 
                   <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">

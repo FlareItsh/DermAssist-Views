@@ -34,6 +34,7 @@
 
   const logContainer = ref<HTMLElement | null>(null)
   let pollTimer: ReturnType<typeof setInterval> | null = null
+  const { getEcho } = useEcho()
 
   const expansionDiseases = [
     {
@@ -196,7 +197,7 @@
   const startPolling = () => {
     stopPolling()
     pollStatus()
-    pollTimer = setInterval(pollStatus, 1200)
+    pollTimer = setInterval(pollStatus, 5000)
   }
 
   const stopPolling = () => {
@@ -266,10 +267,41 @@
   onMounted(() => {
     fetchStats()
     startPolling()
+
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.private('admin.ai-retraining').listen('.ModelTrainingProgressUpdated', (e: any) => {
+          if (e?.status) {
+            trainingStatus.value = e.status
+            nextTick(() => {
+              if (logContainer.value) {
+                logContainer.value.scrollTop = logContainer.value.scrollHeight
+              }
+            })
+            if (
+              e.status.status === 'completed' ||
+              e.status.status === 'failed' ||
+              e.status.status === 'cancelled' ||
+              e.status.status === 'idle'
+            ) {
+              stopPolling()
+              fetchStats()
+            }
+          }
+        })
+      }
+    }
   })
 
   onBeforeUnmount(() => {
     stopPolling()
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.leave('admin.ai-retraining')
+      }
+    }
   })
 </script>
 

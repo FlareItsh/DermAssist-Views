@@ -29,7 +29,8 @@
   }>()
 
   const searchValue = ref('')
-  let pollingInterval: any = null
+  const { getEcho } = useEcho()
+  const userUuid = useCookie('user_uuid')
 
   const userRole = useCookie('user_role')
   const { getStorageUrl } = useStorage()
@@ -80,28 +81,43 @@
     }
   }
 
-  const startPolling = () => {
-    if (pollingInterval) clearInterval(pollingInterval)
-    pollingInterval = setInterval(async () => {
-      if (!pending.value) {
-        await refresh()
-      }
-    }, 3000)
-  }
-
-  const stopPolling = () => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval)
-      pollingInterval = null
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      refresh()
     }
   }
 
   onMounted(() => {
-    startPolling()
+    if (import.meta.client && userUuid.value) {
+      const echo = getEcho()
+      if (echo) {
+        echo
+          .private(`user.${userUuid.value}`)
+          .listen('.ChatMessageSent', () => {
+            refresh()
+          })
+          .listen('.ChatMessagesRead', () => {
+            refresh()
+          })
+          .listen('.ChatMessageEdited', () => {
+            refresh()
+          })
+          .listen('.ChatMessageDeleted', () => {
+            refresh()
+          })
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 
   onUnmounted(() => {
-    stopPolling()
+    if (import.meta.client && userUuid.value) {
+      const echo = getEcho()
+      if (echo) {
+        echo.leave(`user.${userUuid.value}`)
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 
   const handleSelect = (conv: Conversation) => {

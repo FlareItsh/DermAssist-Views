@@ -14,10 +14,37 @@
     (e: 'requested'): void
   }>()
 
-  // ── State ────────────────────────────────────────────────────────────────────
+  // ── State & Role ─────────────────────────────────────────────────────────────
 
-  const selectedDate = ref<string>('')
-  const selectedTime = ref<string>('')
+  const userRole = useCookie('user_role')
+  const userUuid = useCookie('user_uuid')
+  const doctorUuidCookie = useCookie('doctor_uuid')
+
+  const isDoctorOrSecretary = computed(() => {
+    const r = (userRole.value || '').toLowerCase()
+    return r === 'doctor' || r === 'secretary'
+  })
+
+  const personDisplayName = computed(() => {
+    if (isDoctorOrSecretary.value) {
+      if (props.appointment.patient?.first_name) {
+        return `${props.appointment.patient.first_name} ${props.appointment.patient.last_name}`
+      }
+      return (props.appointment as any).patientName || props.appointment.doctor || 'Patient'
+    }
+    return props.appointment.doctor || 'Doctor'
+  })
+
+  const selectedDate = ref<string>(
+    props.appointment?.requested_reschedule_date
+      ? props.appointment.requested_reschedule_date.slice(0, 10)
+      : ''
+  )
+  const selectedTime = ref<string>(
+    props.appointment?.requested_reschedule_time
+      ? props.appointment.requested_reschedule_time.slice(0, 5)
+      : ''
+  )
   const isSubmitting = ref(false)
   const isLoading = ref(true)
 
@@ -78,18 +105,23 @@
     return `${y}-${m}-${day}`
   })()
 
-  const currentDate = ref(new Date())
+  const currentDate = ref(
+    selectedDate.value ? new Date(`${selectedDate.value}T00:00:00`) : new Date()
+  )
   const hoveredDate = ref<string | null>(null)
   const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
-  const { fetchAppointmentsForDoctor } = useAppointments()
+  const { appointments, fetchAppointmentsForDoctor } = useAppointments()
 
   // ── Load doctor availability & duty schedule ──────────────────────────────────
 
   onMounted(async () => {
     isLoading.value = true
     try {
-      const doctorUuid = props.appointment.doctor_uuid
+      const currentRole = (userRole.value || '').toLowerCase()
+      const doctorUuid =
+        props.appointment.doctor_uuid ||
+        (currentRole === 'doctor' ? (userUuid.value as string) : (doctorUuidCookie.value as string))
       const doctorId = props.appointment.doctor_id
 
       if (doctorUuid) {
@@ -123,6 +155,8 @@
         if (appts && appts.length > 0) {
           doctorAppointmentsList.value = appts
         }
+      } else if (isDoctorOrSecretary.value && appointments.value?.length) {
+        doctorAppointmentsList.value = appointments.value
       }
     } catch (e) {
       console.error('Failed to load doctor availability:', e)
@@ -495,22 +529,54 @@
 
     const day = Number(selectedDate.value.slice(8, 10))
     if (!isDateSelectable(day)) {
-      toast.error("Please select an available date within your doctor's schedule.")
+      toast.error(
+        isDoctorOrSecretary.value
+          ? 'Please select an available date within your duty schedule.'
+          : "Please select an available date within your doctor's schedule."
+      )
       return
     }
 
     isSubmitting.value = true
     try {
-      await appointmentService.update(props.appointment.id, {
-        status: 'reschedule_requested',
-        requested_reschedule_date: selectedDate.value,
-        requested_reschedule_time: selectedTime.value
-      })
-      toast.success('Reschedule request sent to your doctor.')
+      const apptId = props.appointment.id || (props.appointment as any).uuid
+
+      if (isDoctorOrSecretary.value) {
+        const [hStr, mStr] = selectedTime.value.split(':')
+        const h = parseInt(hStr, 10)
+        const m = parseInt(mStr, 10)
+        const endH = (h + 1) % 24
+        const endTime = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+
+        const dateTime = `${selectedDate.value} ${selectedTime.value}:00`
+        const endDateTime = `${selectedDate.value} ${endTime}:00`
+        const location =
+          selectedDateClinic.value?.name || props.appointment.location || 'Clinic Duty'
+
+        await appointmentService.proposeReschedule(apptId, {
+          scheduled_at: dateTime,
+          scheduled_end_at: endDateTime,
+          location
+        })
+        toast.success('Reschedule proposal sent to patient.')
+      } else {
+        await appointmentService.update(apptId, {
+          status: 'reschedule_requested',
+          requested_reschedule_date: selectedDate.value,
+          requested_reschedule_time: selectedTime.value
+        })
+        toast.success('Reschedule request sent to your doctor.')
+      }
       emit('requested')
       emit('close')
     } catch (e: any) {
-      toast.error(e.data?.message || e.message || 'Failed to send reschedule request.')
+      toast.error(
+        e.data?.message ||
+          e.message ||
+          (isDoctorOrSecretary.value
+            ? 'Failed to propose reschedule.'
+            : 'Failed to send reschedule request.')
+      )
     } finally {
       isSubmitting.value = false
     }
@@ -539,9 +605,11 @@
                 </div>
                 <div>
                   <p class="text-[10px] font-bold tracking-widest text-white uppercase opacity-80">
-                    Patient Request
+                    {{ isDoctorOrSecretary ? 'Doctor Proposal' : 'Patient Request' }}
                   </p>
-                  <h3 class="text-base leading-tight font-black text-white">Request Reschedule</h3>
+                  <h3 class="text-base leading-tight font-black text-white">
+                    {{ isDoctorOrSecretary ? 'Propose Reschedule' : 'Request Reschedule' }}
+                  </h3>
                 </div>
               </div>
               <AppButton
@@ -567,13 +635,15 @@
                   class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
                 >
                   <Icon
-                    name="lucide:stethoscope"
+                    :name="isDoctorOrSecretary ? 'lucide:user' : 'lucide:stethoscope'"
                     class="text-primary text-sm"
                   />
                 </div>
                 <div>
-                  <p class="text-foreground text-sm font-bold">{{ appointment.doctor }}</p>
-                  <p class="text-muted-foreground text-xs">{{ appointment.info }}</p>
+                  <p class="text-foreground text-sm font-bold">{{ personDisplayName }}</p>
+                  <p class="text-muted-foreground text-xs">
+                    {{ appointment.info || 'Consultation' }}
+                  </p>
                 </div>
               </div>
               <span class="text-muted-foreground hidden text-xs font-medium sm:inline-block">
@@ -822,7 +892,7 @@
                   </span>
                   <span class="flex items-center gap-1.5">
                     <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                    Doctor Available
+                    {{ isDoctorOrSecretary ? 'On Duty' : 'Doctor Available' }}
                   </span>
                   <span class="flex items-center gap-1.5">
                     <span class="h-2 w-2 rounded-full bg-gray-300"></span>
@@ -861,7 +931,7 @@
                         <span
                           class="bg-primary/15 text-primary rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
                         >
-                          Doctor Practice Location
+                          {{ isDoctorOrSecretary ? 'Clinic Location' : 'Doctor Practice Location' }}
                         </span>
                       </div>
                       <p class="text-foreground mt-0.5 truncate text-xs font-bold">
@@ -990,8 +1060,11 @@
                 </div>
                 <h4 class="text-foreground text-sm font-bold">Pick a Date to View Slots</h4>
                 <p class="text-muted-foreground mt-1 max-w-xs text-xs">
-                  Select any available date on the calendar to see doctor clinic duty hours and
-                  bookable consultation slots.
+                  {{
+                    isDoctorOrSecretary
+                      ? 'Select any available date on the calendar to see your duty hours and open consultation slots.'
+                      : 'Select any available date on the calendar to see doctor clinic duty hours and bookable consultation slots.'
+                  }}
                 </p>
               </div>
             </div>
@@ -1063,7 +1136,7 @@
                   name="lucide:send"
                   class="mr-1.5 text-xs"
                 />
-                Send Request
+                {{ isDoctorOrSecretary ? 'Propose Schedule' : 'Send Request' }}
               </AppButton>
             </div>
           </div>
