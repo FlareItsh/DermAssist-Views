@@ -1,5 +1,7 @@
 <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, watch } from 'vue'
+
+  const { searchQuery } = useSearch()
 
   const skinConditions = [
     {
@@ -23,6 +25,21 @@
   ]
 
   const expandedCondition = ref<string | null>('acne')
+
+  watch(searchQuery, query => {
+    const q = query.trim().toLowerCase()
+    if (!q) return
+
+    const matched = skinConditions.find(
+      cond =>
+        cond.id.toLowerCase().includes(q) ||
+        cond.title.toLowerCase().includes(q) ||
+        cond.desc.toLowerCase().includes(q)
+    )
+    if (matched) {
+      expandedCondition.value = matched.id
+    }
+  })
 </script>
 
 <template>

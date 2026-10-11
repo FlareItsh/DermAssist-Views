@@ -1959,23 +1959,23 @@
           v-if="partnerIsTyping"
           class="flex items-end gap-2 pt-1 pb-1.5"
         >
-          <!-- Partner Avatar -->
+          <!-- Partner Avatar (Identical to message avatar, proportionally compact) -->
           <div
-            class="border-border/50 bg-foreground/5 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
+            class="border-border/50 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
           >
             <img
-              v-if="otherPersonAvatar"
+              v-if="otherPersonAvatar && !headerAvatarFailed"
               :src="getStorageUrl(otherPersonAvatar)"
               :alt="otherPersonName"
               class="h-full w-full object-cover"
-              :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName || 'User')}&background=7B5EF5&color=fff&size=128'`"
+              @error="headerAvatarFailed = true"
             />
-            <img
+            <div
               v-else
-              :src="`https://ui-avatars.com/api/?name=${encodeURIComponent(otherPersonName || 'User')}&background=7B5EF5&color=fff&size=128`"
-              :alt="otherPersonName"
-              class="h-full w-full object-cover"
-            />
+              class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-[11px] font-bold uppercase"
+            >
+              {{ (otherPersonName || '?').charAt(0) }}
+            </div>
           </div>
 
           <!-- 3 Bouncing Dots Bubble (Same style as incoming chat, smaller size) -->
