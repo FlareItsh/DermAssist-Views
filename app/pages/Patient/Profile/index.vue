@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
   import { toast } from 'vue-sonner'
+  import { $api } from '~/composables/useApi'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -91,7 +92,12 @@
   } = usePhLocations()
 
   const { getStorageUrl } = useStorage()
-  const { missingPatientFields, refreshProfile } = useAppNotifications()
+  const {
+    missingPatientFields,
+    refreshProfile,
+    isAccountPendingVerification,
+    verificationDeadline
+  } = useAppNotifications()
 
   const codes = reactive({
     region: '',
@@ -125,8 +131,114 @@
     return `${m.charAt(0).toUpperCase()}.`
   })
 
+  // Email Verification State
+  const accountStatusCookie = useCookie<string | null>('account_status')
+  const verificationDeadlineCookie = useCookie<string | null>('verification_deadline')
+
+  const isEmailVerified = computed(() => {
+    if (user.value?.account_status) {
+      return user.value.account_status === 'active'
+    }
+    if (accountStatusCookie.value) {
+      return accountStatusCookie.value === 'active'
+    }
+    if (user.value?.email_verified_at) {
+      return true
+    }
+    return !isAccountPendingVerification.value
+  })
+
+  const effectiveDeadline = computed(() => {
+    return (
+      user.value?.verification_deadline ||
+      verificationDeadlineCookie.value ||
+      verificationDeadline.value ||
+      null
+    )
+  })
+
+  const timeRemainingText = ref('48 hours remaining')
+  const timeRemainingPillText = ref('Pending (48h left)')
+  const isExpired = ref(false)
+
+  const updateCountdown = () => {
+    if (!effectiveDeadline.value) {
+      timeRemainingText.value = '48 hours remaining'
+      timeRemainingPillText.value = 'Pending (48h left)'
+      isExpired.value = false
+      return
+    }
+
+    const diff = new Date(effectiveDeadline.value).getTime() - Date.now()
+    if (diff <= 0) {
+      isExpired.value = true
+      timeRemainingText.value = 'Verification expired'
+      timeRemainingPillText.value = 'Expired'
+    } else {
+      isExpired.value = false
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      timeRemainingText.value =
+        hours > 0 ? `${hours}h ${minutes}m remaining` : `${minutes}m remaining`
+      timeRemainingPillText.value =
+        hours > 0 ? `Pending (${hours}h left)` : `Pending (${minutes}m left)`
+    }
+  }
+
+  const isResendingVerification = ref(false)
+  const resendCooldown = ref(0)
+  let cooldownTimer: ReturnType<typeof setInterval> | null = null
+  let countdownInterval: ReturnType<typeof setInterval> | null = null
+
+  const startCooldown = () => {
+    resendCooldown.value = 60
+    if (cooldownTimer) clearInterval(cooldownTimer)
+    cooldownTimer = setInterval(() => {
+      if (resendCooldown.value > 0) {
+        resendCooldown.value--
+      } else {
+        if (cooldownTimer) clearInterval(cooldownTimer)
+      }
+    }, 1000)
+  }
+
+  const handleResendVerification = async () => {
+    if (isResendingVerification.value || resendCooldown.value > 0) return
+    isResendingVerification.value = true
+
+    try {
+      const res: any = await $api('/resend-verification', {
+        method: 'POST'
+      })
+      toast.success(res?.message || 'A new verification email has been sent.')
+      if (res?.verification_deadline) {
+        useCookie('verification_deadline', { path: '/' }).value = res.verification_deadline
+      }
+      startCooldown()
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
+      updateCountdown()
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Failed to resend verification email.'
+      toast.error(msg)
+    } finally {
+      isResendingVerification.value = false
+    }
+  }
+
+  watch(
+    () => effectiveDeadline.value,
+    () => updateCountdown()
+  )
+
   onMounted(async () => {
     await fetchRegions()
+    updateCountdown()
+    countdownInterval = setInterval(updateCountdown, 60000)
+  })
+
+  onUnmounted(() => {
+    if (countdownInterval) clearInterval(countdownInterval)
+    if (cooldownTimer) clearInterval(cooldownTimer)
   })
 
   // Cascading logic
@@ -701,6 +813,40 @@
               "
             />
           </div>
+
+          <div
+            class="border-border/60 mt-2.5 flex items-center justify-between border-t pt-2.5 text-[11px]"
+          >
+            <span class="text-muted-foreground font-medium">Email Verification</span>
+            <span
+              v-if="isEmailVerified"
+              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+            >
+              <Icon
+                name="heroicons:check-badge-20-solid"
+                class="h-3 w-3"
+              />
+              Verified
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              :class="
+                isExpired
+                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              "
+              :title="timeRemainingText"
+            >
+              <Icon
+                :name="
+                  isExpired ? 'heroicons:exclamation-triangle-20-solid' : 'heroicons:clock-20-solid'
+                "
+                class="h-3 w-3"
+              />
+              {{ timeRemainingPillText }}
+            </span>
+          </div>
         </div>
 
         <!-- Inner Navigation Menu -->
@@ -863,11 +1009,44 @@
                     <!-- Email & Contact Number -->
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div class="text-foreground flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Email Address
-                        </label>
+                        <div class="flex items-center justify-between">
+                          <label
+                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                          >
+                            Email Address
+                          </label>
+                          <div class="flex items-center gap-1.5">
+                            <span
+                              v-if="isEmailVerified"
+                              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+                            >
+                              <Icon
+                                name="heroicons:check-badge-20-solid"
+                                class="h-3 w-3"
+                              />
+                              Verified
+                            </span>
+                            <span
+                              v-else
+                              class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                              :class="
+                                isExpired
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                              "
+                            >
+                              <Icon
+                                :name="
+                                  isExpired
+                                    ? 'heroicons:exclamation-triangle-20-solid'
+                                    : 'heroicons:clock-20-solid'
+                                "
+                                class="h-3 w-3"
+                              />
+                              {{ isExpired ? 'Expired' : 'Unverified' }}
+                            </span>
+                          </div>
+                        </div>
                         <div class="relative">
                           <input
                             v-model="form.email"
@@ -881,6 +1060,41 @@
                             class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
                             size="16"
                           />
+                        </div>
+                        <div
+                          v-if="!isEmailVerified"
+                          class="mt-0.5 flex items-center justify-between text-[11px]"
+                        >
+                          <span
+                            class="flex items-center gap-1 font-medium"
+                            :class="
+                              isExpired
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                            "
+                          >
+                            <Icon
+                              :name="
+                                isExpired
+                                  ? 'heroicons:exclamation-circle-20-solid'
+                                  : 'heroicons:clock-20-solid'
+                              "
+                              class="h-3 w-3 shrink-0"
+                            />
+                            {{ timeRemainingText }}
+                          </span>
+                          <button
+                            type="button"
+                            @click="handleResendVerification"
+                            :disabled="isResendingVerification || resendCooldown > 0"
+                            class="text-primary hover:text-primary/80 cursor-pointer font-semibold underline underline-offset-2 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <span v-if="isResendingVerification">Sending...</span>
+                            <span v-else-if="resendCooldown > 0"
+                              >Resend in {{ resendCooldown }}s</span
+                            >
+                            <span v-else>Resend Link</span>
+                          </button>
                         </div>
                       </div>
                       <div class="flex flex-col gap-1.5">
@@ -1233,6 +1447,197 @@
                 <p class="text-muted-foreground mt-0.5 text-xs">
                   Manage your credentials, password security, and active sessions.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dedicated Email Verification Security Card -->
+          <div
+            class="bg-card border-border flex flex-col justify-between rounded-3xl border p-6 shadow-xs sm:p-7"
+          >
+            <div>
+              <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
+                    :class="
+                      isEmailVerified
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                        : isExpired
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                    "
+                  >
+                    <Icon
+                      :name="
+                        isEmailVerified
+                          ? 'heroicons:check-badge-20-solid'
+                          : isExpired
+                            ? 'heroicons:exclamation-triangle-20-solid'
+                            : 'heroicons:envelope-open-20-solid'
+                      "
+                      size="22"
+                    />
+                  </div>
+                  <div>
+                    <h3 class="text-foreground text-base font-bold sm:text-lg">
+                      Email Verification
+                    </h3>
+                    <p class="text-muted-foreground mt-0.5 text-xs">
+                      Verify your primary email address to safeguard medical records and receive
+                      diagnostic updates.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Status Pill Badge -->
+                <div
+                  v-if="isEmailVerified"
+                  class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                >
+                  <Icon
+                    name="heroicons:check-circle-20-solid"
+                    class="h-4 w-4"
+                  />
+                  <span>Email Verified</span>
+                </div>
+                <div
+                  v-else
+                  class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+                  :class="
+                    isExpired
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  "
+                >
+                  <Icon
+                    :name="
+                      isExpired
+                        ? 'heroicons:exclamation-circle-20-solid'
+                        : 'heroicons:clock-20-solid'
+                    "
+                    class="h-4 w-4"
+                  />
+                  <span>{{ isExpired ? 'Verification Expired' : 'Pending Verification' }}</span>
+                </div>
+              </div>
+
+              <div class="bg-border/60 my-5 h-px"></div>
+
+              <!-- Details Grid -->
+              <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <!-- Primary Email Display Box -->
+                <div class="border-border bg-foreground/[0.02] rounded-2xl border p-4">
+                  <span
+                    class="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase"
+                  >
+                    Primary Email
+                  </span>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span class="text-foreground truncate text-sm font-semibold">{{
+                      form.email
+                    }}</span>
+                    <Icon
+                      :name="
+                        isEmailVerified ? 'heroicons:check-circle' : 'heroicons:exclamation-circle'
+                      "
+                      class="shrink-0"
+                      :class="
+                        isEmailVerified
+                          ? 'text-emerald-500'
+                          : isExpired
+                            ? 'text-rose-500'
+                            : 'text-amber-500'
+                      "
+                      size="16"
+                    />
+                  </div>
+                </div>
+
+                <!-- Verification Window / Status Box -->
+                <div class="border-border bg-foreground/[0.02] rounded-2xl border p-4">
+                  <span
+                    class="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase"
+                  >
+                    {{ isEmailVerified ? 'Status' : 'Verification Window' }}
+                  </span>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span
+                      class="text-sm font-semibold"
+                      :class="
+                        isEmailVerified
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : isExpired
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-amber-600 dark:text-amber-400'
+                      "
+                    >
+                      {{ isEmailVerified ? 'Active & Protected' : timeRemainingText }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Action Button Box -->
+                <div
+                  class="border-border bg-foreground/[0.02] flex items-center justify-between rounded-2xl border p-4 md:justify-end"
+                >
+                  <AppButton
+                    v-if="!isEmailVerified"
+                    type="button"
+                    :disabled="isResendingVerification || resendCooldown > 0"
+                    :loading="isResendingVerification"
+                    @click="handleResendVerification"
+                    class="w-full md:w-auto"
+                  >
+                    <Icon
+                      name="heroicons:paper-airplane-20-solid"
+                      size="16"
+                      class="mr-1.5"
+                    />
+                    <span v-if="resendCooldown > 0">Resend in {{ resendCooldown }}s</span>
+                    <span v-else>Resend Verification Email</span>
+                  </AppButton>
+                  <div
+                    v-else
+                    class="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                  >
+                    <Icon
+                      name="heroicons:shield-check-20-solid"
+                      size="18"
+                    />
+                    <span>Medical Records Protected</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Unverified explanation callout if unverified -->
+              <div
+                v-if="!isEmailVerified"
+                class="mt-4 flex items-start gap-2.5 rounded-2xl p-3.5 text-xs"
+                :class="
+                  isExpired
+                    ? 'border border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300'
+                    : 'border border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-300'
+                "
+              >
+                <Icon
+                  :name="
+                    isExpired ? 'heroicons:exclamation-triangle' : 'heroicons:information-circle'
+                  "
+                  class="mt-0.5 h-4 w-4 shrink-0"
+                />
+                <div class="leading-relaxed">
+                  <span v-if="isExpired">
+                    Your 48-hour email confirmation link has expired. Click
+                    <strong>Resend Verification Email</strong> above to receive a fresh verification
+                    link and keep your account fully operational.
+                  </span>
+                  <span v-else>
+                    Check your inbox at <strong>{{ form.email }}</strong> for your verification
+                    link. You have 48 hours from registration to complete this step before account
+                    capabilities are restricted.
+                  </span>
+                </div>
               </div>
             </div>
           </div>
