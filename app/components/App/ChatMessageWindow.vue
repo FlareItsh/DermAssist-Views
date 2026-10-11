@@ -27,6 +27,8 @@
     message: string
     is_read: boolean
     read_at: string | null
+    is_edited?: boolean
+    edited_at?: string | null
     created_at: string
     updated_at: string
     attachments?: Attachment[]
@@ -929,8 +931,7 @@
   }
 
   const isEdited = (msg: Message) => {
-    // Standard comparison to check if message was updated after creation
-    return msg.created_at !== msg.updated_at
+    return Boolean(msg.is_edited || msg.edited_at)
   }
 </script>
 
