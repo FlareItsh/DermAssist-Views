@@ -16,7 +16,7 @@
   >
     <div class="relative z-20 flex h-12 shrink-0 translate-y-px items-end sm:h-16">
       <div
-        class="bg-primary flex h-full max-w-[75%] flex-col justify-center rounded-t-2xl border-x border-t border-white/20 px-4 shadow-[0_-6px_16px_-2px_rgba(0,0,0,0.25)] sm:w-[520px] sm:max-w-none sm:rounded-t-3xl sm:px-8"
+        class="bg-primary flex h-full max-w-[75%] flex-col justify-center rounded-t-2xl border-x border-t border-white/20 px-4 shadow-[0_-3px_8px_-1px_rgba(0,0,0,0.08)] sm:w-[520px] sm:max-w-none sm:rounded-t-3xl sm:px-8"
       >
         <div class="flex min-w-0 items-center gap-2.5 sm:gap-4">
           <slot name="image" />
@@ -50,7 +50,7 @@
 
     <!-- Folder Body -->
     <div
-      class="bg-primary relative z-10 flex min-h-52 flex-1 flex-col overflow-hidden rounded-tr-2xl rounded-b-2xl border-t border-white/10 p-4 shadow-[0_-8px_20px_-4px_rgba(0,0,0,0.2)] sm:min-h-64 sm:rounded-tr-3xl sm:rounded-b-3xl sm:p-8"
+      class="bg-primary relative z-10 flex min-h-52 flex-1 flex-col overflow-hidden rounded-tr-2xl rounded-b-2xl border-t border-white/10 p-4 shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.07)] sm:min-h-64 sm:rounded-tr-3xl sm:rounded-b-3xl sm:p-8"
     >
       <!-- Subtle Paper Inside look -->
       <div
@@ -67,6 +67,6 @@
 
 <style scoped>
   .folder-silhouette-shadow {
-    filter: drop-shadow(0 -8px 14px rgba(0, 0, 0, 0.22));
+    filter: drop-shadow(0 -4px 8px rgba(0, 0, 0, 0.08));
   }
 </style>
