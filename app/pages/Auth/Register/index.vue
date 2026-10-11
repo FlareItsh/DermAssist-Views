@@ -692,6 +692,7 @@
               size="unstyled"
               rounded="unstyled"
               @click="role = 'patient'"
+              :disabled="isLoading"
               type="button"
               class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
@@ -740,6 +741,7 @@
               size="unstyled"
               rounded="unstyled"
               @click="role = 'doctor'"
+              :disabled="isLoading"
               type="button"
               class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
@@ -990,10 +992,16 @@
             @click="nextStep"
             block
             class="mt-2"
-            :disabled="!isStep1Valid"
+            :loading="isLoading"
+            :disabled="!isStep1Valid || isLoading"
           >
-            <span>{{ role === 'doctor' ? 'Next' : 'Create Account' }}</span>
-            <template #trailing>
+            <span>{{
+              role === 'doctor' ? 'Next' : isLoading ? 'Creating Account...' : 'Create Account'
+            }}</span>
+            <template
+              #trailing
+              v-if="!isLoading"
+            >
               <Icon
                 :name="role === 'doctor' ? 'lucide:chevron-right' : 'lucide:arrow-right'"
                 class="h-5 w-5"
@@ -1018,7 +1026,8 @@
           <button
             v-if="role === 'patient'"
             type="button"
-            class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition-all hover:shadow"
+            :disabled="isLoading"
+            class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
             @click="registerWithGoogle"
           >
             <svg
@@ -1069,6 +1078,7 @@
               variant="ghost"
               size="sm"
               @click="prevStep"
+              :disabled="isLoading"
               class="text-foreground/70 hover:text-foreground -ml-2 w-fit px-2!"
             >
               <template #leading>
@@ -1372,11 +1382,16 @@
               block
               size="lg"
               :loading="isLoading"
-              :disabled="!isStep2Valid"
+              :disabled="!isStep2Valid || isLoading"
               @click="handleRegister(false)"
             >
-              <span>Complete Doctor Registration</span>
-              <template #trailing>
+              <span>{{
+                isLoading ? 'Completing Registration...' : 'Complete Doctor Registration'
+              }}</span>
+              <template
+                #trailing
+                v-if="!isLoading"
+              >
                 <Icon
                   name="lucide:arrow-right"
                   class="h-5 w-5"
@@ -1404,10 +1419,16 @@
                   type="button"
                   @click="handleRegister(true)"
                   :disabled="isLoading"
-                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1 text-xs font-bold hover:underline"
+                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold hover:underline disabled:cursor-wait disabled:opacity-60"
                 >
-                  <span>Skip Verification for Now</span>
                   <Icon
+                    v-if="isLoading"
+                    name="svg-spinners:ring-resize"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>{{ isLoading ? 'Creating Account...' : 'Skip Verification for Now' }}</span>
+                  <Icon
+                    v-if="!isLoading"
                     name="lucide:chevron-right"
                     class="h-3 w-3"
                   />
