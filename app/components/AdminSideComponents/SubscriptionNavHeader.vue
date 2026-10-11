@@ -8,17 +8,19 @@
             class="text-xl"
           />
         </div>
-        <h1 class="text-2xl font-black text-gray-950">{{ title }}</h1>
+        <h1 class="text-xl font-black text-gray-950 md:text-2xl">{{ title }}</h1>
       </div>
       <p class="mt-1 text-sm text-gray-500">{{ description }}</p>
     </div>
 
     <!-- Navigation Tabs & Actions -->
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+    <div class="flex min-w-0 flex-wrap items-center gap-3">
+      <div
+        class="scrollbar-none flex max-w-full overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-1"
+      >
         <NuxtLink
           to="/admin/subscriptions"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
           :class="
             currentTab === 'dashboard'
               ? 'bg-white text-gray-950 shadow-sm'
@@ -33,7 +35,7 @@
         </NuxtLink>
         <NuxtLink
           to="/admin/subscriptions/plans"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
           :class="
             currentTab === 'plans'
               ? 'bg-white text-gray-950 shadow-sm'
@@ -48,7 +50,7 @@
         </NuxtLink>
         <NuxtLink
           to="/admin/subscriptions/features"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
           :class="
             currentTab === 'features'
               ? 'bg-white text-gray-950 shadow-sm'
@@ -63,7 +65,7 @@
         </NuxtLink>
         <NuxtLink
           to="/admin/subscriptions/payments"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
           :class="
             currentTab === 'payments'
               ? 'bg-white text-gray-950 shadow-sm'
@@ -78,7 +80,7 @@
         </NuxtLink>
         <NuxtLink
           to="/admin/subscriptions/coupons"
-          class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition"
+          class="flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold whitespace-nowrap transition"
           :class="
             currentTab === 'coupons'
               ? 'bg-white text-gray-950 shadow-sm'

@@ -522,13 +522,11 @@
     if (import.meta.client) {
       const echo = getEcho()
       if (echo) {
-        echo
-          .private('admin.ai-retraining')
-          .listen('.ModelTrainingProgressUpdated', (e: any) => {
-            if (e?.status) {
-              updateTrainingState(e.status)
-            }
-          })
+        echo.private('admin.ai-retraining').listen('.ModelTrainingProgressUpdated', (e: any) => {
+          if (e?.status) {
+            updateTrainingState(e.status)
+          }
+        })
       }
     }
   })
@@ -739,7 +737,7 @@
     </div>
 
     <!-- Active Pipeline Status & Live Progress Card -->
-    <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+    <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
       <div
         class="border-border flex flex-col justify-between gap-3 border-b pb-4 sm:flex-row sm:items-center"
       >
@@ -1113,10 +1111,10 @@
     </div>
 
     <!-- Main 2-Column Section: Configuration & Console -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+    <div class="grid grid-cols-1 gap-5 md:gap-8 lg:grid-cols-12">
       <!-- Left Column: Unified Ensemble Training Control (5 cols) -->
       <div class="space-y-6 lg:col-span-5">
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <h3 class="text-foreground flex items-center gap-2 text-base font-bold">
               <Icon
@@ -1649,7 +1647,7 @@
         </div>
 
         <!-- Production Model Inventory -->
-        <div class="bg-card border-border space-y-4 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-4 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="flex items-center justify-between">
             <h4 class="text-foreground flex items-center gap-2 text-sm font-bold">
               <Icon

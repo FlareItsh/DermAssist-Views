@@ -328,7 +328,7 @@
 
 <template>
   <div class="">
-    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+    <div class="mb-5 grid grid-cols-2 gap-3 md:mb-6 md:grid-cols-4 md:gap-4">
       <AdminSideComponentsMetricCard
         label="Patients"
         :value="patientCount"
@@ -370,9 +370,11 @@
       />
     </div>
 
-    <section class="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <section
+      class="mb-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:mb-6"
+    >
       <div
-        class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-5 py-4"
+        class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 md:gap-4 md:px-5 md:py-4"
       >
         <div>
           <h2 class="text-base font-black text-gray-950">Website Usage</h2>
@@ -381,12 +383,12 @@
           </p>
         </div>
 
-        <div class="flex rounded-xl border border-gray-200 bg-gray-50 p-1">
+        <div class="flex w-full rounded-xl border border-gray-200 bg-gray-50 p-1 sm:w-auto">
           <button
             v-for="option in usageRangeOptions"
             :key="option.value"
             type="button"
-            class="rounded-lg px-2.5 py-1 text-xs font-bold transition"
+            class="flex-1 rounded-lg px-2.5 py-1 text-xs font-bold transition sm:flex-none"
             :class="
               usageRange === option.value
                 ? 'bg-white text-emerald-700 shadow-sm'
@@ -408,7 +410,7 @@
 
       <div
         v-else
-        class="p-5"
+        class="p-4 md:p-5"
       >
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -431,7 +433,7 @@
 
         <div class="w-full overflow-x-auto">
           <svg
-            class="min-w-[680px]"
+            class="min-w-[600px] md:min-w-[680px]"
             :viewBox="`0 0 ${chartWidth} ${chartHeight}`"
             role="img"
             aria-label="Website usage area chart"
@@ -484,7 +486,7 @@
                   4
                 "
                 text-anchor="end"
-                class="fill-gray-400 text-[8px] font-semibold"
+                class="fill-gray-400 text-[10px] font-semibold md:text-[8px]"
               >
                 {{ label }}
               </text>
@@ -510,6 +512,7 @@
               @mouseleave="hoveredUsagePoint = null"
               @focus="hoveredUsagePoint = point"
               @blur="hoveredUsagePoint = null"
+              @click="hoveredUsagePoint = point"
               tabindex="0"
             >
               <rect
@@ -541,7 +544,7 @@
                 :x="point.x"
                 :y="chartHeight - 12"
                 text-anchor="middle"
-                class="fill-gray-500 text-[8px] font-semibold"
+                class="fill-gray-500 text-[10px] font-semibold md:text-[8px]"
               >
                 {{ point.label }}
               </text>
@@ -611,12 +614,15 @@
             </g>
           </svg>
         </div>
+        <p class="mt-2 text-center text-[10px] font-medium text-gray-400 md:hidden">
+          Swipe sideways to see the full chart, tap a point for details
+        </p>
       </div>
     </section>
 
-    <div class="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="mb-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:mb-6">
       <div
-        class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 px-5 py-4"
+        class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-4 py-3 md:gap-4 md:px-5 md:py-4"
       >
         <div class="min-w-0">
           <div class="flex items-center gap-3">
@@ -659,7 +665,7 @@
           v-for="appeal in recentAppeals"
           :key="appeal.uuid"
           to="/admin/appeals"
-          class="group grid gap-4 px-5 py-4 transition hover:bg-gray-50 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto]"
+          class="group grid gap-2 px-4 py-3 transition hover:bg-gray-50 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] md:gap-4 md:px-5 md:py-4"
         >
           <div class="min-w-0">
             <p class="group-hover:text-primary truncate text-sm font-bold text-gray-900">
@@ -709,7 +715,7 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+    <div class="grid grid-cols-1 gap-5 md:gap-6 xl:grid-cols-2">
       <AdminSideComponentsDoctorVerificationList
         title="Recently Verified Doctors"
         description="Doctors who were most recently cleared for platform access."

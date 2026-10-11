@@ -28,9 +28,11 @@
                 ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
                 : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
               : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
-            : isChatPage || isFullHeightPage
-              ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
-              : '-mt-4 p-5'
+            : userRole === 'admin'
+              ? 'mt-0 md:-mt-4 md:p-5'
+              : isChatPage || isFullHeightPage
+                ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
+                : '-mt-4 p-5'
         ]"
         id="main-content"
       >
@@ -41,10 +43,21 @@
         >
           <PatientSideComponentsMobileHeroHeader />
         </div>
+        <!-- Admin Mobile Header (only on mobile viewports for admins) -->
+        <AdminSideComponentsMobileHeader
+          v-if="userRole === 'admin'"
+          :title="currentPageTitle"
+        />
         <div
           class="mx-auto"
           :class="[
-            userRole === 'patient' ? (isChatPage ? 'px-0 md:p-0' : 'px-5 md:p-0') : '',
+            userRole === 'patient'
+              ? isChatPage
+                ? 'px-0 md:p-0'
+                : 'px-5 md:p-0'
+              : userRole === 'admin'
+                ? 'px-4 pt-4 md:p-0'
+                : '',
             isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
           ]"
         >
@@ -55,6 +68,12 @@
 
     <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
     <AppMobileBottomNav v-if="userRole === 'patient' && !isChatThread" />
+
+    <!-- Mobile Bottom Navigation (admin only, hidden on desktop) -->
+    <AdminSideComponentsMobileBottomNav
+      v-if="userRole === 'admin'"
+      :items="adminNavItems"
+    />
   </div>
 </template>
 

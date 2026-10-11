@@ -391,7 +391,7 @@
       <div
         v-for="note in filteredNotes"
         :key="note.id"
-        class="border-border/60 bg-card hover:border-primary/30 space-y-4 rounded-3xl border p-6 shadow-sm transition"
+        class="border-border/60 bg-card hover:border-primary/30 space-y-4 rounded-3xl border p-4 shadow-sm transition md:p-6"
       >
         <!-- Top Bar of Item -->
         <div
@@ -504,7 +504,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
       <div
-        class="border-border/60 bg-card custom-scrollbar max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl border p-6 shadow-2xl"
+        class="border-border/60 bg-card custom-scrollbar max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl border p-4 shadow-2xl md:p-6"
       >
         <div class="border-border/40 flex items-center justify-between border-b pb-3">
           <div class="flex items-center gap-3">

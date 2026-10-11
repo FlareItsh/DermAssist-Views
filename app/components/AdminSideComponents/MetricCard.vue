@@ -55,15 +55,15 @@
   <component
     :is="cardComponent"
     :to="to"
-    class="metric-card border-border bg-card text-card-foreground hover:border-primary/30 relative block h-full min-h-40 overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+    class="metric-card border-border bg-card text-card-foreground hover:border-primary/30 relative block h-full min-h-32 overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:min-h-40"
     :class="to ? 'cursor-pointer' : ''"
   >
     <div
       class="absolute -top-10 -right-8 h-28 w-28 rounded-full opacity-40 blur-2xl"
       :class="toneClasses.glow"
     />
-    <div class="relative flex h-full flex-col items-start justify-between p-5">
-      <div class="flex w-full justify-between gap-4">
+    <div class="relative flex h-full flex-col items-start justify-between p-4 md:p-5">
+      <div class="flex w-full justify-between gap-2 md:gap-4">
         <div>
           <p class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
             {{ label }}
@@ -74,14 +74,14 @@
           />
           <p
             v-else
-            class="text-foreground mt-2 text-3xl font-black"
+            class="text-foreground mt-1 text-2xl font-black md:mt-2 md:text-3xl"
           >
             {{ formattedValue }}
           </p>
         </div>
 
         <div
-          class="flex h-12 w-12 items-center justify-center rounded-2xl"
+          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl md:h-12 md:w-12 md:rounded-2xl"
           :class="toneClasses.icon"
         >
           <Icon
@@ -91,9 +91,9 @@
         </div>
       </div>
 
-      <div class="mt-5 w-full">
-        <p class="text-muted-foreground text-sm font-medium">{{ detail }}</p>
-        <div class="bg-muted mt-4 h-1.5 overflow-hidden rounded-full">
+      <div class="mt-3 w-full md:mt-5">
+        <p class="text-muted-foreground hidden text-sm font-medium sm:block">{{ detail }}</p>
+        <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full sm:mt-4">
           <div
             class="metric-progress h-full w-1/3 rounded-full bg-gradient-to-r transition-all duration-500 ease-out"
             :class="toneClasses.accent"

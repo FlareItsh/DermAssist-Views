@@ -262,7 +262,7 @@
       <!-- Empty State -->
       <div
         v-else-if="datasets.length === 0"
-        class="bg-card border-border text-muted-foreground rounded-3xl border border-dashed p-8 py-20 text-center"
+        class="bg-card border-border text-muted-foreground rounded-3xl border border-dashed p-6 py-14 text-center md:p-8 md:py-20"
       >
         <Icon
           name="lucide:image-off"
@@ -300,7 +300,7 @@
           class="bg-card border-border overflow-hidden rounded-2xl border shadow-sm"
         >
           <div
-            class="bg-muted/40 border-border flex items-center justify-between border-b px-6 py-4"
+            class="bg-muted/40 border-border flex items-center justify-between border-b px-4 py-3 md:px-6 md:py-4"
           >
             <div class="flex items-center gap-2">
               <div class="bg-primary h-2 w-2 rounded-full"></div>
@@ -325,7 +325,9 @@
             </AppButton>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div
+            class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
+          >
             <div
               v-for="(url, idx) in dataset.images"
               :key="idx"
@@ -486,7 +488,7 @@
       <!-- Empty State -->
       <div
         v-else-if="outOfScopeDatasets.length === 0"
-        class="bg-card border-border text-muted-foreground rounded-3xl border border-dashed p-8 py-20 text-center"
+        class="bg-card border-border text-muted-foreground rounded-3xl border border-dashed p-6 py-14 text-center md:p-8 md:py-20"
       >
         <Icon
           name="lucide:scan-search"
@@ -524,7 +526,7 @@
           class="bg-card overflow-hidden rounded-2xl border border-violet-500/20 shadow-sm"
         >
           <div
-            class="flex items-center justify-between border-b border-violet-500/10 bg-violet-500/5 px-6 py-4"
+            class="flex items-center justify-between border-b border-violet-500/10 bg-violet-500/5 px-4 py-3 md:px-6 md:py-4"
           >
             <div class="flex items-center gap-2">
               <div class="h-2 w-2 rounded-full bg-violet-500"></div>
@@ -553,7 +555,9 @@
             </AppButton>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+          <div
+            class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
+          >
             <div
               v-for="(url, idx) in dataset.images"
               :key="idx"

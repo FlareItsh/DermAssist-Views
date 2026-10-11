@@ -23,7 +23,100 @@
 
     <!-- Coupons Table Section -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading promo codes...</span>
+        </div>
+        <div
+          v-else-if="coupons.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:ticket"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">No promo codes generated yet.</p>
+        </div>
+        <template v-else>
+          <article
+            v-for="coupon in coupons"
+            :key="coupon.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-primary truncate font-mono font-bold tracking-wider">
+                  {{ coupon.code }}
+                </p>
+                <p class="font-bold text-gray-950">
+                  {{
+                    coupon.discount_type === 'percentage'
+                      ? `${coupon.value}% OFF`
+                      : `₱${coupon.value} OFF`
+                  }}
+                </p>
+              </div>
+              <button
+                @click="toggleActive(coupon)"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition"
+                :class="
+                  coupon.is_active
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-gray-200 bg-gray-100 text-gray-500'
+                "
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="coupon.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                ></span>
+                {{ coupon.is_active ? 'Active' : 'Inactive' }}
+              </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Duration</p>
+                <p class="font-mono text-xs font-semibold text-gray-700 capitalize">
+                  {{ coupon.duration }}
+                </p>
+              </div>
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Used</p>
+                <p class="font-mono text-xs font-semibold text-gray-700">
+                  {{ coupon.times_redeemed || 0 }} / {{ coupon.max_redemptions ?? '∞' }}
+                </p>
+              </div>
+              <div class="rounded-xl bg-gray-50 px-3 py-2">
+                <p class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Until</p>
+                <p class="font-mono text-xs font-semibold text-gray-700">
+                  {{
+                    coupon.valid_until
+                      ? new Date(coupon.valid_until).toLocaleDateString()
+                      : 'No expiry'
+                  }}
+                </p>
+              </div>
+            </div>
+
+            <button
+              @click="deleteCoupon(coupon)"
+              class="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition active:bg-rose-50"
+            >
+              Delete
+            </button>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"
@@ -130,7 +223,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
       <div
-        class="w-full max-w-md space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        class="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
       >
         <div class="flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 class="text-lg font-black text-gray-950">Generate New Coupon</h3>

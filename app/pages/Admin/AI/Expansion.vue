@@ -399,11 +399,11 @@
     </div>
 
     <!-- Main 2-Column Grid -->
-    <div class="grid grid-cols-1 gap-8 lg:grid-cols-12">
+    <div class="grid grid-cols-1 gap-5 md:gap-8 lg:grid-cols-12">
       <!-- Left Column: Disease Selection & Configuration (7 cols) -->
       <div class="space-y-6 lg:col-span-7">
         <!-- Candidate Disease Selector Card -->
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <div>
               <h3 class="text-foreground flex items-center gap-2 text-base font-bold">
@@ -491,7 +491,7 @@
         </div>
 
         <!-- Training Configuration Card -->
-        <div class="bg-card border-border space-y-5 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm md:p-6">
           <h3
             class="text-foreground border-border flex items-center gap-2 border-b pb-3 text-base font-bold"
           >
@@ -684,7 +684,7 @@
       <!-- Right Column: Live Console & Progress (5 cols) -->
       <div class="space-y-6 lg:col-span-5">
         <!-- Live Progress Overview Card -->
-        <div class="bg-card border-border space-y-4 rounded-3xl border p-6 shadow-sm">
+        <div class="bg-card border-border space-y-4 rounded-3xl border p-4 shadow-sm md:p-6">
           <div class="border-border flex items-center justify-between border-b pb-3">
             <h4 class="text-foreground flex items-center gap-2 text-sm font-bold">
               <Icon

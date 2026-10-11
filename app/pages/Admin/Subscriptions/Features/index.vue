@@ -23,7 +23,84 @@
 
     <!-- Features Table -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-      <div class="overflow-x-auto">
+      <!-- Mobile Card List -->
+      <div class="divide-y divide-gray-100 md:hidden">
+        <div
+          v-if="isLoading"
+          class="flex items-center justify-center gap-2 px-4 py-10 text-gray-500"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-primary h-5 w-5 animate-spin"
+          />
+          <span class="text-xs font-medium">Loading system features...</span>
+        </div>
+        <div
+          v-else-if="features.length === 0"
+          class="px-4 py-10 text-center text-gray-500"
+        >
+          <Icon
+            name="lucide:sparkles"
+            class="mx-auto mb-2 text-3xl text-gray-300"
+          />
+          <p class="text-sm font-semibold text-gray-700">No features created yet.</p>
+        </div>
+        <template v-else>
+          <article
+            v-for="feature in features"
+            :key="feature.id"
+            class="space-y-3 px-4 py-4"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-bold text-gray-950">{{ feature.name }}</p>
+                <p class="text-primary truncate font-mono text-xs font-semibold">
+                  {{ feature.code }}
+                </p>
+              </div>
+              <button
+                @click="toggleActive(feature)"
+                class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold transition"
+                :class="
+                  feature.is_active
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-gray-200 bg-gray-100 text-gray-500'
+                "
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="feature.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                ></span>
+                {{ feature.is_active ? 'Active' : 'Inactive' }}
+              </button>
+            </div>
+
+            <p class="text-xs text-gray-500">
+              {{ feature.description || 'No description provided.' }}
+            </p>
+            <p class="font-mono text-[11px] text-gray-400">
+              Sort order: {{ feature.sort_order ?? 0 }}
+            </p>
+
+            <div class="flex gap-2">
+              <button
+                @click="openEditModal(feature)"
+                class="flex-1 cursor-pointer rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition active:bg-gray-50"
+              >
+                Edit
+              </button>
+              <button
+                @click="promptDeleteFeature(feature)"
+                class="flex-1 cursor-pointer rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-600 transition active:bg-rose-50"
+              >
+                Delete
+              </button>
+            </div>
+          </article>
+        </template>
+      </div>
+
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full text-left text-sm">
           <thead
             class="border-b border-gray-100 bg-gray-50/70 text-[10px] font-bold tracking-wider text-gray-400 uppercase"
@@ -124,7 +201,7 @@
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
       <div
-        class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-6 shadow-xl"
+        class="max-h-[90vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
       >
         <div class="flex items-center justify-between border-b border-gray-100 pb-3">
           <div class="flex items-center gap-2.5">
