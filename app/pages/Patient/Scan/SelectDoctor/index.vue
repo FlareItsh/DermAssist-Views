@@ -92,11 +92,11 @@
 
 <template>
   <div
-    class="flex min-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm sm:h-[calc(100vh-8rem)] sm:rounded-[2.5rem]"
+    class="-mx-5 flex flex-col px-3 sm:mx-0 sm:h-[calc(100vh-8rem)] sm:overflow-hidden sm:rounded-[2.5rem] sm:border sm:border-gray-100 sm:bg-white sm:px-0 sm:shadow-sm"
   >
     <!-- Header -->
     <header
-      class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-4 py-4 sm:px-10 sm:py-6"
+      class="flex shrink-0 items-center justify-between gap-2 px-1 py-4 sm:border-b sm:border-gray-100 sm:px-10 sm:py-6"
     >
       <AppButton
         variant="unstyled"
@@ -113,10 +113,10 @@
             class="text-base sm:text-lg"
           />
         </div>
-        <span class="xs:inline hidden text-xs font-bold sm:text-sm">Back to Results</span>
+        <span class="xs:inline hidden text-xs font-medium sm:text-sm">Back to Results</span>
       </AppButton>
 
-      <h1 class="truncate text-center text-lg font-black sm:text-2xl">
+      <h1 class="truncate text-center text-base font-semibold text-gray-900 sm:text-xl">
         {{ isDoctorRegistered ? 'Your Attending Doctor' : 'Select Specialist' }}
       </h1>
 
@@ -125,7 +125,7 @@
     </header>
 
     <!-- Main Content -->
-    <main class="custom-scrollbar flex-1 overflow-y-auto p-3 sm:p-10">
+    <main class="custom-scrollbar flex-1 p-0 sm:overflow-y-auto sm:p-10">
       <div
         v-if="isLoading"
         class="flex justify-center py-16 sm:py-20"
@@ -138,17 +138,17 @@
 
       <div
         v-else
-        class="mx-auto flex max-w-5xl flex-col gap-3 sm:grid sm:grid-cols-1 sm:gap-6 md:grid-cols-2"
+        class="mx-auto flex max-w-5xl flex-col gap-3 sm:grid sm:grid-cols-1 sm:gap-5 md:grid-cols-2"
       >
         <div
           v-if="isDoctorRegistered"
-          class="bg-primary/5 border-primary/20 text-primary col-span-full mb-2 flex items-center gap-3 rounded-2xl border p-4"
+          class="col-span-full mb-1 flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 text-gray-700 shadow-xs"
         >
           <Icon
             name="material-symbols:lock-outline"
-            class="shrink-0 text-xl"
+            class="shrink-0 text-lg text-gray-400"
           />
-          <p class="text-xs font-semibold sm:text-sm">
+          <p class="text-xs leading-relaxed font-normal text-gray-600 sm:text-sm">
             Your account was registered by your attending doctor. All appointments and scan findings
             are managed directly with them.
           </p>
@@ -158,24 +158,23 @@
           v-for="(doc, index) in allNearbyDoctors"
           :key="doc.uuid"
           @click="handleSelect(doc)"
-          class="group hover:border-primary/30 hover:bg-primary/[0.02] hover:shadow-primary/5 relative flex cursor-pointer items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3.5 transition-all duration-300 hover:shadow-xl active:scale-[0.99] sm:gap-6 sm:rounded-[2.5rem] sm:p-6"
+          class="group relative flex cursor-pointer items-center gap-3.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs transition-all duration-200 hover:border-gray-200 hover:shadow-sm active:scale-[0.99] sm:gap-5 sm:p-5"
         >
           <!-- Nearest Match Badge -->
           <div
             v-if="index === 0 && doc.distance > 0"
-            class="bg-primary shadow-primary/30 absolute -top-2.5 left-4 z-10 rounded-full px-2.5 py-0.5 text-[9px] font-black tracking-wider text-white shadow-md sm:-top-3 sm:left-8 sm:px-4 sm:py-1 sm:text-[10px] sm:tracking-widest"
+            class="absolute -top-2.5 left-4 z-10 inline-flex items-center gap-1.5 rounded-full border border-gray-200/90 bg-white px-2.5 py-0.5 text-[10px] font-medium text-gray-700 shadow-2xs sm:left-6"
           >
-            NEAREST MATCH
+            <span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
+            <span>Nearest Specialist</span>
           </div>
 
           <!-- Doctor Avatar -->
-          <div
-            class="relative shrink-0 rounded-xl border-2 border-gray-100 bg-white p-1 transition-transform duration-300 group-hover:scale-105 sm:rounded-[2rem] sm:p-2"
-          >
+          <div class="relative shrink-0">
             <img
               :src="doc.avatar_path ? getStorageUrl(doc.avatar_path) : ''"
               :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((doc.first_name || 'D') + '+' + (doc.last_name || 'r'))}&background=7B5EF5&color=fff&size=256'`"
-              class="h-14 w-14 rounded-lg object-cover sm:h-24 sm:w-24 sm:rounded-2xl"
+              class="h-14 w-14 rounded-xl object-cover sm:h-16 sm:w-16"
               alt="Doctor photo"
             />
           </div>
@@ -184,68 +183,56 @@
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-1.5">
               <h4
-                class="group-hover:text-primary truncate text-sm font-bold text-gray-900 transition-colors sm:text-xl sm:font-black"
+                class="group-hover:text-primary truncate text-sm font-semibold text-gray-900 transition-colors sm:text-base"
               >
                 Dr. {{ doc.first_name }} {{ doc.last_name }}
               </h4>
               <div
-                class="flex h-4 shrink-0 items-center gap-0.5 rounded-full bg-green-50 px-1.5 py-0.5 text-[9px] font-black text-green-600 ring-1 ring-green-100 sm:h-5 sm:gap-1 sm:px-2 sm:text-[10px]"
+                class="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 sm:text-xs"
               >
                 <Icon
                   name="material-symbols:verified-rounded"
-                  class="text-xs"
+                  size="13"
+                  class="shrink-0 text-emerald-600"
                 />
-                <span>VERIFIED</span>
+                <span>Verified</span>
               </div>
             </div>
 
             <p
               v-if="doc.affiliation"
-              class="mt-0.5 truncate text-[11px] font-semibold text-gray-500 sm:mt-1 sm:text-xs"
+              class="mt-0.5 truncate text-xs font-normal text-gray-500"
             >
               {{ doc.affiliation }}
             </p>
 
             <div
-              class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold text-gray-400 sm:mt-3 sm:text-sm"
+              class="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-normal text-gray-500"
             >
-              <div class="flex items-center gap-1 truncate sm:gap-2">
-                <div
-                  class="text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 sm:h-6 sm:w-6"
-                >
-                  <Icon
-                    name="material-symbols:location-on-rounded"
-                    class="text-xs sm:text-base"
-                  />
-                </div>
+              <div class="flex items-center gap-1 truncate">
+                <Icon
+                  name="material-symbols:location-on-outline"
+                  size="14"
+                  class="shrink-0 text-gray-400"
+                />
                 <span class="truncate">{{ doc.city }}, {{ doc.province }}</span>
               </div>
-              <div
-                class="flex shrink-0 items-center gap-1 sm:gap-2"
-                v-if="doc.distance > 0"
-              >
-                <div
-                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gray-50 text-amber-500 sm:h-6 sm:w-6"
+              <template v-if="doc.distance > 0">
+                <span class="text-gray-300">•</span>
+                <span class="font-medium text-gray-600"
+                  >{{ Math.round(doc.distance * 10) / 10 }} km away</span
                 >
-                  <Icon
-                    name="material-symbols:distance-rounded"
-                    class="text-xs sm:text-base"
-                  />
-                </div>
-                <span class="text-primary font-black"
-                  >{{ Math.round(doc.distance * 10) / 10 }}km away</span
-                >
-              </div>
+              </template>
             </div>
           </div>
 
           <!-- Select Arrow Button -->
           <div
-            class="group-hover:bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-50 transition-all duration-300 group-hover:text-white sm:h-12 sm:w-12 sm:rounded-2xl"
+            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-100 bg-gray-50 text-gray-400 transition-colors group-hover:border-gray-200 group-hover:bg-gray-100 group-hover:text-gray-700 sm:h-9 sm:w-9"
           >
             <Icon
-              name="material-symbols:arrow-forward-ios-rounded"
-              class="text-xs text-gray-300 transition-colors group-hover:text-white sm:text-lg"
+              name="material-symbols:arrow-forward-rounded"
+              size="16"
             />
           </div>
         </div>

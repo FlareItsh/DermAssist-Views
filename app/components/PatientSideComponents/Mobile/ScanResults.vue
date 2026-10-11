@@ -49,7 +49,7 @@
   const formatListText = (text: string) => {
     if (text.includes(':')) {
       const parts = text.split(':')
-      return `<strong>${parts[0]}:</strong>${parts[1]}`
+      return `<span class="font-medium text-gray-800">${parts[0]}:</span>${parts[1]}`
     }
     return text
   }
@@ -348,45 +348,58 @@
 <template>
   <div class="flex flex-col gap-3.5 pb-6">
     <!-- Header Row -->
-    <div class="mt-4 flex items-center justify-between">
-      <h2 class="text-foreground text-xl font-bold">Analysis Results</h2>
+    <div class="mt-3 flex items-center justify-between px-1">
+      <h2 class="text-base font-semibold tracking-tight text-gray-900">Analysis Results</h2>
       <button
         @click="router.push('/Patient/Scan')"
-        class="text-primary flex items-center gap-1 text-xs font-bold hover:underline"
+        class="text-primary hover:text-primary/80 flex items-center gap-1 text-xs font-medium transition-colors"
       >
-        <Icon name="material-symbols:arrow-back-rounded" />
+        <Icon
+          name="material-symbols:arrow-back-rounded"
+          size="16"
+        />
         Back
       </button>
     </div>
 
     <!-- Primary Condition Status -->
-    <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+    <div
+      class="flex items-center gap-3.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
+    >
       <div
-        class="flex h-12 w-12 items-center justify-center rounded-full text-lg font-extrabold text-white shadow-sm"
-        :style="{ backgroundColor: activeDiseaseInfo.color || '#3b82f6' }"
+        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+        :style="{
+          backgroundColor: `${activeDiseaseInfo?.color || '#7B5EF5'}18`,
+          color: activeDiseaseInfo?.color || '#7B5EF5'
+        }"
       >
         <Icon
-          name="solar:shield-warning-bold-duotone"
-          size="24"
+          name="solar:shield-check-bold-duotone"
+          size="22"
         />
       </div>
       <div class="min-w-0 flex-1">
-        <span class="text-[10px] font-black tracking-wider text-gray-400 uppercase"
+        <span class="text-[10px] font-medium tracking-wider text-gray-400 uppercase"
           >Detected Condition</span
         >
-        <h3 class="text-foreground mt-0.5 truncate text-lg leading-tight font-black">
+        <h3 class="text-foreground mt-0.5 truncate text-base leading-snug font-semibold">
           {{ activeDiseaseLabel }}
         </h3>
-        <p
-          class="mt-1 text-xs font-bold"
-          :class="{
-            'text-purple-600 dark:text-purple-400': isOutOfScopeState,
-            'text-amber-600 dark:text-amber-400': isInconclusiveState && !isOutOfScopeState,
-            'text-primary': !isInconclusiveState && !isOutOfScopeState
-          }"
-        >
-          Confidence: {{ confidencePercent }}%
-        </p>
+        <div class="mt-1 flex items-center gap-2">
+          <span
+            class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            :style="{
+              backgroundColor: `${activeDiseaseInfo?.color || '#7B5EF5'}15`,
+              color: activeDiseaseInfo?.color || '#7B5EF5'
+            }"
+          >
+            <span
+              class="h-1.5 w-1.5 rounded-full"
+              :style="{ backgroundColor: activeDiseaseInfo?.color || '#7B5EF5' }"
+            ></span>
+            {{ confidencePercent }}% Confidence
+          </span>
+        </div>
       </div>
     </div>
 
@@ -479,22 +492,26 @@
     <!-- Probability Distribution -->
     <div
       v-if="chartData && chartData.length > 0"
-      class="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
+      class="flex flex-col gap-2.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
     >
-      <h4 class="text-foreground text-xs font-extrabold tracking-wide text-gray-400 uppercase">
+      <h4 class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
         Diagnosis Probability
       </h4>
-      <div class="mt-1 flex flex-col gap-3">
+      <div class="mt-1 flex flex-col gap-2.5">
         <div
           v-for="entry in chartData"
           :key="entry.label"
           class="flex flex-col gap-1.5"
         >
-          <div class="flex items-center justify-between text-xs font-bold">
-            <span class="text-foreground">{{ entry.label }}</span>
-            <span :style="{ color: entry.color }">{{ entry.value }}%</span>
+          <div class="flex items-center justify-between text-xs font-medium">
+            <span class="text-gray-700">{{ entry.label }}</span>
+            <span
+              class="font-semibold"
+              :style="{ color: entry.color }"
+              >{{ entry.value }}%</span
+            >
           </div>
-          <div class="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+          <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
             <div
               class="h-full rounded-full transition-all duration-500"
               :style="{ width: `${entry.value}%`, backgroundColor: entry.color }"
@@ -505,14 +522,12 @@
     </div>
 
     <!-- Clinical Understanding & Insights -->
-    <div class="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+    <div class="flex flex-col gap-3.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
       <div>
-        <h4
-          class="text-foreground mb-2 text-xs font-extrabold tracking-wide text-gray-400 uppercase"
-        >
-          Clinical Understanding
+        <h4 class="mb-1.5 text-xs font-semibold tracking-wider text-gray-500 uppercase">
+          Clinical Overview
         </h4>
-        <p class="text-sm leading-relaxed font-semibold text-gray-600">
+        <p class="text-xs leading-relaxed text-gray-600">
           {{ activeDiseaseInfo.description }}
         </p>
       </div>
@@ -520,29 +535,23 @@
       <!-- Symptoms Section -->
       <div
         v-if="activeDiseaseInfo.symptoms && activeDiseaseInfo.symptoms.length > 0"
-        class="border-t border-gray-100 pt-4"
+        class="border-t border-gray-100 pt-3"
       >
-        <h4
-          class="text-foreground mb-3 text-xs font-extrabold tracking-wide text-gray-400 uppercase"
-        >
+        <h4 class="mb-2.5 text-xs font-semibold tracking-wider text-gray-500 uppercase">
           Common Symptoms
         </h4>
-        <ul class="flex flex-col gap-2.5">
+        <ul class="flex flex-col gap-2">
           <li
             v-for="(symptom, i) in activeDiseaseInfo.symptoms"
             :key="i"
-            class="flex items-start gap-3"
+            class="flex items-start gap-2.5"
           >
-            <div
-              class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#22c55e]/10 text-[#22c55e]"
-            >
-              <Icon
-                name="material-symbols:check-small-rounded"
-                size="18"
-              />
-            </div>
             <span
-              class="text-xs leading-relaxed font-medium text-gray-600"
+              class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+              :style="{ backgroundColor: activeDiseaseInfo?.color || 'var(--color-primary)' }"
+            ></span>
+            <span
+              class="text-xs leading-relaxed font-normal text-gray-600"
               v-html="formatListText(symptom)"
             ></span>
           </li>
@@ -552,29 +561,23 @@
       <!-- Causes Section -->
       <div
         v-if="activeDiseaseInfo.causes && activeDiseaseInfo.causes.length > 0"
-        class="border-t border-gray-100 pt-4"
+        class="border-t border-gray-100 pt-3"
       >
-        <h4
-          class="text-foreground mb-3 text-xs font-extrabold tracking-wide text-gray-400 uppercase"
-        >
+        <h4 class="mb-2.5 text-xs font-semibold tracking-wider text-gray-500 uppercase">
           Potential Causes
         </h4>
-        <ul class="flex flex-col gap-2.5">
+        <ul class="flex flex-col gap-2">
           <li
             v-for="(cause, i) in activeDiseaseInfo.causes"
             :key="i"
-            class="flex items-start gap-3"
+            class="flex items-start gap-2.5"
           >
-            <div
-              class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-500"
-            >
-              <Icon
-                name="material-symbols:info-outline-rounded"
-                size="14"
-              />
-            </div>
             <span
-              class="text-xs leading-relaxed font-medium text-gray-600"
+              class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full"
+              :style="{ backgroundColor: activeDiseaseInfo?.color || 'var(--color-primary)' }"
+            ></span>
+            <span
+              class="text-xs leading-relaxed font-normal text-gray-600"
               v-html="formatListText(cause)"
             ></span>
           </li>
@@ -584,7 +587,7 @@
 
     <!-- Recommended Doctor Section -->
     <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
-      <h3 class="mb-3 text-base font-bold text-gray-900">
+      <h3 class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
         {{
           isDoctorRegistered
             ? 'Your Attending Doctor'
@@ -689,36 +692,38 @@
         </div>
 
         <!-- Doctor Info -->
-        <div class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <div
+          class="flex items-center gap-3.5 rounded-2xl border border-gray-100 bg-gray-50/70 p-3.5"
+        >
           <div class="relative shrink-0">
             <img
               :src="nearestDoctor.avatar_path ? getStorageUrl(nearestDoctor.avatar_path) : ''"
               :onerror="`this.src='https://ui-avatars.com/api/?name=${encodeURIComponent((nearestDoctor.first_name || 'D') + '+' + (nearestDoctor.last_name || 'r'))}&background=7B5EF5&color=fff&size=128'`"
-              class="h-20 w-16 rounded-xl object-cover"
+              class="h-16 w-14 rounded-xl object-cover"
               alt="Doctor photo"
             />
             <div
               v-if="doctorDistance && doctorDistance > 50"
-              class="absolute -top-2 -left-2 rounded-full bg-amber-500 px-2 py-0.5 text-[8px] font-black text-white shadow-md"
+              class="py-0.2 absolute -top-1.5 -left-1.5 rounded-full bg-amber-500 px-1.5 text-[8px] font-bold text-white shadow-xs"
             >
               FAR
             </div>
           </div>
 
           <div class="flex flex-1 flex-col justify-center">
-            <p class="truncate text-lg font-black text-gray-900">
+            <p class="truncate text-sm font-semibold text-gray-900">
               Dr. {{ nearestDoctor.first_name }} {{ nearestDoctor.last_name }}
             </p>
-            <div class="text-primary mt-0.5 flex items-center gap-1 text-xs font-bold">
+            <div class="text-primary mt-0.5 flex items-center gap-1 text-[11px] font-medium">
               <Icon
                 name="material-symbols:verified-outline-rounded"
-                size="14"
+                size="13"
               />
-              <span>Verified</span>
+              <span>Verified Specialist</span>
             </div>
             <p
               v-if="nearestDoctor.affiliation"
-              class="mt-1 truncate text-[10px] text-gray-500"
+              class="mt-0.5 truncate text-[11px] text-gray-500"
             >
               {{ nearestDoctor.affiliation }}
             </p>
