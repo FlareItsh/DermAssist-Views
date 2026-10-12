@@ -201,12 +201,12 @@
 <template>
   <div
     ref="componentRef"
-    class="appointment-schedule bg-navy -mx-4  flex flex-col gap-3 rounded-none px-0 py-4 shadow-sm sm:-mx-6 sm:-mt-5 sm:py-5 lg:mx-0 lg:mt-0 lg:rounded-3xl lg:px-6"
+    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
   >
-    <div class="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-0">
+    <div class="flex items-center justify-between gap-2">
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex flex-wrap items-center gap-2">
-          <h2 class="text-base font-bold tracking-tight text-white sm:text-xl">
+          <h2 class="text-base font-bold tracking-tight text-sm text-white sm:text-xl">
             Patients Appointment Schedule
           </h2>
           <span
@@ -280,7 +280,7 @@
     </div>
 
     <div
-      class="custom-scrollbar flex w-full snap-x snap-mandatory scroll-px-4 gap-1.5 overflow-x-auto px-4 py-3 sm:scroll-px-6 sm:px-6 lg:snap-none lg:gap-1 lg:px-0"
+      class="scrollbar-hide -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-1.5 overflow-x-auto px-4 py-3 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:snap-none lg:gap-1 lg:px-0"
     >
       <div
         v-for="d in days"
@@ -383,7 +383,7 @@
     <Transition name="expand-down">
       <div
         v-if="popoverKey"
-        class="mt-1 border-t border-white/10 px-4 pt-3 sm:px-6 lg:px-0"
+        class="mt-1 border-t border-white/10 pt-3"
       >
         <!-- Panel header -->
         <div class="mb-3 flex items-center justify-between">
@@ -522,6 +522,14 @@
 </template>
 
 <style scoped>
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .day-pill {
     padding: 4px 6px 12px;
   }

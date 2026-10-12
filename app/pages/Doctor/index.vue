@@ -45,7 +45,7 @@
 
 <template>
   <div class="flex min-h-0 w-full flex-1 flex-col gap-4 pb-2 sm:gap-5 lg:pb-6">
-    <!-- Top: 14-Day Appointment Schedule -->
+    <h2 class="text-foreground order-0 -mb-3 text-lg font-bold lg:hidden">Dashboard</h2>
     <DoctorSideComponentsAppointmentSchedule />
 
     <!-- Clinical KPI Summary Bar -->
