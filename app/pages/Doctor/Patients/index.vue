@@ -820,7 +820,7 @@
             v-if="priorityPatientsCount > 0"
             class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
             :class="
-              activeTab === 'priority' ? 'bg-white text-amber-700' : 'bg-amber-500 text-white'
+              activeTab === 'priority' ? 'bg-white text-amber-700' : 'bg-amber-600 text-white'
             "
           >
             {{ priorityPatientsCount }}

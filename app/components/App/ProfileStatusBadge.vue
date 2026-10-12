@@ -22,7 +22,7 @@
     ></div>
     <div
       v-else
-      class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
+      class="bg-warning shadow-[0_0_8px_var(--color-warning)] h-1.5 w-1.5 animate-pulse rounded-full"
     ></div>
 
     <span
@@ -34,7 +34,7 @@
             ? 'bg-red-500/10 text-red-500 ring-1 ring-red-500/20'
             : isPending
               ? 'bg-blue-500/10 text-blue-500 ring-1 ring-blue-500/20'
-              : 'bg-amber-500/10 text-amber-500 ring-1 ring-amber-500/20'
+              : 'border-warning-border bg-warning-subtle text-warning-text ring-warning/30 border ring-1'
       "
     >
       {{

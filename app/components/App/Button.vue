@@ -137,7 +137,7 @@
 
     <!-- Trailing Icon -->
     <span
-      v-if="$slots.trailing"
+      v-if="$slots.trailing && !loading"
       class="ml-2 inline-flex"
     >
       <slot name="trailing" />
