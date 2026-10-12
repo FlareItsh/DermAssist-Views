@@ -648,7 +648,9 @@
                 @click="isProfileOpen = false"
                 class="hover:bg-primary/10 group flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
               >
-                <div class="text-primary group-hover:bg-secondary rounded-xl p-2 transition-colors">
+                <div
+                  class="text-primary group-hover:bg-primary rounded-xl p-2 transition-colors group-hover:text-white"
+                >
                   <Icon
                     name="material-symbols:settings-outline"
                     size="20"
@@ -659,9 +661,11 @@
 
               <button
                 @click="triggerLogout"
-                class="hover:bg-destructive/5 group group-hover:text-destructive/50 text-destructive flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
+                class="hover:bg-destructive/5 group text-destructive flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors"
               >
-                <div class="text-destructive rounded-xl p-2 transition-colors">
+                <div
+                  class="text-destructive group-hover:bg-destructive rounded-xl p-2 transition-colors group-hover:text-white"
+                >
                   <Icon
                     name="ic:round-log-out"
                     size="20"

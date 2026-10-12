@@ -214,10 +214,7 @@
         <!-- Icon Squircle -->
         <div
           class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-transform group-hover:scale-105"
-          :class="[
-            notif.color + ' bg-opacity-10 bg-current',
-            isRead(notif.id) ? 'opacity-60' : 'opacity-100'
-          ]"
+          :class="[notif.color, 'bg-current/10', isRead(notif.id) ? 'opacity-60' : 'opacity-100']"
         >
           <Icon
             :name="notif.icon || 'solar:bell-linear'"

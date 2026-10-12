@@ -25,7 +25,7 @@
     <div class="flex gap-4">
       <div
         class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-colors"
-        :class="color + ' bg-opacity-10 group-hover:bg-opacity-20 bg-current'"
+        :class="[color, 'bg-current/10 group-hover:bg-current/20']"
         style="filter: grayscale(var(--is-read, 0%))"
         :style="isRead ? '--is-read: 40%' : ''"
       >
