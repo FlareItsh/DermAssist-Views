@@ -201,9 +201,9 @@
 <template>
   <div
     ref="componentRef"
-    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
+    class="appointment-schedule bg-navy -mx-4  flex flex-col gap-3 rounded-none px-0 py-4 shadow-sm sm:-mx-6 sm:-mt-5 sm:py-5 lg:mx-0 lg:mt-0 lg:rounded-3xl lg:px-6"
   >
-    <div class="flex items-center justify-between gap-2">
+    <div class="flex items-center justify-between gap-2 px-4 sm:px-6 lg:px-0">
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex flex-wrap items-center gap-2">
           <h2 class="text-base font-bold tracking-tight text-white sm:text-xl">
@@ -280,7 +280,7 @@
     </div>
 
     <div
-      class="custom-scrollbar -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-1.5 overflow-x-auto px-4 py-3 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:snap-none lg:gap-1 lg:px-0"
+      class="custom-scrollbar flex w-full snap-x snap-mandatory scroll-px-4 gap-1.5 overflow-x-auto px-4 py-3 sm:scroll-px-6 sm:px-6 lg:snap-none lg:gap-1 lg:px-0"
     >
       <div
         v-for="d in days"
@@ -288,7 +288,7 @@
         @click="selectDay(d)"
         @mouseenter="hoveredDayKey = toKey(d)"
         @mouseleave="hoveredDayKey = null"
-        class="day-card relative flex min-h-[105px] cursor-pointer flex-col items-center justify-between overflow-visible rounded-2xl px-1 pt-3 pb-2.5 transition-all duration-200 select-none"
+        class="day-card relative flex min-h-[88px] cursor-pointer flex-col items-center justify-between overflow-visible rounded-2xl px-1 pt-2 pb-2 transition-all duration-200 select-none sm:min-h-[96px] sm:pt-2.5 sm:pb-2.5 lg:min-h-[105px] lg:pt-3"
         :class="[
           days.length === 1
             ? 'w-[92px] shrink-0'
@@ -310,7 +310,7 @@
       >
         <!-- Day name -->
         <span
-          class="text-[13px] font-bold"
+          class="text-[10px] font-medium tracking-wide sm:text-[11px] lg:text-[13px] lg:font-semibold"
           :class="[
             isSelected(d)
               ? 'text-white'
@@ -332,7 +332,7 @@
 
         <!-- Day number -->
         <span
-          class="text-3xl font-bold"
+          class="text-xl font-semibold sm:text-2xl lg:text-3xl lg:font-bold"
           :class="[
             isSelected(d)
               ? 'text-white'
@@ -383,7 +383,7 @@
     <Transition name="expand-down">
       <div
         v-if="popoverKey"
-        class="mt-1 border-t border-white/10 pt-3"
+        class="mt-1 border-t border-white/10 px-4 pt-3 sm:px-6 lg:px-0"
       >
         <!-- Panel header -->
         <div class="mb-3 flex items-center justify-between">
