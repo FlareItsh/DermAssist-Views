@@ -14,10 +14,18 @@
   const errors = reactive({
     email: '',
     password: '',
-    general: ''
+    general: '',
+    twoFactor: ''
   })
 
   const isLoading = ref(false)
+
+  // 2FA Challenge State
+  const is2FAStep = ref(false)
+  const twoFactorChallenge = ref('')
+  const twoFACode = ref('')
+  const twoFARecoveryCode = ref('')
+  const useRecoveryCode = ref(false)
 
   const touched = reactive({
     email: false,
@@ -48,7 +56,7 @@
           else errors.password = ''
           break
       }
-    }, 500) // 500ms delay
+    }, 500)
   }
 
   watch(
@@ -67,14 +75,11 @@
   )
 
   const validate = () => {
-    // Clear any pending debounce
     if (debounceTimeout) clearTimeout(debounceTimeout)
 
-    // Mark all as touched on submit to show errors immediately
     touched.email = true
     touched.password = true
 
-    // Immediate validation for submission
     if (!form.email) errors.email = 'Email address is required'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       errors.email = 'Please enter a valid email address'
@@ -86,6 +91,64 @@
     return !errors.email && !errors.password
   }
 
+  const completeLoginSession = async (response: LoginResponse) => {
+    if (!response.token) return
+
+    const token = useCookie('auth_token', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    token.value = response.token
+
+    const userData = (response.user as any)?.data || response.user
+    const rawRole = userData?.role?.slug || userData?.role || 'patient'
+    const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
+
+    const role = useCookie('user_role', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    role.value = baseRole
+
+    const userName = useCookie('user_name', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    const authName = useCookie('auth_user_name', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
+    userName.value = fullName
+    authName.value = fullName
+
+    const userUuid = useCookie('user_uuid', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    userUuid.value = userData?.uuid
+
+    const doctorUuid = useCookie('doctor_uuid', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    doctorUuid.value = userData?.doctor_uuid || null
+
+    const accountStatusCookie = useCookie('account_status', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    accountStatusCookie.value = userData?.account_status || 'active'
+
+    const verificationDeadlineCookie = useCookie('verification_deadline', {
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/'
+    })
+    verificationDeadlineCookie.value = userData?.verification_deadline || null
+
+    await navigateTo(`/${baseRole}`)
+  }
+
   const submitForm = async () => {
     if (!validate()) return
     isLoading.value = true
@@ -93,62 +156,18 @@
     try {
       const response = await authService.login(form.email, form.password)
 
+      if (response.two_factor_required && response.challenge) {
+        twoFactorChallenge.value = response.challenge
+        is2FAStep.value = true
+        twoFACode.value = ''
+        twoFARecoveryCode.value = ''
+        useRecoveryCode.value = false
+        errors.twoFactor = ''
+        return
+      }
+
       if (response.token) {
-        const token = useCookie('auth_token', {
-          maxAge: 60 * 60 * 24 * 7, // 1 week
-          path: '/'
-        })
-        token.value = response.token
-
-        const userData = (response.user as any)?.data || response.user
-        const rawRole = userData?.role?.slug || userData?.role || 'patient'
-        const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
-
-        // Store user role
-        const role = useCookie('user_role', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        role.value = baseRole
-
-        const userName = useCookie('user_name', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        const authName = useCookie('auth_user_name', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
-        userName.value = fullName
-        authName.value = fullName
-
-        const userUuid = useCookie('user_uuid', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        userUuid.value = userData?.uuid
-
-        const doctorUuid = useCookie('doctor_uuid', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        doctorUuid.value = userData?.doctor_uuid || null
-
-        const accountStatusCookie = useCookie('account_status', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        accountStatusCookie.value = userData?.account_status || 'active'
-
-        const verificationDeadlineCookie = useCookie('verification_deadline', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        verificationDeadlineCookie.value = userData?.verification_deadline || null
-
-        // Redirect based on role: /doctor, /patient, /admin, or /secretary
-        await navigateTo(`/${baseRole}`)
+        await completeLoginSession(response)
       }
     } catch (error: any) {
       const status = error.status || error.statusCode || error.response?.status
@@ -173,6 +192,59 @@
     }
   }
 
+  const submit2FAChallenge = async () => {
+    if (!twoFactorChallenge.value) return
+
+    if (!useRecoveryCode.value && twoFACode.value.length !== 6) {
+      errors.twoFactor = 'Please enter a valid 6-digit passcode.'
+      return
+    }
+    if (useRecoveryCode.value && !twoFARecoveryCode.value.trim()) {
+      errors.twoFactor = 'Please enter a valid recovery code.'
+      return
+    }
+
+    isLoading.value = true
+    errors.twoFactor = ''
+
+    try {
+      const response = await authService.challenge2FA({
+        challenge: twoFactorChallenge.value,
+        code: useRecoveryCode.value ? undefined : twoFACode.value,
+        recovery_code: useRecoveryCode.value ? twoFARecoveryCode.value.trim() : undefined
+      })
+
+      if (response.token) {
+        await completeLoginSession(response)
+      }
+    } catch (error: any) {
+      const data = error.data || error.response?._data || {}
+      errors.twoFactor = data.message || error.message || 'Invalid verification or recovery code.'
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  const handleBackToLogin = () => {
+    is2FAStep.value = false
+    twoFactorChallenge.value = ''
+    twoFACode.value = ''
+    twoFARecoveryCode.value = ''
+    errors.twoFactor = ''
+  }
+
+  const toggleRecoveryCodeMode = () => {
+    useRecoveryCode.value = !useRecoveryCode.value
+    errors.twoFactor = ''
+  }
+
+  const is2FASubmitDisabled = computed(() => {
+    if (useRecoveryCode.value) {
+      return !twoFARecoveryCode.value.trim()
+    }
+    return twoFACode.value.length !== 6
+  })
+
   const route = useRoute()
   const config = useRuntimeConfig()
 
@@ -180,6 +252,12 @@
     const errorParam = route.query.error as string
     if (errorParam) {
       errors.general = errorParam
+    }
+
+    const challengeParam = route.query.challenge as string
+    if (challengeParam) {
+      twoFactorChallenge.value = challengeParam
+      is2FAStep.value = true
     }
   })
 
@@ -192,7 +270,10 @@
 <template>
   <div class="custom-scrollbar flex h-full flex-col overflow-y-auto px-6 py-8">
     <div class="my-auto flex flex-col items-center">
-      <div class="mb-8 flex flex-col items-center text-center">
+      <div
+        v-if="!is2FAStep"
+        class="mb-8 flex flex-col items-center text-center"
+      >
         <NuxtLink to="/">
           <NuxtImg
             src="/DA_Logo.png"
@@ -203,7 +284,124 @@
         <p class="text-foreground/60 mt-2 text-sm">Let’s get you signed in.</p>
       </div>
 
+      <!-- 2FA Verification Step -->
+      <div
+        v-if="is2FAStep"
+        class="flex w-full max-w-sm flex-col gap-6"
+      >
+        <div class="mb-2 flex flex-col items-center text-center">
+          <div
+            class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600 shadow-xs"
+          >
+            <Icon
+              name="heroicons:device-phone-mobile-20-solid"
+              size="26"
+            />
+          </div>
+          <h2 class="text-foreground text-xl font-bold tracking-tight">
+            Two-Factor Authentication
+          </h2>
+          <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+            {{
+              useRecoveryCode
+                ? 'Enter one of your emergency recovery codes.'
+                : 'Enter the 6-digit passcode generated by your authenticator app.'
+            }}
+          </p>
+        </div>
+
+        <form
+          @submit.prevent="submit2FAChallenge"
+          class="flex flex-col gap-5"
+        >
+          <div
+            v-if="errors.twoFactor"
+            class="flex items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-center text-xs font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400"
+          >
+            <Icon
+              name="material-symbols:error-rounded"
+              class="shrink-0 text-lg"
+            />
+            <span>{{ errors.twoFactor }}</span>
+          </div>
+
+          <div
+            v-if="!useRecoveryCode"
+            class="space-y-2"
+          >
+            <label
+              for="login_2fa_passcode"
+              class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+            >
+              6-Digit Security Code
+            </label>
+            <input
+              id="login_2fa_passcode"
+              v-model="twoFACode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              autocomplete="one-time-code"
+              maxlength="6"
+              class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-2xl font-bold tracking-widest transition-all outline-none"
+              placeholder="000000"
+              autofocus
+            />
+          </div>
+
+          <div
+            v-else
+            class="space-y-2"
+          >
+            <label
+              for="login_2fa_recovery_code"
+              class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
+            >
+              Emergency Recovery Code
+            </label>
+            <input
+              id="login_2fa_recovery_code"
+              v-model="twoFARecoveryCode"
+              type="text"
+              maxlength="25"
+              class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-base font-bold tracking-wider uppercase transition-all outline-none"
+              placeholder="ABCDE-12345"
+              autofocus
+            />
+          </div>
+
+          <div class="flex items-center justify-between px-1 text-xs">
+            <button
+              type="button"
+              @click="toggleRecoveryCodeMode"
+              class="text-primary cursor-pointer font-medium hover:underline"
+            >
+              {{ useRecoveryCode ? 'Use authenticator code' : 'Use emergency recovery code' }}
+            </button>
+          </div>
+
+          <AppButton
+            type="submit"
+            block
+            :loading="isLoading"
+            :disabled="is2FASubmitDisabled"
+          >
+            Verify & Sign In
+          </AppButton>
+
+          <button
+            type="button"
+            @click="handleBackToLogin"
+            class="text-muted-foreground hover:text-foreground cursor-pointer pt-1 text-center text-xs font-semibold"
+          >
+            ← Back to email sign in
+          </button>
+        </form>
+      </div>
+
+      <!-- Standard Password Form -->
       <form
+        v-else
         @submit.prevent="submitForm"
         class="flex w-full max-w-sm flex-col gap-6"
       >
@@ -314,7 +512,10 @@
         </button>
       </form>
 
-      <div class="mt-8 text-center text-sm">
+      <div
+        v-if="!is2FAStep"
+        class="mt-8 text-center text-sm"
+      >
         <span class="text-foreground/60">Don't have an account?</span>
         <NuxtLink
           to="/auth/register"
