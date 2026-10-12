@@ -339,7 +339,7 @@
         :class="navBreakpointClass"
       >
         <div
-          class="bg-foreground/40 absolute inset-0 backdrop-blur-xs"
+          class="absolute inset-0 bg-black/50 transition-opacity"
           @click="closeMoreSheet"
         ></div>
 

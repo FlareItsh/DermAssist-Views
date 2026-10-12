@@ -5,5 +5,3 @@
 <template>
   <AppMobileBottomNav v-bind="$attrs" />
 </template>
-
-<style scoped></style>

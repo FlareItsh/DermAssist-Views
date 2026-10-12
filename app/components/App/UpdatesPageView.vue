@@ -48,7 +48,7 @@
 <template>
   <div class="space-y-3">
     <!-- Page Header -->
-    <div class="border-border/60 border-b pb-6">
+    <div class="border-border/60 border-b mt-4 pb-6">
       <h1 class="text-foreground text-xl font-semibold">Updates & Changelog</h1>
       <p class="text-muted-foreground mt-0.5 text-sm">
         A history of all improvements and new features added to DermAssist.

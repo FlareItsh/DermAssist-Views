@@ -395,12 +395,14 @@
     <!-- Header Section -->
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
-        <div class="flex items-center gap-2.5">
+        <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <h1 class="text-foreground text-2xl font-bold">Manage Secretaries</h1>
-          <!-- Quota Badge -->
+          <p class="text-muted-foreground mt-0.5 text-sm">
+          Register and manage secretary accounts linked to your clinic.
+        </p>
           <span
             v-if="canHaveSecretary"
-            class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+            class="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold whitespace-nowrap"
             :class="
               isLimitReached
                 ? 'border-amber-200 bg-amber-50 text-amber-700'
@@ -411,28 +413,29 @@
               class="h-1.5 w-1.5 rounded-full"
               :class="isLimitReached ? 'bg-amber-500' : 'bg-emerald-500'"
             ></span>
-            {{ secretaries.length }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Seats
-            Used
+            <span>
+              {{ secretaries.length }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Seats
+              Used
+            </span>
           </span>
         </div>
-        <p class="text-muted-foreground mt-0.5 text-sm">
-          Register and manage secretary accounts linked to your clinic.
-        </p>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div class="relative shrink-0">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <div class="relative min-w-0 flex-1 sm:w-72 sm:flex-initial">
           <AppSearch
             v-model="searchValue"
             rounded="rounded-full shadow-sm overflow-hidden"
             text="text-secondary"
-            width="w-fit"
+            width="w-9"
           />
         </div>
         <AppButton
           v-if="canHaveSecretary || filteredSecretaries.length > 0"
           variant="solid"
           size="md"
+          rounded="full"
+          class="shrink-0 whitespace-nowrap shadow-sm"
           @click="openAddModal"
         >
           <Icon
