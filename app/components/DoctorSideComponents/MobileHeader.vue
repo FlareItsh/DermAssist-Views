@@ -96,7 +96,7 @@
 
   const getSnapTarget = () => {
     if (!headerRoot.value) return 140
-    return headerRoot.value.offsetHeight - 76
+    return headerRoot.value.offsetHeight - 80
   }
 
   const updateGreeting = () => {
@@ -194,26 +194,26 @@
         ></div>
       </div>
 
-      <div class="relative z-20 mx-auto flex max-w-5xl items-center justify-between">
+      <div class="relative z-20 flex items-center justify-between">
         <NuxtLink
           to="/doctor"
-          class="flex items-center gap-2"
+          class="flex items-center"
           id="doctor-mobile-logo"
         >
           <NuxtImg
             src="/DA_Logo.png"
-            class="h-11 brightness-0 invert"
+            class="h-12 brightness-0 invert"
             alt="DermAssist"
           />
         </NuxtLink>
 
-        <div class="flex items-center gap-2 sm:gap-2.5">
+        <div class="flex items-center gap-2.5">
           <!-- What's New Pill -->
           <NuxtLink
             v-if="hasUnseenUpdate"
             to="/doctor/updates"
             id="doctor-mobile-whats-new"
-            class="hidden items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95 min-[400px]:flex"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
           >
             <Icon
               name="solar:megaphone-loud-bold-duotone"
@@ -233,7 +233,7 @@
           <NuxtLink
             to="/doctor/notifications"
             id="doctor-mobile-notifications"
-            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 active:scale-95"
+            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none"
             title="Notifications"
           >
             <Icon
@@ -254,7 +254,7 @@
               type="button"
               id="doctor-mobile-avatar"
               @click="toggleDropdown"
-              class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none active:scale-95"
+              class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none"
             >
               <NuxtImg
                 v-if="user?.avatar_path"
@@ -317,7 +317,7 @@
                     </div>
                     <span
                       v-if="hasUnseenUpdate"
-                      class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-600"
+                      class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
                     >
                       New
                     </span>
@@ -360,6 +360,7 @@
       </div>
     </div>
 
+    <!-- SPACER to offset the fixed top row -->
     <div class="h-[76px] w-full"></div>
 
     <!-- SCROLLING HERO (dashboard only) -->
@@ -386,12 +387,19 @@
             {{ todayLabel }}
           </p>
           <h1 class="mt-1 text-[28px] leading-tight font-black text-white sm:text-3xl">
-            {{ greeting }}, <br />{{ doctorDisplayName }}
+            {{ greeting }}, {{ doctorDisplayName }}
           </h1>
+          <p class="mt-1 text-sm text-white/70">
+            {{
+              todayAppointments.length > 0
+                ? `You have ${todayAppointments.length} appointment${todayAppointments.length === 1 ? '' : 's'} scheduled today.`
+                : "Ready for today's clinical consultations?"
+            }}
+          </p>
         </div>
 
         <div
-          class="mt-10 w-full transform transition-all delay-75 duration-300 ease-out md:max-w-sm"
+          class="w-full transform transition-all delay-75 duration-300 ease-out md:max-w-sm"
           :class="
             isScrolled
               ? '-translate-y-3 scale-[0.98] opacity-0'
@@ -399,7 +407,7 @@
           "
         >
           <div
-            class="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/20 px-4 py-3 backdrop-blur-sm transition focus-within:bg-white/25"
+            class="mt-10 flex items-center gap-3 rounded-2xl border border-white/20 bg-white/20 px-4 py-3 backdrop-blur-sm transition focus-within:bg-white/25"
           >
             <Icon
               name="solar:magnifer-linear"
