@@ -7,6 +7,7 @@
   const route = useRoute()
   const { searchQuery } = useSearch()
   const { getStorageUrl } = useStorage()
+  const { unreadNotifications } = useAppNotifications()
   const { hasUnseenUpdate, fetchPublishedPatchNotes } = usePatchNotes()
 
   const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
@@ -191,6 +192,25 @@
             </span>
           </NuxtLink>
 
+          <!-- Notification Bell -->
+          <NuxtLink
+            to="/patient/notifications"
+            id="patient-mobile-notifications"
+            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none active:scale-95"
+            title="Notifications"
+          >
+            <Icon
+              name="solar:bell-bold"
+              class="text-xl"
+            />
+            <span
+              v-if="unreadNotifications.length > 0"
+              class="bg-destructive absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white"
+            >
+              {{ unreadNotifications.length > 9 ? '9+' : unreadNotifications.length }}
+            </span>
+          </NuxtLink>
+
           <div class="relative">
             <button
               @click="isDropdownOpen = !isDropdownOpen"
@@ -262,7 +282,7 @@
                     </div>
                     <span
                       v-if="hasUnseenUpdate"
-                      class="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-600"
+                      class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
                     >
                       New
                     </span>
