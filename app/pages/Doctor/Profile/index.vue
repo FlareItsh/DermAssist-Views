@@ -1026,8 +1026,8 @@
 
 <template>
   <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <!-- Header (Mobile Only, Desktop uses AppNavbar) -->
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center md:hidden">
       <div>
         <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
@@ -1061,7 +1061,9 @@
     <!-- Inner Sidebar Layout Container -->
     <div class="flex flex-col items-start gap-6 lg:flex-row">
       <!-- Left Inner Sidebar (Compact & Sleek) -->
-      <aside class="w-full shrink-0 space-y-3 lg:w-64">
+      <aside
+        class="lg:scrollbar-none w-full shrink-0 space-y-3 lg:sticky lg:top-0 lg:max-h-[calc(100vh-5rem)] lg:w-64 lg:self-start lg:overflow-y-auto"
+      >
         <!-- Doctor Quick Identity Card -->
         <div class="bg-card border-border rounded-2xl border p-4 text-center shadow-xs">
           <div class="relative mx-auto mb-3 h-16 w-16">
