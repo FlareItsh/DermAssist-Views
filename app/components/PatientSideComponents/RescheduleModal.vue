@@ -1,18 +1,42 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted, nextTick } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
   import { toast } from 'vue-sonner'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { parseAppointmentDateTime, type Appointment } from '~/composables/useAppointments'
 
-  const props = defineProps<{
-    appointment: Appointment
-  }>()
+  const props = withDefaults(
+    defineProps<{
+      appointment: Appointment
+      inline?: boolean
+    }>(),
+    {
+      inline: false
+    }
+  )
 
   const emit = defineEmits<{
     (e: 'close'): void
     (e: 'requested'): void
   }>()
+
+  const isMobile = ref(false)
+  const updateIsMobile = () => {
+    if (typeof window !== 'undefined') {
+      isMobile.value = window.innerWidth < 768
+    }
+  }
+
+  onMounted(() => {
+    updateIsMobile()
+    window.addEventListener('resize', updateIsMobile)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateIsMobile)
+  })
+
+  const isInlineMode = computed(() => Boolean(props.inline || isMobile.value))
 
   // ── State & Role ─────────────────────────────────────────────────────────────
 
@@ -584,7 +608,324 @@
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- Mobile View Mode: Full-window component covering chat with back button -->
+  <div
+    v-if="isInlineMode"
+    class="bg-card flex h-full w-full flex-1 flex-col overflow-hidden"
+  >
+    <!-- Mobile Top Header with Back Button and Identity -->
+    <div
+      class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3 py-3 shadow-sm"
+    >
+      <div class="flex min-w-0 flex-1 items-center gap-2">
+        <!-- Back Button -->
+        <button
+          type="button"
+          @click="emit('close')"
+          class="text-foreground/70 hover:text-foreground hover:bg-foreground/5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95"
+          aria-label="Back to chat"
+        >
+          <Icon
+            name="heroicons:arrow-left-20-solid"
+            class="text-2xl"
+          />
+        </button>
+
+        <!-- Person Avatar & Name / Title -->
+        <div class="flex min-w-0 flex-1 items-center gap-2.5">
+          <div
+            class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+          >
+            <Icon
+              :name="isDoctorOrSecretary ? 'lucide:user' : 'lucide:stethoscope'"
+              class="text-primary text-base"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-foreground truncate text-sm font-bold">
+              {{ personDisplayName }}
+            </h2>
+            <p class="truncate text-[11px] font-semibold text-indigo-600">
+              {{ isDoctorOrSecretary ? 'Propose Reschedule' : 'Request Reschedule' }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action badge -->
+      <span
+        class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
+      >
+        Reschedule
+      </span>
+    </div>
+
+    <!-- Scrollable content -->
+    <div class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto p-4 pb-24">
+      <!-- Current Schedule Summary Banner -->
+      <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-indigo-900">Current Schedule</span>
+          <span
+            class="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase"
+          >
+            Active
+          </span>
+        </div>
+        <p class="mt-1 text-xs font-semibold text-indigo-700">
+          {{ currentApptParsed.date || 'Date set' }}
+          <span v-if="currentApptParsed.time"> at {{ currentApptParsed.time }}</span>
+          <span v-if="appointment.location"> ({{ appointment.location }})</span>
+        </p>
+      </div>
+
+      <!-- Calendar Selection Card -->
+      <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+        <!-- Month navigation -->
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-foreground flex items-center gap-2 text-sm font-bold">
+            <Icon
+              name="lucide:calendar"
+              class="text-primary text-base"
+            />
+            {{ currentMonthName }} {{ currentYear }}
+          </h2>
+          <div class="flex gap-1">
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
+              :disabled="isPrevMonthDisabled"
+              class="flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+              :class="isPrevMonthDisabled ? 'cursor-not-allowed opacity-25' : 'hover:bg-primary/10'"
+              @click="prevMonth"
+            >
+              <Icon
+                name="lucide:chevron-left"
+                class="text-base"
+              />
+            </AppButton>
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
+              class="hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+              @click="nextMonth"
+            >
+              <Icon
+                name="lucide:chevron-right"
+                class="text-base"
+              />
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Day names header -->
+        <div class="mb-1 grid grid-cols-7 text-center">
+          <span
+            v-for="d in daysOfWeek"
+            :key="d"
+            class="text-muted-foreground text-[11px] font-bold"
+          >
+            {{ d }}
+          </span>
+        </div>
+
+        <!-- Calendar grid -->
+        <div class="grid grid-cols-7 gap-y-1 text-center">
+          <!-- Empty offset cells -->
+          <div
+            v-for="empty in startingDayOffset"
+            :key="'e-m-' + empty"
+          ></div>
+
+          <!-- Day cells -->
+          <div
+            v-for="date in daysInMonth"
+            :key="'m-date-' + date"
+            @click="selectDate(date)"
+            class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-[13px] font-semibold transition-all select-none"
+            :class="[
+              isPast(date)
+                ? 'text-muted-foreground/40 pointer-events-none cursor-not-allowed line-through'
+                : selectedDate === dateStringFor(date)
+                  ? 'bg-secondary z-10 scale-110 cursor-pointer text-white shadow-md'
+                  : isUnavailable(date)
+                    ? 'cursor-not-allowed bg-red-50 text-red-400 opacity-80 ring-1 ring-red-200'
+                    : dateStringFor(date) === currentApptDate
+                      ? 'cursor-pointer bg-indigo-50 font-bold text-indigo-700 ring-1 ring-indigo-300 hover:bg-indigo-100'
+                      : isDoctorOnDuty(date)
+                        ? 'cursor-pointer bg-emerald-50 font-bold text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-100'
+                        : hasAnyDutyConfigured
+                          ? 'text-muted-foreground/40 cursor-not-allowed bg-gray-50/60 ring-1 ring-gray-100 hover:bg-gray-100/50'
+                          : isToday(date)
+                            ? 'text-primary ring-primary/40 hover:bg-primary/10 cursor-pointer ring-2'
+                            : 'text-foreground hover:bg-primary/10 cursor-pointer'
+            ]"
+          >
+            {{ date }}
+
+            <!-- Indicator Dots -->
+            <div
+              v-if="selectedDate === dateStringFor(date)"
+              class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-white"
+            />
+            <div
+              v-else-if="isUnavailable(date) && !isPast(date)"
+              class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-red-400"
+            />
+            <div
+              v-else-if="dateStringFor(date) === currentApptDate && !isPast(date)"
+              class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-indigo-500"
+            />
+            <div
+              v-else-if="isDoctorOnDuty(date) && !isPast(date)"
+              class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-emerald-500"
+            />
+          </div>
+        </div>
+
+        <!-- Calendar Legend -->
+        <div
+          class="border-border mt-3 flex flex-wrap items-center justify-center gap-3 border-t pt-2.5 text-[10px] font-medium text-slate-600 dark:text-slate-400"
+        >
+          <span class="flex items-center gap-1">
+            <span class="h-2 w-2 rounded-full bg-indigo-500"></span>
+            Current Appt
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            {{ isDoctorOrSecretary ? 'On Duty' : 'Available' }}
+          </span>
+          <span class="flex items-center gap-1">
+            <span class="h-2 w-2 rounded-full bg-red-400"></span>
+            Unavailable
+          </span>
+        </div>
+      </div>
+
+      <!-- Time Slots & Clinic Card -->
+      <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+        <template v-if="selectedDate">
+          <!-- Clinic Location Card for Selected Date -->
+          <div
+            v-if="selectedDateClinic"
+            class="border-primary/20 bg-primary/5 mb-3 rounded-2xl border p-3"
+          >
+            <div class="flex items-start gap-2.5">
+              <div
+                class="bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-white shadow-xs"
+              >
+                <Icon
+                  name="lucide:building-2"
+                  class="text-base"
+                />
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-foreground truncate text-xs font-bold">
+                  {{ selectedDateClinic.name }}
+                </p>
+                <p
+                  v-if="selectedDateClinic.address"
+                  class="text-muted-foreground truncate text-[11px]"
+                >
+                  {{ selectedDateClinic.address }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-foreground text-xs font-bold tracking-wider uppercase">
+              Available Times
+            </h3>
+            <span class="text-muted-foreground text-[11px]">
+              {{ selectedDateLabel }}
+            </span>
+          </div>
+
+          <!-- Empty duty state -->
+          <div
+            v-if="availableTimeSlots.length === 0"
+            class="border-border text-muted-foreground rounded-xl border border-dashed p-4 text-center text-xs"
+          >
+            No available time slots on this date.
+          </div>
+
+          <!-- Slots grid -->
+          <div
+            v-else
+            class="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          >
+            <button
+              v-for="slot in availableTimeSlots"
+              :key="slot.time24"
+              type="button"
+              :disabled="!slot.isAvailable || slot.isCurrentApptTime"
+              @click="selectTimeSlot(slot)"
+              class="flex flex-col items-center justify-center rounded-xl border p-2.5 text-xs transition-all"
+              :class="[
+                selectedTime === slot.time24
+                  ? 'border-indigo-600 bg-indigo-600 font-bold text-white shadow-sm'
+                  : slot.isCurrentApptTime
+                    ? 'cursor-not-allowed border-indigo-200 bg-indigo-50 text-indigo-400 opacity-60'
+                    : !slot.isAvailable
+                      ? 'border-border/40 bg-muted/20 text-muted-foreground/40 cursor-not-allowed'
+                      : 'border-border bg-card text-foreground hover:border-indigo-300 hover:bg-indigo-50/50'
+              ]"
+            >
+              <span class="font-bold">{{ slot.label }}</span>
+              <span class="text-[10px] opacity-75">{{ slot.durationLabel }}</span>
+            </button>
+          </div>
+        </template>
+
+        <div
+          v-else
+          class="text-muted-foreground py-6 text-center text-xs"
+        >
+          <Icon
+            name="lucide:calendar"
+            class="text-muted-foreground/40 mx-auto mb-2 text-3xl"
+          />
+          <p class="font-semibold">Tap a date on the calendar above to choose a time slot.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sticky Bottom Actions Bar -->
+    <div
+      class="border-border bg-card sticky bottom-0 z-40 flex flex-col gap-2 border-t p-3.5 shadow-lg"
+    >
+      <AppButton
+        variant="solid"
+        class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md hover:bg-indigo-700 disabled:opacity-50"
+        :loading="isSubmitting"
+        :disabled="!selectedDate || !selectedTime || isSubmitting"
+        @click="submitReschedule"
+      >
+        <Icon
+          name="lucide:send"
+          class="mr-1.5 text-xs"
+        />
+        {{ isDoctorOrSecretary ? 'Propose Schedule' : 'Send Reschedule Request' }}
+      </AppButton>
+      <AppButton
+        variant="unstyled"
+        class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 w-full rounded-xl py-2 text-xs font-bold transition-all"
+        :disabled="isSubmitting"
+        @click="emit('close')"
+      >
+        Cancel
+      </AppButton>
+    </div>
+  </div>
+
+  <!-- Desktop Modal Mode (teleports to body) -->
+  <Teleport
+    v-else
+    to="body"
+  >
     <Transition name="modal">
       <div
         class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/50 p-4"

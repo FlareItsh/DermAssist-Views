@@ -983,6 +983,28 @@
       </div>
     </Transition>
 
+    <!-- Mobile Reschedule View (Covers entire chat window as a dedicated component with back button) -->
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="transform translate-x-full opacity-0"
+      enter-to-class="transform translate-x-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="transform translate-x-0 opacity-100"
+      leave-to-class="transform translate-x-full opacity-0"
+    >
+      <div
+        v-if="rescheduleModalAppt && isMobile"
+        class="bg-card absolute inset-0 z-50 flex h-full w-full flex-col overflow-hidden"
+      >
+        <PatientSideComponentsRescheduleModal
+          :appointment="rescheduleModalAppt"
+          :inline="true"
+          @close="rescheduleModalAppt = null"
+          @requested="onRescheduleRequested"
+        />
+      </div>
+    </Transition>
+
     <!-- Header -->
     <div
       class="bg-card border-border flex items-center justify-between border-b px-3 py-3 md:px-8 md:py-6"
@@ -2436,10 +2458,11 @@
         @scheduled="handleAppointmentScheduled"
       />
 
-      <!-- Patient Reschedule Modal -->
+      <!-- Patient Reschedule Modal (Desktop centered modal only, never mounted on mobile) -->
       <PatientSideComponentsRescheduleModal
-        v-if="rescheduleModalAppt"
+        v-if="rescheduleModalAppt && !isMobile"
         :appointment="rescheduleModalAppt"
+        :inline="false"
         @close="rescheduleModalAppt = null"
         @requested="onRescheduleRequested"
       />
