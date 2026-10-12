@@ -44,19 +44,21 @@
 </script>
 
 <template>
-  <div class="flex min-h-0 w-full flex-1 flex-col gap-5 pb-6">
+  <div class="flex min-h-0 w-full flex-1 flex-col gap-4 pb-2 sm:gap-5 lg:pb-6">
     <!-- Top: 14-Day Appointment Schedule -->
     <DoctorSideComponentsAppointmentSchedule />
 
     <!-- Clinical KPI Summary Bar -->
-    <div class="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-4">
       <!-- KPI 1: Today's Appointments -->
       <div
         @click="setTodayFilter"
-        class="group bg-card hover:border-primary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group bg-card hover:border-primary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
       >
         <div class="flex flex-col">
-          <span class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+          <span
+            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
+          >
             Today's Visits
           </span>
           <div class="mt-1 flex items-baseline gap-1.5">
@@ -67,7 +69,7 @@
           </div>
         </div>
         <div
-          class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
+          class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
         >
           <Icon
             name="solar:calendar-date-bold"
@@ -79,10 +81,12 @@
       <!-- KPI 2: Priority Triage Cases -->
       <NuxtLink
         to="/doctor/patients"
-        class="group bg-card relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-sm"
+        class="group bg-card relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-sm"
       >
         <div class="flex flex-col">
-          <span class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+          <span
+            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
+          >
             Priority Triage
           </span>
           <div class="mt-1 flex items-baseline gap-1.5">
@@ -93,7 +97,7 @@
           </div>
         </div>
         <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 transition-transform duration-300 group-hover:scale-110"
+          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
         >
           <Icon
             name="solar:star-bold"
@@ -105,10 +109,12 @@
       <!-- KPI 3: Urgent Diagnosis Scans -->
       <div
         @click="activeWorkspaceView = 'all'"
-        class="group bg-card hover:border-destructive/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group bg-card hover:border-destructive/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
       >
         <div class="flex flex-col">
-          <span class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+          <span
+            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
+          >
             Urgent Scans
           </span>
           <div class="mt-1 flex items-baseline gap-1.5">
@@ -119,7 +125,7 @@
           </div>
         </div>
         <div
-          class="bg-destructive/10 text-destructive flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
+          class="bg-destructive/10 text-destructive flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
         >
           <Icon
             name="solar:shield-warning-bold"
@@ -131,10 +137,12 @@
       <!-- KPI 4: Active Directory -->
       <NuxtLink
         to="/doctor/patients"
-        class="group bg-card hover:border-secondary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group bg-card hover:border-secondary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
       >
         <div class="flex flex-col">
-          <span class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+          <span
+            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
+          >
             Directory
           </span>
           <div class="mt-1 flex items-baseline gap-1.5">
@@ -145,7 +153,7 @@
           </div>
         </div>
         <div
-          class="bg-secondary/10 text-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
+          class="bg-secondary/10 text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
         >
           <Icon
             name="solar:users-group-rounded-bold"
@@ -156,19 +164,19 @@
     </div>
 
     <!-- Main Content Area -->
-    <div class="flex min-w-0 flex-1 flex-col gap-5 lg:flex-row lg:items-start">
+    <div class="flex min-w-0 flex-1 flex-col gap-4 sm:gap-5 lg:flex-row lg:items-start">
       <!-- Left Column: Primary Clinical Workspace -->
-      <div class="flex min-w-0 flex-1 flex-col gap-5">
+      <div class="flex min-w-0 flex-1 flex-col gap-4 sm:gap-5">
         <!-- Workspace Filter Tabs & Status Bar -->
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div
-            class="bg-card flex items-center rounded-2xl border border-gray-200/80 p-1 shadow-2xs"
+            class="bg-card flex w-full items-center rounded-2xl border border-gray-200/80 p-1 shadow-2xs sm:w-auto"
           >
             <button
               type="button"
               @click="activeWorkspaceView = 'all'"
               :class="[
-                'rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-150',
+                'flex-1 rounded-xl px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-150 sm:flex-none sm:px-3.5',
                 activeWorkspaceView === 'all'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -180,7 +188,7 @@
               type="button"
               @click="activeWorkspaceView = 'appointments'"
               :class="[
-                'rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-150',
+                'flex-1 rounded-xl px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-150 sm:flex-none sm:px-3.5',
                 activeWorkspaceView === 'appointments'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -192,7 +200,7 @@
               type="button"
               @click="activeWorkspaceView = 'patients'"
               :class="[
-                'rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all duration-150',
+                'flex-1 rounded-xl px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-150 sm:flex-none sm:px-3.5',
                 activeWorkspaceView === 'patients'
                   ? 'bg-primary text-white shadow-xs'
                   : 'text-muted-foreground hover:text-foreground'
@@ -235,9 +243,12 @@
       </div>
 
       <!-- Right Column: Upgrade Ad, Priority List, and Quick Practice Actions -->
-      <div class="flex w-full flex-col gap-4 lg:w-[380px] lg:shrink-0">
+      <!-- Tablet: 2-col grid (ad spans the row) to avoid empty side space; Desktop: fixed sidebar column -->
+      <div
+        class="grid w-full grid-cols-1 gap-4 md:grid-cols-2 lg:flex lg:w-[380px] lg:shrink-0 lg:flex-col"
+      >
         <!-- Subscription Upgrade Ad (auto-hides on Best Plan) -->
-        <DoctorSideComponentsSubscriptionAd />
+        <DoctorSideComponentsSubscriptionAd class="md:col-span-2" />
 
         <!-- Priority List (synchronized with /doctor/patients) -->
         <DoctorSideComponentsPriorityList />
@@ -295,7 +306,7 @@
 
           <NuxtLink
             to="/doctor/appointments"
-            class="border-border/60 hover:border-primary/30 flex items-center justify-between rounded-xl border p-2.5 transition hover:bg-gray-50"
+            class="border-border/60 hover:border-primary/30 mt-auto flex items-center justify-between rounded-xl border p-2.5 transition hover:bg-gray-50"
           >
             <div class="flex items-center gap-2">
               <Icon
