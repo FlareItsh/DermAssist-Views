@@ -89,7 +89,15 @@
   const greeting = ref('Good day')
   const todayLabel = ref('')
   const isScrolled = ref(false)
+  const headerRoot = ref<HTMLElement | null>(null)
   let greetingTimer: ReturnType<typeof setInterval> | null = null
+
+  let touchStartY = 0
+
+  const getSnapTarget = () => {
+    if (!headerRoot.value) return 140
+    return headerRoot.value.offsetHeight - 76
+  }
 
   const updateGreeting = () => {
     const now = new Date()
@@ -113,6 +121,29 @@
     isScrolled.value = target.scrollTop > 2
   }
 
+  const handleTouchStart = (e: TouchEvent) => {
+    touchStartY = e.touches[0].clientY
+  }
+
+  const handleTouchEnd = (e: TouchEvent) => {
+    const target = document.getElementById('main-content')
+    if (!target) return
+
+    const currentScrollTop = target.scrollTop
+    const touchEndY = e.changedTouches[0].clientY
+    const deltaY = touchStartY - touchEndY // Positive means swiped up (scrolled down)
+    const snapTarget = getSnapTarget()
+
+    // Allow snapping from the absolute top (currentScrollTop >= 0)
+    if (currentScrollTop >= 0 && currentScrollTop < snapTarget - 10) {
+      if (deltaY > 10) {
+        target.scrollTo({ top: snapTarget, behavior: 'smooth' })
+      } else if (deltaY < -10 && currentScrollTop > 0) {
+        target.scrollTo({ top: 0, behavior: 'smooth' })
+      }
+    }
+  }
+
   onMounted(() => {
     updateGreeting()
     greetingTimer = setInterval(updateGreeting, 60000)
@@ -121,6 +152,8 @@
     const mainContent = document.getElementById('main-content')
     if (mainContent) {
       mainContent.addEventListener('scroll', handleScroll, { passive: true })
+      mainContent.addEventListener('touchstart', handleTouchStart, { passive: true })
+      mainContent.addEventListener('touchend', handleTouchEnd, { passive: true })
     }
   })
 
@@ -131,6 +164,8 @@
     const mainContent = document.getElementById('main-content')
     if (mainContent) {
       mainContent.removeEventListener('scroll', handleScroll)
+      mainContent.removeEventListener('touchstart', handleTouchStart)
+      mainContent.removeEventListener('touchend', handleTouchEnd)
     }
   })
 </script>
@@ -139,13 +174,12 @@
   <div
     class="relative z-50 w-full lg:hidden"
     id="doctor-mobile-header"
+    ref="headerRoot"
   >
     <!-- FIXED TOP ROW -->
     <div
       class="bg-primary fixed top-0 right-0 left-0 z-50 px-4 pt-4 pb-4 transition-all duration-150 sm:px-6"
-      :class="[
-        !isDashboard ? 'rounded-b-[32px] shadow-md' : isScrolled ? 'rounded-b-[32px] shadow-md' : ''
-      ]"
+      :class="[!isDashboard ? 'rounded-b-[32px]' : isScrolled ? 'rounded-b-[32px]' : '']"
     >
       <div
         class="pointer-events-none absolute inset-0 transition-all duration-150"
@@ -168,7 +202,7 @@
         >
           <NuxtImg
             src="/DA_Logo.png"
-            class="h-11 brightness-0 invert sm:h-12"
+            class="h-11 brightness-0 invert"
             alt="DermAssist"
           />
         </NuxtLink>
@@ -326,8 +360,7 @@
       </div>
     </div>
 
-    <!-- SPACER to offset the fixed top row -->
-    <div class="h-[80px] w-full"></div>
+    <div class="h-[76px] w-full"></div>
 
     <!-- SCROLLING HERO (dashboard only) -->
     <div
@@ -353,30 +386,12 @@
             {{ todayLabel }}
           </p>
           <h1 class="mt-1 text-[28px] leading-tight font-black text-white sm:text-3xl">
-            {{ greeting }}, {{ doctorDisplayName }}
+            {{ greeting }}, <br />{{ doctorDisplayName }}
           </h1>
-          <div class="mt-2.5 flex flex-wrap items-center gap-2">
-            <span
-              class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white"
-            >
-              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300"></span>
-              Practice Active
-            </span>
-            <span
-              class="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-2.5 py-1 text-[11px] font-bold text-white"
-            >
-              <Icon
-                name="solar:calendar-date-bold"
-                size="13"
-              />
-              {{ todayAppointments.length }} visit{{ todayAppointments.length === 1 ? '' : 's' }}
-              today
-            </span>
-          </div>
         </div>
 
         <div
-          class="w-full transform transition-all delay-75 duration-300 ease-out md:max-w-sm"
+          class="mt-10 w-full transform transition-all delay-75 duration-300 ease-out md:max-w-sm"
           :class="
             isScrolled
               ? '-translate-y-3 scale-[0.98] opacity-0'

@@ -310,13 +310,9 @@
          MOBILE LAYOUT (only on phones/tablets)
          ═══════════════════════════════════════════════ -->
     <div class="mobile-only -mx-5 min-h-screen px-5">
-      <!-- ─── Scrollable Body ─── -->
       <div class="relative z-10 flex flex-col gap-3">
-        <!-- My Health Overview Card -->
-        <h2 class="text-foreground mt-4 mb-0.5 text-lg font-bold">My Health Overview</h2>
+        <h2 class="text-foreground mt-4 -mb-2 text-lg font-bold">Dashboard</h2>
         <PatientSideComponentsMobileWeekTracker />
-
-        <!-- Total Scans Card -->
         <div class="bg-primary rounded-3xl px-5 py-4">
           <h3 class="mb-3 text-base font-bold text-white">Total scans performed</h3>
           <div class="flex items-center gap-4">

@@ -349,6 +349,9 @@
     if (isChatThread.value) {
       return 'h-full min-h-0'
     }
+    if (isChatPage.value) {
+      return 'min-h-0 w-full flex-1 px-0 pt-0 pb-[92px] lg:h-full lg:p-0'
+    }
     if (isFullHeightPage.value) {
       return 'min-h-0 w-full flex-1 px-4 pt-3 pb-[92px] sm:px-6 lg:h-full lg:p-0'
     }
