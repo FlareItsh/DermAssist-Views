@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
@@ -9,11 +9,17 @@
       mode?: 'schedule' | 'reschedule'
       prefillDate?: string
       prefillTime?: string
+      inline?: boolean
+      patientName?: string
+      patientAvatar?: string
     }>(),
     {
       mode: 'schedule',
       prefillDate: '',
-      prefillTime: ''
+      prefillTime: '',
+      inline: false,
+      patientName: '',
+      patientAvatar: ''
     }
   )
 
@@ -21,6 +27,27 @@
     (e: 'close'): void
     (e: 'scheduled'): void
   }>()
+
+  const isMobile = ref(false)
+  const updateIsMobile = () => {
+    if (typeof window !== 'undefined') {
+      isMobile.value = window.innerWidth < 768
+    }
+  }
+
+  onMounted(() => {
+    updateIsMobile()
+    window.addEventListener('resize', updateIsMobile)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateIsMobile)
+  })
+
+  const isInlineMode = computed(() => Boolean(props.inline || isMobile.value))
+
+  const { getStorageUrl } = useStorage()
+  const avatarError = ref(false)
 
   const userRole = useCookie('user_role')
   const isDoctor = computed(() => userRole.value === 'doctor')
@@ -41,6 +68,22 @@
   const isScheduling = ref(false)
   const errorMessage = ref<string | null>(null)
   const wasAutofilled = ref(false)
+
+  const selectedDateFormatted = computed(() => {
+    if (!selectedDate.value) return ''
+    try {
+      const [y, m, d] = selectedDate.value.split('-').map(Number)
+      const dateObj = new Date(y, m - 1, d)
+      return dateObj.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    } catch {
+      return selectedDate.value
+    }
+  })
 
   const { clinics, fetchClinics } = useDoctorClinics()
   const doctorBookedAppts = ref<any[]>([])
@@ -341,7 +384,329 @@
 </script>
 
 <template>
-  <Teleport to="body">
+  <!-- Mobile View Mode: Full-window component covering chat with back button -->
+  <div
+    v-if="isInlineMode"
+    class="bg-card flex h-full w-full flex-1 flex-col overflow-y-auto"
+  >
+    <!-- Mobile Top Header with Back Button and Patient Identity -->
+    <div
+      class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3 py-3 shadow-sm"
+    >
+      <div class="flex min-w-0 flex-1 items-center gap-2">
+        <!-- Back Button -->
+        <button
+          type="button"
+          @click="emit('close')"
+          class="text-foreground/70 hover:text-foreground hover:bg-foreground/5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95"
+          aria-label="Back to chat"
+        >
+          <Icon
+            name="heroicons:arrow-left-20-solid"
+            class="text-2xl"
+          />
+        </button>
+
+        <!-- Patient Avatar & Name / Title -->
+        <div class="flex min-w-0 flex-1 items-center gap-2.5">
+          <div
+            v-if="props.patientAvatar || props.patientName"
+            class="bg-primary/10 h-10 w-10 shrink-0 overflow-hidden rounded-full"
+          >
+            <img
+              v-if="props.patientAvatar && !avatarError"
+              :src="getStorageUrl(props.patientAvatar)"
+              :alt="props.patientName"
+              class="h-full w-full object-cover"
+              @error="avatarError = true"
+            />
+            <div
+              v-else
+              class="text-primary flex h-full w-full items-center justify-center text-sm font-bold uppercase"
+            >
+              {{ (props.patientName || 'P').charAt(0) }}
+            </div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-foreground truncate text-sm font-bold">
+              {{
+                props.patientName ||
+                (props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment')
+              }}
+            </h2>
+            <p class="truncate text-[11px] font-semibold text-indigo-600">
+              {{ props.mode === 'reschedule' ? 'Propose New Schedule' : 'Schedule Appointment' }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action badge -->
+      <span
+        class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
+      >
+        {{ props.mode === 'reschedule' ? 'Reschedule' : 'New Schedule' }}
+      </span>
+    </div>
+
+    <!-- Scrollable configuration body -->
+    <div class="flex flex-col gap-4 p-4 pb-28">
+      <!-- Selected Date Banner -->
+      <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-indigo-900">Selected Date</span>
+          <span
+            v-if="selectedDate"
+            class="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase"
+          >
+            Confirmed
+          </span>
+          <span
+            v-else
+            class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+          >
+            Required
+          </span>
+        </div>
+        <p class="mt-1 text-sm font-bold text-indigo-600">
+          {{ selectedDateFormatted || 'Please tap a date from the calendar below' }}
+        </p>
+      </div>
+
+      <!-- Calendar -->
+      <div class="flex w-full justify-center">
+        <PatientSideComponentsCalendar
+          :selected-date="selectedDate"
+          :blocked-slots="blockedSlots"
+          :duty-slots="dutySlots"
+          :show-manage-blocks-link="true"
+          :show-appointment-details-panel="!isDoctor"
+          @date-selected="handleDateSelected"
+        />
+      </div>
+
+      <!-- Time Range & Warnings -->
+      <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+        <label class="text-foreground/60 mb-2 block text-xs font-bold tracking-wider uppercase">
+          Appointment Time
+        </label>
+        <AppTimeRangePicker
+          v-model:start-time="scheduleTime"
+          v-model:end-time="scheduleEndTime"
+          :blocked-slots="blockedSlotsForDate"
+          :duty-slots="dutySlotsForDate"
+          :existing-appointments="existingApptSlotsForDate"
+          label=""
+        />
+
+        <!-- Warnings & feedback -->
+        <div
+          v-if="isTimeRangeInvalid"
+          class="mt-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
+        >
+          End time must be after start time.
+        </div>
+
+        <Transition name="fade-scale">
+          <div
+            v-if="isApptConflict"
+            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+          >
+            <Icon
+              name="material-symbols:warning-rounded"
+              class="mt-0.5 shrink-0 text-sm"
+            />
+            <div>
+              <p class="font-bold">Conflicting Appointment</p>
+              <p class="mt-0.5 text-red-500">
+                An appointment is already scheduled during this time slot. Please choose a different
+                time.
+              </p>
+            </div>
+          </div>
+        </Transition>
+
+        <div
+          v-if="errorMessage"
+          class="mt-2 flex items-start gap-1.5 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
+        >
+          <Icon
+            name="material-symbols:warning-rounded"
+            class="mt-0.5 shrink-0 text-base text-red-500"
+          />
+          <span>{{ errorMessage }}</span>
+        </div>
+
+        <Transition name="fade-scale">
+          <div
+            v-if="selectedDate && hasNoDutyOnDate"
+            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+          >
+            <Icon
+              name="material-symbols:block-rounded"
+              class="mt-0.5 shrink-0 text-sm"
+            />
+            <div>
+              <p class="font-bold">Doctor is Off-Duty on this date</p>
+              <p class="mt-0.5 text-red-500">
+                The doctor has no scheduled duty hours on this date. Please select an available date
+                from the calendar.
+              </p>
+            </div>
+          </div>
+        </Transition>
+
+        <Transition name="fade-scale">
+          <div
+            v-if="selectedDate && !hasNoDutyOnDate && isOutsideDutyHours"
+            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+          >
+            <Icon
+              name="material-symbols:warning-rounded"
+              class="mt-0.5 shrink-0 text-sm"
+            />
+            <div>
+              <p class="font-bold">Outside Doctor's Duty Hours</p>
+              <p class="mt-0.5 text-red-500">
+                Appointments must be scheduled during active duty hours on this date:
+                <strong>{{ dutyRangesLabel }}</strong
+                >.
+              </p>
+            </div>
+          </div>
+        </Transition>
+
+        <Transition name="fade-scale">
+          <div
+            v-if="isSelectedTimeBlocked"
+            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+          >
+            <Icon
+              name="material-symbols:block-rounded"
+              class="mt-0.5 shrink-0 text-sm"
+            />
+            <div>
+              <p class="font-bold">This time is blocked</p>
+              <p class="mt-0.5 text-red-500">
+                Blocked on this date: <strong>{{ blockedRangesLabel }}</strong
+                >. Please choose a different time.
+              </p>
+            </div>
+          </div>
+        </Transition>
+
+        <Transition name="fade-scale">
+          <div
+            v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
+            class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
+          >
+            <Icon
+              name="material-symbols:warning-rounded"
+              class="mt-0.5 shrink-0 text-sm"
+            />
+            <p>
+              <span class="font-bold">Note:</span>
+              This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong
+              >.
+            </p>
+          </div>
+        </Transition>
+      </div>
+
+      <!-- Clinic / Location Selector -->
+      <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+        <div class="mb-2 flex items-center justify-between">
+          <label class="text-foreground/60 block text-xs font-bold tracking-wider uppercase"
+            >Clinic / Location</label
+          >
+          <span
+            v-if="wasAutofilled"
+            class="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+          >
+            <Icon
+              name="heroicons:sparkles"
+              class="h-3 w-3 text-emerald-600"
+            />
+            Autofilled
+          </span>
+        </div>
+
+        <div class="space-y-2">
+          <select
+            v-if="clinics.length > 0"
+            v-model="scheduleLocation"
+            class="text-foreground w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500"
+          >
+            <option
+              value=""
+              disabled
+            >
+              -- Select a Clinic Location --
+            </option>
+            <option
+              v-for="c in clinics"
+              :key="c.id"
+              :value="c.name"
+            >
+              {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+            </option>
+            <option value="__custom__">+ Other / Custom Location</option>
+          </select>
+
+          <input
+            v-if="clinics.length === 0 || scheduleLocation === '__custom__'"
+            type="text"
+            v-model="customLocationInput"
+            placeholder="e.g. SkinCare Clinic, Rm 302"
+            class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-indigo-500"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Sticky Bottom Actions Bar -->
+    <div
+      class="border-border bg-card sticky bottom-0 z-40 flex flex-col gap-2 border-t p-3.5 shadow-lg"
+    >
+      <AppButton
+        variant="solid"
+        class="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md hover:bg-indigo-700 disabled:opacity-50"
+        :disabled="
+          !selectedDate ||
+          !scheduleTime ||
+          !scheduleEndTime ||
+          !effectiveLocation ||
+          isScheduling ||
+          isSelectedTimeBlocked ||
+          isTimeRangeInvalid ||
+          isApptConflict ||
+          isOutsideDutyHours ||
+          hasNoDutyOnDate
+        "
+        @click="confirmSchedule"
+      >
+        <template v-if="isScheduling">
+          {{ props.mode === 'reschedule' ? 'Rescheduling...' : 'Scheduling...' }}
+        </template>
+        <template v-else>
+          {{ props.mode === 'reschedule' ? 'Confirm Reschedule' : 'Confirm Schedule' }}
+        </template>
+      </AppButton>
+      <AppButton
+        variant="unstyled"
+        class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 w-full rounded-xl py-2 text-xs font-bold transition-all"
+        @click="emit('close')"
+      >
+        Cancel
+      </AppButton>
+    </div>
+  </div>
+
+  <!-- Desktop Modal Mode (teleports to body) -->
+  <Teleport
+    v-else
+    to="body"
+  >
     <Transition name="modal">
       <div
         class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"

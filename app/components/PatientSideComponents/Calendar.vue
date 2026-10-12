@@ -271,7 +271,7 @@
 <template>
   <div
     ref="calendarRef"
-    class="relative z-30"
+    class="relative z-10"
   >
     <!-- Appointment Detail Panel — overlaps content to the left, does NOT push layout -->
     <Transition name="slide-left">
@@ -396,7 +396,7 @@
     </Transition>
 
     <!-- Calendar card -->
-    <div class="bg-card w-[400px] rounded-3xl border border-gray-100 p-6">
+    <div class="bg-card w-full max-w-[400px] rounded-3xl border border-gray-100 p-4 sm:p-6">
       <div class="mb-4 flex items-center justify-between">
         <div class="flex items-center gap-3">
           <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>

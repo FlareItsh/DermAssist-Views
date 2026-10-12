@@ -742,9 +742,25 @@ export const useAppNotifications = () => {
                 ? 'Secretary'
                 : 'Patient'
 
-          const cleanSnippet = conv.latest_message.message
-            ? conv.latest_message.message.replace(/<[^>]*>?/gm, '').trim()
-            : 'Sent an attachment'
+          const rawMessage = conv.latest_message.message || ''
+          let cleanSnippet = rawMessage
+            .replace(/\[[A-Za-z0-9_]+:[^\]]+\]/g, '')
+            .replace(/<[^>]*>?/gm, '')
+            .trim()
+
+          if (!cleanSnippet) {
+            if (rawMessage.includes('APPOINTMENT_REQUEST')) {
+              cleanSnippet = 'Sent an appointment request'
+            } else if (rawMessage.includes('DIAGNOSIS_ONLY')) {
+              cleanSnippet = 'Shared clinical scan findings'
+            } else if (rawMessage.includes('APPOINTMENT_SCHEDULED')) {
+              cleanSnippet = 'Appointment confirmed'
+            } else if (rawMessage.includes('APPOINTMENT_DECLINED')) {
+              cleanSnippet = 'Appointment request declined'
+            } else {
+              cleanSnippet = 'Sent an attachment'
+            }
+          }
 
           list.push({
             id: `msg-unread-${conv.id}-${conv.latest_message.created_at || 'now'}`,

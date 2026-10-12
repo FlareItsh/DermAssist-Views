@@ -76,16 +76,11 @@
       </main>
     </div>
 
-    <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
-    <AppMobileBottomNav v-if="userRole === 'patient' && !isChatThread" />
-
-    <!-- Mobile Bottom Navigation (doctor only, hidden on desktop) -->
-    <DoctorSideComponentsMobileBottomNav v-if="showDoctorMobileChrome" />
-
-    <!-- Mobile Bottom Navigation (admin only, hidden on desktop) -->
-    <AdminSideComponentsMobileBottomNav
-      v-if="userRole === 'admin'"
-      :items="adminNavItems"
+    <!-- Unified Dynamic Mobile Bottom Navigation (for all roles) -->
+    <AppMobileBottomNav
+      v-if="!isChatThread"
+      :items="navItems"
+      :role="userRole"
     />
   </div>
 </template>

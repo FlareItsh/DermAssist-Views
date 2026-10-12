@@ -13,6 +13,15 @@
     (e: 'click'): void
     (e: 'delete'): void
   }>()
+
+  const cleanDescription = (text?: string): string => {
+    if (!text) return ''
+    const cleaned = text
+      .replace(/\[[A-Za-z0-9_]+:[^\]]+\]/g, '')
+      .replace(/<[^>]*>/g, '')
+      .trim()
+    return cleaned || text
+  }
 </script>
 
 <template>
@@ -64,7 +73,7 @@
           class="line-clamp-2 text-xs leading-relaxed transition-all"
           :class="isRead ? 'text-muted-foreground/60' : 'text-muted-foreground'"
         >
-          {{ description }}
+          {{ cleanDescription(description) }}
         </p>
       </div>
     </div>
