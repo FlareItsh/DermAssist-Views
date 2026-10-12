@@ -158,25 +158,24 @@
         ></div>
       </div>
 
-      <div class="relative z-20 mx-auto flex max-w-5xl items-center justify-between">
+      <div class="relative z-20 flex items-center justify-between">
         <NuxtLink
           to="/patient"
-          class="flex items-center gap-2"
-          id="patient-mobile-logo"
+          class="flex items-center"
         >
           <NuxtImg
             src="/DA_Logo.png"
-            class="h-11 brightness-0 invert"
+            class="h-12 brightness-0 invert"
             alt="DermAssist"
           />
         </NuxtLink>
 
-        <div class="flex items-center gap-2 sm:gap-2.5">
+        <div class="flex items-center gap-2.5">
           <!-- What's New Pill (appears when there's an unseen update) -->
           <NuxtLink
             v-if="hasUnseenUpdate"
             to="/patient/updates"
-            class="hidden items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95 min-[400px]:flex"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
           >
             <Icon
               name="solar:megaphone-loud-bold-duotone"
@@ -195,8 +194,7 @@
           <!-- Notification Bell -->
           <NuxtLink
             to="/patient/notifications"
-            id="patient-mobile-notifications"
-            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none active:scale-95"
+            class="relative flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none"
             title="Notifications"
           >
             <Icon
@@ -214,7 +212,7 @@
           <div class="relative">
             <button
               @click="isDropdownOpen = !isDropdownOpen"
-              class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none active:scale-95"
+              class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none"
             >
               <NuxtImg
                 v-if="user?.avatar_path"
