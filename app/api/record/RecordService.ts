@@ -20,6 +20,12 @@ export class RecordService extends BaseService {
   async getRecords(): Promise<RecordItem[]> {
     return this.request<RecordItem[]>('/records', 'GET')
   }
+
+  async downloadPdf(uuid: string): Promise<Blob> {
+    return $api<Blob>(`/records/${uuid}/export-pdf`, {
+      responseType: 'blob'
+    })
+  }
 }
 
 export const recordService = new RecordService()

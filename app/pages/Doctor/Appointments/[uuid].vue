@@ -44,35 +44,100 @@
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
   }
+
+  import { recordService } from '~/api/record/RecordService'
+  import { toast } from 'vue-sonner'
+
+  const isDownloadingPdf = ref(false)
+
+  const handleExportPdf = async () => {
+    const diagIdentifier = appointment.value?.diagnosis_uuid || appointment.value?.diagnosis_id
+    if (!diagIdentifier) {
+      toast.error('No diagnosis attached to this consultation yet.')
+      return
+    }
+
+    isDownloadingPdf.value = true
+    try {
+      const blob = await recordService.downloadPdf(String(diagIdentifier))
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `clinical-assessment-appt-${uuid.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Clinical consultation report downloaded successfully')
+    } catch (err: any) {
+      if (err?.status === 403 || err?.statusCode === 403) {
+        toast.error(
+          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
+          {
+            action: {
+              label: 'View Plans',
+              onClick: () => navigateTo('/doctor/subscription')
+            }
+          }
+        )
+      } else {
+        toast.error(err?.message || 'Failed to export clinical report')
+      }
+    } finally {
+      isDownloadingPdf.value = false
+    }
+  }
 </script>
 
 <template>
   <div class="flex h-full flex-col overflow-hidden bg-gray-50/50 p-6">
     <!-- Header -->
-    <div class="mb-8 flex items-center gap-4">
-      <AppButton
-        variant="ghost"
-        size="icon"
-        @click="router.back()"
-        class="rounded-full bg-white shadow-sm ring-1 ring-gray-200"
-      >
-        <svg
-          class="h-5 w-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
+    <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <AppButton
+          variant="ghost"
+          size="icon"
+          @click="router.back()"
+          class="rounded-full bg-white shadow-sm ring-1 ring-gray-200"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M10 19l-7-7m0 0l7-7m-7 7h18"
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            />
+          </svg>
+        </AppButton>
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Clinical Consultation</h1>
+          <p class="text-gray-500">Review patient history and record clinical notes.</p>
+        </div>
+      </div>
+
+      <div
+        v-if="appointment?.diagnosis_id || appointment?.diagnosis_uuid"
+        class="flex items-center gap-2"
+      >
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
+          :disabled="isDownloadingPdf"
+          @click="handleExportPdf"
+          class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+        >
+          <Icon
+            :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
+            class="text-primary text-base"
           />
-        </svg>
-      </AppButton>
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">Clinical Consultation</h1>
-        <p class="text-gray-500">Review patient history and record clinical notes.</p>
+          <span>{{ isDownloadingPdf ? 'Exporting...' : 'Export Clinical Report (PDF)' }}</span>
+        </AppButton>
       </div>
     </div>
 

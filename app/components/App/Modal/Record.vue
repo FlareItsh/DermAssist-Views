@@ -50,6 +50,45 @@
     }
     return text
   }
+
+  import { recordService } from '~/api/record/RecordService'
+  import { toast } from 'vue-sonner'
+
+  const userRole = useCookie('user_role')
+  const isDownloadingPdf = ref(false)
+
+  const handleExportPdf = async () => {
+    if (!props.record?.uuid) return
+    isDownloadingPdf.value = true
+    try {
+      const blob = await recordService.downloadPdf(props.record.uuid)
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `clinical-assessment-${props.record.uuid.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Clinical assessment PDF downloaded successfully')
+    } catch (err: any) {
+      if (err?.status === 403 || err?.statusCode === 403) {
+        toast.error(
+          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
+          {
+            action: {
+              label: 'View Plans',
+              onClick: () => navigateTo('/doctor/subscription')
+            }
+          }
+        )
+      } else {
+        toast.error(err?.message || 'Failed to download PDF report')
+      }
+    } finally {
+      isDownloadingPdf.value = false
+    }
+  }
 </script>
 
 <template>
@@ -296,13 +335,15 @@
           variant="unstyled"
           size="unstyled"
           rounded="unstyled"
-          class="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-gray-800 active:scale-95"
+          :disabled="isDownloadingPdf"
+          @click="handleExportPdf"
+          class="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-gray-800 active:scale-95 disabled:opacity-50"
         >
           <Icon
-            name="solar:printer-bold"
+            :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:file-download-bold'"
             size="14"
           />
-          <span>Print Summary</span>
+          <span>{{ isDownloadingPdf ? 'Generating PDF...' : 'Export PDF Report' }}</span>
         </AppButton>
         <AppButton
           variant="unstyled"

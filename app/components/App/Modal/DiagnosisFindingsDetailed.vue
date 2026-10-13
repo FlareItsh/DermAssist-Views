@@ -11,6 +11,7 @@
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+  import { recordService } from '~/api/record/RecordService'
   import { toast } from 'vue-sonner'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
   const {
@@ -126,6 +127,47 @@
   const contributeToDataset = ref(false)
   const contributeToOutOfScopeDataset = ref(false)
   const selectedPatientData = ref<any>(null)
+
+  const targetDiagnosisUuid = computed(() => props.diagnosisUuid || currentDiagnosis.value?.uuid)
+  const isDownloadingPdf = ref(false)
+
+  const handleExportPdf = async () => {
+    const diagUuid = targetDiagnosisUuid.value
+    if (!diagUuid) {
+      toast.error('Clinical report ID not found.')
+      return
+    }
+
+    isDownloadingPdf.value = true
+    try {
+      const blob = await recordService.downloadPdf(String(diagUuid))
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `clinical-assessment-${String(diagUuid).slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Clinical assessment PDF downloaded successfully')
+    } catch (err: any) {
+      if (err?.status === 403 || err?.statusCode === 403) {
+        toast.error(
+          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
+          {
+            action: {
+              label: 'View Plans',
+              onClick: () => navigateTo('/doctor/subscription')
+            }
+          }
+        )
+      } else {
+        toast.error(err?.message || 'Failed to export clinical report')
+      }
+    } finally {
+      isDownloadingPdf.value = false
+    }
+  }
 
   const patientDateOfBirth = computed<string | null>(() => {
     return selectedPatientData.value?.date_of_birth || props.dateOfBirth || null
@@ -1019,60 +1061,83 @@
     <div
       class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-6 xl:p-8"
     >
-      <div class="mb-6 flex items-start gap-3.5 sm:mb-8 sm:items-center sm:gap-5">
-        <div
-          class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
-        >
-          <Icon
-            name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-xl sm:text-2xl"
-          />
+      <div
+        class="mb-6 flex flex-wrap items-start justify-between gap-3.5 sm:mb-8 sm:items-center sm:gap-5"
+      >
+        <div class="flex min-w-0 flex-1 items-start gap-3.5 sm:items-center sm:gap-5">
+          <div
+            class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
+          >
+            <Icon
+              name="material-symbols:clinical-notes-outline-rounded"
+              class="text-primary text-xl sm:text-2xl"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+              <h1
+                class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
+              >
+                {{
+                  activeDisease === 'None'
+                    ? 'Non-Skin Image Detected'
+                    : activeDisease === 'OutOfScope'
+                      ? outOfScopeCategoryFromDiagnosis
+                        ? `Out-of-Scope: ${formatCategory(outOfScopeCategoryFromDiagnosis)}`
+                        : 'Out-of-Scope Skin Condition'
+                      : activeDisease === 'Inconclusive'
+                        ? 'Inconclusive Finding'
+                        : activeDisease
+                }}
+              </h1>
+              <AppBadge
+                v-if="activeDisease === 'OutOfScope'"
+                color="purple"
+                size="sm"
+              >
+                Other Condition (Not in Main 3)
+              </AppBadge>
+              <AppBadge
+                v-else-if="activeDisease === 'Inconclusive'"
+                color="warning"
+                size="sm"
+              >
+                Clinical Advisory
+              </AppBadge>
+              <AppBadge
+                v-else-if="activeDisease === 'None'"
+                color="gray"
+                size="sm"
+              >
+                Non-Skin
+              </AppBadge>
+            </div>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
+              <p class="text-xs font-bold text-gray-500 sm:text-sm">
+                Clinical Analysis &amp; Guidance
+              </p>
+            </div>
+          </div>
         </div>
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-            <h1
-              class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
-            >
-              {{
-                activeDisease === 'None'
-                  ? 'Non-Skin Image Detected'
-                  : activeDisease === 'OutOfScope'
-                    ? outOfScopeCategoryFromDiagnosis
-                      ? `Out-of-Scope: ${formatCategory(outOfScopeCategoryFromDiagnosis)}`
-                      : 'Out-of-Scope Skin Condition'
-                    : activeDisease === 'Inconclusive'
-                      ? 'Inconclusive Finding'
-                      : activeDisease
-              }}
-            </h1>
-            <AppBadge
-              v-if="activeDisease === 'OutOfScope'"
-              color="purple"
-              size="sm"
-            >
-              Other Condition (Not in Main 3)
-            </AppBadge>
-            <AppBadge
-              v-else-if="activeDisease === 'Inconclusive'"
-              color="warning"
-              size="sm"
-            >
-              Clinical Advisory
-            </AppBadge>
-            <AppBadge
-              v-else-if="activeDisease === 'None'"
-              color="gray"
-              size="sm"
-            >
-              Non-Skin
-            </AppBadge>
-          </div>
-          <div class="mt-1 flex items-center gap-2">
-            <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-xs font-bold text-gray-500 sm:text-sm">
-              Clinical Analysis &amp; Guidance
-            </p>
-          </div>
+
+        <div
+          v-if="targetDiagnosisUuid"
+          class="shrink-0"
+        >
+          <AppButton
+            variant="outline"
+            size="sm"
+            :disabled="isDownloadingPdf"
+            @click="handleExportPdf"
+            class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+          >
+            <Icon
+              :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
+              class="text-primary text-base"
+            />
+            <span>{{ isDownloadingPdf ? 'Exporting...' : 'Export Report (PDF)' }}</span>
+          </AppButton>
         </div>
       </div>
 
