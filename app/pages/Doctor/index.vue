@@ -53,113 +53,140 @@
       <!-- KPI 1: Today's Appointments -->
       <div
         @click="setTodayFilter"
-        class="group bg-card hover:border-primary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-xs"
       >
-        <div class="flex flex-col">
-          <span
-            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
-          >
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
             Today's Visits
           </span>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-foreground text-2xl font-black">
-              {{ todayAppointments.length }}
-            </span>
-            <span class="text-muted-foreground text-[11px] font-medium">scheduled</span>
-          </div>
+          <span
+            v-if="todayAppointments.length > 0"
+            class="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700"
+          >
+            Active
+          </span>
+          <span
+            v-else
+            class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
+          >
+            Today
+          </span>
         </div>
-        <div
-          class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
-        >
-          <Icon
-            name="solar:calendar-date-bold"
-            class="text-xl"
-          />
+        <div class="mt-3 flex items-baseline gap-2">
+          <span class="text-3xl font-black tracking-tight text-gray-900 tabular-nums sm:text-4xl">
+            {{ todayAppointments.length }}
+          </span>
         </div>
+        <p class="mt-1 text-xs font-medium text-gray-500">
+          {{
+            todayAppointments.length === 1
+              ? '1 visit scheduled'
+              : `${todayAppointments.length} visits scheduled`
+          }}
+        </p>
       </div>
 
       <!-- KPI 2: Priority Triage Cases -->
       <NuxtLink
         to="/doctor/patients"
-        class="group bg-card relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-400/40 hover:shadow-sm"
+        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-xs"
       >
-        <div class="flex flex-col">
-          <span
-            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
-          >
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
             Priority Triage
           </span>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-2xl font-black text-amber-600">
-              {{ priorityCount }}
-            </span>
-            <span class="text-muted-foreground text-[11px] font-medium">flagged</span>
-          </div>
+          <span
+            v-if="priorityCount > 0"
+            class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/60"
+          >
+            High Focus
+          </span>
+          <span
+            v-else
+            class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
+          >
+            Normal
+          </span>
         </div>
-        <div
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
-        >
-          <Icon
-            name="solar:star-bold"
-            class="text-xl"
-          />
+        <div class="mt-3 flex items-baseline gap-2">
+          <span
+            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
+            :class="priorityCount > 0 ? 'text-amber-600' : 'text-gray-900'"
+          >
+            {{ priorityCount }}
+          </span>
         </div>
+        <p class="mt-1 text-xs font-medium text-gray-500">
+          {{ priorityCount === 1 ? '1 patient flagged' : `${priorityCount} patients flagged` }}
+        </p>
       </NuxtLink>
 
       <!-- KPI 3: Urgent Diagnosis Scans -->
       <div
         @click="activeWorkspaceView = 'all'"
-        class="group bg-card hover:border-destructive/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-xs"
       >
-        <div class="flex flex-col">
-          <span
-            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
-          >
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
             Urgent Scans
           </span>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-destructive text-2xl font-black">
-              {{ pendingScansCount }}
-            </span>
-            <span class="text-muted-foreground text-[11px] font-medium">pending review</span>
-          </div>
+          <span
+            v-if="pendingScansCount > 0"
+            class="inline-flex items-center rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-200/60"
+          >
+            Action Required
+          </span>
+          <span
+            v-else
+            class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
+          >
+            All Clear
+          </span>
         </div>
-        <div
-          class="bg-destructive/10 text-destructive flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
-        >
-          <Icon
-            name="solar:shield-warning-bold"
-            class="text-xl"
-          />
+        <div class="mt-3 flex items-baseline gap-2">
+          <span
+            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
+            :class="pendingScansCount > 0 ? 'text-rose-600' : 'text-gray-900'"
+          >
+            {{ pendingScansCount }}
+          </span>
         </div>
+        <p class="mt-1 text-xs font-medium text-gray-500">
+          {{
+            pendingScansCount === 1
+              ? '1 scan pending review'
+              : `${pendingScansCount} scans pending review`
+          }}
+        </p>
       </div>
 
       <!-- KPI 4: Active Directory -->
       <NuxtLink
         to="/doctor/patients"
-        class="group bg-card hover:border-secondary/40 relative flex cursor-pointer items-center justify-between overflow-hidden rounded-2xl border border-gray-100 p-3.5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-xs"
       >
-        <div class="flex flex-col">
-          <span
-            class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-xs"
-          >
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
             Directory
           </span>
-          <div class="mt-1 flex items-baseline gap-1.5">
-            <span class="text-foreground text-2xl font-black">
-              {{ uniquePatientsCount }}
-            </span>
-            <span class="text-muted-foreground text-[11px] font-medium">active patients</span>
-          </div>
+          <span
+            class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
+          >
+            Total
+          </span>
         </div>
-        <div
-          class="bg-secondary/10 text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10"
-        >
-          <Icon
-            name="solar:users-group-rounded-bold"
-            class="text-xl"
-          />
+        <div class="mt-3 flex items-baseline gap-2">
+          <span class="text-3xl font-black tracking-tight text-gray-900 tabular-nums sm:text-4xl">
+            {{ uniquePatientsCount }}
+          </span>
         </div>
+        <p class="mt-1 text-xs font-medium text-gray-500">
+          {{
+            uniquePatientsCount === 1
+              ? '1 active patient'
+              : `${uniquePatientsCount} active patients`
+          }}
+        </p>
       </NuxtLink>
     </div>
 

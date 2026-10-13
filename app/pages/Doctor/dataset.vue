@@ -70,12 +70,11 @@
           <h1 class="text-foreground text-2xl font-bold sm:text-3xl">
             Clinical Dataset Repository
           </h1>
-          
         </div>
         <p class="text-muted-foreground text-xs sm:text-sm">
           Contribute verified dermoscopic and smartphone lesion scans to enhance the AI diagnostic
           models.
-        </p>        
+        </p>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5 sm:gap-3">
@@ -109,14 +108,7 @@
     <div class="bg-card border-border space-y-5 rounded-3xl border p-4 shadow-sm sm:p-6 md:p-8">
       <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div class="flex items-start gap-3 sm:gap-4">
-          <div
-            class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12"
-          >
-            <Icon
-              name="lucide:sparkles"
-              class="text-xl sm:text-2xl"
-            />
-          </div>
+          <div class="bg-secondary mt-0.5 h-8 w-1 shrink-0 rounded-full sm:h-9" />
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-foreground text-base font-bold">Direct AI Dataset Contribution</h3>
