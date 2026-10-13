@@ -3,6 +3,7 @@
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { userService } from '~/api/user/UserService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
@@ -24,7 +25,8 @@
     (e: 'saved', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
     (e: 'require-patient-account'): void
   }>()
-  const { patientUuid } = useDiagnosis()
+  const { patientUuid, pendingPatientRegistration, saveActiveDiagnosisState } = useDiagnosis()
+  const userName = useCookie('user_name')
 
   const storageKey = computed(() => {
     if (props.diagnosisUuid) return `draft_clinical_note_diag_${props.diagnosisUuid}`
@@ -550,6 +552,7 @@
       !noFollowUp.value &&
       followUpDateOnly.value &&
       !patientUuid.value &&
+      !pendingPatientRegistration.value &&
       !props.appointmentUuid
     ) {
       followUpError.value =
@@ -567,6 +570,38 @@
     let didScheduleFollowUp = false
     const alreadyScheduledFollowUp = existingSelectedFollowUp.value
     try {
+      // Create pending patient account now when finishing diagnosis and save
+      if (pendingPatientRegistration.value) {
+        try {
+          const res = await userService.createDoctorPatient(pendingPatientRegistration.value)
+          const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
+          patientUuid.value = createdUser.uuid
+          userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+          pendingPatientRegistration.value = null
+          saveActiveDiagnosisState()
+
+          if (props.diagnosisUuid) {
+            try {
+              await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
+            } catch (linkErr) {
+              console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
+            }
+          }
+          toast.success(
+            `Account for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
+          )
+        } catch (accountErr: any) {
+          console.error('Failed to create pending patient account:', accountErr)
+          const msg =
+            accountErr?.data?.message ||
+            accountErr?.response?._data?.message ||
+            'Failed to create patient account.'
+          toast.error(msg)
+          isSaving.value = false
+          return
+        }
+      }
+
       syncFollowUpDate()
 
       if (props.diagnosisUuid) {

@@ -2,7 +2,7 @@
   import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
   import { useRouter } from '#app'
   import { toast } from 'vue-sonner'
-  import { useDiagnosis } from '~/composables/useDiagnosis'
+  import { useDiagnosis, type PendingPatientRegistration } from '~/composables/useDiagnosis'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { userService } from '~/api/user/UserService'
   import { useAppointments, parseAppointmentDateTime } from '~/composables/useAppointments'
@@ -19,8 +19,10 @@
     previewImage,
     selectedFile,
     patientUuid,
+    pendingPatientRegistration,
     isHealthyState,
-    isNoneState
+    isNoneState,
+    saveActiveDiagnosisState
   } = useDiagnosis()
 
   const userUuid = useCookie('user_uuid')
@@ -637,6 +639,9 @@
   })
 
   const assignedBadgeText = computed(() => {
+    if (pendingPatientRegistration.value) {
+      return 'New Patient (Pending)'
+    }
     if (assignedAppointment.value) {
       return `${assignedAppointment.value.isToday ? 'Today' : formatPatientDate(assignedAppointment.value.date)} • ${assignedAppointment.value.time}`
     }
@@ -648,10 +653,12 @@
   }
 
   const selectAppointment = (appt: any) => {
+    pendingPatientRegistration.value = null
     patientUuid.value = appt.patient_uuid
     assignedName.value = appt.patientName
     userName.value = appt.patientName
     assignedAppointment.value = appt
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
     toast.success(
       `Assigned to ${appt.patientName} (${appt.isToday ? 'Today' : formatPatientDate(appt.date)} at ${appt.time})`
@@ -659,18 +666,22 @@
   }
 
   const selectRegisteredPatient = (patient: any) => {
+    pendingPatientRegistration.value = null
     patientUuid.value = patient.uuid
     assignedName.value = `${patient.first_name} ${patient.last_name}`
     userName.value = assignedName.value
     assignedAppointment.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
     toast.success(`Assigned to ${assignedName.value} (Walk-in)`)
   }
 
   const clearAssignedPatient = () => {
+    pendingPatientRegistration.value = null
     patientUuid.value = null
     assignedName.value = ''
     assignedAppointment.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
     toast.info('Patient selection cleared.')
   }
@@ -750,7 +761,7 @@
     registrationError.value = null
 
     try {
-      const res = await userService.createDoctorPatient({
+      const payload: PendingPatientRegistration = {
         firstName: registerForm.firstName.trim(),
         middleName: registerForm.middleName?.trim() || undefined,
         lastName: registerForm.lastName.trim(),
@@ -766,26 +777,27 @@
         barangay: registerForm.barangay?.trim() || undefined,
         city: registerForm.city?.trim() || undefined,
         province: registerForm.province?.trim() || undefined
-      })
+      }
 
-      const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
-      toast.success(
-        `Patient ${createdUser.first_name} ${createdUser.last_name} registered and assigned!`
-      )
-
-      await loadDoctorPatients()
-
-      patientUuid.value = createdUser.uuid
-      assignedName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      pendingPatientRegistration.value = payload
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${payload.firstName} ${payload.lastName}`
       userName.value = assignedName.value
       assignedAppointment.value = null
+
+      saveActiveDiagnosisState()
+
+      toast.success(
+        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+      )
 
       activeModalTab.value = 'appointments'
       isPatientModalOpen.value = false
       resetRegisterForm()
     } catch (e: any) {
       console.error('Registration failed:', e)
-      const msg = e?.data?.message || e?.response?._data?.message || 'Failed to register patient.'
+      const msg =
+        e?.data?.message || e?.response?._data?.message || 'Failed to stage patient registration.'
       registrationError.value = msg
       toast.error(msg)
     } finally {
@@ -860,7 +872,11 @@
       if (userUuid.value) {
         formData.append('user_uuid', userUuid.value)
       }
-      if (patientUuid.value) {
+      if (
+        patientUuid.value &&
+        !pendingPatientRegistration.value &&
+        patientUuid.value !== 'pending_new_patient'
+      ) {
         formData.append('patient_uuid', patientUuid.value)
       }
 

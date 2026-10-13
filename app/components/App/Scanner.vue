@@ -11,7 +11,8 @@
     qualityError,
     previewImage,
     selectedFile,
-    patientUuid
+    patientUuid,
+    pendingPatientRegistration
   } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
@@ -496,7 +497,11 @@
       if (userUuid.value) {
         formData.append('user_uuid', userUuid.value)
       }
-      if (patientUuid.value) {
+      if (
+        patientUuid.value &&
+        !pendingPatientRegistration.value &&
+        patientUuid.value !== 'pending_new_patient'
+      ) {
         formData.append('patient_uuid', patientUuid.value)
       }
 

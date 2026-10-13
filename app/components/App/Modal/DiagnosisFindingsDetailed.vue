@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import { computed, ref, watch, onMounted } from 'vue'
-  import { DISEASE_DATABASE, type DiseaseName, type ImageQuality } from '~/composables/useDiagnosis'
+  import {
+    DISEASE_DATABASE,
+    type DiseaseName,
+    type ImageQuality,
+    type PendingPatientRegistration
+  } from '~/composables/useDiagnosis'
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
@@ -22,7 +27,8 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
-  const { patientUuid, currentDiagnosis, saveActiveDiagnosisState } = useDiagnosis()
+  const { patientUuid, pendingPatientRegistration, currentDiagnosis, saveActiveDiagnosisState } =
+    useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
   const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const showNewAccountPassword = ref(false)
@@ -31,11 +37,15 @@
 
   const handleSelectPatient = (uuid: string) => {
     patientUuid.value = uuid
+    pendingPatientRegistration.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
   }
 
   const handleClearPatientSelection = () => {
     patientUuid.value = null
+    pendingPatientRegistration.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
   }
 
@@ -525,7 +535,7 @@
     createAccountError.value = null
 
     try {
-      const response = await userService.createDoctorPatient({
+      const payload: PendingPatientRegistration = {
         firstName: newAccountForm.firstName.trim(),
         lastName: newAccountForm.lastName.trim(),
         email: newAccountForm.email.trim(),
@@ -540,27 +550,22 @@
         barangay: newAccountForm.barangay?.trim() || undefined,
         city: newAccountForm.city?.trim() || undefined,
         province: newAccountForm.province?.trim() || undefined
-      })
-
-      const createdUser = response.user
-      patientUuid.value = createdUser.uuid
-      saveActiveDiagnosisState()
-      userName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      const createdAge = calculateAge(createdUser.date_of_birth) ?? createdUser.age
-      if (createdAge) {
-        editablePatientAge.value = String(createdAge)
       }
 
-      if (props.diagnosisUuid) {
-        try {
-          await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
-        } catch (e) {
-          console.error('Failed to link diagnosis with new patient uuid:', e)
-        }
+      pendingPatientRegistration.value = payload
+      patientUuid.value = 'pending_new_patient'
+      saveActiveDiagnosisState()
+      userName.value = `${payload.firstName} ${payload.lastName}`
+      editablePatientName.value = `${payload.firstName} ${payload.lastName}`
+      if (payload.age) {
+        editablePatientAge.value = String(payload.age)
       }
 
       createAccountSuccess.value = true
+      toast.success(
+        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+      )
+
       // Close account modal after success
       setTimeout(() => {
         isCreateAccountModalOpen.value = false
@@ -568,7 +573,7 @@
       }, 900)
     } catch (err: any) {
       createAccountError.value =
-        err.data?.message || err.message || 'Failed to create patient account.'
+        err.data?.message || err.message || 'Failed to stage patient account.'
     } finally {
       isSubmittingAccount.value = false
     }
@@ -1071,6 +1076,85 @@
         </div>
       </div>
 
+      <!-- Statistical Findings Component (Top - Mobile & Tablet Only) -->
+      <div
+        class="bg-card mb-6 rounded-2xl border border-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6 lg:hidden"
+      >
+        <div class="mb-4 flex items-center justify-between sm:mb-6">
+          <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
+          <AppConfidenceTooltip
+            align="right"
+            :chart-data="displayChartData"
+            :confidence="activeConfidence"
+          />
+        </div>
+        <div
+          class="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:justify-center sm:gap-8 md:gap-12"
+        >
+          <div class="relative flex shrink-0 items-center justify-center">
+            <AppDonutChart
+              :data="displayChartData"
+              :size="200"
+              :stroke-width="38"
+              :show-legend="false"
+            />
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-foreground text-2xl font-bold sm:text-3xl"
+                >{{ activeConfidence }}%</span
+              >
+              <span
+                class="text-[9px] font-semibold tracking-wider text-gray-400 uppercase sm:text-[10px]"
+                >Confidence</span
+              >
+            </div>
+          </div>
+
+          <div class="grid w-full grid-cols-1 gap-2.5 sm:max-w-md sm:flex-1">
+            <div
+              v-for="(entry, i) in displayChartData"
+              :key="i"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
+              @click="activeDisease = entry.label as DiseaseName"
+            >
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span
+                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
+                  :style="{ backgroundColor: entry.color }"
+                ></span>
+                <span
+                  class="text-xs font-semibold sm:text-sm"
+                  :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                >
+                  {{ entry.label }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
+                  >{{ entry.value }}%</span
+                >
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
+                  :class="
+                    activeDisease === entry.label
+                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
+                      : 'border border-gray-100 bg-white text-gray-300'
+                  "
+                >
+                  <Icon
+                    :name="
+                      activeDisease === entry.label
+                        ? 'material-symbols:check'
+                        : 'material-symbols:search'
+                    "
+                    class="text-sm sm:text-base"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Out-of-Scope Dedicated Advisory Notice -->
       <div
         v-if="activeDisease === 'OutOfScope'"
@@ -1567,7 +1651,8 @@
     <div
       class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-6 sm:py-8 lg:sticky lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px] xl:gap-8 xl:p-8"
     >
-      <div class="bg-card rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6">
+      <!-- Statistical Findings Component (Right Column - Desktop Only) -->
+      <div class="bg-card hidden rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6 lg:block">
         <div class="mb-4 flex items-center justify-between sm:mb-6">
           <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
           <AppConfidenceTooltip

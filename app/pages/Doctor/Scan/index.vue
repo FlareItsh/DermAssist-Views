@@ -1,15 +1,41 @@
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue'
-  const { currentDiagnosis, isScanned, isProceededToResults, resetScanner } = useDiagnosis()
+  import { ref, computed, onMounted } from 'vue'
+  const {
+    currentDiagnosis,
+    isScanned,
+    isProceededToResults,
+    pendingPatientRegistration,
+    pendingPatientName,
+    resetScanner
+  } = useDiagnosis()
   const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
+
+  const discardModalTitle = computed(() => {
+    return pendingPatientRegistration.value
+      ? 'Discard Unsaved Patient & Scan?'
+      : 'Discard Active Scan?'
+  })
+
+  const discardModalDescription = computed(() => {
+    if (pendingPatientRegistration.value) {
+      const name = pendingPatientName.value || 'this patient'
+      return `The registered account for ${name} has NOT been officially created or saved yet. If you discard and start fresh, this account will not be saved — only added to the list with no account to be usable unless officially created. To officially create and save this account, resume and click "Finish Diagnosis & Save".`
+    }
+    return 'Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone.'
+  })
+
+  const discardModalConfirmText = computed(() => {
+    return pendingPatientRegistration.value ? 'Discard & Start Fresh' : 'Discard & Start New'
+  })
 
   onMounted(async () => {
     await fetchSubscription()
   })
 
   const discardAndStartNew = () => {
+    pendingPatientRegistration.value = null
     if (import.meta.client) {
       try {
         localStorage.removeItem('dermassist_active_diagnosis')
@@ -134,6 +160,31 @@
             <span class="font-bold text-gray-900">"Finish Diagnosis & Save"</span> to finish and
             unlock the scanner for new scans.
           </p>
+
+          <!-- Staged Pending Patient Advisory Notice -->
+          <div
+            v-if="pendingPatientRegistration"
+            class="mt-4 max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-xs text-amber-900 shadow-2xs"
+          >
+            <div class="flex items-start gap-2.5">
+              <Icon
+                name="lucide:alert-triangle"
+                class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
+              />
+              <div class="space-y-1">
+                <span class="font-bold">Pending Staged Patient Account:</span>
+                <p class="leading-relaxed text-amber-800">
+                  The account for
+                  <span class="font-bold text-amber-950">{{
+                    pendingPatientName || 'this patient'
+                  }}</span>
+                  has not been saved or officially created yet. If discarded, the account will not
+                  be saved — only added to the list with no account to be usable unless officially
+                  created.
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
             <AppButton
@@ -262,6 +313,30 @@
           You have an active scan session. Complete and save the diagnosis to unlock new scans.
         </p>
 
+        <!-- Staged Pending Patient Mobile Advisory Notice -->
+        <div
+          v-if="pendingPatientRegistration"
+          class="mt-3 max-w-xs rounded-xl border border-amber-200 bg-amber-50 p-3 text-left text-[11px] text-amber-900"
+        >
+          <div class="flex items-start gap-2">
+            <Icon
+              name="lucide:alert-triangle"
+              class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600"
+            />
+            <div>
+              <span class="font-bold">Pending Staged Account:</span>
+              <p class="mt-0.5 leading-snug text-amber-800">
+                If discarded, the account for
+                <span class="font-bold text-amber-950">{{
+                  pendingPatientName || 'this patient'
+                }}</span>
+                will not be saved — only added to the list with no account to be usable unless
+                officially created.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div class="mt-6 flex w-full max-w-xs flex-col gap-2.5">
           <AppButton
             size="md"
@@ -296,11 +371,11 @@
     <!-- Confirm Discard Modal (Root level for Desktop and Mobile) -->
     <AppModalConfirmation
       v-model="showConfirmDiscard"
-      title="Discard Active Scan?"
-      description="Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone."
+      :title="discardModalTitle"
+      :description="discardModalDescription"
       icon="lucide:trash-2"
       icon-color="danger"
-      confirm-text="Discard & Start New"
+      :confirm-text="discardModalConfirmText"
       cancel-text="Cancel"
       confirm-variant="destructive"
       @confirm="discardAndStartNew"

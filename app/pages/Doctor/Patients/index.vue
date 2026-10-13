@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
   import { conversationService } from '~/api/conversation/ConversationService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { useDiagnosis } from '~/composables/useDiagnosis'
   import { toast } from 'vue-sonner'
 
   definePageMeta({
@@ -16,6 +18,8 @@
   const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
     useFormSanitizer()
+  const { pendingPatientRegistration, patientUuid, currentDiagnosis, saveActiveDiagnosisState } =
+    useDiagnosis()
   const showPassword = ref(false)
 
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -103,7 +107,8 @@
     location: string
     avatar: string | null
     isRegistered: boolean
-    accountStatus: 'active' | 'disabled'
+    isPendingCreation?: boolean
+    accountStatus: 'active' | 'disabled' | 'pending_creation'
     accountAction?: string | null
     accountActionScheduledAt?: string | null
     totalScans: number
@@ -118,6 +123,41 @@
 
   const unifiedPatients = computed<PatientDirectoryItem[]>(() => {
     const map = new Map<string, PatientDirectoryItem>()
+
+    // 0. Process Staged / Pending Patient from Active Scan flow if exists
+    if (pendingPatientRegistration.value) {
+      const p = pendingPatientRegistration.value
+      const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Pending Patient'
+      const address =
+        [p.barangay, p.city, p.province].filter(Boolean).join(', ') || p.street || 'Clinic Staged'
+
+      map.set('pending_new_patient', {
+        uuid: 'pending_new_patient',
+        name: fullName,
+        firstName: p.firstName || '',
+        lastName: p.lastName || '',
+        email: p.email || '',
+        contact_number: p.contact_number || null,
+        date_of_birth: p.date_of_birth || null,
+        age: p.age || (p.date_of_birth ? calculateAge(p.date_of_birth) : 'N/A') || 'N/A',
+        gender: p.gender || 'N/A',
+        location: address,
+        avatar: null,
+        isRegistered: false,
+        isPendingCreation: true,
+        accountStatus: 'pending_creation',
+        accountAction: null,
+        accountActionScheduledAt: null,
+        totalScans: 0,
+        isPriority: false,
+        appointments: [],
+        latestAppointment: null,
+        lastVisit: 'Staged in Scan',
+        latestCondition: 'Active Scan Session',
+        conversationUuid: undefined,
+        createdAt: undefined
+      })
+    }
 
     // 1. Process Doctor-Registered Patients first
     for (const p of doctorRegisteredPatients.value) {
@@ -269,6 +309,9 @@
   const registeredPatientsCount = computed(
     () => unifiedPatients.value.filter(p => p.isRegistered).length
   )
+  const pendingPatientsCount = computed(
+    () => unifiedPatients.value.filter(p => p.isPendingCreation).length
+  )
   const recentPatientsCount = computed(() => {
     const fourteenDaysAgo = new Date()
     fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
@@ -287,7 +330,7 @@
     if (activeTab.value === 'priority') {
       list = list.filter(p => p.isPriority)
     } else if (activeTab.value === 'registered') {
-      list = list.filter(p => p.isRegistered)
+      list = list.filter(p => p.isRegistered || p.isPendingCreation)
     } else if (activeTab.value === 'recent') {
       const fourteenDaysAgo = new Date()
       fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
@@ -311,8 +354,10 @@
       )
     }
 
-    // Sort: Priority patients first, then alphabetical
+    // Sort: Staged pending patients first, then Priority patients, then alphabetical
     return [...list].sort((a, b) => {
+      if (a.isPendingCreation && !b.isPendingCreation) return -1
+      if (!a.isPendingCreation && b.isPendingCreation) return 1
       if (a.isPriority && !b.isPriority) return -1
       if (!a.isPriority && b.isPriority) return 1
       return a.name.localeCompare(b.name)
@@ -606,6 +651,108 @@
     }
   }
 
+  // ─── Officially Create Staged / Pending Patient ──────────────────────────────
+  const isCreatingPendingAccount = ref(false)
+
+  const officiallyCreatePendingPatient = async (patient?: PatientDirectoryItem) => {
+    if (!pendingPatientRegistration.value) {
+      toast.info('No staged patient registration found.')
+      return
+    }
+
+    isCreatingPendingAccount.value = true
+    try {
+      const reg = pendingPatientRegistration.value
+      const createdUser = await userService.createDoctorPatient({
+        firstName: reg.firstName,
+        middleName: reg.middleName || undefined,
+        lastName: reg.lastName,
+        email: reg.email,
+        contact_number: reg.contact_number || undefined,
+        password: reg.password,
+        date_of_birth: reg.date_of_birth || undefined,
+        age: reg.age ? parseInt(String(reg.age)) : undefined,
+        gender: reg.gender || undefined,
+        street: reg.street || undefined,
+        barangay: reg.barangay || undefined,
+        city: reg.city || undefined,
+        province: reg.province || undefined
+      })
+
+      if (createdUser?.uuid) {
+        // Link to active scan session and diagnosis if one exists
+        patientUuid.value = createdUser.uuid
+        if (currentDiagnosis.value?.uuid) {
+          try {
+            await diagnosisService.update(currentDiagnosis.value.uuid, {
+              patient_uuid: createdUser.uuid
+            })
+          } catch (diagErr) {
+            console.error('Failed to update active diagnosis with created patient UUID:', diagErr)
+          }
+        }
+      }
+
+      // Clear pending state so results page knows it's already created
+      pendingPatientRegistration.value = null
+      saveActiveDiagnosisState()
+
+      toast.success(
+        `Account officially created for ${createdUser?.firstName || 'patient'}. Credentials active.`
+      )
+
+      if (selectedPatientForDetail.value?.uuid === 'pending_new_patient') {
+        selectedPatientForDetail.value = null
+      }
+
+      await fetchRegisteredPatients()
+    } catch (err: any) {
+      console.error('Failed to officially create patient account:', err)
+      const msg =
+        err?.data?.message ||
+        err?.response?._data?.message ||
+        'Failed to officially create patient account.'
+      toast.error(msg)
+    } finally {
+      isCreatingPendingAccount.value = false
+    }
+  }
+
+  // ─── Discard / Delete Staged Pending Patient ──────────────────────────────────
+  const showDiscardPendingModal = ref(false)
+  const patientToDiscard = ref<PatientDirectoryItem | null>(null)
+
+  const promptDiscardPending = (patient?: PatientDirectoryItem | null) => {
+    patientToDiscard.value = patient || null
+    showDiscardPendingModal.value = true
+  }
+
+  const confirmDiscardPending = () => {
+    if (!patientToDiscard.value) return
+
+    pendingPatientRegistration.value = null
+
+    if (patientUuid.value === 'pending-creation') {
+      patientUuid.value = null
+    }
+    if (currentDiagnosis.value && currentDiagnosis.value.patient_uuid === 'pending-creation') {
+      currentDiagnosis.value.patient_uuid = undefined
+    }
+    saveActiveDiagnosisState()
+
+    toast.success('Staged patient discarded successfully.')
+
+    if (
+      selectedPatientForDetail.value?.uuid === 'pending_new_patient' ||
+      selectedPatientForDetail.value?.isPendingCreation
+    ) {
+      selectedPatientForDetail.value = null
+    }
+
+    showDiscardPendingModal.value = false
+    patientToDiscard.value = null
+  }
+
   // ─── Available Times for Action Scheduler ─────────────────────────────────────
   const availableTimeOptions = [
     { value: '08:00', label: '08:00 AM' },
@@ -621,6 +768,11 @@
     { value: '18:00', label: '06:00 PM' },
     { value: '23:59', label: '11:59 PM' }
   ]
+
+  const handleScheduledModal = () => {
+    fetchAppointments()
+    fetchRegisteredPatients()
+  }
 </script>
 
 <template>
@@ -747,7 +899,15 @@
             />
           </div>
         </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">{{ registeredPatientsCount }}</div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="text-2xl font-black text-gray-900">{{ registeredPatientsCount }}</span>
+          <span
+            v-if="pendingPatientsCount > 0"
+            class="rounded-md border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+          >
+            +{{ pendingPatientsCount }} Pending
+          </span>
+        </div>
         <div class="mt-0.5 text-[11px] font-medium text-gray-500">Clinic-managed accounts</div>
       </button>
 
@@ -971,7 +1131,12 @@
           <div
             v-for="patient in paginatedPatients"
             :key="patient.uuid || patient.id"
-            class="group relative flex flex-col justify-between rounded-3xl border border-gray-200/80 bg-white p-5 shadow-xs transition-all hover:border-indigo-300 hover:shadow-md"
+            class="group relative flex flex-col justify-between rounded-3xl border p-5 shadow-xs transition-all hover:shadow-md"
+            :class="
+              patient.isPendingCreation
+                ? 'border-amber-300 bg-amber-50/25 ring-1 ring-amber-300/80 hover:border-amber-400'
+                : 'border-gray-200/80 bg-white hover:border-indigo-300'
+            "
           >
             <!-- Card Top Header -->
             <div>
@@ -989,6 +1154,12 @@
                         class="h-full w-full object-cover"
                         loading="lazy"
                       />
+                    </div>
+                    <div
+                      v-else-if="patient.isPendingCreation"
+                      class="flex h-13 w-13 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-100 text-sm font-bold text-amber-800 shadow-2xs"
+                    >
+                      {{ getInitials(patient.name) }}
                     </div>
                     <div
                       v-else
@@ -1047,7 +1218,19 @@
               <div class="mt-3.5 flex flex-wrap items-center gap-1.5">
                 <!-- Registration Type -->
                 <span
-                  v-if="patient.isRegistered"
+                  v-if="patient.isPendingCreation"
+                  class="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900"
+                >
+                  <span class="relative flex h-2 w-2">
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+                    ></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+                  </span>
+                  Staged Scan Patient
+                </span>
+                <span
+                  v-else-if="patient.isRegistered"
                   class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
                 >
                   <Icon
@@ -1067,9 +1250,19 @@
                   Consultation Patient
                 </span>
 
-                <!-- Account Status (Registered) -->
+                <!-- Account Status (Registered or Pending) -->
                 <span
-                  v-if="patient.isRegistered"
+                  v-if="patient.isPendingCreation"
+                  class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+                >
+                  <Icon
+                    name="lucide:clock"
+                    class="text-xs text-amber-600"
+                  />
+                  Pending Creation
+                </span>
+                <span
+                  v-else-if="patient.isRegistered"
                   class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold"
                   :class="
                     patient.accountStatus === 'active'
@@ -1097,118 +1290,164 @@
                 </span>
               </div>
 
-              <!-- Scheduled Auto-Action Warning Banner -->
+              <!-- Staged Pending Creation Alert Banner -->
               <div
-                v-if="patient.accountAction"
-                class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-orange-200 bg-orange-50 p-2.5 text-xs text-orange-800"
+                v-if="patient.isPendingCreation"
+                class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 sm:flex-nowrap"
               >
-                <div class="flex items-center gap-1.5 truncate">
-                  <Icon
-                    name="lucide:clock-alert"
-                    class="h-4 w-4 shrink-0 text-orange-600"
-                  />
-                  <span class="truncate text-[11px] font-bold">
-                    Auto-{{ patient.accountAction }} on
-                    {{ formatDateTime(patient.accountActionScheduledAt || undefined) }}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  @click.stop="handleCancelScheduledAction(patient)"
-                  class="cursor-pointer rounded-lg bg-orange-200/70 px-2 py-0.5 text-[10px] font-extrabold text-orange-900 transition hover:bg-orange-300"
+                <!-- Scheduled Auto-Action Warning Banner -->
+                <div
+                  v-if="patient.accountAction"
+                  class="mt-3 flex items-center justify-between gap-2 rounded-xl border border-orange-200 bg-orange-50 p-2.5 text-xs text-orange-800"
                 >
-                  Cancel
-                </button>
+                  <div class="flex items-center gap-1.5 truncate">
+                    <Icon
+                      name="lucide:clock-alert"
+                      class="h-4 w-4 shrink-0 text-orange-600"
+                    />
+                    <span class="truncate text-[11px] font-bold">
+                      Auto-{{ patient.accountAction }} on
+                      {{ formatDateTime(patient.accountActionScheduledAt || undefined) }}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    @click.stop="handleCancelScheduledAction(patient)"
+                    class="cursor-pointer rounded-lg bg-orange-200/70 px-2 py-0.5 text-[10px] font-extrabold text-orange-900 transition hover:bg-orange-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <!-- Clinical Summary Meta -->
+                <div
+                  class="mt-3.5 space-y-1.5 rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-xs"
+                >
+                  <!-- Condition / Concern -->
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-gray-400">Concern:</span>
+                    <span class="truncate text-right font-bold text-gray-800">
+                      {{ patient.latestCondition }}
+                    </span>
+                  </div>
+
+                  <!-- Last Consultation -->
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-gray-400">Last Visit:</span>
+                    <span class="font-semibold text-gray-700">
+                      {{ patient.lastVisit }}
+                    </span>
+                  </div>
+
+                  <!-- Location / Branch -->
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="font-medium text-gray-400">Location:</span>
+                    <span class="truncate text-right font-semibold text-gray-600">
+                      {{ patient.location }}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <!-- Clinical Summary Meta -->
+              <!-- Card Bottom Action Toolbar -->
               <div
-                class="mt-3.5 space-y-1.5 rounded-2xl border border-gray-100 bg-gray-50/70 p-3 text-xs"
+                class="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 pt-3.5"
               >
-                <!-- Condition / Concern -->
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-400">Concern:</span>
-                  <span class="truncate text-right font-bold text-gray-800">
-                    {{ patient.latestCondition }}
-                  </span>
-                </div>
-
-                <!-- Last Consultation -->
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-400">Last Visit:</span>
-                  <span class="font-semibold text-gray-700">
-                    {{ patient.lastVisit }}
-                  </span>
-                </div>
-
-                <!-- Location / Branch -->
-                <div class="flex items-center justify-between gap-2">
-                  <span class="font-medium text-gray-400">Location:</span>
-                  <span class="truncate text-right font-semibold text-gray-600">
-                    {{ patient.location }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Card Bottom Action Toolbar -->
-            <div
-              class="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 pt-3.5"
-            >
-              <!-- Profile / Case Review -->
-              <button
-                type="button"
-                @click="openPatientDetail(patient)"
-                class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95"
-              >
-                <Icon
-                  name="lucide:file-text"
-                  class="text-sm"
-                />
-                Clinical Profile
-              </button>
-
-              <!-- Secondary Action Buttons -->
-              <div class="flex items-center gap-1">
-                <!-- Message Patient -->
+                <!-- Profile / Case Review -->
                 <button
-                  type="button"
-                  @click="openPatientChat(patient)"
-                  class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
-                  title="Message Patient"
-                >
-                  <Icon
-                    name="lucide:message-square"
-                    class="text-sm"
-                  />
-                </button>
-
-                <!-- Book Follow-up -->
-                <button
-                  type="button"
-                  @click="showScheduleModal = true"
-                  class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
-                  title="Schedule Appointment"
-                >
-                  <Icon
-                    name="lucide:calendar-plus"
-                    class="text-sm"
-                  />
-                </button>
-
-                <!-- Registered Account Options Menu Button -->
-                <button
-                  v-if="patient.isRegistered"
                   type="button"
                   @click="openPatientDetail(patient)"
-                  class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
-                  title="Manage Account"
+                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95"
                 >
                   <Icon
-                    name="lucide:settings-2"
+                    name="lucide:file-text"
                     class="text-sm"
                   />
+                  Clinical Profile
                 </button>
+
+                <!-- If Staged Pending Creation, Show prominent Create button & Discard button -->
+                <div
+                  v-if="patient.isPendingCreation"
+                  class="flex items-center gap-1.5"
+                >
+                  <button
+                    type="button"
+                    @click.stop="promptDiscardPending(patient)"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-rose-200 bg-white text-rose-600 shadow-2xs transition hover:bg-rose-50 hover:text-rose-700 active:scale-95"
+                    title="Discard Staged Patient"
+                  >
+                    <Icon
+                      name="lucide:trash-2"
+                      class="text-sm"
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    @click.stop="officiallyCreatePendingPatient(patient)"
+                    :disabled="isCreatingPendingAccount"
+                    class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 active:scale-95 disabled:opacity-50"
+                  >
+                    <Icon
+                      v-if="isCreatingPendingAccount"
+                      name="lucide:loader-2"
+                      class="h-3.5 w-3.5 animate-spin"
+                    />
+                    <Icon
+                      v-else
+                      name="lucide:user-check"
+                      class="text-sm"
+                    />
+                    Officially Create
+                  </button>
+                </div>
+
+                <!-- Secondary Action Buttons for saved/existing patients -->
+                <div
+                  v-else
+                  class="flex items-center gap-1"
+                >
+                  <!-- Message Patient -->
+                  <button
+                    type="button"
+                    @click="openPatientChat(patient)"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
+                    title="Message Patient"
+                  >
+                    <Icon
+                      name="lucide:message-square"
+                      class="text-sm"
+                    />
+                  </button>
+
+                  <!-- Book Follow-up -->
+                  <button
+                    type="button"
+                    @click="showScheduleModal = true"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
+                    title="Schedule Appointment"
+                  >
+                    <Icon
+                      name="lucide:calendar-plus"
+                      class="text-sm"
+                    />
+                  </button>
+
+                  <!-- Registered Account Options Menu Button -->
+                  <button
+                    v-if="patient.isRegistered"
+                    type="button"
+                    @click="openPatientDetail(patient)"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
+                    title="Manage Account"
+                  >
+                    <Icon
+                      name="lucide:settings-2"
+                      class="text-sm"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1242,7 +1481,7 @@
       >
         <!-- Patient Banner -->
         <div
-          class="flex flex-col gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-center sm:justify-between"
+          class="flex flex-col gap-4 border-b border-gray-100 pr-8 pb-5 sm:flex-row sm:items-center sm:justify-between sm:pr-0"
         >
           <div class="flex items-center gap-4">
             <div
@@ -1257,33 +1496,39 @@
               />
             </div>
             <div
+              v-else-if="selectedPatientForDetail.isPendingCreation"
+              class="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-100 text-xl font-black text-amber-800 shadow-sm"
+            >
+              {{ getInitials(selectedPatientForDetail.name) }}
+            </div>
+            <div
               v-else
               class="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-50 text-xl font-black text-indigo-700 shadow-sm"
             >
               {{ getInitials(selectedPatientForDetail.name) }}
             </div>
 
-            <div>
-              <div class="flex items-center gap-2">
-                <h2 class="text-xl font-black text-gray-900">
-                  {{ selectedPatientForDetail.name }}
-                </h2>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start gap-1.5 sm:items-center">
                 <button
                   type="button"
                   @click="togglePriority(selectedPatientForDetail)"
-                  class="rounded-lg p-1 transition hover:bg-gray-100"
+                  class="mt-0.5 shrink-0 cursor-pointer rounded-lg p-1 transition hover:bg-gray-100 active:scale-95 sm:mt-0"
                   :title="selectedPatientForDetail.isPriority ? 'Remove Priority' : 'Mark Priority'"
                 >
                   <Icon
                     name="lucide:star"
-                    class="h-5 w-5"
+                    class="h-5 w-5 transition-colors"
                     :class="
                       selectedPatientForDetail.isPriority
                         ? 'fill-amber-500 text-amber-500'
-                        : 'text-gray-300'
+                        : 'text-gray-300 hover:text-amber-400'
                     "
                   />
                 </button>
+                <h2 class="text-xl leading-tight font-black text-gray-900">
+                  {{ selectedPatientForDetail.name }}
+                </h2>
               </div>
               <p class="text-xs font-semibold text-gray-500">
                 {{
@@ -1316,8 +1561,11 @@
             </div>
           </div>
 
-          <!-- Quick Action Buttons -->
-          <div class="flex flex-wrap items-center gap-2">
+          <!-- Quick Action Buttons (Existing Patients Only) -->
+          <div
+            v-if="!selectedPatientForDetail.isPendingCreation"
+            class="flex flex-wrap items-center gap-2"
+          >
             <AppButton
               variant="solid"
               size="sm"
@@ -1330,6 +1578,7 @@
               />
               Message
             </AppButton>
+
             <AppButton
               variant="outline"
               size="sm"
@@ -1343,6 +1592,49 @@
               Book Appointment
             </AppButton>
           </div>
+        </div>
+
+        <!-- Staged Pending Patient Banner Notice -->
+        <div
+          v-if="selectedPatientForDetail.isPendingCreation"
+          class="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="flex items-start gap-3">
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+            >
+              <Icon
+                name="lucide:alert-triangle"
+                class="h-5 w-5"
+              />
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-amber-900">Unsaved Scan Staged Patient</h4>
+              <p class="mt-0.5 text-xs text-amber-700">
+                This patient account was staged during an active clinical scan session and is not
+                yet saved to the database. You can officially create it now, or it will be created
+                when you finish the diagnosis in the Results page.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            @click="officiallyCreatePendingPatient(selectedPatientForDetail)"
+            :disabled="isCreatingPendingAccount"
+            class="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 active:scale-95 disabled:opacity-50"
+          >
+            <Icon
+              v-if="isCreatingPendingAccount"
+              name="lucide:loader-2"
+              class="h-4 w-4 animate-spin"
+            />
+            <Icon
+              v-else
+              name="lucide:user-check"
+              class="text-sm"
+            />
+            Officially Create Now
+          </button>
         </div>
 
         <!-- Clinical Stats Grid -->
@@ -1361,9 +1653,21 @@
             >
             <div
               class="mt-1 text-xs font-black"
-              :class="selectedPatientForDetail.isRegistered ? 'text-indigo-600' : 'text-gray-700'"
+              :class="
+                selectedPatientForDetail.isPendingCreation
+                  ? 'text-amber-600'
+                  : selectedPatientForDetail.isRegistered
+                    ? 'text-indigo-600'
+                    : 'text-gray-700'
+              "
             >
-              {{ selectedPatientForDetail.isRegistered ? 'Clinic Account' : 'Platform User' }}
+              {{
+                selectedPatientForDetail.isPendingCreation
+                  ? 'Staged Scan User'
+                  : selectedPatientForDetail.isRegistered
+                    ? 'Clinic Account'
+                    : 'Platform User'
+              }}
             </div>
           </div>
           <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-3 text-center">
@@ -1373,12 +1677,18 @@
             <div
               class="mt-1 text-xs font-black capitalize"
               :class="
-                selectedPatientForDetail.accountStatus === 'active'
-                  ? 'text-emerald-600'
-                  : 'text-rose-600'
+                selectedPatientForDetail.isPendingCreation
+                  ? 'text-amber-600'
+                  : selectedPatientForDetail.accountStatus === 'active'
+                    ? 'text-emerald-600'
+                    : 'text-rose-600'
               "
             >
-              {{ selectedPatientForDetail.accountStatus }}
+              {{
+                selectedPatientForDetail.isPendingCreation
+                  ? 'Pending Creation'
+                  : selectedPatientForDetail.accountStatus
+              }}
             </div>
           </div>
           <div class="rounded-2xl border border-gray-100 bg-gray-50/80 p-3 text-center">
@@ -1468,7 +1778,9 @@
 
         <!-- Account Controls (Clinic-Registered Patients Only) -->
         <div
-          v-if="selectedPatientForDetail.isRegistered"
+          v-if="
+            selectedPatientForDetail.isRegistered && !selectedPatientForDetail.isPendingCreation
+          "
           class="space-y-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4"
         >
           <div class="flex items-center justify-between">
@@ -1528,6 +1840,58 @@
                 class="mr-1 text-sm"
               />
               Delete Account
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Account Controls: For Staged Unsaved Patients -->
+        <div
+          v-else-if="selectedPatientForDetail.isPendingCreation"
+          class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"
+        >
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-xs font-bold text-amber-900 uppercase">Unsaved Account Staging</h4>
+              <p class="text-[11px] text-amber-700">
+                This account was staged during an active scan session and is not yet created in the
+                database. Deactivate and Delete actions are not available because no database
+                account exists yet.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 pt-1">
+            <AppButton
+              size="sm"
+              variant="solid"
+              class="rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700"
+              :disabled="isCreatingPendingAccount"
+              @click="officiallyCreatePendingPatient(selectedPatientForDetail)"
+            >
+              <Icon
+                v-if="isCreatingPendingAccount"
+                name="lucide:loader-2"
+                class="mr-1.5 h-3.5 w-3.5 animate-spin"
+              />
+              <Icon
+                v-else
+                name="lucide:user-check"
+                class="mr-1.5 text-sm"
+              />
+              Officially Create Account Now
+            </AppButton>
+
+            <AppButton
+              size="sm"
+              variant="outline"
+              class="ml-auto rounded-xl border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50"
+              @click="promptDiscardPending(selectedPatientForDetail)"
+            >
+              <Icon
+                name="lucide:trash-2"
+                class="mr-1 text-sm"
+              />
+              Discard Staged Record
             </AppButton>
           </div>
         </div>
@@ -1845,16 +2209,25 @@
       @cancel="showDeleteModal = false"
     />
 
-    <!-- 6. Schedule New Appointment Modal -->
+    <!-- 6. Discard Staged Patient Confirmation Modal -->
+    <AppModalConfirmation
+      v-model="showDiscardPendingModal"
+      title="Discard Staged Patient?"
+      :description="`Are you sure you want to discard staged patient '${patientToDiscard?.name}'? This account has not been saved to the database yet. Discarding will remove this staged record and clear it from the active scan session.`"
+      confirm-text="Yes, Discard Patient"
+      cancel-text="Cancel"
+      confirm-variant="destructive"
+      icon="lucide:trash-2"
+      icon-color="danger"
+      @confirm="confirmDiscardPending"
+      @cancel="showDiscardPendingModal = false"
+    />
+
+    <!-- 7. Schedule New Appointment Modal -->
     <AppModalDoctorScheduleNewModal
       v-if="showScheduleModal"
       @close="showScheduleModal = false"
-      @scheduled="
-        () => {
-          fetchAppointments()
-          fetchRegisteredPatients()
-        }
-      "
+      @scheduled="handleScheduledModal"
     />
   </div>
 </template>

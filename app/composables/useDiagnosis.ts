@@ -197,10 +197,27 @@ const currentDiagnosis = ref<DiagnosisResult | null>(null)
 const isScanning = ref(false)
 const isScanned = ref(false)
 const isProceededToResults = ref(false)
+export interface PendingPatientRegistration {
+  firstName: string
+  middleName?: string
+  lastName: string
+  email: string
+  contact_number?: string
+  password: string
+  date_of_birth?: string
+  age?: number
+  gender?: string
+  street?: string
+  barangay?: string
+  city?: string
+  province?: string
+}
+
 const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
+const pendingPatientRegistration = ref<PendingPatientRegistration | null>(null)
 const boundUserUuid = ref<string | null>(null)
 
 const getStorageKey = (uuid?: string | null): string | null => {
@@ -218,6 +235,7 @@ const resetScannerInMemory = () => {
   previewImage.value = null
   selectedFile.value = null
   patientUuid.value = null
+  pendingPatientRegistration.value = null
   boundUserUuid.value = null
 }
 
@@ -251,6 +269,8 @@ const restoreActiveDiagnosisState = () => {
           isProceededToResults.value = parsed.isProceededToResults
         if (parsed.previewImage) previewImage.value = parsed.previewImage
         if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
+        if (parsed.pendingPatientRegistration)
+          pendingPatientRegistration.value = parsed.pendingPatientRegistration
         return
       } else {
         localStorage.removeItem(key)
@@ -279,7 +299,13 @@ const saveActiveDiagnosisState = () => {
     const key = getStorageKey(currentUuid)
     if (!key) return
 
-    if (currentDiagnosis.value || isScanned.value || previewImage.value || patientUuid.value) {
+    if (
+      currentDiagnosis.value ||
+      isScanned.value ||
+      previewImage.value ||
+      patientUuid.value ||
+      pendingPatientRegistration.value
+    ) {
       boundUserUuid.value = currentUuid
       localStorage.setItem(
         key,
@@ -289,7 +315,8 @@ const saveActiveDiagnosisState = () => {
           isScanned: isScanned.value,
           isProceededToResults: isProceededToResults.value,
           previewImage: previewImage.value,
-          patientUuid: patientUuid.value
+          patientUuid: patientUuid.value,
+          pendingPatientRegistration: pendingPatientRegistration.value
         })
       )
     } else {
@@ -430,6 +457,11 @@ export const useDiagnosis = () => {
     }
   }
 
+  const pendingPatientName = computed(() => {
+    if (!pendingPatientRegistration.value) return ''
+    return `${pendingPatientRegistration.value.firstName} ${pendingPatientRegistration.value.lastName}`
+  })
+
   return {
     currentDiagnosis,
     isScanning,
@@ -439,6 +471,8 @@ export const useDiagnosis = () => {
     previewImage,
     selectedFile,
     patientUuid,
+    pendingPatientRegistration,
+    pendingPatientName,
     isHealthyState,
     isInconclusiveState,
     isOutOfScopeState,
