@@ -63,6 +63,11 @@
   const consentDataset = ref(false)
   const showTermsModal = ref(false)
   const termsInitialTab = ref<'terms' | 'privacy'>('terms')
+  const showDatasetInfo = ref(false)
+
+  const toggleDatasetInfo = () => {
+    showDatasetInfo.value = !showDatasetInfo.value
+  }
 
   const openTermsModal = (tab: 'terms' | 'privacy') => {
     termsInitialTab.value = tab
@@ -592,14 +597,14 @@
 
 <template>
   <div
-    class="custom-scrollbar flex h-full flex-col overflow-y-auto px-4 py-4 pb-16 sm:px-8 sm:py-6"
+    class="custom-scrollbar flex h-full flex-col overflow-y-auto px-4 pt-5 pb-6 sm:px-8 sm:pt-6 sm:pb-6"
   >
     <!-- Header/Logo Area -->
-    <div class="mb-3 flex flex-col items-center text-center">
+    <div class="mt-1 mb-2 flex flex-col items-center text-center sm:mt-2">
       <NuxtLink to="/">
         <NuxtImg
           src="/DA_Logo.png"
-          class="h-12 object-contain sm:h-14"
+          class="h-10 object-contain sm:h-11"
         />
       </NuxtLink>
     </div>
@@ -668,11 +673,11 @@
           key="step1"
           class="flex w-full flex-col gap-2"
         >
-          <div class="mb-2 text-center">
-            <h1 class="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+          <div class="mb-1.5 text-center">
+            <h1 class="text-foreground text-xl font-bold tracking-tight sm:text-2xl">
               Create your account
             </h1>
-            <p class="text-foreground/60 mt-1 text-xs sm:text-sm">
+            <p class="text-foreground/60 mt-0.5 text-xs">
               Choose your role and fill in your details.
             </p>
           </div>
@@ -680,13 +685,13 @@
           <!-- General Error -->
           <div
             v-if="errors.general"
-            class="bg-destructive/10 text-destructive rounded-xl p-3 text-center text-xs font-medium"
+            class="bg-destructive/10 text-destructive rounded-xl p-2.5 text-center text-xs font-medium"
           >
             {{ errors.general }}
           </div>
 
           <!-- Role Selection -->
-          <div class="mb-2 grid grid-cols-2 gap-2.5">
+          <div class="mb-1.5 grid grid-cols-2 gap-2">
             <AppButton
               variant="unstyled"
               size="unstyled"
@@ -694,7 +699,7 @@
               @click="role = 'patient'"
               :disabled="isLoading"
               type="button"
-              class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
+              class="group relative flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 p-2 text-left transition-all duration-200"
               :class="
                 role === 'patient'
                   ? 'border-primary bg-primary/5 shadow-primary/10 ring-primary/20 shadow-xs ring-2'
@@ -704,7 +709,7 @@
               <!-- Selected Checkmark Pill -->
               <div
                 v-if="role === 'patient'"
-                class="bg-primary text-primary-foreground absolute top-2 right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full shadow-xs"
+                class="bg-primary text-primary-foreground absolute top-1.5 right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full shadow-xs"
               >
                 <Icon
                   name="lucide:check"
@@ -713,7 +718,7 @@
               </div>
 
               <div
-                class="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200"
+                class="flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200"
                 :class="
                   role === 'patient'
                     ? 'bg-primary shadow-primary/30 scale-105 text-white shadow-xs'
@@ -722,7 +727,7 @@
               >
                 <Icon
                   name="lucide:user"
-                  class="h-4.5 w-4.5"
+                  class="h-4 w-4"
                 />
               </div>
               <div class="text-center">
@@ -762,7 +767,7 @@
               </div>
 
               <div
-                class="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200"
+                class="flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200"
                 :class="
                   role === 'doctor'
                     ? 'bg-primary shadow-primary/30 scale-105 text-white shadow-xs'
@@ -771,7 +776,7 @@
               >
                 <Icon
                   name="lucide:stethoscope"
-                  class="h-4.5 w-4.5"
+                  class="h-4 w-4"
                 />
               </div>
               <div class="text-center">
@@ -931,13 +936,13 @@
 
           <!-- Terms and Conditions Agreement Checkbox -->
           <div
-            class="border-border/50 bg-muted/20 mt-3 flex items-start gap-2.5 rounded-xl border p-2.5"
+            class="border-border/50 bg-muted/20 mt-1.5 flex items-start gap-2 rounded-xl border p-2"
           >
             <input
               id="agree-terms"
               v-model="agreeToTerms"
               type="checkbox"
-              class="accent-primary border-border mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
+              class="accent-primary border-border mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded"
             />
             <label
               for="agree-terms"
@@ -965,27 +970,52 @@
           <!-- Optional AI Retraining Dataset Contribution Checkbox (Patients) -->
           <div
             v-if="role === 'patient'"
-            class="border-primary/20 bg-primary/5 mt-2.5 flex items-start gap-2.5 rounded-xl border p-2.5"
+            class="border-primary/20 bg-primary/5 mt-1.5 rounded-xl border p-2 transition-all"
           >
-            <input
-              id="agree-dataset"
-              v-model="consentDataset"
-              type="checkbox"
-              class="accent-primary border-primary/30 mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded"
-            />
-            <label
-              for="agree-dataset"
-              class="text-foreground/80 cursor-pointer text-[11px] leading-relaxed select-none sm:text-xs"
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2">
+                <input
+                  id="agree-dataset"
+                  v-model="consentDataset"
+                  type="checkbox"
+                  class="accent-primary border-primary/30 h-3.5 w-3.5 shrink-0 cursor-pointer rounded"
+                />
+                <label
+                  for="agree-dataset"
+                  class="text-foreground cursor-pointer text-xs font-medium select-none"
+                >
+                  Optional: AI Retraining Dataset Contribution
+                </label>
+              </div>
+              <button
+                type="button"
+                class="text-primary hover:text-primary/80 flex cursor-pointer items-center gap-1 text-[11px] font-medium transition-colors"
+                @click="toggleDatasetInfo"
+              >
+                <span>{{ showDatasetInfo ? 'Hide details' : 'Learn more' }}</span>
+                <Icon
+                  :name="showDatasetInfo ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+                  class="h-3 w-3"
+                />
+              </button>
+            </div>
+            <transition
+              enter-active-class="transition duration-150 ease-out"
+              enter-from-class="transform opacity-0 -translate-y-1"
+              enter-to-class="transform opacity-100 translate-y-0"
+              leave-active-class="transition duration-100 ease-in"
+              leave-from-class="transform opacity-100 translate-y-0"
+              leave-to-class="transform opacity-0 -translate-y-1"
             >
-              <span class="text-foreground block font-medium"
-                >Optional: AI Retraining Dataset Contribution</span
+              <p
+                v-if="showDatasetInfo"
+                class="text-muted-foreground mt-1.5 pl-5.5 text-[10px] leading-relaxed"
               >
-              <span class="text-muted-foreground block text-[10px]"
-                >I consent to contributing my anonymized clinical scan images to help study and
+                I consent to contributing my anonymized clinical scan images to help study and
                 improve the DermAssist AI model. You can change this preference anytime in your
-                profile.</span
-              >
-            </label>
+                profile.
+              </p>
+            </transition>
           </div>
 
           <AppButton
@@ -1011,13 +1041,13 @@
 
           <div
             v-if="role === 'patient'"
-            class="relative my-2 flex items-center justify-center"
+            class="relative my-1.5 flex items-center justify-center"
           >
             <div class="border-border/60 absolute inset-0 flex items-center">
               <div class="border-border/60 w-full border-t" />
             </div>
             <span
-              class="bg-card text-muted-foreground relative px-3 text-xs tracking-wider uppercase"
+              class="bg-card text-muted-foreground relative px-3 text-[11px] tracking-wider uppercase"
             >
               Or continue with
             </span>
@@ -1027,7 +1057,7 @@
             v-if="role === 'patient'"
             type="button"
             :disabled="isLoading"
-            class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+            class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-xs transition-all hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
             @click="registerWithGoogle"
           >
             <svg
@@ -1054,15 +1084,14 @@
             Continue with Google
           </button>
 
-          <div class="mt-4 text-center">
-            <AppButton
-              variant="link"
-              size="sm"
+          <div class="mt-2 text-center">
+            <NuxtLink
               to="/auth/login"
+              class="text-foreground/60 hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
             >
-              <span class="text-foreground/60 mr-1 font-normal">Already have an account?</span>
-              Login
-            </AppButton>
+              <span class="font-normal">Already have an account?</span>
+              <span class="text-primary font-semibold hover:underline">Login</span>
+            </NuxtLink>
           </div>
         </div>
 
