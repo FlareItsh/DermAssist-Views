@@ -728,7 +728,7 @@
   </div>
   <div
     v-else
-    class="relative space-y-10 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:rounded-[2.5rem] sm:p-8 lg:border-white/50 lg:bg-white/70 lg:backdrop-blur-xl"
+    class="relative space-y-6 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:space-y-8 sm:p-6 lg:border-white/50 lg:bg-white/70 lg:backdrop-blur-xl"
   >
     <div
       class="bg-primary/5 pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full blur-3xl"
@@ -790,7 +790,7 @@
       </div>
     </div>
 
-    <div class="relative z-10 space-y-8 sm:space-y-10">
+    <div class="relative z-10 space-y-6 sm:space-y-8">
       <!-- Subjective -->
       <section class="group">
         <h3 class="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-gray-900 sm:text-base">

@@ -1012,7 +1012,7 @@
   <div class="custom-scrollbar flex h-full w-full flex-col items-start overflow-y-auto lg:flex-row">
     <!-- Left Column: Knowledge Base -->
     <div
-      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-10 lg:pr-8"
+      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-6 xl:p-8"
     >
       <div class="mb-6 flex items-start gap-3.5 sm:mb-8 sm:items-center sm:gap-5">
         <div
@@ -1130,7 +1130,7 @@
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="border-warning-border bg-warning-subtle mb-8 rounded-2xl border p-4 shadow-2xs transition-all"
+        class="border-warning-border bg-warning-subtle mb-6 rounded-2xl border p-4 shadow-2xs transition-all sm:mb-8"
       >
         <div class="flex items-start gap-3">
           <div
@@ -1165,7 +1165,7 @@
       <!-- Non-Skin Advisory Notice -->
       <div
         v-else-if="activeDisease === 'None'"
-        class="bg-muted/40 border-border text-muted-foreground mb-8 space-y-1.5 rounded-2xl border p-4"
+        class="bg-muted/40 border-border text-muted-foreground mb-6 space-y-1.5 rounded-2xl border p-4 sm:mb-8"
       >
         <div class="text-foreground flex items-center gap-2 text-sm font-bold">
           <Icon
@@ -1182,7 +1182,7 @@
       </div>
 
       <div
-        class="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:gap-6 sm:p-6 md:grid-cols-3"
+        class="mb-6 grid grid-cols-1 gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:mb-8 sm:gap-6 sm:p-6 md:grid-cols-3"
       >
         <div class="flex flex-col gap-1.5">
           <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
@@ -1430,7 +1430,7 @@
       <!-- Standard AI Retraining Dataset checkbox (Acne / Eczema / Herpes only) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && !isOutOfScopeFromDiagnosis"
-        class="border-primary/20 bg-primary/5 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2"
+        class="border-primary/20 bg-primary/5 mb-6 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2 sm:mb-8"
       >
         <input
           id="detailed-dataset-checkbox"
@@ -1454,7 +1454,7 @@
       <!-- Out-of-Scope Research Dataset checkbox (mirrors existing, separate storage) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && isOutOfScopeFromDiagnosis"
-        class="flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2"
+        class="mb-6 flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2 sm:mb-8"
       >
         <input
           id="detailed-out-of-scope-dataset-checkbox"
@@ -1479,7 +1479,7 @@
 
       <div
         v-if="props.role === 'doctor'"
-        class="mt-12 flex flex-col gap-12"
+        class="flex flex-col gap-6 sm:gap-8"
       >
         <AppClinicalNoteForm
           :appointment-uuid="props.appointmentUuid"
@@ -1499,9 +1499,9 @@
 
       <div
         v-else
-        class="mt-6 flex flex-col gap-8"
+        class="flex flex-col gap-6 sm:gap-8"
       >
-        <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
             <h3 class="text-xl font-bold tracking-tight">Clinical Understanding</h3>
@@ -1511,7 +1511,7 @@
           </p>
         </section>
 
-        <div class="grid grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
           <section>
             <div class="mb-4 flex items-center gap-2.5">
               <div class="bg-secondary h-2 w-2 rounded-full"></div>
@@ -1565,7 +1565,7 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-4 sm:py-6 lg:sticky lg:w-[420px] lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px]"
+      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-6 sm:py-8 lg:sticky lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px] xl:gap-8 xl:p-8"
     >
       <div class="bg-card rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6">
         <div class="mb-4 flex items-center justify-between sm:mb-6">
@@ -1768,7 +1768,7 @@
       <!-- Medical Appeal Card (Doctor Only) -->
       <div
         v-if="props.role === 'doctor'"
-        class="bg-card mb-6 flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
+        class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
       >
         <div class="flex items-center justify-between gap-3">
           <div>

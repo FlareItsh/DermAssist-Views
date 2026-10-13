@@ -127,7 +127,7 @@
   >
     <!-- Header -->
     <header
-      class="mb-3 flex shrink-0 items-center justify-between gap-2 rounded-2xl border border-gray-100/80 bg-white px-3.5 py-2.5 shadow-2xs sm:mb-4 sm:px-6 sm:py-3 lg:mb-0 lg:rounded-none lg:border-0 lg:border-b lg:border-gray-100 lg:bg-transparent lg:px-10 lg:py-4 lg:shadow-none"
+      class="mb-4 flex shrink-0 items-center justify-between gap-2 rounded-2xl border border-gray-100/80 bg-white px-3.5 py-2.5 shadow-2xs sm:mb-6 sm:px-6 sm:py-3 lg:mb-0 lg:rounded-none lg:border-0 lg:border-b lg:border-gray-100 lg:bg-transparent lg:px-10 lg:py-4 lg:shadow-none"
     >
       <div class="flex min-w-0 items-center gap-2 sm:gap-3">
         <AppButton
