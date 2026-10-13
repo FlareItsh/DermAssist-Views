@@ -450,7 +450,7 @@
                 class="space-y-2 text-xs"
               >
                 <label
-                  v-for="feature in availableFeatures"
+                  v-for="feature in planBuilderFeatures"
                   :key="feature.id"
                   class="flex cursor-pointer items-center gap-2.5 font-bold text-gray-700 hover:text-gray-900"
                 >
@@ -525,6 +525,9 @@
   const selectedId = ref<number | null>(null)
   const plans = ref<Plan[]>([])
   const availableFeatures = ref<Feature[]>([])
+  const planBuilderFeatures = computed(() => {
+    return availableFeatures.value.filter(f => f.code !== 'can_have_secretary')
+  })
 
   const showDeleteModal = ref(false)
   const planToDelete = ref<Plan | null>(null)
@@ -640,6 +643,10 @@
 
       if (typeof form.value.features === 'object' && form.value.features !== null) {
         form.value.features.custom_list = customList
+        form.value.features.can_have_secretary =
+          form.value.max_secretaries === null ||
+          form.value.max_secretaries === undefined ||
+          Number(form.value.max_secretaries) > 0
       }
 
       if (isEditing.value && selectedId.value) {
