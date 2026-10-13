@@ -3,7 +3,9 @@
   import { $api } from '~/composables/useApi'
 
   definePageMeta({
-    layout: false
+    layout: false,
+    path: '/auth/check-email',
+    alias: ['/auth/CheckEmail']
   })
 
   const route = useRoute()

@@ -96,7 +96,7 @@
             ? getStorageUrl(userItem.avatar_path)
             : userItem.doctor_verification?.id_photo_path
               ? getStorageUrl(userItem.doctor_verification.id_photo_path)
-              : '/images/lp-img.png'
+              : ''
         "
       />
     </div>
