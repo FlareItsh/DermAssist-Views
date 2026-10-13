@@ -728,28 +728,34 @@
   </div>
   <div
     v-else
-    class="relative space-y-10 overflow-hidden rounded-[2.5rem] border border-white/50 bg-white/70 px-0 py-8 backdrop-blur-xl sm:px-0 sm:py-10"
+    class="relative space-y-10 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:rounded-[2.5rem] sm:p-8 lg:border-white/50 lg:bg-white/70 lg:backdrop-blur-xl"
   >
     <div
       class="bg-primary/5 pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full blur-3xl"
     ></div>
 
-    <div class="relative z-10 flex items-center justify-between border-b border-gray-100/50 pb-6">
-      <div class="flex items-center gap-4">
-        <div class="bg-primary/10 flex h-12 w-12 items-center justify-center rounded-2xl">
+    <div
+      class="relative z-10 flex flex-col gap-4 border-b border-gray-100/50 pb-6 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="flex items-center gap-3 sm:gap-4">
+        <div
+          class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl"
+        >
           <Icon
             name="material-symbols:edit-document-outline-rounded"
-            class="text-primary text-2xl"
+            class="text-primary text-xl sm:text-2xl"
           />
         </div>
-        <div>
-          <h2 class="text-2xl font-black tracking-tight text-gray-900">Clinical SOAP Note</h2>
-          <p class="mt-0.5 text-sm font-medium text-gray-500">
+        <div class="min-w-0 flex-1">
+          <h2 class="text-base font-bold tracking-tight text-gray-900 sm:text-xl">
+            Clinical SOAP Note
+          </h2>
+          <p class="mt-0.5 text-[11px] font-normal text-gray-500 sm:text-xs">
             Official medical documentation and assessment.
           </p>
         </div>
       </div>
-      <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+      <div class="flex w-full items-center sm:w-auto">
         <AppButton
           type="button"
           :loading="isSaving"
@@ -758,7 +764,7 @@
             showSuccess
               ? 'bg-green-500 shadow-green-500/20 hover:bg-green-600'
               : 'bg-primary hover:bg-primary/90 shadow-primary/20',
-            'flex items-center gap-2 rounded-2xl px-8 py-3 font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95'
+            'flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all hover:shadow-xl active:scale-95 sm:w-auto sm:px-8 sm:py-3 sm:text-sm'
           ]"
         >
           <Icon
@@ -784,37 +790,37 @@
       </div>
     </div>
 
-    <div class="relative z-10 space-y-10">
+    <div class="relative z-10 space-y-8 sm:space-y-10">
       <!-- Subjective -->
       <section class="group">
-        <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
+        <h3 class="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-gray-900 sm:text-base">
           <span
-            class="flex h-8 w-8 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-sm font-black text-indigo-600 shadow-sm"
+            class="flex h-6 w-6 items-center justify-center rounded-lg border border-indigo-100 bg-indigo-50 text-xs font-bold text-indigo-600 shadow-2xs sm:h-7 sm:w-7"
             >S</span
           >
           Subjective
         </h3>
-        <div class="grid gap-6 sm:grid-cols-2">
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+        <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
               >History of Present Illness</label
             >
             <textarea
               v-model="note.history_of_present_illness"
               rows="3"
               placeholder="Duration, symptoms, triggers..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset sm:p-4 sm:text-sm"
             ></textarea>
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
               >Systemic Symptoms</label
             >
             <textarea
               v-model="note.systemic_symptoms"
               rows="3"
               placeholder="Fever, fatigue, other affected areas..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:ring-inset sm:p-4 sm:text-sm"
             ></textarea>
           </div>
         </div>
@@ -822,55 +828,55 @@
 
       <!-- Objective -->
       <section class="group">
-        <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
+        <h3 class="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-gray-900 sm:text-base">
           <span
-            class="flex h-8 w-8 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-600 shadow-sm"
+            class="flex h-6 w-6 items-center justify-center rounded-lg border border-blue-100 bg-blue-50 text-xs font-bold text-blue-600 shadow-2xs sm:h-7 sm:w-7"
             >O</span
           >
           Objective
         </h3>
-        <div class="flex flex-col gap-2">
-          <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+        <div class="flex flex-col gap-1.5 sm:gap-2">
+          <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
             >Physical Exam Findings</label
           >
           <textarea
             v-model="note.physical_exam"
             rows="3"
             placeholder="Visual inspection details, lesion description..."
-            class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+            class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-blue-500 focus:ring-inset sm:p-4 sm:text-sm"
           ></textarea>
         </div>
       </section>
 
       <!-- Assessment -->
       <section class="group">
-        <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
+        <h3 class="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-gray-900 sm:text-base">
           <span
-            class="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-sm font-black text-emerald-600 shadow-sm"
+            class="flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-xs font-bold text-emerald-600 shadow-2xs sm:h-7 sm:w-7"
             >A</span
           >
           Assessment
         </h3>
-        <div class="grid gap-6 sm:grid-cols-2">
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+        <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
               >Differential Diagnosis</label
             >
             <textarea
               v-model="note.differential_diagnosis"
               rows="2"
               placeholder="Alternative possible diagnoses..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset sm:p-4 sm:text-sm"
             ></textarea>
           </div>
-          <div class="flex flex-col gap-2">
+          <div class="flex flex-col gap-1.5 sm:gap-2">
             <div class="flex items-center justify-between">
-              <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+              <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >Final Diagnosis</label
               >
               <span
                 v-if="props.isOutOfScope"
-                class="rounded-md bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700 uppercase"
+                class="rounded-md bg-purple-100 px-2 py-0.5 text-[9px] font-bold text-purple-700 uppercase sm:text-[10px]"
                 >Other Condition (Not in Main 3)</span
               >
             </div>
@@ -878,7 +884,7 @@
               type="text"
               v-model="note.final_diagnosis"
               placeholder="Primary diagnosis..."
-              class="w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset"
+              class="w-full rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:ring-inset sm:p-4 sm:text-sm"
             />
           </div>
         </div>
@@ -886,40 +892,40 @@
 
       <!-- Plan -->
       <section class="group">
-        <h3 class="mb-5 flex items-center gap-3 text-xl font-bold text-gray-900">
+        <h3 class="mb-3.5 flex items-center gap-2.5 text-sm font-bold text-gray-900 sm:text-base">
           <span
-            class="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-sm font-black text-amber-600 shadow-sm"
+            class="flex h-6 w-6 items-center justify-center rounded-lg border border-amber-100 bg-amber-50 text-xs font-bold text-amber-600 shadow-2xs sm:h-7 sm:w-7"
             >P</span
           >
           Plan
         </h3>
-        <div class="grid gap-6 sm:grid-cols-2">
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+        <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
               >Prescriptions</label
             >
             <textarea
               v-model="note.prescription"
               rows="4"
               placeholder="Medication name, dosage, frequency, duration..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset sm:p-4 sm:text-sm"
             ></textarea>
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
               >Patient Education & Instructions</label
             >
             <textarea
               v-model="note.patient_education"
               rows="4"
               placeholder="Skin care routines, triggers to avoid..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset"
+              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset sm:p-4 sm:text-sm"
             ></textarea>
           </div>
 
           <div
             ref="followUpSectionRef"
-            class="flex flex-col gap-4 rounded-3xl border p-6 shadow-xs transition-all sm:col-span-2"
+            class="flex flex-col gap-3 rounded-2xl border p-3.5 shadow-xs transition-all sm:col-span-2 sm:gap-4 sm:rounded-3xl sm:p-6"
             :class="
               followUpError
                 ? 'border-red-300 bg-red-50/40 ring-2 ring-red-200'
@@ -940,8 +946,10 @@
                   />
                 </div>
                 <div>
-                  <h4 class="text-foreground text-sm font-bold">Follow-Up Consultation Schedule</h4>
-                  <p class="text-muted-foreground text-xs">
+                  <h4 class="text-foreground text-xs font-bold sm:text-sm">
+                    Follow-Up Consultation Schedule
+                  </h4>
+                  <p class="text-muted-foreground text-[11px] sm:text-xs">
                     Book the patient's next clinical visit and auto-match clinic duty shifts.
                   </p>
                 </div>
@@ -949,12 +957,12 @@
 
               <!-- Follow-Up Toggle Switch -->
               <div
-                class="bg-foreground/5 border-border flex shrink-0 items-center gap-1.5 rounded-2xl border p-1"
+                class="bg-foreground/5 border-border grid w-full grid-cols-2 items-center gap-1 rounded-2xl border p-1 sm:flex sm:w-auto sm:gap-1.5"
               >
                 <button
                   type="button"
                   @click="noFollowUp = false"
-                  class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
+                  class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:py-1.5 sm:font-bold"
                   :class="
                     !noFollowUp
                       ? 'text-primary bg-white shadow-xs'
@@ -963,14 +971,14 @@
                 >
                   <Icon
                     name="heroicons:check-circle"
-                    class="h-3.5 w-3.5"
+                    class="h-3.5 w-3.5 shrink-0"
                   />
                   <span>Schedule</span>
                 </button>
                 <button
                   type="button"
                   @click="noFollowUp = true"
-                  class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition-all"
+                  class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:py-1.5 sm:font-bold"
                   :class="
                     noFollowUp
                       ? 'text-foreground/80 bg-white shadow-xs'
@@ -979,7 +987,7 @@
                 >
                   <Icon
                     name="heroicons:no-symbol"
-                    class="h-3.5 w-3.5"
+                    class="h-3.5 w-3.5 shrink-0"
                   />
                   <span>Not Required</span>
                 </button>
@@ -989,9 +997,9 @@
             <!-- When Follow-up is Enabled -->
             <template v-if="!noFollowUp">
               <!-- Quick Interval Shortcuts -->
-              <div class="flex flex-wrap items-center gap-2">
+              <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 <span
-                  class="text-muted-foreground mr-1 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                  class="text-muted-foreground mr-1 flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase sm:text-xs"
                 >
                   <Icon
                     name="heroicons:bolt"
@@ -1010,31 +1018,31 @@
                   :key="preset.days"
                   type="button"
                   @click="setQuickInterval(preset.days)"
-                  class="bg-foreground/5 hover:bg-primary/10 hover:text-primary border-border/80 cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-bold shadow-2xs transition-all active:scale-95"
+                  class="bg-foreground/5 hover:bg-primary/10 hover:text-primary border-border/80 cursor-pointer rounded-xl border px-2.5 py-1 text-[11px] font-semibold shadow-2xs transition-all active:scale-95 sm:px-3 sm:py-1.5 sm:text-xs sm:font-bold"
                 >
                   {{ preset.label }}
                 </button>
               </div>
 
               <!-- Top Row: Calendar (Left) & Date Summary + Clinic Station (Right) -->
-              <div
-                class="bg-foreground/[0.02] border-border/60 grid items-start gap-5 rounded-2xl border p-4 sm:p-5 lg:grid-cols-12"
-              >
+              <div class="grid items-start gap-4 sm:gap-6 lg:grid-cols-12">
                 <!-- Left: Calendar (6 cols) -->
-                <div
-                  class="bg-card border-border/80 flex flex-col justify-center space-y-3 overflow-visible rounded-2xl border p-4 shadow-2xs lg:col-span-6"
-                >
+                <div class="flex w-full flex-col space-y-2 overflow-visible lg:col-span-6">
                   <div class="border-border/60 flex items-center justify-between border-b pb-2">
-                    <span class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                    <span
+                      class="text-foreground flex items-center gap-1.5 text-[11px] font-bold sm:text-xs"
+                    >
                       <Icon
                         name="heroicons:calendar"
-                        class="text-primary h-4 w-4"
+                        class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
                       />
                       Select Date
                     </span>
-                    <span class="text-muted-foreground text-[11px]">Click a date below</span>
+                    <span class="text-muted-foreground text-[10px] sm:text-[11px]"
+                      >Click a date below</span
+                    >
                   </div>
-                  <div class="flex justify-center overflow-visible">
+                  <div class="w-full overflow-visible">
                     <PatientSideComponentsCalendar
                       :min-date="getTodayStr()"
                       :selected-date="followUpDateOnly"
@@ -1048,12 +1056,14 @@
                 </div>
 
                 <!-- Right: Date Summary & Clinic Branch Station (6 cols) -->
-                <div class="space-y-4 lg:col-span-6">
+                <div class="space-y-3 sm:space-y-4 lg:col-span-6">
                   <!-- Selected Date & Duty Station Status Badge -->
-                  <div class="bg-card border-border/80 space-y-3 rounded-2xl border p-4 shadow-2xs">
+                  <div
+                    class="bg-card border-border/80 space-y-2.5 rounded-2xl border p-3.5 shadow-2xs sm:space-y-3 sm:p-4"
+                  >
                     <div class="flex items-center justify-between">
                       <span
-                        class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase"
+                        class="text-muted-foreground text-[10px] font-bold tracking-wider uppercase sm:text-[11px]"
                         >Target Consultation Date</span
                       >
                       <span
@@ -1066,21 +1076,21 @@
 
                     <div
                       v-if="formattedSelectedDate"
-                      class="text-foreground flex items-center gap-2.5 text-base font-bold"
+                      class="text-foreground flex items-center gap-2 text-xs font-bold sm:text-sm"
                     >
                       <Icon
                         name="heroicons:calendar-days"
-                        class="text-primary h-5 w-5 shrink-0"
+                        class="text-primary h-4 w-4 shrink-0 sm:h-5 sm:w-5"
                       />
                       <span>{{ formattedSelectedDate }}</span>
                     </div>
                     <div
                       v-else
-                      class="text-muted-foreground flex items-center gap-2 text-xs italic"
+                      class="text-muted-foreground flex items-center gap-1.5 text-[11px] italic sm:text-xs"
                     >
                       <Icon
                         name="heroicons:cursor-arrow-rays"
-                        class="text-primary h-4 w-4 shrink-0 animate-bounce"
+                        class="text-primary h-3.5 w-3.5 shrink-0 animate-bounce sm:h-4 sm:w-4"
                       />
                       <span>Pick a date from the calendar or use the quick intervals</span>
                     </div>
@@ -1088,7 +1098,7 @@
                     <!-- Matched Duty Shift Badge -->
                     <div
                       v-if="matchedDutyShift"
-                      class="border-border/60 flex items-center gap-2 rounded-xl border border-t border-emerald-200 bg-emerald-50/70 p-2.5 pt-2 text-xs font-semibold text-emerald-700"
+                      class="border-border/60 flex items-center gap-2 rounded-xl border border-t border-emerald-200 bg-emerald-50/70 p-2.5 pt-2 text-[11px] font-medium text-emerald-700 sm:text-xs sm:font-semibold"
                     >
                       <div class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></div>
                       <span
@@ -1104,25 +1114,25 @@
 
                   <!-- Clinic / Location Selector -->
                   <div
-                    class="bg-card border-border/80 space-y-2.5 rounded-2xl border p-4 shadow-2xs"
+                    class="bg-card border-border/80 space-y-2 rounded-2xl border p-3.5 shadow-2xs sm:space-y-2.5 sm:p-4"
                   >
                     <div class="flex items-center justify-between">
                       <label
-                        class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-bold tracking-wider uppercase"
+                        class="text-muted-foreground flex items-center gap-1.5 text-[10px] font-bold tracking-wider uppercase sm:text-[11px]"
                       >
                         <Icon
                           name="heroicons:building-office-2"
-                          class="text-primary h-4 w-4"
+                          class="text-primary h-3.5 w-3.5 sm:h-4 sm:w-4"
                         />
                         Clinic Station / Location
                       </label>
                       <span
                         v-if="wasLocationAutofilled"
-                        class="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                        class="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700 sm:text-[10px]"
                       >
                         <Icon
                           name="heroicons:sparkles"
-                          class="h-3 w-3 text-emerald-600"
+                          class="h-2.5 w-2.5 text-emerald-600 sm:h-3 sm:w-3"
                         />
                         Autofilled from Duty Preset
                       </span>
@@ -1131,7 +1141,7 @@
                     <select
                       v-if="clinics.length > 0"
                       v-model="followUpLocation"
-                      class="border-border bg-foreground/[0.03] focus:border-primary text-foreground w-full cursor-pointer rounded-xl border px-3.5 py-2.5 text-xs font-bold outline-none"
+                      class="border-border bg-foreground/[0.03] focus:border-primary text-foreground w-full cursor-pointer rounded-xl border px-3 py-2 text-xs font-semibold outline-none sm:px-3.5 sm:py-2.5 sm:font-bold"
                     >
                       <option
                         value=""
@@ -1161,9 +1171,7 @@
               </div>
 
               <!-- Full-Width Bottom Row: Spacious Consultation Time Window -->
-              <div
-                class="bg-card border-border/80 space-y-3 rounded-2xl border p-5 shadow-2xs sm:p-6"
-              >
+              <div class="w-full space-y-3">
                 <AppTimeRangePicker
                   v-model:start-time="followUpTimeOnly"
                   v-model:end-time="followUpEndTimeOnly"
@@ -1329,10 +1337,11 @@
             <!-- Follow-up Instructions with Quick Suggestion Chips -->
             <div class="border-border/60 space-y-2 border-t pt-2">
               <div class="flex items-center justify-between">
-                <label class="text-xs font-bold tracking-wider text-gray-700 uppercase"
+                <label
+                  class="text-[10px] font-bold tracking-wider text-gray-600 uppercase sm:text-xs"
                   >Follow-up Instructions & Objectives</label
                 >
-                <span class="text-muted-foreground text-[11px] italic"
+                <span class="text-muted-foreground text-[10px] italic sm:text-[11px]"
                   >Visible on patient reminder</span
                 >
               </div>

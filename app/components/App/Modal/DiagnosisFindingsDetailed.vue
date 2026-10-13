@@ -1009,23 +1009,25 @@
 </script>
 
 <template>
-  <div class="custom-scrollbar flex h-full w-full items-start overflow-y-auto">
+  <div class="custom-scrollbar flex h-full w-full flex-col items-start overflow-y-auto lg:flex-row">
     <!-- Left Column: Knowledge Base -->
     <div
-      class="custom-scrollbar sticky top-0 flex max-h-full flex-1 flex-col self-start overflow-y-auto p-10 pr-8"
+      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-10 lg:pr-8"
     >
-      <div class="mb-8 flex items-center gap-5">
+      <div class="mb-6 flex items-start gap-3.5 sm:mb-8 sm:items-center sm:gap-5">
         <div
-          class="bg-primary/10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-inner"
+          class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
         >
           <Icon
             name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-3xl"
+            class="text-primary text-xl sm:text-2xl"
           />
         </div>
-        <div>
-          <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-foreground text-3xl font-black tracking-tight lg:text-4xl">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1
+              class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
+            >
               {{
                 activeDisease === 'None'
                   ? 'Non-Skin Image Detected'
@@ -1062,7 +1064,9 @@
           </div>
           <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-sm font-bold text-gray-500">Clinical Analysis &amp; Guidance</p>
+            <p class="text-xs font-bold text-gray-500 sm:text-sm">
+              Clinical Analysis &amp; Guidance
+            </p>
           </div>
         </div>
       </div>
@@ -1070,19 +1074,18 @@
       <!-- Out-of-Scope Dedicated Advisory Notice -->
       <div
         v-if="activeDisease === 'OutOfScope'"
-        class="mb-8 space-y-3 rounded-2xl border border-purple-200 bg-purple-50 p-6 text-purple-950 shadow-xs"
+        class="mb-6 space-y-2.5 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-950 shadow-xs sm:mb-8 sm:space-y-3 sm:p-6"
       >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm font-bold text-purple-800">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-purple-800 sm:text-sm">
             <Icon
               name="lucide:stethoscope"
-              size="18"
-              class="shrink-0 text-purple-600"
+              class="size-4 shrink-0 text-purple-600 sm:size-[18px]"
             />
             <span>Semantic Validation: Out-of-Scope Skin Condition</span>
           </div>
           <span
-            class="rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-extrabold tracking-wider text-purple-700 uppercase"
+            class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-purple-700 uppercase sm:px-2.5 sm:text-[11px]"
             >Zero-Shot OOD Filter</span
           >
         </div>
@@ -1179,10 +1182,10 @@
       </div>
 
       <div
-        class="mb-8 grid grid-cols-3 gap-6 rounded-2xl border border-gray-100 bg-gray-50/40 p-6 shadow-sm"
+        class="mb-8 grid grid-cols-1 gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:gap-6 sm:p-6 md:grid-cols-3"
       >
         <div class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
             >Patient Name</span
           >
           <div
@@ -1263,8 +1266,10 @@
           >
         </div>
 
-        <div class="flex min-w-[220px] flex-col gap-1.5 border-x border-gray-200 px-6">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase">
+        <div
+          class="flex flex-col gap-1.5 border-y border-gray-100 py-3 sm:min-w-[220px] md:border-x md:border-y-0 md:px-6 md:py-0"
+        >
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs">
             Date of Birth & Age
           </span>
 
@@ -1407,8 +1412,8 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-1.5 pl-6">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 md:pl-6">
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
             >Assessment Date</span
           >
           <span class="text-base font-bold text-gray-900">{{
@@ -1560,11 +1565,11 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="relative sticky top-0 flex min-h-[500px] w-[420px] shrink-0 flex-col gap-6 self-start border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px]"
+      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-4 sm:py-6 lg:sticky lg:w-[420px] lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px]"
     >
       <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <div class="mb-6 flex items-center justify-between">
-          <h2 class="text-xl font-bold">Statistical Findings</h2>
+        <div class="mb-4 flex items-center justify-between sm:mb-6">
+          <h2 class="text-base font-bold sm:text-xl">Statistical Findings</h2>
           <AppConfidenceTooltip
             align="right"
             :chart-data="displayChartData"

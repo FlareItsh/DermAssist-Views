@@ -513,12 +513,12 @@
       <!-- Time Ticks Header -->
       <div class="relative h-5 w-full text-[10px] font-semibold text-gray-400">
         <div
-          v-for="tick in ticks"
+          v-for="(tick, idx) in ticks"
           :key="tick.mins"
           class="absolute top-0 flex -translate-x-1/2 flex-col items-center"
           :style="{ left: `${tick.percent}%` }"
         >
-          <span>{{ tick.label }}</span>
+          <span :class="{ 'hidden sm:inline': idx % 2 !== 0 }">{{ tick.label }}</span>
           <div class="mt-0.5 h-1.5 w-0.5 rounded-full bg-gray-300"></div>
         </div>
       </div>

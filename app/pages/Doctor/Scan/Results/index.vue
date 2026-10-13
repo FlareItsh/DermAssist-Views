@@ -123,30 +123,53 @@
 
 <template>
   <div
-    class="flex h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-sm"
+    class="flex min-h-screen flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-gray-100 lg:bg-white lg:shadow-sm"
   >
     <!-- Header -->
-    <header class="flex shrink-0 items-center justify-between border-b border-gray-100 px-10 py-4">
-      <div class="flex items-center gap-3">
-        <div
-          class="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 shadow-2xs"
+    <header
+      class="mb-3 flex shrink-0 items-center justify-between gap-2 rounded-2xl border border-gray-100/80 bg-white px-3.5 py-2.5 shadow-2xs sm:mb-4 sm:px-6 sm:py-3 lg:mb-0 lg:rounded-none lg:border-0 lg:border-b lg:border-gray-100 lg:bg-transparent lg:px-10 lg:py-4 lg:shadow-none"
+    >
+      <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
+          @click="navigateTo('/Doctor/Scan')"
+          class="hover:text-primary flex shrink-0 items-center gap-1.5 text-xs font-bold text-gray-500 transition-colors"
         >
-          <span class="relative flex h-2 w-2">
+          <div
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
+          >
+            <Icon
+              name="material-symbols:arrow-back-rounded"
+              class="text-base"
+            />
+          </div>
+          <span class="hidden sm:inline">Back</span>
+        </AppButton>
+
+        <div
+          class="flex items-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-2xs sm:px-3 sm:py-1.5"
+        >
+          <span class="relative flex h-2 w-2 shrink-0">
             <span
               class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
             ></span>
             <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
           </span>
-          <span>Active Assessment in Progress — Complete & Finish Diagnosis to proceed</span>
+          <span class="hidden md:inline"
+            >Active Assessment in Progress — Complete & Finish Diagnosis</span
+          >
+          <span class="truncate md:hidden">Active Assessment</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-6">
+      <div class="flex shrink-0 items-center gap-3 sm:gap-6">
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+          <span class="text-[9px] font-black tracking-widest text-gray-400 uppercase sm:text-[10px]"
             >Diagnosis ID</span
           >
-          <span class="font-mono text-xs font-bold text-gray-600"
+          <span class="font-mono text-[11px] font-bold text-gray-600 sm:text-xs"
             >#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span
           >
         </div>
@@ -154,11 +177,11 @@
           variant="unstyled"
           size="unstyled"
           rounded="unstyled"
-          class="bg-primary/10 text-primary hover:bg-primary/20 flex h-10 w-10 items-center justify-center rounded-xl transition-colors"
+          class="bg-primary/10 text-primary hover:bg-primary/20 flex h-8 w-8 items-center justify-center rounded-xl transition-colors sm:h-10 sm:w-10"
         >
           <Icon
             name="material-symbols:share-rounded"
-            class="text-xl"
+            class="text-base sm:text-xl"
           />
         </AppButton>
       </div>

@@ -369,6 +369,9 @@
     if (isChatPage.value) {
       return 'min-h-0 w-full flex-1 px-0 pt-0 pb-[92px] lg:h-full lg:p-0'
     }
+    if (/\/scan\/results/i.test(route.path)) {
+      return 'min-h-0 w-full flex-1 px-4 pt-4 pb-[104px] sm:px-6 sm:pt-5 lg:h-full lg:p-0'
+    }
     if (isFullHeightPage.value) {
       return 'min-h-0 w-full flex-1 px-4 pt-3 pb-[92px] sm:px-6 lg:h-full lg:p-0'
     }
