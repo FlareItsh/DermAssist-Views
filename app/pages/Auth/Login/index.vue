@@ -514,14 +514,14 @@
 
       <div
         v-if="!is2FAStep"
-        class="mt-8 text-center text-sm"
+        class="mt-3 text-center"
       >
-        <span class="text-foreground/60">Don't have an account?</span>
         <NuxtLink
           to="/auth/register"
-          class="text-primary ml-1 font-semibold hover:underline"
+          class="text-foreground/60 hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
         >
-          Create one
+          <span class="font-normal">Don't have an account?</span>
+          <span class="text-primary font-semibold hover:underline">Create one</span>
         </NuxtLink>
       </div>
     </div>

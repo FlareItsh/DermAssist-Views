@@ -99,18 +99,34 @@
         :key="userItem.id"
         class="hover:border-primary/20 flex w-40 shrink-0 snap-start flex-col justify-between rounded-2xl border border-gray-100 bg-white p-2.5 shadow-xs transition-all active:scale-98"
       >
-        <!-- Doctor Avatar Image -->
-        <img
-          :src="
-            userItem.avatar_path
-              ? getStorageUrl(userItem.avatar_path)
-              : userItem.doctor_verification?.id_photo_path
-                ? getStorageUrl(userItem.doctor_verification.id_photo_path)
-                : '/images/lp-img.png'
-          "
-          alt="Doctor"
-          class="h-24 w-full rounded-xl object-cover shadow-xs"
-        />
+        <!-- Doctor Avatar Image / Profile Badge -->
+        <div
+          v-if="userItem.avatar_path || userItem.doctor_verification?.id_photo_path"
+          class="h-24 w-full overflow-hidden rounded-xl border border-gray-100 shadow-xs"
+        >
+          <img
+            :src="
+              userItem.avatar_path
+                ? getStorageUrl(userItem.avatar_path)
+                : getStorageUrl(userItem.doctor_verification.id_photo_path)
+            "
+            :alt="getDisplayName(userItem)"
+            class="h-full w-full object-cover"
+          />
+        </div>
+        <div
+          v-else
+          class="from-primary/15 via-primary/10 to-primary/5 border-primary/20 text-primary relative flex h-24 w-full flex-col items-center justify-center rounded-xl border bg-gradient-to-br shadow-xs"
+        >
+          <div
+            class="bg-card text-primary border-primary/25 flex size-11 items-center justify-center rounded-full border shadow-xs"
+          >
+            <Icon
+              name="solar:user-bold-duotone"
+              class="size-6"
+            />
+          </div>
+        </div>
 
         <!-- Info -->
         <div class="mt-2.5 flex-1">
