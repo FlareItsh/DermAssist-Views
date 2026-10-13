@@ -1,10 +1,13 @@
 import { BaseService } from '../BaseService'
 
 export interface LoginResponse {
-  token: string
-  user: {
+  token?: string
+  two_factor_required?: boolean
+  challenge?: string
+  user?: {
     uuid: string
     role: string
+    [key: string]: any
   }
 }
 
@@ -14,6 +17,15 @@ export class AuthService extends BaseService {
       email,
       password
     })
+  }
+
+  async challenge2FA(payload: {
+    challenge: string
+    code?: string
+    recovery_code?: string
+    device_id?: string
+  }): Promise<LoginResponse> {
+    return await this.request<LoginResponse>('/two-factor/challenge', 'POST', payload)
   }
 
   async logout(): Promise<void> {

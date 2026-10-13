@@ -1,6 +1,7 @@
 <script setup lang="ts">
   const props = defineProps({
     title: String,
+    description: String,
     breadcrumbs: {
       type: Array as () => Array<{ label: string; to?: string }>,
       default: () => []
@@ -70,6 +71,12 @@
           >
             {{ title }}
           </h2>
+          <p
+            v-if="description"
+            class="text-foreground/60 -mt-0.5 text-xs font-normal"
+          >
+            {{ description }}
+          </p>
         </div>
       </div>
     </div>

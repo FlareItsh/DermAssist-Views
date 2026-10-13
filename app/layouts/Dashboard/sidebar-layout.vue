@@ -4,6 +4,7 @@
     <div :class="desktopChromeClass">
       <AppNavbar
         :title="currentPageTitle"
+        :description="currentPageDescription"
         :breadcrumbs="breadcrumbs"
       >
         <AppUtilityBar v-if="userRole !== 'admin'" />
@@ -292,8 +293,24 @@
 
     let active = findActive(navItems.value, route.path)
 
-    if (route.path.endsWith('/profile')) {
-      return { title: '', breadcrumbs: [] }
+    if (route.path.toLowerCase().endsWith('/profile')) {
+      const role = (userRole.value as string) || route.path.split('/')[1] || 'patient'
+      const baseDashboard = `/${role}`
+      let description = 'Manage your personal information and profile settings.'
+      if (role === 'doctor') {
+        description =
+          'Manage your professional profile, clinic branches, schedule, and subscription.'
+      } else if (role === 'secretary') {
+        description = 'Manage your personal details and account security.'
+      }
+      return {
+        title: 'Settings',
+        description,
+        breadcrumbs: [
+          { label: 'Dashboard', to: baseDashboard },
+          { label: 'Settings', to: route.path }
+        ]
+      }
     }
 
     if (!active) {
@@ -359,6 +376,7 @@
   })
 
   const currentPageTitle = computed(() => activeItemInfo.value.title)
+  const currentPageDescription = computed(() => (activeItemInfo.value as any)?.description || '')
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
   onMounted(() => {
