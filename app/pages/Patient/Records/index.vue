@@ -47,6 +47,18 @@
     )
   })
 
+  const recordsPerPage = 10
+  const recordCurrentPage = ref(1)
+
+  const paginatedRecords = computed(() => {
+    const start = (recordCurrentPage.value - 1) * recordsPerPage
+    return filteredRecords.value.slice(start, start + recordsPerPage)
+  })
+
+  watch([searchQuery, activeTab], () => {
+    recordCurrentPage.value = 1
+  })
+
   const activeRecordState = useState<any>('active_patient_record', () => null)
 
   const handleRecordClick = (record: any) => {
@@ -67,7 +79,15 @@
 </script>
 
 <template>
-  <div class="mt-4 flex min-h-screen flex-col pb-24 md:mt-6 md:pb-0">
+  <div class="mt-4 flex flex-col pb-4 md:mt-6 md:pb-0">
+    <!-- Page Header -->
+    <div class="mb-4">
+      <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Records</h1>
+      <p class="text-muted-foreground mt-0.5 text-xs sm:text-sm">
+        View your clinical consultation history and diagnostic findings.
+      </p>
+    </div>
+
     <!-- Mobile Search Bar (hidden on desktop) -->
     <div class="mb-4 block md:hidden">
       <div
@@ -153,20 +173,31 @@
 
     <div
       v-else-if="filteredRecords.length > 0"
-      class="flex flex-col"
+      class="flex flex-col gap-6"
     >
-      <AppRecordFolder
-        v-for="(record, index) in filteredRecords"
-        :key="record.id"
-        :time="formatDate(record.created_at)"
-        :title="record.title"
-        :style="{
-          marginTop: index === 0 ? '0px' : '-200px',
-          zIndex: 10 + index
-        }"
-        class="transition-all hover:z-100 hover:-translate-y-6"
-        @click="handleRecordClick(record)"
-      />
+      <div class="flex flex-col">
+        <AppRecordFolder
+          v-for="(record, index) in paginatedRecords"
+          :key="record.id"
+          :time="formatDate(record.created_at)"
+          :title="record.title"
+          :style="{
+            marginTop: index === 0 ? '0px' : '-200px',
+            zIndex: 10 + index
+          }"
+          class="transition-all hover:z-100 hover:-translate-y-6"
+          @click="handleRecordClick(record)"
+        />
+      </div>
+
+      <div class="bg-card border-sidebar-border mt-4 overflow-hidden rounded-2xl border shadow-xs">
+        <AppPagination
+          v-model:currentPage="recordCurrentPage"
+          :total-items="filteredRecords.length"
+          :per-page="recordsPerPage"
+          item-label="records"
+        />
+      </div>
     </div>
 
     <!-- No Results State -->

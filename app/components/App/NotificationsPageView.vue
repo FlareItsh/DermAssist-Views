@@ -65,6 +65,15 @@
     })
     readNotifs.value = arr
   }
+
+  const cleanDescription = (text?: string): string => {
+    if (!text) return ''
+    const cleaned = text
+      .replace(/\[[A-Za-z0-9_]+:[^\]]+\]/g, '')
+      .replace(/<[^>]*>/g, '')
+      .trim()
+    return cleaned || text
+  }
 </script>
 
 <template>
@@ -268,7 +277,7 @@
             class="text-xs leading-relaxed transition-colors sm:text-sm"
             :class="isRead(notif.id) ? 'text-muted-foreground/70' : 'text-muted-foreground'"
           >
-            {{ notif.description }}
+            {{ cleanDescription(notif.description) }}
           </p>
 
           <!-- Action tag badge -->

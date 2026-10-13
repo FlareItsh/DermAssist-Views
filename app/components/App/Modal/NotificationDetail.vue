@@ -62,6 +62,15 @@
   )
   const patchNoteData = computed(() => props.notification?.data)
 
+  const cleanDescription = (text?: string): string => {
+    if (!text) return ''
+    const cleaned = text
+      .replace(/\[[A-Za-z0-9_]+:[^\]]+\]/g, '')
+      .replace(/<[^>]*>/g, '')
+      .trim()
+    return cleaned || text
+  }
+
   const isRevocation = computed(
     () => props.notification?.type === 'clinic_revocation' && props.notification?.data
   )
@@ -565,7 +574,7 @@
               <!-- Case 5: General / System / Appointment Notification -->
               <template v-else>
                 <p class="text-foreground text-sm leading-relaxed whitespace-pre-line sm:text-base">
-                  {{ notification.description }}
+                  {{ cleanDescription(notification.description) }}
                 </p>
 
                 <div

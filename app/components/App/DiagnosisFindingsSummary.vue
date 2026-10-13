@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import type { DonutEntry } from './DonutChart.vue'
-  import { DISEASE_DATABASE } from '~/composables/useDiagnosis'
+  import { DISEASE_DATABASE, type PendingPatientRegistration } from '~/composables/useDiagnosis'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { userService } from '~/api/user/UserService'
@@ -29,6 +29,7 @@
     chartData,
     resetScanner,
     patientUuid,
+    pendingPatientRegistration,
     isProceededToResults,
     saveActiveDiagnosisState
   } = useDiagnosis()
@@ -83,7 +84,11 @@
         try {
           if ((currentDiagnosis.value as any).uuid || currentDiagnosis.value.id) {
             const uuid = (currentDiagnosis.value as any).uuid || currentDiagnosis.value.id
-            if (patientUuid.value) {
+            if (
+              patientUuid.value &&
+              !pendingPatientRegistration.value &&
+              patientUuid.value !== 'pending_new_patient'
+            ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
             }
           }
@@ -349,9 +354,11 @@
 
   const selectAppointment = (appt: any) => {
     patientUuid.value = appt.patient_uuid
+    pendingPatientRegistration.value = null
     assignedName.value = appt.patientName
     userName.value = appt.patientName
     assignedAppointment.value = appt
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
     toast.success(
       `Assigned to ${appt.patientName} (${appt.isToday ? 'Today' : formatPatientDate(appt.date)} at ${appt.time})`
@@ -360,17 +367,21 @@
 
   const selectRegisteredPatient = (patient: any) => {
     patientUuid.value = patient.uuid
+    pendingPatientRegistration.value = null
     assignedName.value = `${patient.first_name} ${patient.last_name}`
     userName.value = assignedName.value
     assignedAppointment.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
     toast.success(`Assigned to ${assignedName.value} (Walk-in)`)
   }
 
   const clearAssignedPatient = () => {
     patientUuid.value = null
+    pendingPatientRegistration.value = null
     assignedName.value = ''
     assignedAppointment.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
   }
 
@@ -440,7 +451,7 @@
     registrationError.value = null
 
     try {
-      const res = await userService.createDoctorPatient({
+      const payload: PendingPatientRegistration = {
         firstName: registerForm.firstName.trim(),
         middleName: registerForm.middleName?.trim() || undefined,
         lastName: registerForm.lastName.trim(),
@@ -456,28 +467,27 @@
         barangay: registerForm.barangay?.trim() || undefined,
         city: registerForm.city?.trim() || undefined,
         province: registerForm.province?.trim() || undefined
-      })
+      }
 
-      const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
-      toast.success(
-        `Patient ${createdUser.first_name} ${createdUser.last_name} registered and assigned!`
-      )
-
-      // Refresh list of doctor patients
-      await loadDoctorPatients()
-
-      // Assign to current scan
-      patientUuid.value = createdUser.uuid
-      assignedName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      pendingPatientRegistration.value = payload
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${payload.firstName} ${payload.lastName}`
       userName.value = assignedName.value
       assignedAppointment.value = null
+
+      saveActiveDiagnosisState()
+
+      toast.success(
+        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+      )
 
       activeModalTab.value = 'appointments'
       isPatientModalOpen.value = false
       resetRegisterForm()
     } catch (e: any) {
       console.error('Registration failed:', e)
-      const msg = e?.data?.message || e?.response?._data?.message || 'Failed to register patient.'
+      const msg =
+        e?.data?.message || e?.response?._data?.message || 'Failed to stage patient registration.'
       registrationError.value = msg
       toast.error(msg)
     } finally {
@@ -552,6 +562,16 @@
                             : formatPatientDate(assignedAppointment.date)
                         }}
                         • {{ assignedAppointment.time }}
+                      </span>
+                      <span
+                        v-else-if="pendingPatientRegistration"
+                        class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+                      >
+                        <Icon
+                          name="material-symbols:pending-actions"
+                          class="text-xs"
+                        />
+                        New Patient (Pending)
                       </span>
                       <span
                         v-else

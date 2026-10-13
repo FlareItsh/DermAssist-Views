@@ -329,14 +329,12 @@
 </script>
 
 <template>
-  <div class="mx-auto flex max-w-7xl flex-col gap-6 p-4 pb-12 sm:p-6">
+  <div class="mx-auto flex max-w-7xl flex-col gap-5 pb-8 sm:gap-6">
     <!-- Header -->
-    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
-        <h1 class="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
-          Subscription & Plans
-        </h1>
-        <p class="text-xs text-gray-500 sm:text-sm">
+        <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Subscription & Plans</h1>
+        <p class="text-muted-foreground mt-0.5 text-xs sm:text-sm">
           Manage your clinical practice tier, multi-doctor clinic seat allocation, and billing
           history.
         </p>
@@ -356,7 +354,7 @@
     <!-- ───────────────────────────────────────────────────────────────────────── -->
     <div
       v-if="currentSubscription || associateCoverage"
-      class="relative overflow-hidden rounded-3xl border border-gray-200/90 bg-white p-5 shadow-xs transition-all hover:border-gray-300 sm:p-6"
+      class="relative overflow-hidden rounded-3xl border border-gray-200/90 bg-white p-4 shadow-xs transition-all hover:border-gray-300 sm:p-6"
     >
       <!-- Top Section: Plan Headline & Status -->
       <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
@@ -689,7 +687,7 @@
           v-for="plan in plans"
           :key="plan.uuid"
           :class="[
-            'relative flex flex-col justify-between rounded-3xl border bg-white p-5 shadow-xs transition-all hover:shadow-md sm:p-6',
+            'relative flex flex-col justify-between rounded-3xl border bg-white p-4 shadow-xs transition-all hover:shadow-md sm:p-6',
             currentSubscription?.plan?.uuid === plan.uuid
               ? 'border-indigo-600 ring-2 ring-indigo-600/20'
               : 'border-gray-200/80 hover:border-indigo-300'

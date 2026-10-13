@@ -3,11 +3,12 @@
     defineProps<{
       label: string
       value: number | string
-      detail: string
-      icon: string
+      detail?: string
+      icon?: string
       to?: string
       loading?: boolean
-      tone?: 'blue' | 'emerald' | 'amber' | 'rose'
+      tone?: 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo'
+      badge?: string
     }>(),
     {
       loading: false,
@@ -15,31 +16,46 @@
     }
   )
 
-  const toneClasses = computed(() => {
+  const toneConfig = computed(() => {
     const tones = {
       blue: {
-        accent: 'from-primary to-primary-light',
-        icon: 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400',
-        glow: 'bg-blue-200 dark:bg-blue-900/20'
+        number: 'text-gray-900',
+        badge: 'bg-secondary/10 text-secondary ring-1 ring-secondary/20',
+        hoverBorder: 'hover:border-secondary/40',
+        line: 'bg-secondary',
+        ambientBg: 'bg-gradient-to-br from-secondary/10 via-secondary/5 to-transparent'
       },
       emerald: {
-        accent: 'from-primary to-primary-light',
-        icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400',
-        glow: 'bg-emerald-200 dark:bg-emerald-900/20'
+        number: 'text-gray-900',
+        badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60',
+        hoverBorder: 'hover:border-emerald-300',
+        line: 'bg-emerald-500',
+        ambientBg: 'bg-gradient-to-br from-emerald-50/60 via-emerald-50/20 to-transparent'
       },
       amber: {
-        accent: 'from-primary to-primary-light',
-        icon: 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400',
-        glow: 'bg-amber-200 dark:bg-amber-900/20'
+        number: 'text-gray-900',
+        badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60',
+        hoverBorder: 'hover:border-amber-300',
+        line: 'bg-amber-500',
+        ambientBg: 'bg-gradient-to-br from-amber-50/60 via-amber-50/20 to-transparent'
       },
       rose: {
-        accent: 'from-primary to-primary-light',
-        icon: 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400',
-        glow: 'bg-rose-200 dark:bg-rose-900/20'
+        number: 'text-gray-900',
+        badge: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60',
+        hoverBorder: 'hover:border-rose-300',
+        line: 'bg-rose-500',
+        ambientBg: 'bg-gradient-to-br from-rose-50/60 via-rose-50/20 to-transparent'
+      },
+      indigo: {
+        number: 'text-gray-900',
+        badge: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/60',
+        hoverBorder: 'hover:border-indigo-300',
+        line: 'bg-indigo-500',
+        ambientBg: 'bg-gradient-to-br from-indigo-50/60 via-indigo-50/20 to-transparent'
       }
     }
 
-    return tones[props.tone]
+    return tones[props.tone] || tones.blue
   })
 
   const formattedValue = computed(() => {
@@ -48,55 +64,70 @@
     }
     return props.value
   })
-  const cardComponent = computed(() => (props.to ? resolveComponent('NuxtLink') : 'section'))
+
+  const cardComponent = computed(() => (props.to ? resolveComponent('NuxtLink') : 'div'))
 </script>
 
 <template>
   <component
     :is="cardComponent"
     :to="to"
-    class="metric-card border-border bg-card text-card-foreground hover:border-primary/30 relative block h-full overflow-hidden rounded-2xl border shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:min-h-40"
-    :class="to ? 'cursor-pointer' : ''"
+    class="metric-card group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xs"
+    :class="[to ? 'cursor-pointer' : '', toneConfig.hoverBorder]"
   >
+    <!-- Subtle Ambient Hover Background Animation -->
     <div
-      class="absolute -top-10 -right-8 h-28 w-28 rounded-full opacity-40 blur-2xl"
-      :class="toneClasses.glow"
+      class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
+      :class="toneConfig.ambientBg"
     />
-    <div class="relative flex h-full flex-col items-start justify-between p-3.5 md:p-5">
-      <div class="flex w-full justify-between gap-2 md:gap-4">
-        <div>
-          <p class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+
+    <!-- Card Content Layer (z-10) -->
+    <div class="relative z-10 flex h-full flex-col justify-between">
+      <div>
+        <!-- Top Row: Label & Status Pill Badge -->
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
             {{ label }}
-          </p>
+          </span>
+          <span
+            v-if="badge"
+            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+            :class="toneConfig.badge"
+          >
+            {{ badge }}
+          </span>
+        </div>
+
+        <!-- Middle Row: Authoritative Metric Hero Number -->
+        <div class="mt-3 flex items-baseline gap-2">
           <div
             v-if="loading"
-            class="bg-muted mt-3 h-8 w-20 animate-pulse rounded-lg"
+            class="h-8 w-20 animate-pulse rounded-lg bg-gray-100 sm:h-9"
           />
-          <p
+          <span
             v-else
-            class="text-foreground mt-1 text-2xl font-black md:mt-2 md:text-3xl"
+            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
+            :class="toneConfig.number"
           >
             {{ formattedValue }}
-          </p>
+          </span>
         </div>
 
-        <div
-          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl md:h-12 md:w-12 md:rounded-2xl"
-          :class="toneClasses.icon"
+        <!-- Bottom Row: Context Description / Caption -->
+        <p
+          v-if="detail"
+          class="mt-1 text-xs font-medium text-gray-500"
         >
-          <Icon
-            :name="icon"
-            class="text-2xl"
-          />
-        </div>
+          {{ detail }}
+        </p>
       </div>
 
-      <div class="mt-2.5 w-full md:mt-5">
-        <p class="text-muted-foreground hidden text-sm font-medium sm:block">{{ detail }}</p>
-        <div class="bg-muted mt-1 h-1.5 overflow-hidden rounded-full sm:mt-4">
+      <!-- Animated Bottom Accent Line on Hover -->
+      <div class="mt-3.5 w-full">
+        <div class="h-1 w-full overflow-hidden rounded-full bg-gray-100">
           <div
-            class="metric-progress h-full w-1/3 rounded-full bg-gradient-to-r transition-all duration-500 ease-out"
-            :class="toneClasses.accent"
+            class="metric-progress h-full w-1/4 rounded-full transition-all duration-500 ease-out group-hover:w-full"
+            :class="toneConfig.line"
           />
         </div>
       </div>

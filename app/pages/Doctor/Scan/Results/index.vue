@@ -1,4 +1,8 @@
 <script setup lang="ts">
+  import { onBeforeRouteLeave } from 'vue-router'
+  import { userService } from '~/api/user/UserService'
+  import { calculateAge } from '~/composables/useFormSanitizer'
+
   const {
     currentDiagnosis,
     isScanned,
@@ -8,6 +12,8 @@
     isNoneState,
     chartData,
     patientUuid,
+    pendingPatientRegistration,
+    pendingPatientName,
     isProceededToResults,
     saveActiveDiagnosisState,
     clearDiagnosis,
@@ -15,8 +21,40 @@
   } = useDiagnosis()
   const { appointments, pendingAppointments } = useAppointments()
   const userName = useCookie('user_name')
-  import { userService } from '~/api/user/UserService'
-  import { calculateAge } from '~/composables/useFormSanitizer'
+
+  const showBackConfirmModal = ref(false)
+  const targetRoute = ref<string | null>(null)
+  let isNavigatingAwayConfirmed = false
+
+  const handleBackClick = () => {
+    if (pendingPatientRegistration.value) {
+      targetRoute.value = '/Doctor/Scan'
+      showBackConfirmModal.value = true
+    } else {
+      navigateTo('/Doctor/Scan')
+    }
+  }
+
+  const confirmDiscardAndLeave = () => {
+    showBackConfirmModal.value = false
+    isNavigatingAwayConfirmed = true
+    pendingPatientRegistration.value = null
+    resetScanner()
+    if (targetRoute.value) {
+      navigateTo(targetRoute.value)
+    } else {
+      navigateTo('/Doctor/Scan')
+    }
+  }
+
+  onBeforeRouteLeave((to, from) => {
+    if (pendingPatientRegistration.value && !isNavigatingAwayConfirmed) {
+      targetRoute.value = to.fullPath
+      showBackConfirmModal.value = true
+      return false
+    }
+    return true
+  })
 
   const { data: patientResponse } = userService.useShow(patientUuid.value || '', {
     immediate: !!patientUuid.value
@@ -24,6 +62,9 @@
   const assignedPatient = computed(() => patientResponse.value?.data || patientResponse.value)
 
   const patientName = computed(() => {
+    if (pendingPatientName.value) {
+      return pendingPatientName.value
+    }
     if (patientUuid.value) {
       if (assignedPatient.value) {
         return `${assignedPatient.value.first_name} ${assignedPatient.value.last_name}`
@@ -39,6 +80,9 @@
   })
 
   const patientAge = computed(() => {
+    if (pendingPatientRegistration.value?.age) {
+      return pendingPatientRegistration.value.age
+    }
     if (!patientUuid.value) return null
 
     if (assignedPatient.value) {
@@ -54,6 +98,9 @@
   })
 
   const patientDateOfBirth = computed<string | null>(() => {
+    if (pendingPatientRegistration.value?.date_of_birth) {
+      return pendingPatientRegistration.value.date_of_birth
+    }
     if (!patientUuid.value) return null
 
     if (assignedPatient.value) {
@@ -123,30 +170,53 @@
 
 <template>
   <div
-    class="flex h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-[2.5rem] border border-gray-100 bg-white shadow-sm"
+    class="flex min-h-screen flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-gray-100 lg:bg-white lg:shadow-sm"
   >
     <!-- Header -->
-    <header class="flex shrink-0 items-center justify-between border-b border-gray-100 px-10 py-4">
-      <div class="flex items-center gap-3">
-        <div
-          class="flex items-center gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50 px-3.5 py-2 text-xs font-bold text-amber-800 shadow-2xs"
+    <header
+      class="mb-4 flex shrink-0 items-center justify-between gap-2 rounded-2xl border border-gray-100/80 bg-white px-3.5 py-2.5 shadow-2xs sm:mb-6 sm:px-6 sm:py-3 lg:mb-0 lg:rounded-none lg:border-0 lg:border-b lg:border-gray-100 lg:bg-transparent lg:px-10 lg:py-4 lg:shadow-none"
+    >
+      <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <AppButton
+          variant="unstyled"
+          size="unstyled"
+          rounded="unstyled"
+          @click="handleBackClick"
+          class="hover:text-primary flex shrink-0 items-center gap-1.5 text-xs font-bold text-gray-500 transition-colors"
         >
-          <span class="relative flex h-2 w-2">
+          <div
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
+          >
+            <Icon
+              name="material-symbols:arrow-back-rounded"
+              class="text-base"
+            />
+          </div>
+          <span class="hidden sm:inline">Back</span>
+        </AppButton>
+
+        <div
+          class="flex items-center gap-1.5 rounded-xl border border-amber-200/80 bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800 shadow-2xs sm:px-3 sm:py-1.5"
+        >
+          <span class="relative flex h-2 w-2 shrink-0">
             <span
               class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
             ></span>
             <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
           </span>
-          <span>Active Assessment in Progress — Complete & Finish Diagnosis to proceed</span>
+          <span class="hidden md:inline"
+            >Active Assessment in Progress — Complete & Finish Diagnosis</span
+          >
+          <span class="truncate md:hidden">Active Assessment</span>
         </div>
       </div>
 
-      <div class="flex items-center gap-6">
+      <div class="flex shrink-0 items-center gap-3 sm:gap-6">
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+          <span class="text-[9px] font-black tracking-widest text-gray-400 uppercase sm:text-[10px]"
             >Diagnosis ID</span
           >
-          <span class="font-mono text-xs font-bold text-gray-600"
+          <span class="font-mono text-[11px] font-bold text-gray-600 sm:text-xs"
             >#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span
           >
         </div>
@@ -154,11 +224,11 @@
           variant="unstyled"
           size="unstyled"
           rounded="unstyled"
-          class="bg-primary/10 text-primary hover:bg-primary/20 flex h-10 w-10 items-center justify-center rounded-xl transition-colors"
+          class="bg-primary/10 text-primary hover:bg-primary/20 flex h-8 w-8 items-center justify-center rounded-xl transition-colors sm:h-10 sm:w-10"
         >
           <Icon
             name="material-symbols:share-rounded"
-            class="text-xl"
+            class="text-base sm:text-xl"
           />
         </AppButton>
       </div>
@@ -204,6 +274,19 @@
         </template>
       </ClientOnly>
     </main>
+
+    <!-- Confirmation Modal when leaving/discarding with a pending patient -->
+    <AppModalConfirmation
+      v-model="showBackConfirmModal"
+      title="Discard Unsaved Patient & Scan?"
+      :description="`The registered account for ${pendingPatientName || 'this patient'} has NOT been saved or officially created yet. If you exit or discard this diagnosis, the account will not be saved — only added to the list with no account to be usable unless officially created. To officially create and save this account, click 'Continue Assessment' and then 'Finish Diagnosis & Save'.`"
+      icon="lucide:trash-2"
+      icon-color="danger"
+      confirm-text="Discard & Leave"
+      cancel-text="Continue Assessment"
+      confirm-variant="destructive"
+      @confirm="confirmDiscardAndLeave"
+    />
   </div>
 </template>
 

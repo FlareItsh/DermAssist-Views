@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import { computed, ref, watch, onMounted } from 'vue'
-  import { DISEASE_DATABASE, type DiseaseName, type ImageQuality } from '~/composables/useDiagnosis'
+  import {
+    DISEASE_DATABASE,
+    type DiseaseName,
+    type ImageQuality,
+    type PendingPatientRegistration
+  } from '~/composables/useDiagnosis'
   import { appealService } from '~/api/appeal/AppealService'
   import { userService } from '~/api/user/UserService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
@@ -22,7 +27,8 @@
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
-  const { patientUuid, currentDiagnosis, saveActiveDiagnosisState } = useDiagnosis()
+  const { patientUuid, pendingPatientRegistration, currentDiagnosis, saveActiveDiagnosisState } =
+    useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
   const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const showNewAccountPassword = ref(false)
@@ -31,11 +37,15 @@
 
   const handleSelectPatient = (uuid: string) => {
     patientUuid.value = uuid
+    pendingPatientRegistration.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
   }
 
   const handleClearPatientSelection = () => {
     patientUuid.value = null
+    pendingPatientRegistration.value = null
+    saveActiveDiagnosisState()
     isPatientModalOpen.value = false
   }
 
@@ -525,7 +535,7 @@
     createAccountError.value = null
 
     try {
-      const response = await userService.createDoctorPatient({
+      const payload: PendingPatientRegistration = {
         firstName: newAccountForm.firstName.trim(),
         lastName: newAccountForm.lastName.trim(),
         email: newAccountForm.email.trim(),
@@ -540,27 +550,22 @@
         barangay: newAccountForm.barangay?.trim() || undefined,
         city: newAccountForm.city?.trim() || undefined,
         province: newAccountForm.province?.trim() || undefined
-      })
-
-      const createdUser = response.user
-      patientUuid.value = createdUser.uuid
-      saveActiveDiagnosisState()
-      userName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
-      const createdAge = calculateAge(createdUser.date_of_birth) ?? createdUser.age
-      if (createdAge) {
-        editablePatientAge.value = String(createdAge)
       }
 
-      if (props.diagnosisUuid) {
-        try {
-          await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
-        } catch (e) {
-          console.error('Failed to link diagnosis with new patient uuid:', e)
-        }
+      pendingPatientRegistration.value = payload
+      patientUuid.value = 'pending_new_patient'
+      saveActiveDiagnosisState()
+      userName.value = `${payload.firstName} ${payload.lastName}`
+      editablePatientName.value = `${payload.firstName} ${payload.lastName}`
+      if (payload.age) {
+        editablePatientAge.value = String(payload.age)
       }
 
       createAccountSuccess.value = true
+      toast.success(
+        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+      )
+
       // Close account modal after success
       setTimeout(() => {
         isCreateAccountModalOpen.value = false
@@ -568,7 +573,7 @@
       }, 900)
     } catch (err: any) {
       createAccountError.value =
-        err.data?.message || err.message || 'Failed to create patient account.'
+        err.data?.message || err.message || 'Failed to stage patient account.'
     } finally {
       isSubmittingAccount.value = false
     }
@@ -1009,23 +1014,25 @@
 </script>
 
 <template>
-  <div class="custom-scrollbar flex h-full w-full items-start overflow-y-auto">
+  <div class="custom-scrollbar flex h-full w-full flex-col items-start overflow-y-auto lg:flex-row">
     <!-- Left Column: Knowledge Base -->
     <div
-      class="custom-scrollbar sticky top-0 flex max-h-full flex-1 flex-col self-start overflow-y-auto p-10 pr-8"
+      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-6 xl:p-8"
     >
-      <div class="mb-8 flex items-center gap-5">
+      <div class="mb-6 flex items-start gap-3.5 sm:mb-8 sm:items-center sm:gap-5">
         <div
-          class="bg-primary/10 flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl shadow-inner"
+          class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
         >
           <Icon
             name="material-symbols:clinical-notes-outline-rounded"
-            class="text-primary text-3xl"
+            class="text-primary text-xl sm:text-2xl"
           />
         </div>
-        <div>
-          <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-foreground text-3xl font-black tracking-tight lg:text-4xl">
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1
+              class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
+            >
               {{
                 activeDisease === 'None'
                   ? 'Non-Skin Image Detected'
@@ -1062,7 +1069,88 @@
           </div>
           <div class="mt-1 flex items-center gap-2">
             <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
-            <p class="text-sm font-bold text-gray-500">Clinical Analysis &amp; Guidance</p>
+            <p class="text-xs font-bold text-gray-500 sm:text-sm">
+              Clinical Analysis &amp; Guidance
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistical Findings Component (Top - Mobile & Tablet Only) -->
+      <div
+        class="bg-card mb-6 rounded-2xl border border-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6 lg:hidden"
+      >
+        <div class="mb-4 flex items-center justify-between sm:mb-6">
+          <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
+          <AppConfidenceTooltip
+            align="right"
+            :chart-data="displayChartData"
+            :confidence="activeConfidence"
+          />
+        </div>
+        <div
+          class="flex flex-col items-center gap-6 sm:flex-row sm:items-center sm:justify-center sm:gap-8 md:gap-12"
+        >
+          <div class="relative flex shrink-0 items-center justify-center">
+            <AppDonutChart
+              :data="displayChartData"
+              :size="200"
+              :stroke-width="38"
+              :show-legend="false"
+            />
+            <div class="absolute inset-0 flex flex-col items-center justify-center">
+              <span class="text-foreground text-2xl font-bold sm:text-3xl"
+                >{{ activeConfidence }}%</span
+              >
+              <span
+                class="text-[9px] font-semibold tracking-wider text-gray-400 uppercase sm:text-[10px]"
+                >Confidence</span
+              >
+            </div>
+          </div>
+
+          <div class="grid w-full grid-cols-1 gap-2.5 sm:max-w-md sm:flex-1">
+            <div
+              v-for="(entry, i) in displayChartData"
+              :key="i"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
+              @click="activeDisease = entry.label as DiseaseName"
+            >
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span
+                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
+                  :style="{ backgroundColor: entry.color }"
+                ></span>
+                <span
+                  class="text-xs font-semibold sm:text-sm"
+                  :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                >
+                  {{ entry.label }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
+                  >{{ entry.value }}%</span
+                >
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
+                  :class="
+                    activeDisease === entry.label
+                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
+                      : 'border border-gray-100 bg-white text-gray-300'
+                  "
+                >
+                  <Icon
+                    :name="
+                      activeDisease === entry.label
+                        ? 'material-symbols:check'
+                        : 'material-symbols:search'
+                    "
+                    class="text-sm sm:text-base"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1070,19 +1158,18 @@
       <!-- Out-of-Scope Dedicated Advisory Notice -->
       <div
         v-if="activeDisease === 'OutOfScope'"
-        class="mb-8 space-y-3 rounded-2xl border border-purple-200 bg-purple-50 p-6 text-purple-950 shadow-xs"
+        class="mb-6 space-y-2.5 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-950 shadow-xs sm:mb-8 sm:space-y-3 sm:p-6"
       >
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 text-sm font-bold text-purple-800">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-purple-800 sm:text-sm">
             <Icon
               name="lucide:stethoscope"
-              size="18"
-              class="shrink-0 text-purple-600"
+              class="size-4 shrink-0 text-purple-600 sm:size-[18px]"
             />
             <span>Semantic Validation: Out-of-Scope Skin Condition</span>
           </div>
           <span
-            class="rounded-full bg-purple-100 px-2.5 py-0.5 text-[11px] font-extrabold tracking-wider text-purple-700 uppercase"
+            class="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-purple-700 uppercase sm:px-2.5 sm:text-[11px]"
             >Zero-Shot OOD Filter</span
           >
         </div>
@@ -1127,7 +1214,7 @@
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="border-warning-border bg-warning-subtle mb-8 rounded-2xl border p-4 shadow-2xs transition-all"
+        class="border-warning-border bg-warning-subtle mb-6 rounded-2xl border p-4 shadow-2xs transition-all sm:mb-8"
       >
         <div class="flex items-start gap-3">
           <div
@@ -1162,7 +1249,7 @@
       <!-- Non-Skin Advisory Notice -->
       <div
         v-else-if="activeDisease === 'None'"
-        class="bg-muted/40 border-border text-muted-foreground mb-8 space-y-1.5 rounded-2xl border p-4"
+        class="bg-muted/40 border-border text-muted-foreground mb-6 space-y-1.5 rounded-2xl border p-4 sm:mb-8"
       >
         <div class="text-foreground flex items-center gap-2 text-sm font-bold">
           <Icon
@@ -1179,10 +1266,10 @@
       </div>
 
       <div
-        class="mb-8 grid grid-cols-3 gap-6 rounded-2xl border border-gray-100 bg-gray-50/40 p-6 shadow-sm"
+        class="mb-6 grid grid-cols-1 gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:mb-8 sm:gap-6 sm:p-6 md:grid-cols-3"
       >
         <div class="flex flex-col gap-1.5">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
             >Patient Name</span
           >
           <div
@@ -1263,8 +1350,10 @@
           >
         </div>
 
-        <div class="flex min-w-[220px] flex-col gap-1.5 border-x border-gray-200 px-6">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase">
+        <div
+          class="flex flex-col gap-1.5 border-y border-gray-100 py-3 sm:min-w-[220px] md:border-x md:border-y-0 md:px-6 md:py-0"
+        >
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs">
             Date of Birth & Age
           </span>
 
@@ -1407,8 +1496,8 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-1.5 pl-6">
-          <span class="text-[10px] font-black tracking-widest text-gray-400 uppercase"
+        <div class="flex flex-col gap-1.5 md:pl-6">
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
             >Assessment Date</span
           >
           <span class="text-base font-bold text-gray-900">{{
@@ -1425,7 +1514,7 @@
       <!-- Standard AI Retraining Dataset checkbox (Acne / Eczema / Herpes only) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && !isOutOfScopeFromDiagnosis"
-        class="border-primary/20 bg-primary/5 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2"
+        class="border-primary/20 bg-primary/5 mb-6 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2 sm:mb-8"
       >
         <input
           id="detailed-dataset-checkbox"
@@ -1449,7 +1538,7 @@
       <!-- Out-of-Scope Research Dataset checkbox (mirrors existing, separate storage) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && isOutOfScopeFromDiagnosis"
-        class="flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2"
+        class="mb-6 flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2 sm:mb-8"
       >
         <input
           id="detailed-out-of-scope-dataset-checkbox"
@@ -1474,7 +1563,7 @@
 
       <div
         v-if="props.role === 'doctor'"
-        class="mt-12 flex flex-col gap-12"
+        class="flex flex-col gap-6 sm:gap-8"
       >
         <AppClinicalNoteForm
           :appointment-uuid="props.appointmentUuid"
@@ -1494,9 +1583,9 @@
 
       <div
         v-else
-        class="mt-6 flex flex-col gap-8"
+        class="flex flex-col gap-6 sm:gap-8"
       >
-        <section class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
             <h3 class="text-xl font-bold tracking-tight">Clinical Understanding</h3>
@@ -1506,7 +1595,7 @@
           </p>
         </section>
 
-        <div class="grid grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
           <section>
             <div class="mb-4 flex items-center gap-2.5">
               <div class="bg-secondary h-2 w-2 rounded-full"></div>
@@ -1560,11 +1649,12 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="relative sticky top-0 flex min-h-[500px] w-[420px] shrink-0 flex-col gap-6 self-start border-l border-gray-100 bg-gray-50/30 p-6 lg:w-[480px]"
+      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-6 sm:py-8 lg:sticky lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px] xl:gap-8 xl:p-8"
     >
-      <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <div class="mb-6 flex items-center justify-between">
-          <h2 class="text-xl font-bold">Statistical Findings</h2>
+      <!-- Statistical Findings Component (Right Column - Desktop Only) -->
+      <div class="bg-card hidden rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6 lg:block">
+        <div class="mb-4 flex items-center justify-between sm:mb-6">
+          <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
           <AppConfidenceTooltip
             align="right"
             :chart-data="displayChartData"
@@ -1580,8 +1670,11 @@
               :show-legend="false"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+              <span class="text-foreground text-2xl font-bold sm:text-3xl"
+                >{{ activeConfidence }}%</span
+              >
+              <span
+                class="text-[9px] font-semibold tracking-wider text-gray-400 uppercase sm:text-[10px]"
                 >Confidence</span
               >
             </div>
@@ -1591,25 +1684,27 @@
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-gray-100 hover:bg-gray-50"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2.5 sm:gap-3">
                 <span
-                  class="h-3.5 w-3.5 shrink-0 rounded-full"
+                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
                 <span
-                  class="text-sm font-bold"
+                  class="text-xs font-semibold sm:text-sm"
                   :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
                 >
                   {{ entry.label }}
                 </span>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-gray-400">{{ entry.value }}%</span>
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
+                  >{{ entry.value }}%</span
+                >
                 <div
-                  class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
+                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
                   :class="
                     activeDisease === entry.label
                       ? 'bg-primary shadow-primary/20 text-white shadow-md'
@@ -1622,7 +1717,7 @@
                         ? 'material-symbols:check'
                         : 'material-symbols:search'
                     "
-                    class="text-base"
+                    class="text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -1634,16 +1729,16 @@
       <!-- Image Quality & Reliability Card -->
       <div
         v-if="currentDiagnosis?.image_quality"
-        class="bg-card rounded-[2.5rem] border p-8 shadow-sm transition-all"
+        class="bg-card rounded-2xl border p-4 shadow-sm transition-all sm:p-6"
         :class="
           currentDiagnosis.image_quality.status === 'Excellent'
             ? 'border-green-100'
             : 'border-amber-100'
         "
       >
-        <div class="mb-6 flex items-center gap-4">
+        <div class="mb-4 flex items-center gap-3 sm:mb-5 sm:gap-4">
           <div
-            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl"
             :class="
               currentDiagnosis.image_quality.status === 'Excellent'
                 ? 'bg-green-100 text-green-600'
@@ -1656,13 +1751,13 @@
                   ? 'material-symbols:verified-rounded'
                   : 'material-symbols:warning-outline-rounded'
               "
-              class="text-2xl"
+              class="text-xl sm:text-2xl"
             />
           </div>
           <div>
-            <h3 class="text-lg font-bold text-gray-900">Image Quality</h3>
+            <h3 class="text-sm font-bold text-gray-900 sm:text-base">Image Quality</h3>
             <span
-              class="text-sm font-bold"
+              class="text-xs font-semibold sm:text-sm"
               :class="
                 currentDiagnosis.image_quality.status === 'Excellent'
                   ? 'text-green-600'
@@ -1674,14 +1769,14 @@
           </div>
         </div>
 
-        <p class="mb-6 text-base leading-relaxed text-gray-600">
+        <p class="mb-4 text-xs leading-relaxed text-gray-600 sm:mb-5 sm:text-sm">
           {{ currentDiagnosis.image_quality.feedback_message }}
         </p>
 
         <!-- Quality metric pills -->
         <div class="flex flex-wrap gap-2">
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_blurry
                 ? 'bg-red-50 text-red-600'
@@ -1694,12 +1789,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Focus
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_dark
                 ? 'bg-red-50 text-red-600'
@@ -1712,12 +1807,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Brightness
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_overexposed
                 ? 'bg-red-50 text-red-600'
@@ -1730,12 +1825,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Glare
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_low_contrast
                 ? 'bg-red-50 text-red-600'
@@ -1748,7 +1843,7 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Contrast
           </span>
@@ -1758,12 +1853,12 @@
       <!-- Medical Appeal Card (Doctor Only) -->
       <div
         v-if="props.role === 'doctor'"
-        class="bg-card mb-6 flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
+        class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-3">
           <div>
-            <h3 class="text-xl font-bold">Disagree with the results?</h3>
-            <p class="mt-1 text-sm text-gray-500">
+            <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
+            <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
               File an appeal to suggest a different diagnosis.
             </p>
           </div>
@@ -1771,7 +1866,7 @@
             v-if="!isAppealOpen"
             variant="outline"
             @click="isAppealOpen = true"
-            class="rounded-xl px-4 py-2 font-bold"
+            class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
           >
             File Appeal
           </AppButton>
@@ -1779,49 +1874,51 @@
 
         <div
           v-if="isAppealOpen"
-          class="animate-in slide-in-from-top-2 flex flex-col gap-4 duration-300"
+          class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
         >
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label
+              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
               >Suggested Diagnosis</label
             >
             <input
               v-model="suggestedLabel"
               type="text"
-              class="focus:ring-primary w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
+              class="focus:ring-primary w-full rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
               placeholder="Enter correct diagnosis..."
             />
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label
+              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
               >Reason / Description (Optional)</label
             >
             <textarea
               v-model="appealDescription"
               rows="3"
-              class="focus:ring-primary w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
+              class="focus:ring-primary w-full resize-none rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
               placeholder="Provide details on why you disagree..."
             ></textarea>
           </div>
 
           <div
             v-if="appealError"
-            class="text-sm font-medium text-red-500"
+            class="text-xs font-medium text-red-500 sm:text-sm"
           >
             {{ appealError }}
           </div>
           <div
             v-if="appealSuccess"
-            class="text-sm font-medium text-green-500"
+            class="text-xs font-medium text-green-500 sm:text-sm"
           >
             Appeal submitted successfully!
           </div>
 
-          <div class="mt-2 flex items-center justify-end gap-3">
+          <div class="mt-1 flex items-center justify-end gap-2.5 sm:mt-2 sm:gap-3">
             <AppButton
               variant="ghost"
               @click="isAppealOpen = false"
-              class="rounded-xl font-bold text-gray-500"
+              class="rounded-xl px-3 py-1.5 text-xs font-bold text-gray-500 sm:px-4 sm:py-2 sm:text-sm"
               :disabled="isSubmittingAppeal"
             >
               Cancel
@@ -1830,7 +1927,7 @@
               @click="submitAppeal"
               :loading="isSubmittingAppeal"
               :disabled="!suggestedLabel"
-              class="bg-primary text-card rounded-xl px-6 py-2 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary text-card rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
             >
               Submit Appeal
             </AppButton>
@@ -1841,10 +1938,10 @@
       <div
         v-if="props.role !== 'doctor'"
         ref="doctorCardRef"
-        class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
+        class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-6 sm:p-6"
       >
         <div class="flex items-center justify-between">
-          <h3 class="text-2xl font-bold">
+          <h3 class="text-sm font-bold sm:text-base">
             {{
               isDoctorRegistered
                 ? 'Your Attending Doctor'

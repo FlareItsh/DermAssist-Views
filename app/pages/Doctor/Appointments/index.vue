@@ -188,7 +188,7 @@
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-5 overflow-hidden p-4 sm:p-6">
+  <div class="flex h-full flex-col gap-5 pb-8">
     <!-- Header & Action -->
     <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
       <div>

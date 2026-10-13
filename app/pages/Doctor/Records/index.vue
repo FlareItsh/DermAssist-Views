@@ -44,7 +44,7 @@
     )
   })
 
-  const recordsPerPage = 5
+  const recordsPerPage = 10
   const recordCurrentPage = ref(1)
 
   const paginatedRecords = computed(() => {
@@ -69,7 +69,44 @@
 </script>
 
 <template>
-  <div class="mt-6 flex min-h-screen flex-col">
+  <div class="mt-4 flex flex-col pb-4 md:mt-6 md:pb-0">
+    <!-- Page Header -->
+    <div class="mb-4">
+      <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Records</h1>
+      <p class="text-muted-foreground mt-0.5 text-xs sm:text-sm">
+        View and manage patient consultation records and diagnostic findings.
+      </p>
+    </div>
+
+    <!-- Mobile Search Bar (hidden on desktop) -->
+    <div class="mb-4 block md:hidden">
+      <div
+        class="flex items-center gap-2.5 rounded-2xl border border-gray-200/80 bg-white px-3.5 py-2.5 shadow-2xs"
+      >
+        <Icon
+          name="solar:magnifer-linear"
+          class="shrink-0 text-gray-400"
+          size="18"
+        />
+        <input
+          type="text"
+          placeholder="Search records by patient or condition..."
+          v-model="searchQuery"
+          class="text-foreground flex-1 bg-transparent text-xs font-medium placeholder-gray-400 outline-none"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="shrink-0 text-gray-400 hover:text-gray-600"
+        >
+          <Icon
+            name="heroicons:x-mark-20-solid"
+            size="16"
+          />
+        </button>
+      </div>
+    </div>
+
     <div
       v-if="isLoading"
       class="flex items-center justify-center py-20"
@@ -103,7 +140,7 @@
         />
       </div>
 
-      <div class="bg-card border-sidebar-border mt-4 overflow-hidden rounded-2xl border">
+      <div class="bg-card border-sidebar-border mt-4 overflow-hidden rounded-2xl border shadow-xs">
         <AppPagination
           v-model:currentPage="recordCurrentPage"
           :total-items="filteredRecords.length"
@@ -141,11 +178,11 @@
       <Transition name="modal">
         <div
           v-if="isOpen"
-          class="fixed inset-0 z-999 flex items-center justify-center bg-black/40 p-4 transition-all"
+          class="fixed inset-0 z-999 flex items-center justify-center bg-black/50 p-4 transition-all"
           @click.self="isOpen = false"
         >
           <div
-            class="modal-container bg-card relative max-h-[90vh] w-[68vw] overflow-hidden rounded-4xl shadow-2xl"
+            class="modal-container bg-card relative max-h-[90vh] w-[95vw] overflow-y-auto rounded-3xl shadow-2xl md:w-full md:max-w-2xl md:rounded-4xl"
           >
             <AppButton
               variant="unstyled"

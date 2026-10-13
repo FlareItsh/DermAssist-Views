@@ -201,12 +201,14 @@
 <template>
   <div
     ref="componentRef"
-    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-6 py-5 shadow-sm"
+    class="appointment-schedule bg-navy flex flex-col gap-3 rounded-3xl px-4 py-4 shadow-sm sm:px-6 sm:py-5"
   >
-    <div class="flex items-center justify-between">
-      <div class="flex flex-col gap-0.5">
-        <div class="flex items-center gap-2">
-          <h2 class="text-xl font-bold tracking-tight text-white">Patients Appointment Schedule</h2>
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <div class="flex flex-wrap items-center gap-2">
+          <h2 class="text-base font-bold tracking-tight text-sm text-white sm:text-xl">
+            Patients Appointment Schedule
+          </h2>
           <span
             v-if="selectedDate"
             class="bg-secondary/35 border-secondary/50 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold text-white"
@@ -227,12 +229,12 @@
         <span class="text-xs font-medium text-white/60">{{ rangeLabel }}</span>
       </div>
 
-      <div class="flex items-center gap-2">
+      <div class="flex shrink-0 items-center gap-1 sm:gap-2">
         <button
           v-if="weekOffset !== 0"
           @click="resetToToday"
           type="button"
-          class="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white"
+          class="hidden rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/85 transition hover:bg-white/20 hover:text-white min-[400px]:inline-flex"
         >
           Current Week
         </button>
@@ -277,16 +279,20 @@
       </div>
     </div>
 
-    <div class="custom-scrollbar flex gap-1 overflow-x-auto py-3">
+    <div
+      class="scrollbar-hide -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-1.5 overflow-x-auto px-4 py-3 sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:snap-none lg:gap-1 lg:px-0"
+    >
       <div
         v-for="d in days"
         :key="d.toDateString()"
         @click="selectDay(d)"
         @mouseenter="hoveredDayKey = toKey(d)"
         @mouseleave="hoveredDayKey = null"
-        class="day-card relative flex min-h-[105px] cursor-pointer flex-col items-center justify-between overflow-visible rounded-2xl px-1 pt-3 pb-2.5 transition-all duration-200 select-none"
+        class="day-card relative flex min-h-[88px] cursor-pointer flex-col items-center justify-between overflow-visible rounded-2xl px-1 pt-2 pb-2 transition-all duration-200 select-none sm:min-h-[96px] sm:pt-2.5 sm:pb-2.5 lg:min-h-[105px] lg:pt-3"
         :class="[
-          days.length === 1 ? 'w-[92px] shrink-0' : 'min-w-0 flex-1',
+          days.length === 1
+            ? 'w-[92px] shrink-0'
+            : 'w-[66px] shrink-0 snap-start sm:w-[72px] lg:w-auto lg:min-w-0 lg:flex-1 lg:shrink',
           isSelected(d)
             ? 'bg-secondary z-10 scale-105 border-[5px] border-white/20 shadow-xl'
             : isDayFullyBlocked(d)
@@ -304,7 +310,7 @@
       >
         <!-- Day name -->
         <span
-          class="text-[13px] font-bold"
+          class="text-[10px] font-medium tracking-wide sm:text-[11px] lg:text-[13px] lg:font-semibold"
           :class="[
             isSelected(d)
               ? 'text-white'
@@ -326,7 +332,7 @@
 
         <!-- Day number -->
         <span
-          class="text-3xl font-bold"
+          class="text-xl font-semibold sm:text-2xl lg:text-3xl lg:font-bold"
           :class="[
             isSelected(d)
               ? 'text-white'
@@ -516,6 +522,14 @@
 </template>
 
 <style scoped>
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
   .day-pill {
     padding: 4px 6px 12px;
   }

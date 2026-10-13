@@ -271,7 +271,7 @@
 <template>
   <div
     ref="calendarRef"
-    class="relative z-30"
+    class="relative z-10 w-full"
   >
     <!-- Appointment Detail Panel — overlaps content to the left, does NOT push layout -->
     <Transition name="slide-left">
@@ -396,11 +396,11 @@
     </Transition>
 
     <!-- Calendar card -->
-    <div class="bg-card w-[400px] rounded-3xl border border-gray-100 p-6">
-      <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
-          <h1 class="text-foreground text-2xl font-bold">Calendar</h1>
+    <div class="bg-card w-full rounded-2xl border border-gray-100 p-3 sm:rounded-3xl sm:p-5">
+      <div class="mb-3 flex items-center justify-between sm:mb-4">
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="bg-secondary h-6 w-1 shrink-0 rounded-full sm:h-8"></div>
+          <h1 class="text-foreground text-base font-bold sm:text-2xl">Calendar</h1>
         </div>
 
         <div class="flex gap-2">
@@ -433,7 +433,7 @@
         </div>
       </div>
 
-      <h2 class="text-foreground mb-3 text-lg font-bold">
+      <h2 class="text-foreground mb-2.5 text-sm font-bold sm:mb-3 sm:text-lg">
         {{ currentMonthName }} {{ currentYear }}
       </h2>
 
@@ -457,7 +457,7 @@
           @click="selectDate(date)"
           @mouseenter="hoveredDate = dateStringFor(date)"
           @mouseleave="hoveredDate = null"
-          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-[15px] font-semibold transition-colors"
+          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-xs font-semibold transition-colors sm:h-9 sm:w-9 sm:text-sm"
           :class="[
             isPast(date)
               ? 'pointer-events-none text-gray-300 line-through'

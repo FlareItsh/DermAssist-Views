@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-screen flex-col overflow-hidden">
-    <!-- Desktop Navbar (hidden on mobile) -->
-    <div class="hidden md:block">
+    <!-- Desktop Navbar (hidden on mobile; doctors also hide it on tablet) -->
+    <div :class="desktopChromeClass">
       <AppNavbar
         :title="currentPageTitle"
         :description="currentPageDescription"
@@ -12,29 +12,33 @@
     </div>
 
     <div class="flex flex-1 overflow-hidden">
-      <!-- Desktop Sidebar (hidden on mobile) -->
-      <div class="hidden md:block">
+      <!-- Desktop Sidebar (hidden on mobile; doctors also hide it on tablet) -->
+      <div :class="desktopChromeClass">
         <AppSidebar :items="navItems" />
       </div>
 
       <main
         class="flex-1"
-        :class="[
-          isFullHeightPage
-            ? 'h-full overflow-hidden bg-transparent pb-0'
-            : 'overflow-y-auto pb-24 md:pb-5',
-          userRole === 'patient'
-            ? isFullHeightPage
-              ? isChatThread
-                ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
-                : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
-              : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
-            : userRole === 'admin'
-              ? 'mt-0 md:-mt-4 md:p-5'
-              : isChatPage || isFullHeightPage
-                ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
-                : '-mt-4 p-5'
-        ]"
+        :class="
+          isDoctorRole
+            ? doctorMainClass
+            : [
+                isFullHeightPage
+                  ? 'h-full overflow-hidden bg-transparent pb-0'
+                  : 'overflow-y-auto pb-24 md:pb-5',
+                userRole === 'patient'
+                  ? isFullHeightPage
+                    ? isChatThread
+                      ? 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
+                      : 'mt-0 h-full pt-0 md:-mt-4 md:p-5 md:pt-5'
+                    : 'mt-0 pt-0 md:-mt-4 md:p-5 md:pt-5'
+                  : userRole === 'admin'
+                    ? 'mt-0 md:-mt-4 md:p-5'
+                    : isChatPage || isFullHeightPage
+                      ? 'mt-0 h-full p-0 md:-mt-4 md:p-5'
+                      : '-mt-4 p-5'
+              ]
+        "
         id="main-content"
       >
         <!-- Mobile Header (only on mobile viewports for patients, except in active chat threads) -->
@@ -44,6 +48,8 @@
         >
           <PatientSideComponentsMobileHeroHeader />
         </div>
+        <!-- Doctor Mobile/Tablet Header (below lg, except in active chat threads) -->
+        <DoctorSideComponentsMobileHeader v-if="showDoctorMobileChrome" />
         <!-- Admin Mobile Header (only on mobile viewports for admins) -->
         <AdminSideComponentsMobileHeader
           v-if="userRole === 'admin'"
@@ -51,29 +57,31 @@
         />
         <div
           class="mx-auto"
-          :class="[
-            userRole === 'patient'
-              ? isChatPage
-                ? 'px-0 md:p-0'
-                : 'px-5 md:p-0'
-              : userRole === 'admin'
-                ? 'px-4 pt-4 md:p-0'
-                : '',
-            isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
-          ]"
+          :class="
+            isDoctorRole
+              ? doctorContentClass
+              : [
+                  userRole === 'patient'
+                    ? isChatPage
+                      ? 'px-0 md:p-0'
+                      : 'px-5 md:p-0'
+                    : userRole === 'admin'
+                      ? 'px-4 pt-4 md:p-0'
+                      : '',
+                  isFullHeightPage || isChatPage ? 'h-full min-h-0' : 'min-h-0'
+                ]
+          "
         >
           <slot />
         </div>
       </main>
     </div>
 
-    <!-- Mobile Bottom Navigation (patient only, hidden on desktop) -->
-    <AppMobileBottomNav v-if="userRole === 'patient' && !isChatThread" />
-
-    <!-- Mobile Bottom Navigation (admin only, hidden on desktop) -->
-    <AdminSideComponentsMobileBottomNav
-      v-if="userRole === 'admin'"
-      :items="adminNavItems"
+    <!-- Unified Dynamic Mobile Bottom Navigation (for all roles) -->
+    <AppMobileBottomNav
+      v-if="!isChatThread"
+      :items="navItems"
+      :role="userRole"
     />
   </div>
 </template>
@@ -82,8 +90,10 @@
   const route = useRoute()
   const userRole = useCookie('user_role')
 
-  const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
+  const { hasUnseenAppeals, sortedAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
+  const { totalUnreadCount } = useConversations()
+  const { pendingAppointments } = useAppointments()
 
   const showWhatsNew = computed(() => {
     return hasUnseenUpdate.value || route.path.toLowerCase().endsWith('/updates')
@@ -103,7 +113,8 @@
       icon: 'lucide:alert-circle',
       label: 'Scan Appeals',
       to: '/admin/appeals',
-      showBadge: hasUnseenAppeals.value
+      showBadge: hasUnseenAppeals.value,
+      badgeCount: hasUnseenAppeals.value ? sortedAppeals.value.length || 1 : 0
     },
     { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
     {
@@ -129,7 +140,13 @@
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
     },
-    { icon: 'lucide:newspaper', label: 'System Updates', to: '/admin/patch-notes' }
+    {
+      icon: 'lucide:newspaper',
+      label: 'System Updates',
+      to: '/admin/patch-notes',
+      showBadge: hasUnseenUpdate.value,
+      badgeCount: hasUnseenUpdate.value ? 1 : 0
+    }
   ])
 
   const patientNavItems = computed(() => {
@@ -143,7 +160,9 @@
       {
         icon: 'lucide:message-square',
         label: 'Message',
-        to: '/patient/messages'
+        to: '/patient/messages',
+        showBadge: totalUnreadCount.value > 0,
+        badgeCount: totalUnreadCount.value
       },
       {
         icon: 'lucide:folder',
@@ -158,8 +177,7 @@
         label: "What's New",
         to: '/patient/updates',
         showBadge: hasUnseenUpdate.value,
-        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
-        highlight: hasUnseenUpdate.value
+        badgeCount: hasUnseenUpdate.value ? 1 : 0
       })
     }
 
@@ -179,7 +197,13 @@
         label: 'Consultations',
         children: [
           { icon: 'lucide:users', label: 'Patients', to: '/doctor/patients' },
-          { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
+          {
+            icon: 'lucide:calendar',
+            label: 'Appointments',
+            to: '/doctor/appointments',
+            showBadge: pendingAppointments.value.length > 0,
+            badgeCount: pendingAppointments.value.length
+          }
         ]
       },
       {
@@ -190,7 +214,9 @@
       {
         icon: 'lucide:message-square',
         label: 'Message',
-        to: '/doctor/messages'
+        to: '/doctor/messages',
+        showBadge: totalUnreadCount.value > 0,
+        badgeCount: totalUnreadCount.value
       },
       {
         icon: 'lucide:folder',
@@ -215,8 +241,7 @@
         label: "What's New",
         to: '/doctor/updates',
         showBadge: hasUnseenUpdate.value,
-        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
-        highlight: hasUnseenUpdate.value
+        badgeCount: hasUnseenUpdate.value ? 1 : 0
       })
     }
 
@@ -230,13 +255,21 @@
       label: 'Consultations',
       children: [
         { icon: 'lucide:users', label: 'Patients', to: '/secretary/patients' },
-        { icon: 'lucide:calendar', label: 'Appointments', to: '/secretary/appointments' }
+        {
+          icon: 'lucide:calendar',
+          label: 'Appointments',
+          to: '/secretary/appointments',
+          showBadge: pendingAppointments.value.length > 0,
+          badgeCount: pendingAppointments.value.length
+        }
       ]
     },
     {
       icon: 'lucide:message-square',
       label: 'Message',
-      to: '/secretary/messages'
+      to: '/secretary/messages',
+      showBadge: totalUnreadCount.value > 0,
+      badgeCount: totalUnreadCount.value
     },
     {
       icon: 'lucide:folder',
@@ -332,15 +365,52 @@
     return /^\/(patient|doctor|secretary)\/(messages|scan)/i.test(route.path)
   })
 
+  /**
+   * Doctors switch to the mobile chrome below `lg` (phones + portrait tablets),
+   * while other roles keep the original `md` breakpoint.
+   */
+  const isDoctorRole = computed(() => userRole.value === 'doctor')
+
+  const desktopChromeClass = computed(() =>
+    isDoctorRole.value ? 'hidden lg:block' : 'hidden md:block'
+  )
+
+  const showDoctorMobileChrome = computed(() => isDoctorRole.value && !isChatThread.value)
+
+  const doctorMainClass = computed(() => {
+    if (isChatThread.value) {
+      return 'mt-0 h-full overflow-hidden bg-transparent p-0 lg:-mt-4 lg:p-5'
+    }
+    if (isFullHeightPage.value) {
+      return 'mt-0 flex h-full flex-col overflow-hidden bg-transparent p-0 lg:-mt-4 lg:block lg:p-5'
+    }
+    return 'mt-0 overflow-y-auto p-0 lg:-mt-4 lg:p-5'
+  })
+
+  const doctorContentClass = computed(() => {
+    if (isChatThread.value) {
+      return 'h-full min-h-0'
+    }
+    if (isChatPage.value) {
+      return 'min-h-0 w-full flex-1 px-0 pt-0 pb-[92px] lg:h-full lg:p-0'
+    }
+    if (/\/scan\/results/i.test(route.path)) {
+      return 'min-h-0 w-full flex-1 px-4 pt-4 pb-[104px] sm:px-6 sm:pt-5 lg:h-full lg:p-0'
+    }
+    if (isFullHeightPage.value) {
+      return 'min-h-0 w-full flex-1 px-4 pt-3 pb-[92px] sm:px-6 lg:h-full lg:p-0'
+    }
+    return 'min-h-0 px-4 pt-4 pb-[104px] sm:px-6 sm:pt-5 lg:p-0'
+  })
+
   const currentPageTitle = computed(() => activeItemInfo.value.title)
   const currentPageDescription = computed(() => (activeItemInfo.value as any)?.description || '')
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
   onMounted(() => {
+    fetchPublishedPatchNotes()
     if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
       fetchAppeals()
-    } else {
-      fetchPublishedPatchNotes()
     }
   })
 
@@ -351,7 +421,7 @@
         markAppealsSeen()
       }
 
-      if (path.toLowerCase().endsWith('/updates')) {
+      if (path.toLowerCase().endsWith('/updates') || path.toLowerCase().endsWith('/patch-notes')) {
         markLatestUpdateAsSeen()
       }
 

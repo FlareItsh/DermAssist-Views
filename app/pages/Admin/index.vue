@@ -328,13 +328,12 @@
 
 <template>
   <div class="">
-    <div class="mb-5 grid grid-cols-2 gap-3 md:mb-6 md:grid-cols-4 md:gap-4">
+    <div class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-4 md:gap-4">
       <AdminSideComponentsMetricCard
         label="Patients"
         :value="patientCount"
-        detail="Number of users registered as patients"
-        icon="lucide:users"
-        tone="blue"
+        detail="Total registered patient users"
+        badge="Platform"
         to="/admin/moderation/users?role=patient"
         :loading="isLoadingUsers"
       />
@@ -342,9 +341,8 @@
       <AdminSideComponentsMetricCard
         label="Doctors"
         :value="doctorCount"
-        detail="Number of users registered as doctors"
-        icon="lucide:stethoscope"
-        tone="emerald"
+        detail="Total registered clinician accounts"
+        badge="Active"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingUsers"
       />
@@ -352,9 +350,8 @@
       <AdminSideComponentsMetricCard
         label="Active Dataset"
         :value="datasetImageCount"
-        detail="New dataset images added to the gallery"
-        icon="lucide:images"
-        tone="amber"
+        detail="Lesion photos in AI repository"
+        badge="Live Training"
         to="/admin/dataset"
         :loading="isLoadingDatasets"
       />
@@ -362,9 +359,8 @@
       <AdminSideComponentsMetricCard
         label="Scan Appeals"
         :value="sortedAppeals.length"
-        detail="Doctor reports disputing scanner results"
-        icon="lucide:alert-circle"
-        tone="rose"
+        detail="Doctor diagnostic appeal cases"
+        :badge="sortedAppeals.length > 0 ? 'Action Required' : 'All Clear'"
         to="/admin/appeals"
         :loading="isLoadingAppeals"
       />
