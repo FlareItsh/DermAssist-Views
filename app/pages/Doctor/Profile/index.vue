@@ -1013,45 +1013,6 @@
     }
   }
 
-  // Two-Factor Authentication (2FA) Preview State
-  const show2FAModal = ref(false)
-  const twoFACode = ref('')
-  const is2FALoading = ref(false)
-  const isCopiedKey = ref(false)
-  const mock2FASecret = 'DERM-D9K4-8X2M-55QL'
-
-  const close2FAModal = () => {
-    show2FAModal.value = false
-    twoFACode.value = ''
-  }
-
-  const copySecretKey = () => {
-    if (navigator?.clipboard) {
-      navigator.clipboard.writeText(mock2FASecret)
-      isCopiedKey.value = true
-      toast.success('2FA secret key copied to clipboard!')
-      setTimeout(() => {
-        isCopiedKey.value = false
-      }, 2000)
-    }
-  }
-
-  const handleSimulate2FA = () => {
-    if (!twoFACode.value || twoFACode.value.length < 6) {
-      toast.error('Please enter a valid 6-digit verification code.')
-      return
-    }
-    is2FALoading.value = true
-    setTimeout(() => {
-      is2FALoading.value = false
-      show2FAModal.value = false
-      twoFACode.value = ''
-      toast.success(
-        '2FA configuration verified (Preview Mode). Full enrollment will be activated soon!'
-      )
-    }, 1200)
-  }
-
   const logout = () => {
     isLogoutModalOpen.value = false
     useCookie('auth_token').value = null
@@ -1065,8 +1026,8 @@
 
 <template>
   <div class="space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+    <!-- Header (Mobile Only, Desktop uses AppNavbar) -->
+    <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center md:hidden">
       <div>
         <h1 class="text-foreground text-2xl font-bold sm:text-3xl">Settings</h1>
         <p class="text-foreground/60 mt-1 text-sm">
@@ -1100,7 +1061,9 @@
     <!-- Inner Sidebar Layout Container -->
     <div class="flex flex-col items-start gap-6 lg:flex-row">
       <!-- Left Inner Sidebar (Compact & Sleek) -->
-      <aside class="w-full shrink-0 space-y-3 lg:w-64">
+      <aside
+        class="lg:scrollbar-none w-full shrink-0 space-y-3 lg:sticky lg:top-0 lg:max-h-[calc(100vh-5rem)] lg:w-64 lg:self-start lg:overflow-y-auto"
+      >
         <!-- Doctor Quick Identity Card -->
         <div class="bg-card border-border rounded-2xl border p-4 text-center shadow-xs">
           <div class="relative mx-auto mb-3 h-16 w-16">
@@ -3311,97 +3274,10 @@
               </div>
 
               <!-- Card 2: Two-Factor Authentication (2FA) Card -->
-              <div
-                class="border-border bg-foreground/[0.01] flex flex-col justify-between rounded-2xl border p-5 sm:p-6"
-              >
-                <div>
-                  <div class="mb-5 flex items-start justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                      <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
-                      >
-                        <Icon
-                          name="heroicons:device-phone-mobile-20-solid"
-                          size="22"
-                        />
-                      </div>
-                      <div>
-                        <h3 class="text-foreground text-base font-bold">
-                          Two-Factor Authentication (2FA)
-                        </h3>
-                        <p class="text-muted-foreground mt-0.5 text-xs">
-                          Strengthen account security by requiring a verification code when signing
-                          in.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
-                    >
-                      <span class="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-                      <span>Disabled</span>
-                    </div>
-                  </div>
-
-                  <div class="bg-border/60 mb-5 h-px"></div>
-
-                  <div class="space-y-4">
-                    <!-- Benefits Callout -->
-                    <div
-                      class="border-border bg-foreground/[0.02] space-y-3 rounded-2xl border p-4"
-                    >
-                      <h4 class="text-foreground text-sm font-bold">Why enable 2FA?</h4>
-                      <p class="text-muted-foreground text-xs leading-relaxed">
-                        Two-Factor Authentication prevents unauthorized access to clinical
-                        consultations, patient health records, and prescription data even if your
-                        credentials are leaked.
-                      </p>
-                      <div class="text-muted-foreground space-y-2 pt-1 text-xs">
-                        <div class="flex items-center gap-2">
-                          <Icon
-                            name="heroicons:check-circle"
-                            class="text-primary h-4 w-4 shrink-0"
-                          />
-                          <span>Generates temporary time-based passcodes (TOTP)</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                          <Icon
-                            name="heroicons:check-circle"
-                            class="text-primary h-4 w-4 shrink-0"
-                          />
-                          <span>Compatible with Google Authenticator, Authy, Microsoft</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Authenticator application CTA box -->
-                    <div
-                      class="border-border bg-foreground/[0.02] flex flex-col items-start justify-between gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center"
-                    >
-                      <div class="space-y-1">
-                        <h4 class="text-foreground text-sm font-bold">Authenticator Application</h4>
-                        <p class="text-muted-foreground max-w-lg text-xs leading-relaxed">
-                          Pair your device to start generating one-time passcodes.
-                        </p>
-                      </div>
-                      <AppButton
-                        type="button"
-                        variant="outline"
-                        @click="show2FAModal = true"
-                        class="shrink-0"
-                      >
-                        <Icon
-                          name="heroicons:qr-code-20-solid"
-                          size="16"
-                          class="mr-1.5"
-                        />
-                        Configure 2FA
-                      </AppButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <AppTwoFactorCard
+                :enabled="user?.two_factor_enabled"
+                @updated="refresh"
+              />
             </div>
 
             <!-- Sign Out Row -->
@@ -3866,134 +3742,6 @@
         </p>
       </div>
     </AppModalConfirmation>
-
-    <!-- 2FA Setup Preview Modal -->
-    <Teleport to="body">
-      <div
-        v-if="show2FAModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
-      >
-        <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-600"
-              >
-                <Icon
-                  name="heroicons:qr-code-20-solid"
-                  size="22"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-bold">Configure 2FA</h3>
-                <p class="text-muted-foreground text-xs">Scan code with your authenticator app</p>
-              </div>
-            </div>
-            <button
-              @click="close2FAModal"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
-            >
-              <Icon
-                name="heroicons:x-mark-20-solid"
-                size="20"
-              />
-            </button>
-          </div>
-
-          <!-- Preview Badge -->
-          <div
-            class="bg-primary/10 border-primary/20 text-primary flex items-start gap-2.5 rounded-2xl border p-3.5 text-xs"
-          >
-            <Icon
-              name="heroicons:information-circle-20-solid"
-              size="18"
-              class="mt-0.5 shrink-0"
-            />
-            <p class="leading-relaxed">
-              <strong>Preview Mode:</strong> You can preview the setup process below. Automated 2FA
-              login verification will be activated in an upcoming release.
-            </p>
-          </div>
-
-          <!-- Step 1: Scan QR Code -->
-          <div class="space-y-2 text-center">
-            <div
-              class="border-border bg-foreground/[0.03] mx-auto flex h-40 w-40 items-center justify-center rounded-2xl border p-3"
-            >
-              <div class="text-muted-foreground flex flex-col items-center justify-center gap-1.5">
-                <Icon
-                  name="heroicons:qr-code-20-solid"
-                  size="64"
-                  class="text-foreground/70"
-                />
-                <span class="text-[10px] font-semibold tracking-wider uppercase"
-                  >Mock Authenticator QR</span
-                >
-              </div>
-            </div>
-            <div class="flex items-center justify-center gap-2 pt-1">
-              <span class="text-foreground font-mono text-xs font-bold">{{ mock2FASecret }}</span>
-              <button
-                type="button"
-                @click="copySecretKey"
-                class="text-primary hover:text-primary-hover cursor-pointer p-1 text-xs"
-                title="Copy secret key"
-              >
-                <Icon
-                  :name="
-                    isCopiedKey
-                      ? 'heroicons:check-20-solid'
-                      : 'heroicons:clipboard-document-20-solid'
-                  "
-                  size="16"
-                />
-              </button>
-            </div>
-          </div>
-
-          <!-- Step 2: Code Input -->
-          <div class="space-y-2">
-            <label
-              for="doctor_2fa_code"
-              class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
-            >
-              Enter 6-Digit Code
-            </label>
-            <input
-              id="doctor_2fa_code"
-              v-model="twoFACode"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              autocomplete="one-time-code"
-              maxlength="6"
-              class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-center font-mono text-lg font-bold tracking-widest transition-all outline-none"
-              placeholder="000000"
-            />
-          </div>
-
-          <!-- Actions -->
-          <div class="flex items-center justify-end gap-3 pt-2">
-            <AppButton
-              variant="outline"
-              type="button"
-              @click="close2FAModal"
-            >
-              Close
-            </AppButton>
-            <AppButton
-              type="button"
-              :loading="is2FALoading"
-              @click="handleSimulate2FA"
-            >
-              Verify & Activate
-            </AppButton>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <!-- Logout Modal -->
     <AppModalConfirmation

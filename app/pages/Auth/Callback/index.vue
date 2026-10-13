@@ -35,11 +35,18 @@
 
     try {
       if (code) {
-        // Exchange one-time authorization code securely for Sanctum token
         const exchangeRes: any = await $api('/auth/google/exchange', {
           method: 'POST',
           body: { code }
         })
+
+        if (exchangeRes?.two_factor_required && exchangeRes?.challenge) {
+          return navigateTo({
+            path: '/auth/login',
+            query: { challenge: exchangeRes.challenge }
+          })
+        }
+
         token = exchangeRes?.token
         userData = exchangeRes?.user
       }
