@@ -1127,11 +1127,11 @@
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="mb-8 rounded-2xl border border-amber-500/20 bg-amber-500/[0.04] p-4 shadow-2xs transition-all dark:border-amber-500/30 dark:bg-amber-500/[0.08]"
+        class="border-warning-border bg-warning-subtle mb-8 rounded-2xl border p-4 shadow-2xs transition-all"
       >
         <div class="flex items-start gap-3">
           <div
-            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400"
+            class="border-warning-border text-warning flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border bg-white shadow-2xs"
           >
             <Icon
               name="lucide:alert-triangle"
@@ -1144,7 +1144,7 @@
                 Low Confidence &amp; Inconclusive Guard
               </h4>
               <span
-                class="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-400/15 dark:text-amber-300"
+                class="border-warning-border text-warning-text rounded-full border bg-white px-2.5 py-0.5 text-xs font-semibold shadow-2xs"
               >
                 Inconclusive
               </span>
@@ -1936,19 +1936,19 @@
             <!-- Unavailable Banner -->
             <div
               v-else
-              class="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-amber-900"
+              class="border-warning-border bg-warning-subtle text-warning-text flex items-start gap-3 rounded-xl border p-3.5 shadow-2xs"
             >
               <Icon
                 name="material-symbols:info-outline-rounded"
-                class="mt-0.5 shrink-0 text-xl text-amber-600"
+                class="text-warning mt-0.5 shrink-0 text-xl"
               />
               <div class="flex flex-col gap-0.5">
-                <p class="text-xs font-bold tracking-wider text-amber-800 uppercase">
+                <p class="text-warning-text text-xs font-bold tracking-wider uppercase">
                   Doctor Away Today
                 </p>
                 <p
                   v-if="availabilityStatus.next_available"
-                  class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+                  class="text-warning-text/90 mt-0.5 text-xs leading-relaxed"
                 >
                   Dr. {{ nearestDoctor.last_name }} is currently away. Next available on
                   <strong>{{ availabilityStatus.next_available.formatted }}</strong
@@ -1956,7 +1956,7 @@
                 </p>
                 <p
                   v-else
-                  class="mt-0.5 text-xs leading-relaxed text-amber-800/90"
+                  class="text-warning-text/90 mt-0.5 text-xs leading-relaxed"
                 >
                   Dr. {{ nearestDoctor.last_name }} is currently away. You can still send your
                   findings now — they will be reviewed as soon as possible.
@@ -1966,17 +1966,17 @@
           </div>
           <div
             v-if="doctorDistance && doctorDistance > 50"
-            class="flex items-start gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-4"
+            class="border-warning-border bg-warning-subtle flex items-start gap-4 rounded-2xl border p-4 shadow-2xs"
           >
             <Icon
               name="material-symbols:distance-outline-rounded"
-              class="mt-0.5 shrink-0 text-2xl text-amber-500"
+              class="text-warning mt-0.5 shrink-0 text-2xl"
             />
             <div>
-              <p class="text-sm font-black tracking-widest text-amber-700 uppercase">
+              <p class="text-warning-text text-sm font-black tracking-widest uppercase">
                 Limited Coverage
               </p>
-              <p class="mt-1 text-sm leading-relaxed text-amber-700/70">
+              <p class="text-warning-text mt-1 text-sm leading-relaxed">
                 The nearest verified specialist is <strong>{{ doctorDistance }}km</strong> away.
               </p>
             </div>
@@ -2136,20 +2136,20 @@
           <!-- Existing appointment notice (full-width, below the buttons) -->
           <div
             v-if="hasActiveAppointment"
-            class="mt-3 flex items-start gap-3 rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200"
+            class="border-warning-border bg-warning-subtle mt-3 flex items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xs"
           >
             <Icon
               name="material-symbols:info-outline-rounded"
-              class="mt-0.5 shrink-0 text-base text-amber-500"
+              class="text-warning mt-0.5 shrink-0 text-base"
             />
-            <div class="flex-1 text-xs leading-relaxed text-amber-700">
+            <div class="text-warning-text flex-1 text-xs leading-relaxed">
               <span class="font-black">Existing appointment found.</span>
               This will send your new findings to the same doctor in your current conversation. Go
               to
               <NuxtLink
                 :to="`/Patient/Messages`"
                 @click="emit('close')"
-                class="font-bold underline hover:text-amber-900"
+                class="hover:text-warning-text font-bold underline"
                 >Messages</NuxtLink
               >
               to check the status or send additional findings.

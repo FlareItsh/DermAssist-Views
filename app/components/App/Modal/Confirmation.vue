@@ -50,9 +50,9 @@
       ring: 'ring-destructive/5'
     },
     warning: {
-      bg: 'bg-amber-500/10',
-      text: 'text-amber-600 dark:text-amber-400',
-      ring: 'ring-amber-500/5'
+      bg: 'border border-warning-border bg-warning-subtle',
+      text: 'text-warning-text',
+      ring: 'ring-warning/10'
     },
     primary: {
       bg: 'bg-primary/10',

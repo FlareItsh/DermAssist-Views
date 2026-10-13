@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { toast } from 'vue-sonner'
+  import { $api } from '~/composables/useApi'
   import type { AppNotification } from '~/composables/useAppNotifications'
 
   interface Props {
@@ -23,7 +24,7 @@
   const { acceptInvitation, declineInvitation, fetchClinicDoctors, acknowledgeRevocation } =
     useDoctorClinicDoctors()
   const { fetchSubscription } = useDoctorSubscription()
-  const { readNotifs, markLatestUpdateAsSeen } = useAppNotifications()
+  const { readNotifs, markLatestUpdateAsSeen, refreshProfile } = useAppNotifications()
 
   const isAccepting = ref(false)
   const isDeclining = ref(false)
@@ -74,6 +75,30 @@
     () => props.notification?.type === 'clinic_revocation' && props.notification?.data
   )
   const revocationData = computed(() => props.notification?.data)
+
+  const isVerification = computed(() => props.notification?.type === 'verification')
+  const isResendingVerification = ref(false)
+
+  const handleResendVerification = async () => {
+    if (isResendingVerification.value) return
+    isResendingVerification.value = true
+
+    try {
+      const res: any = await $api('/resend-verification', {
+        method: 'POST'
+      })
+      toast.success(res?.message || 'A new verification email has been sent.')
+      if (res?.verification_deadline) {
+        useCookie('verification_deadline', { path: '/' }).value = res.verification_deadline
+      }
+      await refreshProfile()
+    } catch (err: any) {
+      const msg = err?.data?.message || err?.message || 'Failed to resend verification email.'
+      toast.error(msg)
+    } finally {
+      isResendingVerification.value = false
+    }
+  }
 
   const formattedRole = computed(() => {
     const role = inviteData.value?.role || 'associate'
@@ -399,9 +424,11 @@
                 </div>
 
                 <!-- Explanatory Notice -->
-                <div class="space-y-2 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4">
+                <div
+                  class="border-warning-border bg-warning-subtle space-y-2 rounded-2xl border p-4"
+                >
                   <span
-                    class="block text-[11px] font-black tracking-wider text-amber-600 uppercase dark:text-amber-400"
+                    class="text-warning-text block text-[11px] font-black tracking-wider uppercase"
                   >
                     Access Notice
                   </span>
@@ -475,7 +502,76 @@
                 </div>
               </template>
 
-              <!-- Case 4: General / System / Appointment Notification -->
+              <!-- Case 4: Email Verification Notification -->
+              <template v-else-if="isVerification">
+                <div
+                  class="rounded-2xl border p-4.5"
+                  :class="
+                    notification.data?.isExpired
+                      ? 'border-rose-500/20 bg-rose-500/5'
+                      : 'border-warning-border bg-warning-subtle'
+                  "
+                >
+                  <div class="mb-3 flex items-center justify-between gap-2">
+                    <span
+                      class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                      :class="
+                        notification.data?.isExpired
+                          ? 'border border-rose-500/30 bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                          : 'border-warning-border text-warning-text border bg-white shadow-2xs'
+                      "
+                    >
+                      <Icon
+                        :name="
+                          notification.data?.isExpired
+                            ? 'solar:shield-cross-bold'
+                            : 'solar:shield-warning-bold'
+                        "
+                        class="text-xs"
+                      />
+                      {{
+                        notification.data?.isExpired
+                          ? 'Verification Expired'
+                          : 'Pending Verification'
+                      }}
+                    </span>
+
+                    <span class="text-muted-foreground text-xs font-medium">
+                      {{ notification.time }}
+                    </span>
+                  </div>
+
+                  <p class="text-foreground text-sm leading-relaxed">
+                    {{ notification.description }}
+                  </p>
+
+                  <p class="text-muted-foreground mt-2 text-xs leading-relaxed">
+                    To maintain clinical record integrity and protect against automated bot
+                    creation, manual registrations require email verification before deactivation.
+                  </p>
+                </div>
+
+                <!-- One-Click Verification Instruction Box -->
+                <div class="border-border/60 bg-muted/20 space-y-2 rounded-2xl border p-4">
+                  <div class="flex items-center gap-2">
+                    <Icon
+                      name="solar:letter-bold-duotone"
+                      class="text-primary size-5"
+                    />
+                    <span class="text-foreground text-xs font-bold tracking-wider uppercase">
+                      One-Click Email Verification
+                    </span>
+                  </div>
+                  <p class="text-muted-foreground text-xs leading-relaxed">
+                    Check your email inbox and click the
+                    <strong>"Verify Email Address"</strong> button to immediately activate your
+                    account. If you haven't received it or if the link expired, click
+                    <strong>"Resend Verification Email"</strong> below.
+                  </p>
+                </div>
+              </template>
+
+              <!-- Case 5: General / System / Appointment Notification -->
               <template v-else>
                 <p class="text-foreground text-sm leading-relaxed whitespace-pre-line sm:text-base">
                   {{ cleanDescription(notification.description) }}
@@ -566,6 +662,28 @@
                     class="mr-1.5 text-base"
                   />
                   View All Updates
+                </AppButton>
+              </template>
+
+              <!-- Email Verification Actions -->
+              <template v-else-if="isVerification">
+                <AppButton
+                  variant="ghost"
+                  @click="close"
+                  :disabled="isResendingVerification"
+                >
+                  Close
+                </AppButton>
+                <AppButton
+                  variant="solid"
+                  :loading="isResendingVerification"
+                  @click="handleResendVerification"
+                >
+                  <Icon
+                    name="solar:letter-unread-bold"
+                    class="mr-1.5 text-base"
+                  />
+                  Resend Verification Email
                 </AppButton>
               </template>
 

@@ -55,9 +55,9 @@
       outline: 'bg-transparent text-emerald-600 border-2 border-emerald-200'
     },
     warning: {
-      solid: 'bg-amber-500 text-white',
-      subtle: 'bg-amber-100 text-amber-700 border border-amber-200',
-      outline: 'bg-transparent text-amber-600 border-2 border-amber-200'
+      solid: 'bg-warning text-warning-foreground shadow-2xs',
+      subtle: 'border border-warning-border bg-warning-subtle text-warning-text',
+      outline: 'border-2 border-warning-border bg-transparent text-warning-text'
     },
     danger: {
       solid: 'bg-rose-600 text-white',

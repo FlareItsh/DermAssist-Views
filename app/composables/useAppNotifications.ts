@@ -44,6 +44,8 @@ export const useAppNotifications = () => {
   const route = useRoute()
   const userRole = useCookie('user_role')
   const userUuid = useCookie('user_uuid')
+  const accountStatusCookie = useCookie('account_status')
+  const verificationDeadlineCookie = useCookie('verification_deadline')
 
   const {
     publishedPatchNotes,
@@ -272,6 +274,15 @@ export const useAppNotifications = () => {
   const isDoctorProfileIncomplete = computed(() => missingDoctorFields.value.length > 0)
   const isSecretaryProfileIncomplete = computed(() => missingSecretaryFields.value.length > 0)
 
+  const isAccountPendingVerification = computed(() => {
+    const status = userProfile.value?.account_status || accountStatusCookie.value
+    return status === 'pending_verification'
+  })
+
+  const verificationDeadline = computed(() => {
+    return userProfile.value?.verification_deadline || verificationDeadlineCookie.value || null
+  })
+
   const profileRoute = computed(() => {
     if (userRole.value === 'doctor') return '/doctor/profile'
     if (userRole.value === 'patient') return '/patient/profile'
@@ -394,6 +405,40 @@ export const useAppNotifications = () => {
       })
     }
 
+    // Account Email Verification Notification (48h Window or Expired)
+    if (isAccountPendingVerification.value) {
+      let isExpired = false
+      let timeRemainingText = '48 hours'
+
+      if (verificationDeadline.value) {
+        const diff = new Date(verificationDeadline.value).getTime() - Date.now()
+        if (diff <= 0) {
+          isExpired = true
+          timeRemainingText = 'Expired'
+        } else {
+          const hours = Math.floor(diff / (1000 * 60 * 60))
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+          timeRemainingText = hours > 0 ? `${hours}h ${minutes}m left` : `${minutes}m left`
+        }
+      }
+
+      list.unshift({
+        id: 'account-pending-verification',
+        type: 'verification',
+        title: isExpired ? 'Email Verification Expired' : 'Verify Your Email Address',
+        description: isExpired
+          ? 'Your 48-hour verification window has expired. Resend verification to keep your account active.'
+          : `Please verify your email address to permanently activate your account. You have ${timeRemainingText} before automatic deactivation.`,
+        time: isExpired ? 'Expired' : timeRemainingText,
+        icon: isExpired ? 'solar:shield-cross-bold' : 'solar:shield-warning-bold-duotone',
+        color: isExpired ? 'text-rose-500' : 'text-warning',
+        data: {
+          isExpired,
+          deadline: verificationDeadline.value
+        }
+      })
+    }
+
     // Doctor Subscription & Plan Updates
     if (userRole.value === 'doctor' && hasPlanUpdate.value && currentSubscription.value) {
       list.push({
@@ -403,7 +448,7 @@ export const useAppNotifications = () => {
         description: `Your subscription plan (${currentSubscription.value.plan_snapshot?.name || currentSubscription.value.plan?.name || 'Plan'}) has received new features and quota updates! Upgrade or renew now to unlock the latest benefits.`,
         time: 'Update available',
         icon: 'solar:star-fall-minimalistic-bold',
-        color: 'text-amber-500',
+        color: 'text-warning',
         to: '/doctor/subscription'
       })
     }
@@ -428,7 +473,7 @@ export const useAppNotifications = () => {
           description: `Your ${planTitle} expires on ${endsAtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. Renew your plan to ensure uninterrupted AI scan execution and recommendations.`,
           time: diffDays === 0 ? 'Today' : `In ${diffDays}d`,
           icon: 'solar:clock-circle-bold',
-          color: 'text-amber-500',
+          color: 'text-warning',
           to: '/doctor/subscription'
         })
       } else if (
@@ -475,7 +520,7 @@ export const useAppNotifications = () => {
           description: `You have reached your limit of ${maxSecretaries.value} secretary account${maxSecretaries.value > 1 ? 's' : ''}. Upgrade your subscription plan to add more staff to your practice.`,
           time: 'Limit reached',
           icon: 'solar:user-block-rounded-bold',
-          color: 'text-amber-500',
+          color: 'text-warning',
           to: '/doctor/subscription?required=secretary'
         })
       }
@@ -553,7 +598,7 @@ export const useAppNotifications = () => {
             description: `You have an appointment with ${appt.doctor} for ${appt.info} on ${appt.date} at ${appt.time}${appt.location ? ' at ' + appt.location : ''}.`,
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to:
               appt.conversation_uuid && userRole.value === 'doctor'
                 ? `/Doctor/Messages/${appt.conversation_uuid}`
@@ -620,7 +665,7 @@ export const useAppNotifications = () => {
             description: `Don't forget — your appointment with ${appt.doctor} for ${appt.info} is tomorrow at ${appt.time}${appt.location ? ' at ' + appt.location : ''}.`,
             time: `In ${Math.round(hoursUntil)}h`,
             icon: 'material-symbols:alarm-on-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to: appt.conversation_uuid
               ? `/Patient/Messages/${appt.conversation_uuid}`
               : '/Patient/Messages'
@@ -673,7 +718,7 @@ export const useAppNotifications = () => {
             description: `${appt.doctor} proposed a new schedule for your appointment. Please review and accept or propose another date.`,
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to: appt.conversation_uuid
               ? `/Patient/Messages/${appt.conversation_uuid}`
               : '/Patient/Messages'
@@ -692,7 +737,7 @@ export const useAppNotifications = () => {
             description: `The patient proposed a new schedule for an appointment. Please review and accept.`,
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
-            color: 'text-amber-500',
+            color: 'text-warning',
             to:
               appt.conversation_uuid && userRole.value === 'doctor'
                 ? `/Doctor/Messages/${appt.conversation_uuid}`
@@ -800,7 +845,7 @@ export const useAppNotifications = () => {
         description: `There ${adminPendingVerifications.value > 1 ? 'are' : 'is'} ${adminPendingVerifications.value} doctor registration verification request${adminPendingVerifications.value > 1 ? 's' : ''} awaiting PRC document approval.`,
         time: 'Action required',
         icon: 'heroicons:shield-exclamation-solid',
-        color: 'text-amber-500',
+        color: 'text-warning',
         to: '/admin/moderation/verification'
       })
     }
@@ -855,7 +900,8 @@ export const useAppNotifications = () => {
       if (
         n.id === 'profile-incomplete-patient' ||
         n.id === 'profile-incomplete-doctor' ||
-        n.id === 'profile-incomplete-secretary'
+        n.id === 'profile-incomplete-secretary' ||
+        n.id === 'account-pending-verification'
       )
         return true
       return !arr.includes(n.id)
@@ -868,7 +914,8 @@ export const useAppNotifications = () => {
       if (
         n.id === 'profile-incomplete-patient' ||
         n.id === 'profile-incomplete-doctor' ||
-        n.id === 'profile-incomplete-secretary'
+        n.id === 'profile-incomplete-secretary' ||
+        n.id === 'account-pending-verification'
       )
         return true
       return !read.includes(n.id)
@@ -903,6 +950,8 @@ export const useAppNotifications = () => {
     acknowledgeRevocation,
     doctorSecretaries,
     patientRecentRecords,
-    pollAllNotifications
+    pollAllNotifications,
+    isAccountPendingVerification,
+    verificationDeadline
   }
 }

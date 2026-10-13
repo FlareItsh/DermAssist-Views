@@ -438,28 +438,41 @@
         })
         verificationDeadlineCookie.value = userData?.verification_deadline || null
 
+        if (userData?.account_status === 'pending_verification') {
+          toast.info(
+            'Account created! Please check your email to verify your account within 48 hours.'
+          )
+        } else {
+          toast.success('Registration successful!')
+        }
+
         // Redirect based on role
         await navigateTo(`/${baseRole}`)
       }
     } catch (err: any) {
       console.error('Registration Error:', err)
 
-      if (err.response?.status === 422) {
-        const validationErrors = err.response._data.errors
+      if (err.status === 422 || err.statusCode === 422 || err.response?.status === 422) {
+        const validationErrors = err.data?.errors || err.response?._data?.errors || {}
         // Map backend snake_case errors to frontend camelCase keys
         Object.keys(validationErrors).forEach(key => {
-          if (key === 'first_name') errors.firstName = validationErrors[key][0]
-          else if (key === 'middle_name') errors.middleName = validationErrors[key][0]
-          else if (key === 'last_name') errors.lastName = validationErrors[key][0]
-          else if (key === 'firstName') errors.firstName = validationErrors[key][0]
-          else if (key === 'middleName') errors.middleName = validationErrors[key][0]
-          else if (key === 'lastName') errors.lastName = validationErrors[key][0]
+          if (key === 'first_name' || key === 'firstName')
+            errors.firstName = validationErrors[key][0]
+          else if (key === 'middle_name' || key === 'middleName')
+            errors.middleName = validationErrors[key][0]
+          else if (key === 'last_name' || key === 'lastName')
+            errors.lastName = validationErrors[key][0]
           else if (key === 'password_confirmation')
             errors.password_confirmation = validationErrors[key][0]
+          else if (key === 'email') errors.email = validationErrors[key][0]
           else if (key in errors) (errors as any)[key] = validationErrors[key][0]
         })
+        if (err.data?.message && !Object.keys(validationErrors).length) {
+          errors.general = err.data.message
+        }
       } else {
-        errors.general = err.data?.message || 'Registration failed. Please try again.'
+        errors.general =
+          err.data?.message || err.message || 'Registration failed. Please try again.'
       }
     } finally {
       isLoading.value = false
@@ -564,6 +577,12 @@
       fileInput.value.value = ''
     }
     stopCamera()
+  }
+
+  const config = useRuntimeConfig()
+  const registerWithGoogle = () => {
+    const apiBase = config.public.apiBase || 'http://localhost:8000/api'
+    window.location.href = `${apiBase}/auth/google/redirect`
   }
 
   onUnmounted(() => {
@@ -673,6 +692,7 @@
               size="unstyled"
               rounded="unstyled"
               @click="role = 'patient'"
+              :disabled="isLoading"
               type="button"
               class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
@@ -721,6 +741,7 @@
               size="unstyled"
               rounded="unstyled"
               @click="role = 'doctor'"
+              :disabled="isLoading"
               type="button"
               class="group relative flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-2.5 text-left transition-all duration-200"
               :class="
@@ -971,16 +992,67 @@
             @click="nextStep"
             block
             class="mt-2"
-            :disabled="!isStep1Valid"
+            :loading="isLoading"
+            :disabled="!isStep1Valid || isLoading"
           >
-            <span>{{ role === 'doctor' ? 'Next' : 'Create Account' }}</span>
-            <template #trailing>
+            <span>{{
+              role === 'doctor' ? 'Next' : isLoading ? 'Creating Account...' : 'Create Account'
+            }}</span>
+            <template
+              #trailing
+              v-if="!isLoading"
+            >
               <Icon
                 :name="role === 'doctor' ? 'lucide:chevron-right' : 'lucide:arrow-right'"
                 class="h-5 w-5"
               />
             </template>
           </AppButton>
+
+          <div
+            v-if="role === 'patient'"
+            class="relative my-2 flex items-center justify-center"
+          >
+            <div class="border-border/60 absolute inset-0 flex items-center">
+              <div class="border-border/60 w-full border-t" />
+            </div>
+            <span
+              class="bg-card text-muted-foreground relative px-3 text-xs tracking-wider uppercase"
+            >
+              Or continue with
+            </span>
+          </div>
+
+          <button
+            v-if="role === 'patient'"
+            type="button"
+            :disabled="isLoading"
+            class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-3 rounded-2xl border px-4 py-3 text-sm font-semibold shadow-sm transition-all hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
+            @click="registerWithGoogle"
+          >
+            <svg
+              class="size-4 shrink-0"
+              viewBox="0 0 24 24"
+            >
+              <path
+                fill="#4285F4"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="#34A853"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="#FBBC05"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+              />
+              <path
+                fill="#EA4335"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+              />
+            </svg>
+            Continue with Google
+          </button>
 
           <div class="mt-4 text-center">
             <AppButton
@@ -1006,6 +1078,7 @@
               variant="ghost"
               size="sm"
               @click="prevStep"
+              :disabled="isLoading"
               class="text-foreground/70 hover:text-foreground -ml-2 w-fit px-2!"
             >
               <template #leading>
@@ -1309,11 +1382,16 @@
               block
               size="lg"
               :loading="isLoading"
-              :disabled="!isStep2Valid"
+              :disabled="!isStep2Valid || isLoading"
               @click="handleRegister(false)"
             >
-              <span>Complete Doctor Registration</span>
-              <template #trailing>
+              <span>{{
+                isLoading ? 'Completing Registration...' : 'Complete Doctor Registration'
+              }}</span>
+              <template
+                #trailing
+                v-if="!isLoading"
+              >
                 <Icon
                   name="lucide:arrow-right"
                   class="h-5 w-5"
@@ -1341,10 +1419,16 @@
                   type="button"
                   @click="handleRegister(true)"
                   :disabled="isLoading"
-                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1 text-xs font-bold hover:underline"
+                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold hover:underline disabled:cursor-wait disabled:opacity-60"
                 >
-                  <span>Skip Verification for Now</span>
                   <Icon
+                    v-if="isLoading"
+                    name="svg-spinners:ring-resize"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>{{ isLoading ? 'Creating Account...' : 'Skip Verification for Now' }}</span>
+                  <Icon
+                    v-if="!isLoading"
                     name="lucide:chevron-right"
                     class="h-3 w-3"
                   />

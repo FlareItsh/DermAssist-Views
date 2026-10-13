@@ -776,9 +776,9 @@
               <div class="flex items-center gap-2">
                 <span
                   v-if="hasFormChanges"
-                  class="flex items-center gap-1.5 text-xs font-medium text-amber-500"
+                  class="text-warning-text flex items-center gap-1.5 text-xs font-semibold"
                 >
-                  <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                  <span class="bg-warning h-2 w-2 rounded-full"></span>
                   Unsaved changes
                 </span>
                 <span
@@ -814,7 +814,7 @@
             <div class="bg-card border-border rounded-3xl border p-6 shadow-xs sm:p-7">
               <div class="mb-5 flex items-center gap-3">
                 <div
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600"
+                  class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
                 >
                   <Icon
                     name="heroicons:key-20-solid"
@@ -1013,7 +1013,7 @@
                   <div
                     class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                   >
-                    <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                    <span class="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                     <span>Disabled</span>
                   </div>
                 </div>

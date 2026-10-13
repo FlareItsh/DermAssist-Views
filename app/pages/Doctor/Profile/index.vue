@@ -2026,7 +2026,7 @@
                       </span>
                       <span
                         v-if="assoc.status === 'pending'"
-                        class="shrink-0 rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                        class="border-warning-border bg-warning-subtle text-warning-text shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold"
                       >
                         Invitation Pending
                       </span>
@@ -2135,12 +2135,12 @@
               <!-- Warning if single doctor plan -->
               <div
                 v-if="seatUsage && seatUsage.max_doctors === 1"
-                class="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-400"
+                class="border-warning-border bg-warning-subtle text-warning-text flex items-center justify-between gap-3 rounded-2xl border p-4 text-xs shadow-2xs"
               >
                 <div class="flex items-center gap-2.5">
                   <Icon
                     name="lucide:info"
-                    class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+                    class="text-warning h-5 w-5 shrink-0"
                   />
                   <span
                     >Your current plan only supports 1 doctor seat. Upgrade to the
@@ -2149,7 +2149,7 @@
                 </div>
                 <NuxtLink
                   to="/doctor/subscription"
-                  class="shrink-0 rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-amber-700"
+                  class="bg-warning shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold text-white transition hover:brightness-95"
                 >
                   Upgrade Plan
                 </NuxtLink>
@@ -2254,7 +2254,7 @@
                       </span>
                       <span
                         v-if="assoc.status === 'pending'"
-                        class="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                        class="border-warning-border bg-warning-subtle text-warning-text rounded-full border px-2 py-0.5 text-[10px] font-bold"
                       >
                         Invitation Pending
                       </span>
@@ -2738,7 +2738,7 @@
                           mySubscription?.status === 'active' &&
                           !mySubscription?.auto_renew
                         "
-                        class="rounded-full border border-amber-300 bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-800 uppercase dark:border-amber-800/50 dark:bg-amber-950/50 dark:text-amber-300"
+                        class="border-warning-border bg-warning-subtle text-warning-text rounded-full border px-2.5 py-0.5 text-[10px] font-bold tracking-wider uppercase"
                       >
                         Auto-Renew Off
                       </span>
@@ -3339,7 +3339,7 @@
                     <div
                       class="bg-foreground/5 text-muted-foreground border-border inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
                     >
-                      <span class="h-2 w-2 rounded-full bg-amber-500"></span>
+                      <span class="h-2 w-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                       <span>Disabled</span>
                     </div>
                   </div>
@@ -3842,7 +3842,7 @@
         <!-- Warning if patient appointments exist in window -->
         <div
           v-if="conflictData?.affected_appointments?.length"
-          class="flex items-start gap-2.5 rounded-2xl border border-amber-300/80 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-300"
+          class="border-warning-border bg-warning-subtle text-warning-text flex items-start gap-2.5 rounded-2xl border p-3 text-xs shadow-2xs"
         >
           <Icon
             name="lucide:alert-circle"

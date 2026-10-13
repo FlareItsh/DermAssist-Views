@@ -80,7 +80,7 @@
       c.includes('dermatitis') ||
       c.includes('rash')
     ) {
-      return 'bg-amber-50 text-amber-700 border-amber-200/80'
+      return 'bg-warning-subtle text-warning-text border-warning-border border'
     }
     if (c.includes('acne') || c.includes('fungal') || c.includes('infection')) {
       return 'bg-purple-50 text-purple-700 border-purple-200/80'
@@ -269,8 +269,8 @@
               :class="[
                 'flex h-7 w-7 items-center justify-center rounded-full transition-all duration-200',
                 isPatientInPriority(patient)
-                  ? 'bg-amber-500 text-white shadow-xs ring-2 ring-amber-200 hover:bg-amber-600'
-                  : 'bg-gray-100 text-gray-400 hover:bg-amber-50 hover:text-amber-500'
+                  ? 'bg-warning ring-warning/30 text-white shadow-xs ring-2 hover:brightness-95'
+                  : 'hover:bg-warning-subtle hover:text-warning bg-gray-100 text-gray-400'
               ]"
             >
               <Icon
