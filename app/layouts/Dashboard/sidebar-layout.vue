@@ -90,8 +90,10 @@
   const route = useRoute()
   const userRole = useCookie('user_role')
 
-  const { hasUnseenAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
+  const { hasUnseenAppeals, sortedAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
+  const { totalUnreadCount } = useConversations()
+  const { pendingAppointments } = useAppointments()
 
   const showWhatsNew = computed(() => {
     return hasUnseenUpdate.value || route.path.toLowerCase().endsWith('/updates')
@@ -111,7 +113,8 @@
       icon: 'lucide:alert-circle',
       label: 'Scan Appeals',
       to: '/admin/appeals',
-      showBadge: hasUnseenAppeals.value
+      showBadge: hasUnseenAppeals.value,
+      badgeCount: hasUnseenAppeals.value ? sortedAppeals.value.length || 1 : 0
     },
     { icon: 'lucide:database', label: 'Dataset', to: '/admin/dataset' },
     {
@@ -137,7 +140,13 @@
         { icon: 'lucide:ticket', label: 'Coupons & Promo', to: '/admin/subscriptions/coupons' }
       ]
     },
-    { icon: 'lucide:newspaper', label: 'System Updates', to: '/admin/patch-notes' }
+    {
+      icon: 'lucide:newspaper',
+      label: 'System Updates',
+      to: '/admin/patch-notes',
+      showBadge: hasUnseenUpdate.value,
+      badgeCount: hasUnseenUpdate.value ? 1 : 0
+    }
   ])
 
   const patientNavItems = computed(() => {
@@ -151,7 +160,9 @@
       {
         icon: 'lucide:message-square',
         label: 'Message',
-        to: '/patient/messages'
+        to: '/patient/messages',
+        showBadge: totalUnreadCount.value > 0,
+        badgeCount: totalUnreadCount.value
       },
       {
         icon: 'lucide:folder',
@@ -166,8 +177,7 @@
         label: "What's New",
         to: '/patient/updates',
         showBadge: hasUnseenUpdate.value,
-        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
-        highlight: hasUnseenUpdate.value
+        badgeCount: hasUnseenUpdate.value ? 1 : 0
       })
     }
 
@@ -187,7 +197,13 @@
         label: 'Consultations',
         children: [
           { icon: 'lucide:users', label: 'Patients', to: '/doctor/patients' },
-          { icon: 'lucide:calendar', label: 'Appointments', to: '/doctor/appointments' }
+          {
+            icon: 'lucide:calendar',
+            label: 'Appointments',
+            to: '/doctor/appointments',
+            showBadge: pendingAppointments.value.length > 0,
+            badgeCount: pendingAppointments.value.length
+          }
         ]
       },
       {
@@ -198,7 +214,9 @@
       {
         icon: 'lucide:message-square',
         label: 'Message',
-        to: '/doctor/messages'
+        to: '/doctor/messages',
+        showBadge: totalUnreadCount.value > 0,
+        badgeCount: totalUnreadCount.value
       },
       {
         icon: 'lucide:folder',
@@ -223,8 +241,7 @@
         label: "What's New",
         to: '/doctor/updates',
         showBadge: hasUnseenUpdate.value,
-        badgeText: hasUnseenUpdate.value ? 'New' : undefined,
-        highlight: hasUnseenUpdate.value
+        badgeCount: hasUnseenUpdate.value ? 1 : 0
       })
     }
 
@@ -238,13 +255,21 @@
       label: 'Consultations',
       children: [
         { icon: 'lucide:users', label: 'Patients', to: '/secretary/patients' },
-        { icon: 'lucide:calendar', label: 'Appointments', to: '/secretary/appointments' }
+        {
+          icon: 'lucide:calendar',
+          label: 'Appointments',
+          to: '/secretary/appointments',
+          showBadge: pendingAppointments.value.length > 0,
+          badgeCount: pendingAppointments.value.length
+        }
       ]
     },
     {
       icon: 'lucide:message-square',
       label: 'Message',
-      to: '/secretary/messages'
+      to: '/secretary/messages',
+      showBadge: totalUnreadCount.value > 0,
+      badgeCount: totalUnreadCount.value
     },
     {
       icon: 'lucide:folder',
@@ -383,10 +408,9 @@
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
   onMounted(() => {
+    fetchPublishedPatchNotes()
     if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
       fetchAppeals()
-    } else {
-      fetchPublishedPatchNotes()
     }
   })
 
@@ -397,7 +421,7 @@
         markAppealsSeen()
       }
 
-      if (path.toLowerCase().endsWith('/updates')) {
+      if (path.toLowerCase().endsWith('/updates') || path.toLowerCase().endsWith('/patch-notes')) {
         markLatestUpdateAsSeen()
       }
 

@@ -6,6 +6,7 @@
     to?: string
     showBadge?: boolean
     badgeText?: string
+    badgeCount?: number
     highlight?: boolean
     children?: NavItem[]
   }
@@ -18,6 +19,29 @@
   const route = useRoute()
   const expandedMenus = ref<Set<string>>(new Set())
   const isLogoutModalOpen = ref(false)
+
+  const getItemBadgeCount = (item: NavItem): number => {
+    if (typeof item.badgeCount === 'number' && item.badgeCount > 0) return item.badgeCount
+    if (item.children && item.children.length > 0) {
+      return item.children.reduce((sum, child) => sum + (child.badgeCount || 0), 0)
+    }
+    return 0
+  }
+
+  const getItemHasBadge = (item: NavItem): boolean => {
+    if (item.showBadge || (typeof item.badgeCount === 'number' && item.badgeCount > 0)) return true
+    if (item.children && item.children.length > 0) {
+      return item.children.some(
+        child => child.showBadge || (typeof child.badgeCount === 'number' && child.badgeCount > 0)
+      )
+    }
+    return false
+  }
+
+  const formatBadgeCount = (count: number): string => {
+    if (count > 99) return '99+'
+    return String(count)
+  }
 
   const toggleSubmenu = (label: string) => {
     if (expandedMenus.value.has(label)) {
@@ -171,9 +195,16 @@
                   ]"
                 />
 
-                <!-- Pulsing Notification Beacon on Icon -->
+                <!-- Popping Notification Badge with Number in the Middle -->
                 <span
-                  v-if="item.showBadge"
+                  v-if="getItemBadgeCount(item) > 0"
+                  class="badge-pop absolute -top-1 -right-1 z-10 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
+                >
+                  {{ formatBadgeCount(getItemBadgeCount(item)) }}
+                </span>
+                <!-- Fallback Pulsing Beacon if showBadge without count -->
+                <span
+                  v-else-if="getItemHasBadge(item)"
                   class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
                 >
                   <span
@@ -193,39 +224,18 @@
                     : 'ml-4 grid-cols-[1fr] opacity-100'
                 "
               >
-                <div class="flex items-center gap-2 overflow-hidden whitespace-nowrap">
-                  <span
-                    class="text-lg font-medium transition-colors duration-300"
-                    :class="[
-                      isItemActive(item)
-                        ? 'text-sidebar-accent-foreground'
-                        : item.highlight
-                          ? 'text-primary group-hover:text-sidebar-accent-foreground font-semibold'
-                          : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
-                    ]"
-                  >
-                    {{ item.label }}
-                  </span>
-
-                  <!-- NEW Badge Capsule -->
-                  <span
-                    v-if="item.badgeText"
-                    class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black tracking-wider uppercase shadow-xs transition-colors duration-300"
-                    :class="[
-                      isItemActive(item)
-                        ? 'bg-white/20 text-white'
-                        : 'bg-primary/15 text-primary border-primary/20 group-hover:text-primary border group-hover:border-transparent group-hover:bg-white'
-                    ]"
-                  >
-                    <span
-                      class="h-1.5 w-1.5 rounded-full"
-                      :class="[
-                        isItemActive(item) ? 'bg-white' : 'bg-primary group-hover:bg-primary'
-                      ]"
-                    ></span>
-                    {{ item.badgeText }}
-                  </span>
-                </div>
+                <span
+                  class="overflow-hidden text-lg font-medium whitespace-nowrap transition-colors duration-300"
+                  :class="[
+                    isItemActive(item)
+                      ? 'text-sidebar-accent-foreground'
+                      : item.highlight
+                        ? 'text-primary group-hover:text-sidebar-accent-foreground font-semibold'
+                        : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
+                  ]"
+                >
+                  {{ item.label }}
+                </span>
               </div>
             </NuxtLink>
 
@@ -246,7 +256,7 @@
                 ]"
               >
                 <div
-                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300"
+                  class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-300"
                 >
                   <Icon
                     :name="item.icon"
@@ -258,14 +268,27 @@
                         : 'text-foreground/70 group-hover:text-sidebar-accent-foreground'
                     "
                   />
-                </div>
 
-                <!-- Notification Dot for parents -->
-                <div
-                  v-if="item.showBadge"
-                  class="border-sidebar absolute top-2 right-2 h-3 w-3 rounded-full border-2 bg-red-500"
-                  :class="isCollapsed ? 'right-4' : 'right-auto left-8'"
-                ></div>
+                  <!-- Popping Notification Badge with Number in the Middle (Aggregated) -->
+                  <span
+                    v-if="getItemBadgeCount(item) > 0"
+                    class="badge-pop absolute -top-1 -right-1 z-10 flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
+                  >
+                    {{ formatBadgeCount(getItemBadgeCount(item)) }}
+                  </span>
+                  <!-- Fallback Pulsing Beacon if showBadge without count -->
+                  <span
+                    v-else-if="getItemHasBadge(item)"
+                    class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
+                  >
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
+                    ></span>
+                    <span
+                      class="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500 shadow-xs"
+                    ></span>
+                  </span>
+                </div>
 
                 <div
                   class="flex flex-1 items-center justify-between transition-all duration-500"
@@ -318,21 +341,29 @@
                           : 'text-foreground/80'
                       "
                     >
-                      <Icon
-                        :name="child.icon"
-                        size="18"
-                        class="group-hover:text-sidebar-accent-foreground transition-colors duration-300"
-                        :class="
-                          isChildActive(child, item)
-                            ? 'text-sidebar-accent-foreground'
-                            : 'text-foreground/40'
-                        "
-                      />
-                      <!-- Notification Dot for children -->
-                      <div
-                        v-if="child.showBadge"
-                        class="h-2 w-2 shrink-0 rounded-full bg-red-500"
-                      ></div>
+                      <div class="relative flex items-center justify-center">
+                        <Icon
+                          :name="child.icon"
+                          size="18"
+                          class="group-hover:text-sidebar-accent-foreground transition-colors duration-300"
+                          :class="
+                            isChildActive(child, item)
+                              ? 'text-sidebar-accent-foreground'
+                              : 'text-foreground/40'
+                          "
+                        />
+                        <!-- Submenu Child Notification Badge strictly on the Icon -->
+                        <span
+                          v-if="getItemBadgeCount(child) > 0"
+                          class="badge-pop absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-red-500 px-0.5 text-[8px] font-black text-white shadow-xs"
+                        >
+                          {{ formatBadgeCount(getItemBadgeCount(child)) }}
+                        </span>
+                        <div
+                          v-else-if="getItemHasBadge(child)"
+                          class="absolute -top-0.5 -right-0.5 h-2 w-2 shrink-0 rounded-full bg-red-500"
+                        ></div>
+                      </div>
                       <span
                         class="group-hover:text-sidebar-accent-foreground text-[15px] whitespace-nowrap transition-colors duration-300"
                         :class="
@@ -410,5 +441,24 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  @keyframes badge-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .badge-pop {
+    animation: badge-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   }
 </style>

@@ -5,6 +5,7 @@
     to?: string
     showBadge?: boolean
     badgeText?: string
+    badgeCount?: number
     highlight?: boolean
     children?: NavItem[]
   }
@@ -16,6 +17,29 @@
     exact?: boolean
     showBadge?: boolean
     badgeCount?: number
+  }
+
+  const getItemBadgeCount = (item: NavItem): number => {
+    if (typeof item.badgeCount === 'number' && item.badgeCount > 0) return item.badgeCount
+    if (item.children && item.children.length > 0) {
+      return item.children.reduce((sum, child) => sum + (child.badgeCount || 0), 0)
+    }
+    return 0
+  }
+
+  const getItemHasBadge = (item: NavItem): boolean => {
+    if (item.showBadge || (typeof item.badgeCount === 'number' && item.badgeCount > 0)) return true
+    if (item.children && item.children.length > 0) {
+      return item.children.some(
+        child => child.showBadge || (typeof child.badgeCount === 'number' && child.badgeCount > 0)
+      )
+    }
+    return false
+  }
+
+  const formatBadgeCount = (count: number): string => {
+    if (count > 99) return '99+'
+    return String(count)
   }
 
   const props = withDefaults(
@@ -109,9 +133,7 @@
     }
 
     if (role === 'admin') {
-      const appealsBadge = Boolean(
-        props.items.find(item => item.to === '/admin/appeals')?.showBadge
-      )
+      const appealsItem = props.items.find(item => item.to === '/admin/appeals')
       return [
         { icon: 'solar:home-2-bold', label: 'Home', to: '/admin', exact: true },
         { icon: 'solar:users-group-rounded-bold', label: 'Users', to: '/admin/moderation/users' },
@@ -119,7 +141,8 @@
           icon: 'solar:danger-circle-bold',
           label: 'Appeals',
           to: '/admin/appeals',
-          showBadge: appealsBadge
+          showBadge: Boolean(appealsItem?.showBadge),
+          badgeCount: appealsItem?.badgeCount
         },
         { icon: 'solar:database-bold', label: 'Dataset', to: '/admin/dataset' }
       ]
@@ -173,7 +196,13 @@
 
   const profileRoute = computed(() => `/${resolvedRole.value}/profile`)
 
+  const moreBadgeCount = computed(() => {
+    const flat = moreItems.value.flatMap(item => [item, ...(item.children || [])])
+    return flat.reduce((sum, item) => sum + (item.badgeCount || 0), 0)
+  })
+
   const hasMoreBadge = computed(() => {
+    if (moreBadgeCount.value > 0) return true
     const flat = moreItems.value.flatMap(item => [item, ...(item.children || [])])
     return flat.some(item => item.showBadge)
   })
@@ -256,14 +285,14 @@
               :name="item.icon"
               size="24"
             />
-            <!-- Number badge (e.g. unread messages) -->
+            <!-- Number badge (e.g. unread messages, appeals) -->
             <span
               v-if="item.badgeCount && item.badgeCount > 0"
-              class="absolute -top-0.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-bold text-white"
+              class="badge-pop absolute -top-1 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
             >
-              {{ item.badgeCount > 99 ? '99+' : item.badgeCount }}
+              {{ formatBadgeCount(item.badgeCount) }}
             </span>
-            <!-- Ping badge (e.g. admin appeals) -->
+            <!-- Ping badge (e.g. admin appeals without count) -->
             <span
               v-else-if="item.showBadge"
               class="absolute -top-0.5 -right-1 flex h-2.5 w-2.5"
@@ -272,7 +301,7 @@
                 class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
               ></span>
               <span
-                class="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500"
+                class="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500 shadow-xs"
               ></span>
             </span>
           </span>
@@ -292,8 +321,15 @@
               name="solar:hamburger-menu-bold"
               size="24"
             />
+            <!-- Number badge on More if items inside have counts -->
             <span
-              v-if="hasMoreBadge"
+              v-if="moreBadgeCount > 0"
+              class="badge-pop absolute -top-1 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
+            >
+              {{ formatBadgeCount(moreBadgeCount) }}
+            </span>
+            <span
+              v-else-if="hasMoreBadge"
               class="absolute -top-0.5 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500"
             ></span>
           </span>
@@ -381,25 +417,26 @@
                 "
               >
                 <span
-                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                  class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                   :class="isPathActive(item.to) ? 'bg-primary/15' : 'bg-gray-100'"
                 >
                   <Icon
                     :name="item.icon"
                     size="18"
                   />
+                  <!-- Popping badge strictly on the icon -->
+                  <span
+                    v-if="getItemBadgeCount(item) > 0"
+                    class="badge-pop absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
+                  >
+                    {{ formatBadgeCount(getItemBadgeCount(item)) }}
+                  </span>
+                  <span
+                    v-else-if="getItemHasBadge(item)"
+                    class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-red-500"
+                  ></span>
                 </span>
                 <span class="flex-1 text-sm font-semibold">{{ item.label }}</span>
-                <span
-                  v-if="item.badgeText"
-                  class="bg-primary/15 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold"
-                >
-                  {{ item.badgeText }}
-                </span>
-                <span
-                  v-else-if="item.showBadge"
-                  class="h-2 w-2 rounded-full bg-red-500"
-                ></span>
                 <Icon
                   name="lucide:chevron-right"
                   size="16"
@@ -419,13 +456,24 @@
                   @click="toggleGroup(item.label)"
                 >
                   <span
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                    class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                     :class="isGroupActive(item) ? 'bg-primary/15' : 'bg-gray-100'"
                   >
                     <Icon
                       :name="item.icon"
                       size="18"
                     />
+                    <!-- Popping badge strictly on the group icon -->
+                    <span
+                      v-if="getItemBadgeCount(item) > 0"
+                      class="badge-pop absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full border border-white bg-red-500 px-1 text-[9px] font-black text-white shadow-xs"
+                    >
+                      {{ formatBadgeCount(getItemBadgeCount(item)) }}
+                    </span>
+                    <span
+                      v-else-if="getItemHasBadge(item)"
+                      class="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full border border-white bg-red-500"
+                    ></span>
                   </span>
                   <span class="flex-1 text-sm font-semibold">{{ item.label }}</span>
                   <Icon
@@ -454,15 +502,24 @@
                             : 'text-foreground/80 hover:bg-gray-50'
                         "
                       >
-                        <Icon
-                          :name="child.icon"
-                          size="16"
-                        />
+                        <span class="relative flex items-center justify-center">
+                          <Icon
+                            :name="child.icon"
+                            size="16"
+                          />
+                          <!-- Child badge strictly on icon -->
+                          <span
+                            v-if="getItemBadgeCount(child) > 0"
+                            class="badge-pop absolute -top-1.5 -right-2 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border border-white bg-red-500 px-0.5 text-[8px] font-black text-white shadow-xs"
+                          >
+                            {{ formatBadgeCount(getItemBadgeCount(child)) }}
+                          </span>
+                          <span
+                            v-else-if="getItemHasBadge(child)"
+                            class="absolute -top-0.5 -right-1 h-2 w-2 rounded-full bg-red-500"
+                          ></span>
+                        </span>
                         <span class="flex-1 text-[13px]">{{ child.label }}</span>
-                        <span
-                          v-if="child.showBadge"
-                          class="h-2 w-2 rounded-full bg-red-500"
-                        ></span>
                       </NuxtLink>
                     </li>
                   </ul>
@@ -528,5 +585,24 @@
   .mobile-sheet-enter-from .mobile-sheet-panel,
   .mobile-sheet-leave-to .mobile-sheet-panel {
     transform: translateY(100%);
+  }
+
+  @keyframes badge-pop {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    70% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .badge-pop {
+    animation: badge-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
   }
 </style>
