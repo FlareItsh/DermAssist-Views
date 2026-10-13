@@ -1567,9 +1567,9 @@
     <div
       class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-4 sm:py-6 lg:sticky lg:w-[420px] lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px]"
     >
-      <div class="bg-card rounded-2xl border border-gray-100 p-6 shadow-sm">
+      <div class="bg-card rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6">
         <div class="mb-4 flex items-center justify-between sm:mb-6">
-          <h2 class="text-base font-bold sm:text-xl">Statistical Findings</h2>
+          <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
           <AppConfidenceTooltip
             align="right"
             :chart-data="displayChartData"
@@ -1585,8 +1585,11 @@
               :show-legend="false"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
-              <span class="text-foreground text-3xl font-black">{{ activeConfidence }}%</span>
-              <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
+              <span class="text-foreground text-2xl font-bold sm:text-3xl"
+                >{{ activeConfidence }}%</span
+              >
+              <span
+                class="text-[9px] font-semibold tracking-wider text-gray-400 uppercase sm:text-[10px]"
                 >Confidence</span
               >
             </div>
@@ -1596,25 +1599,27 @@
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-3 transition-all hover:border-gray-100 hover:bg-gray-50"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2.5 sm:gap-3">
                 <span
-                  class="h-3.5 w-3.5 shrink-0 rounded-full"
+                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
                 <span
-                  class="text-sm font-bold"
+                  class="text-xs font-semibold sm:text-sm"
                   :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
                 >
                   {{ entry.label }}
                 </span>
               </div>
-              <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-gray-400">{{ entry.value }}%</span>
+              <div class="flex items-center gap-2.5 sm:gap-3">
+                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
+                  >{{ entry.value }}%</span
+                >
                 <div
-                  class="flex h-8 w-8 items-center justify-center rounded-full transition-all"
+                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
                   :class="
                     activeDisease === entry.label
                       ? 'bg-primary shadow-primary/20 text-white shadow-md'
@@ -1627,7 +1632,7 @@
                         ? 'material-symbols:check'
                         : 'material-symbols:search'
                     "
-                    class="text-base"
+                    class="text-sm sm:text-base"
                   />
                 </div>
               </div>
@@ -1639,16 +1644,16 @@
       <!-- Image Quality & Reliability Card -->
       <div
         v-if="currentDiagnosis?.image_quality"
-        class="bg-card rounded-[2.5rem] border p-8 shadow-sm transition-all"
+        class="bg-card rounded-2xl border p-4 shadow-sm transition-all sm:p-6"
         :class="
           currentDiagnosis.image_quality.status === 'Excellent'
             ? 'border-green-100'
             : 'border-amber-100'
         "
       >
-        <div class="mb-6 flex items-center gap-4">
+        <div class="mb-4 flex items-center gap-3 sm:mb-5 sm:gap-4">
           <div
-            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl"
             :class="
               currentDiagnosis.image_quality.status === 'Excellent'
                 ? 'bg-green-100 text-green-600'
@@ -1661,13 +1666,13 @@
                   ? 'material-symbols:verified-rounded'
                   : 'material-symbols:warning-outline-rounded'
               "
-              class="text-2xl"
+              class="text-xl sm:text-2xl"
             />
           </div>
           <div>
-            <h3 class="text-lg font-bold text-gray-900">Image Quality</h3>
+            <h3 class="text-sm font-bold text-gray-900 sm:text-base">Image Quality</h3>
             <span
-              class="text-sm font-bold"
+              class="text-xs font-semibold sm:text-sm"
               :class="
                 currentDiagnosis.image_quality.status === 'Excellent'
                   ? 'text-green-600'
@@ -1679,14 +1684,14 @@
           </div>
         </div>
 
-        <p class="mb-6 text-base leading-relaxed text-gray-600">
+        <p class="mb-4 text-xs leading-relaxed text-gray-600 sm:mb-5 sm:text-sm">
           {{ currentDiagnosis.image_quality.feedback_message }}
         </p>
 
         <!-- Quality metric pills -->
         <div class="flex flex-wrap gap-2">
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_blurry
                 ? 'bg-red-50 text-red-600'
@@ -1699,12 +1704,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Focus
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_dark
                 ? 'bg-red-50 text-red-600'
@@ -1717,12 +1722,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Brightness
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_overexposed
                 ? 'bg-red-50 text-red-600'
@@ -1735,12 +1740,12 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Glare
           </span>
           <span
-            class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+            class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
             :class="
               currentDiagnosis.image_quality.is_low_contrast
                 ? 'bg-red-50 text-red-600'
@@ -1753,7 +1758,7 @@
                   ? 'material-symbols:close-rounded'
                   : 'material-symbols:check-rounded'
               "
-              class="text-base"
+              class="text-xs sm:text-sm"
             />
             Contrast
           </span>
@@ -1763,12 +1768,12 @@
       <!-- Medical Appeal Card (Doctor Only) -->
       <div
         v-if="props.role === 'doctor'"
-        class="bg-card mb-6 flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
+        class="bg-card mb-6 flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-3">
           <div>
-            <h3 class="text-xl font-bold">Disagree with the results?</h3>
-            <p class="mt-1 text-sm text-gray-500">
+            <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
+            <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
               File an appeal to suggest a different diagnosis.
             </p>
           </div>
@@ -1776,7 +1781,7 @@
             v-if="!isAppealOpen"
             variant="outline"
             @click="isAppealOpen = true"
-            class="rounded-xl px-4 py-2 font-bold"
+            class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
           >
             File Appeal
           </AppButton>
@@ -1784,49 +1789,51 @@
 
         <div
           v-if="isAppealOpen"
-          class="animate-in slide-in-from-top-2 flex flex-col gap-4 duration-300"
+          class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
         >
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label
+              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
               >Suggested Diagnosis</label
             >
             <input
               v-model="suggestedLabel"
               type="text"
-              class="focus:ring-primary w-full rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
+              class="focus:ring-primary w-full rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
               placeholder="Enter correct diagnosis..."
             />
           </div>
-          <div class="flex flex-col gap-2">
-            <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
+          <div class="flex flex-col gap-1.5 sm:gap-2">
+            <label
+              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
               >Reason / Description (Optional)</label
             >
             <textarea
               v-model="appealDescription"
               rows="3"
-              class="focus:ring-primary w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-4 text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset"
+              class="focus:ring-primary w-full resize-none rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
               placeholder="Provide details on why you disagree..."
             ></textarea>
           </div>
 
           <div
             v-if="appealError"
-            class="text-sm font-medium text-red-500"
+            class="text-xs font-medium text-red-500 sm:text-sm"
           >
             {{ appealError }}
           </div>
           <div
             v-if="appealSuccess"
-            class="text-sm font-medium text-green-500"
+            class="text-xs font-medium text-green-500 sm:text-sm"
           >
             Appeal submitted successfully!
           </div>
 
-          <div class="mt-2 flex items-center justify-end gap-3">
+          <div class="mt-1 flex items-center justify-end gap-2.5 sm:mt-2 sm:gap-3">
             <AppButton
               variant="ghost"
               @click="isAppealOpen = false"
-              class="rounded-xl font-bold text-gray-500"
+              class="rounded-xl px-3 py-1.5 text-xs font-bold text-gray-500 sm:px-4 sm:py-2 sm:text-sm"
               :disabled="isSubmittingAppeal"
             >
               Cancel
@@ -1835,7 +1842,7 @@
               @click="submitAppeal"
               :loading="isSubmittingAppeal"
               :disabled="!suggestedLabel"
-              class="bg-primary text-card rounded-xl px-6 py-2 font-bold shadow-lg transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
+              class="bg-primary text-card rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
             >
               Submit Appeal
             </AppButton>
@@ -1846,10 +1853,10 @@
       <div
         v-if="props.role !== 'doctor'"
         ref="doctorCardRef"
-        class="bg-card flex flex-col gap-6 rounded-[2.5rem] border border-gray-100 p-8 shadow-sm"
+        class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-6 sm:p-6"
       >
         <div class="flex items-center justify-between">
-          <h3 class="text-2xl font-bold">
+          <h3 class="text-sm font-bold sm:text-base">
             {{
               isDoctorRegistered
                 ? 'Your Attending Doctor'
