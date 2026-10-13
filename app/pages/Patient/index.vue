@@ -143,12 +143,12 @@
     <!-- ═══════════════════════════════════════════════
          DESKTOP LAYOUT (unchanged, hidden on mobile)
          ═══════════════════════════════════════════════ -->
-    <div class="desktop-only flex gap-5 overflow-hidden">
+    <div class="desktop-only flex items-start gap-5">
       <div class="flex min-w-0 flex-1 flex-col gap-4">
-        <div class="flex gap-5">
+        <div class="flex flex-col gap-5 sm:flex-row">
           <PatientSideComponentsPatientCard
             title="Total Scans Performed"
-            class="w-100 shrink-0"
+            class="w-full shrink-0 sm:w-72 lg:w-80"
           >
             <p
               class="bg-card flex h-15 w-15 items-center justify-center rounded-full text-center text-xl font-medium shadow-[inset_0_0_9px_rgba(0,0,0,0.4),0_0_10px_rgba(0,0,0,0.5)]"
@@ -159,10 +159,10 @@
 
           <PatientSideComponentsPatientCard
             title="Appointments"
-            class=""
+            class="min-w-0 flex-1"
           >
             <div
-              class="custom-scrollbar bg-card flex h-20 w-[446px] items-center gap-6 overflow-x-auto rounded-2xl px-6 font-medium shadow-[inset_0_0_9px_rgba(0,0,0,0.4),0_0_10px_rgba(0,0,0,0.5)]"
+              class="custom-scrollbar bg-card flex h-20 w-full min-w-0 items-center gap-6 overflow-x-auto rounded-2xl px-6 font-medium shadow-[inset_0_0_9px_rgba(0,0,0,0.4),0_0_10px_rgba(0,0,0,0.5)]"
             >
               <div
                 v-if="filteredAppointments.length > 0"
@@ -171,7 +171,7 @@
                 <div
                   v-for="appt in filteredAppointments"
                   :key="appt.id"
-                  class="flex shrink-0 items-center gap-4 border-r border-white/10 pr-8 last:border-0 last:pr-0"
+                  class="flex shrink-0 items-center gap-4 border-r border-gray-100 pr-8 last:border-0 last:pr-0 dark:border-white/10"
                 >
                   <div class="flex flex-col items-center leading-none">
                     <span class="text-primary text-[10px] font-bold tracking-tighter uppercase">{{
@@ -216,12 +216,13 @@
           <div class="bg-secondary h-8 w-1 shrink-0 rounded-full"></div>
           <h1 class="text-foreground text-2xl font-bold">Skin Conditions Information</h1>
         </div>
-        <div class="flex gap-5">
+        <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
           <PatientSideComponentsSkinConditionsInfo
             title="Acne"
             icon="/images/acne-icon.png"
+            class="w-full"
           >
-            <p class="bg-card max-w-md text-xl leading-relaxed text-gray-700 opacity-90">
+            <p class="bg-card text-xl leading-relaxed text-gray-700 opacity-90">
               Common skin condition involving clogged pores, inflammation, and pimples. Common in
               adolescence.
             </p>
@@ -229,8 +230,9 @@
           <PatientSideComponentsSkinConditionsInfo
             title="Eczema"
             icon="/images/eczema-icon.png"
+            class="w-full"
           >
-            <p class="bg-card max-w-md text-xl leading-relaxed text-gray-700 opacity-90">
+            <p class="bg-card text-xl leading-relaxed text-gray-700 opacity-90">
               Inflammatory condition causing dry, itchy skin, often linked to genetics and immune
               triggers.
             </p>
@@ -238,8 +240,9 @@
           <PatientSideComponentsSkinConditionsInfo
             title="HSV"
             icon="/images/hsv-icon.png"
+            class="w-full"
           >
-            <p class="bg-card max-w-md text-xl leading-relaxed text-gray-700 opacity-90">
+            <p class="bg-card text-xl leading-relaxed text-gray-700 opacity-90">
               Viral infection causing cold sores (type 1) or genital sores (type 2). Periods of
               dormancy.
             </p>
@@ -300,9 +303,11 @@
         />
       </div>
       <!-- TODO: CALENDAR -->
-      <div class="sticky top-0 flex h-[calc(91vh-3rem)] flex-col gap-4">
-        <PatientSideComponentsCalendar />
-        <PatientSideComponentsSaaSPromotion class="flex-1" />
+      <div
+        class="sticky top-0 flex max-h-[calc(100vh-4rem)] w-80 shrink-0 flex-col gap-4 overflow-hidden lg:w-[340px] xl:w-[350px]"
+      >
+        <PatientSideComponentsCalendar class="w-full shrink-0" />
+        <PatientSideComponentsSaaSPromotion class="min-h-[160px] w-full flex-1" />
       </div>
     </div>
 
@@ -317,9 +322,9 @@
           <h3 class="mb-3 text-base font-bold text-white">Total scans performed</h3>
           <div class="flex items-center gap-4">
             <div
-              class="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 shadow-[inset_0_0_9px_rgba(0,0,0,0.3)]"
+              class="bg-card text-foreground flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-center text-lg font-bold shadow-[inset_0_0_6px_rgba(0,0,0,0.35),0_0_8px_rgba(0,0,0,0.4)]"
             >
-              <span class="text-xl font-black text-white">{{ total_scans }}</span>
+              {{ total_scans }}
             </div>
             <p class="max-w-[160px] text-xs leading-relaxed text-white/70">
               Skin scans analyzed by our AI system

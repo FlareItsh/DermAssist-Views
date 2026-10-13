@@ -65,14 +65,6 @@
           class="size-8"
         />
       </div>
-      <div
-        class="bg-primary text-primary-foreground absolute top-2.5 right-2.5 flex size-6 items-center justify-center rounded-lg shadow-xs"
-      >
-        <Icon
-          name="lucide:stethoscope"
-          class="size-3.5"
-        />
-      </div>
     </div>
 
     <div class="mt-5">
