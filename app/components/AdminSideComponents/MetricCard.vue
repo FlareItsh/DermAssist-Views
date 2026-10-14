@@ -1,62 +1,34 @@
 <script setup lang="ts">
+  interface TrendConfig {
+    value: string | number
+    direction?: 'up' | 'down' | 'neutral'
+    label?: string
+  }
+
+  type ToneType = 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo' | 'violet' | 'slate'
+
   const props = withDefaults(
     defineProps<{
       label: string
       value: number | string
+      unit?: string
       detail?: string
-      icon?: string
       to?: string
       loading?: boolean
-      tone?: 'blue' | 'emerald' | 'amber' | 'rose' | 'indigo'
+      tone?: ToneType
       badge?: string
+      trend?: TrendConfig
     }>(),
     {
       loading: false,
-      tone: 'blue'
+      tone: 'blue',
+      unit: '',
+      detail: '',
+      to: '',
+      badge: '',
+      trend: undefined
     }
   )
-
-  const toneConfig = computed(() => {
-    const tones = {
-      blue: {
-        number: 'text-gray-900',
-        badge: 'bg-secondary/10 text-secondary ring-1 ring-secondary/20',
-        hoverBorder: 'hover:border-secondary/40',
-        line: 'bg-secondary',
-        ambientBg: 'bg-gradient-to-br from-secondary/10 via-secondary/5 to-transparent'
-      },
-      emerald: {
-        number: 'text-gray-900',
-        badge: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/60',
-        hoverBorder: 'hover:border-emerald-300',
-        line: 'bg-emerald-500',
-        ambientBg: 'bg-gradient-to-br from-emerald-50/60 via-emerald-50/20 to-transparent'
-      },
-      amber: {
-        number: 'text-gray-900',
-        badge: 'bg-amber-50 text-amber-700 ring-1 ring-amber-200/60',
-        hoverBorder: 'hover:border-amber-300',
-        line: 'bg-amber-500',
-        ambientBg: 'bg-gradient-to-br from-amber-50/60 via-amber-50/20 to-transparent'
-      },
-      rose: {
-        number: 'text-gray-900',
-        badge: 'bg-rose-50 text-rose-700 ring-1 ring-rose-200/60',
-        hoverBorder: 'hover:border-rose-300',
-        line: 'bg-rose-500',
-        ambientBg: 'bg-gradient-to-br from-rose-50/60 via-rose-50/20 to-transparent'
-      },
-      indigo: {
-        number: 'text-gray-900',
-        badge: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200/60',
-        hoverBorder: 'hover:border-indigo-300',
-        line: 'bg-indigo-500',
-        ambientBg: 'bg-gradient-to-br from-indigo-50/60 via-indigo-50/20 to-transparent'
-      }
-    }
-
-    return tones[props.tone] || tones.blue
-  })
 
   const formattedValue = computed(() => {
     if (typeof props.value === 'number') {
@@ -65,78 +37,109 @@
     return props.value
   })
 
+  const valueSizeClass = computed(() => {
+    const str = String(props.value ?? '')
+    if (str.length > 15) return 'text-lg sm:text-xl md:text-2xl'
+    if (str.length > 9) return 'text-xl sm:text-2xl md:text-3xl'
+    if (str.length > 5) return 'text-3xl sm:text-4xl'
+    return 'text-4xl sm:text-5xl'
+  })
+
+  const trendColorClass = computed(() => {
+    if (!props.trend) return ''
+    if (props.trend.direction === 'up') {
+      return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
+    }
+    if (props.trend.direction === 'down') {
+      return 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20'
+    }
+    return 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-500/10'
+  })
+
   const cardComponent = computed(() => (props.to ? resolveComponent('NuxtLink') : 'div'))
 </script>
 
 <template>
   <component
     :is="cardComponent"
-    :to="to"
-    class="metric-card group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xs"
-    :class="[to ? 'cursor-pointer' : '', toneConfig.hoverBorder]"
+    :to="to || undefined"
+    class="group dark:border-border/60 dark:bg-card dark:hover:border-border flex h-full flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:border-gray-300 hover:shadow-xs sm:p-5"
+    :class="[to ? 'cursor-pointer' : '']"
   >
-    <!-- Subtle Ambient Hover Background Animation -->
-    <div
-      class="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 ease-out group-hover:opacity-100"
-      :class="toneConfig.ambientBg"
-    />
+    <!-- Header Row: Clean Label (left) & Single High-Craft Pill Badge (right) -->
+    <div class="flex items-center justify-between gap-2">
+      <span
+        class="dark:text-muted-foreground truncate text-xs font-semibold tracking-wider text-gray-500 uppercase"
+      >
+        {{ label }}
+      </span>
 
-    <!-- Card Content Layer (z-10) -->
-    <div class="relative z-10 flex h-full flex-col justify-between">
-      <div>
-        <!-- Top Row: Label & Status Pill Badge -->
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-            {{ label }}
-          </span>
-          <span
-            v-if="badge"
-            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-            :class="toneConfig.badge"
-          >
-            {{ badge }}
-          </span>
-        </div>
-
-        <!-- Middle Row: Authoritative Metric Hero Number -->
-        <div class="mt-3 flex items-baseline gap-2">
-          <div
-            v-if="loading"
-            class="h-8 w-20 animate-pulse rounded-lg bg-gray-100 sm:h-9"
-          />
-          <span
-            v-else
-            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
-            :class="toneConfig.number"
-          >
-            {{ formattedValue }}
-          </span>
-        </div>
-
-        <!-- Bottom Row: Context Description / Caption -->
-        <p
-          v-if="detail"
-          class="mt-1 text-xs font-medium text-gray-500"
+      <!-- Single Top-Right Badge: Trend badge has precedence over static badge -->
+      <div
+        v-if="trend"
+        class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+        :class="trendColorClass"
+      >
+        <Icon
+          v-if="trend.direction === 'up'"
+          name="lucide:trending-up"
+          class="h-3 w-3 shrink-0"
+        />
+        <Icon
+          v-else-if="trend.direction === 'down'"
+          name="lucide:trending-down"
+          class="h-3 w-3 shrink-0"
+        />
+        <span>{{ trend.value }}</span>
+        <span
+          v-if="trend.label"
+          class="font-normal opacity-75"
         >
-          {{ detail }}
-        </p>
+          {{ trend.label }}
+        </span>
       </div>
 
-      <!-- Animated Bottom Accent Line on Hover -->
-      <div class="mt-3.5 w-full">
-        <div class="h-1 w-full overflow-hidden rounded-full bg-gray-100">
-          <div
-            class="metric-progress h-full w-1/4 rounded-full transition-all duration-500 ease-out group-hover:w-full"
-            :class="toneConfig.line"
-          />
-        </div>
+      <span
+        v-else-if="badge"
+        class="dark:bg-muted dark:text-muted-foreground inline-flex shrink-0 items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600 ring-1 ring-gray-500/10 ring-inset"
+      >
+        {{ badge }}
+      </span>
+    </div>
+
+    <!-- Center Hero: Dominant, Bold, Centered Metric Value -->
+    <div class="my-auto flex flex-col items-center justify-center py-4 text-center">
+      <div
+        v-if="loading"
+        class="h-10 w-24 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800"
+      />
+      <div
+        v-else
+        class="flex max-w-full flex-wrap items-baseline justify-center gap-1.5"
+      >
+        <span
+          class="dark:text-foreground font-black tracking-tight text-gray-900 tabular-nums"
+          :class="valueSizeClass"
+        >
+          {{ formattedValue }}
+        </span>
+        <span
+          v-if="unit"
+          class="dark:text-muted-foreground text-xs font-medium text-gray-400 sm:text-sm"
+        >
+          {{ unit }}
+        </span>
       </div>
+    </div>
+
+    <!-- Bottom Caption: Clean, Subtle Description -->
+    <div class="text-center">
+      <p
+        v-if="detail"
+        class="dark:text-muted-foreground line-clamp-2 text-xs font-medium text-gray-500"
+      >
+        {{ detail }}
+      </p>
     </div>
   </component>
 </template>
-
-<style scoped>
-  .metric-card:hover .metric-progress {
-    width: 100%;
-  }
-</style>

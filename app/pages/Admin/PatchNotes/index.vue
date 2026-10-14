@@ -237,68 +237,33 @@
 
     <!-- Quick Stats Cards -->
     <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="border-border/60 bg-card space-y-1 rounded-2xl border p-4 shadow-sm">
-        <span class="text-muted-foreground block text-[11px] font-medium tracking-wider uppercase"
-          >Total Updates</span
-        >
-        <div class="flex items-baseline justify-between">
-          <span class="text-foreground text-2xl font-semibold">{{ totalCount }}</span>
-          <Icon
-            name="solar:document-text-bold-duotone"
-            class="text-primary/70 text-xl"
-          />
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Total Updates"
+        :value="totalCount"
+        detail="System release logs"
+        badge="All-time"
+      />
 
-      <div
-        class="space-y-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-sm"
-      >
-        <span
-          class="block text-[11px] font-medium tracking-wider text-emerald-600 uppercase dark:text-emerald-400"
-          >Published</span
-        >
-        <div class="flex items-baseline justify-between">
-          <span class="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{{
-            publishedCount
-          }}</span>
-          <Icon
-            name="heroicons:check-circle-solid"
-            class="text-xl text-emerald-500"
-          />
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Published"
+        :value="publishedCount"
+        detail="Live changelogs"
+        badge="Live"
+      />
 
-      <div class="space-y-1 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm">
-        <span
-          class="block text-[11px] font-medium tracking-wider text-amber-600 uppercase dark:text-amber-400"
-          >Drafts</span
-        >
-        <div class="flex items-baseline justify-between">
-          <span class="text-2xl font-semibold text-amber-600 dark:text-amber-400">{{
-            draftCount
-          }}</span>
-          <Icon
-            name="solar:pen-new-square-bold"
-            class="text-xl text-amber-500"
-          />
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Drafts"
+        :value="draftCount"
+        detail="Work in progress notes"
+        :badge="draftCount > 0 ? `${draftCount} pending` : 'Clean'"
+      />
 
-      <div class="space-y-1 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4 shadow-sm">
-        <span
-          class="block text-[11px] font-medium tracking-wider text-indigo-600 uppercase dark:text-indigo-400"
-          >Current Version</span
-        >
-        <div class="flex items-baseline justify-between">
-          <span class="text-xl font-semibold text-indigo-600 dark:text-indigo-400">{{
-            latestVersion
-          }}</span>
-          <Icon
-            name="solar:tag-bold"
-            class="text-xl text-indigo-500"
-          />
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Current Version"
+        :value="latestVersion"
+        detail="Active production build"
+        badge="Production"
+      />
     </div>
 
     <!-- Filter & Search Controls -->

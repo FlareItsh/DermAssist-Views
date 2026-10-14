@@ -602,140 +602,39 @@
 
     <!-- Top Metrics Overview Grid -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <!-- Metric 1: Active Architecture -->
-      <div
-        class="bg-card border-border flex flex-col justify-between rounded-3xl border p-5 shadow-sm"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-            >Inference Engine</span
-          >
-          <div
-            class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
-          >
-            <Icon
-              name="lucide:layers"
-              size="18"
-            />
-          </div>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-foreground flex items-center gap-1.5 text-base font-bold">
-            3-Model Ensemble
-            <span
-              class="bg-primary/10 text-primary inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold"
-              >Tri-Fusion</span
-            >
-          </h3>
-          <p class="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs">
-            <span class="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-            Swin + ResNet + EfficientNet
-          </p>
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Inference Engine"
+        value="3-Model Ensemble"
+        badge="Tri-Fusion"
+        detail="Swin + ResNet + EfficientNet"
+      />
 
-      <!-- Metric 2: Baseline Benchmark Data -->
-      <div
-        class="bg-card border-border flex flex-col justify-between rounded-3xl border p-5 shadow-sm"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-            >Baseline Dataset</span
-          >
-          <div
-            class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
-          >
-            <Icon
-              name="lucide:database"
-              size="18"
-            />
-          </div>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-foreground text-2xl font-black">
-            {{ stats?.ai_service.total_baseline_images.toLocaleString() || '15,719' }}
-            <span class="text-muted-foreground text-xs font-normal">images</span>
-          </h3>
-          <p class="text-muted-foreground mt-0.5 text-xs">Clinical benchmark foundation</p>
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Baseline Dataset"
+        :value="stats?.ai_service.total_baseline_images || 15719"
+        unit="images"
+        badge="Benchmark"
+        detail="Clinical benchmark foundation"
+      />
 
-      <!-- Metric 3: Gathered Clinical Scans -->
-      <div
-        class="bg-card border-border flex flex-col justify-between rounded-3xl border p-5 shadow-sm"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-            >Gathered Scans</span
-          >
-          <div
-            class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
-          >
-            <Icon
-              name="lucide:images"
-              size="18"
-            />
-          </div>
-        </div>
-        <div class="mt-4">
-          <div class="flex items-baseline justify-between gap-2">
-            <h3 class="text-foreground text-2xl font-black">
-              {{ stats?.gathered_dataset.total ?? 0 }}
-              <span class="text-muted-foreground text-xs font-normal">collected</span>
-            </h3>
-            <span
-              v-if="(stats?.gathered_dataset.untrained_count ?? 0) > 0"
-              class="border-primary/30 bg-primary/10 text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-bold shadow-xs"
-            >
-              <span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
-              {{ stats?.gathered_dataset.untrained_count }} new untrained
-            </span>
-            <span
-              v-else-if="(stats?.gathered_dataset.total ?? 0) > 0"
-              class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
-            >
-              <Icon
-                name="lucide:check"
-                size="12"
-              />
-              All trained
-            </span>
-          </div>
-          <p class="text-muted-foreground mt-1 text-xs">
-            Acne: {{ stats?.gathered_dataset.by_category.acne ?? 0 }} | Eczema:
-            {{ stats?.gathered_dataset.by_category.eczema ?? 0 }} | Herpes:
-            {{ stats?.gathered_dataset.by_category.herpes ?? 0 }}
-          </p>
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Gathered Scans"
+        :value="stats?.gathered_dataset.total ?? 0"
+        unit="collected"
+        :badge="
+          (stats?.gathered_dataset.untrained_count ?? 0) > 0
+            ? `${stats?.gathered_dataset.untrained_count} new`
+            : 'All trained'
+        "
+        detail="Acne, Eczema & Herpes pool"
+      />
 
-      <!-- Metric 4: Validation Guard Safeguard -->
-      <div
-        class="bg-card border-border flex flex-col justify-between rounded-3xl border p-5 shadow-sm"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-            >Accuracy Guard</span
-          >
-          <div
-            class="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600"
-          >
-            <Icon
-              name="lucide:shield-check"
-              size="18"
-            />
-          </div>
-        </div>
-        <div class="mt-4">
-          <h3 class="text-foreground flex items-center gap-1.5 text-base font-bold">
-            Validation Guard
-            <span class="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500"></span>
-          </h3>
-          <p class="text-muted-foreground mt-0.5 text-xs">
-            Rejects lower accuracy; keeps best model
-          </p>
-        </div>
-      </div>
+      <AdminSideComponentsMetricCard
+        label="Accuracy Guard"
+        value="Validation Guard"
+        badge="Active Guard"
+        detail="Rejects lower accuracy; keeps best model"
+      />
     </div>
 
     <!-- Active Pipeline Status & Live Progress Card -->

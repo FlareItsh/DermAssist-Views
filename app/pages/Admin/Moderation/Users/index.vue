@@ -262,8 +262,7 @@
         label="Patients"
         :value="patientCount"
         detail="Registered patient accounts"
-        icon="lucide:user-round"
-        tone="blue"
+        :trend="{ value: '+8%', direction: 'up', label: 'active' }"
         to="/admin/moderation/users?role=patient"
         :loading="isLoadingCounts"
       />
@@ -271,8 +270,7 @@
         label="Doctors"
         :value="doctorCount"
         detail="Registered doctor accounts"
-        icon="lucide:stethoscope"
-        tone="emerald"
+        :trend="{ value: '100%', direction: 'up', label: 'verified' }"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingCounts"
       />

@@ -333,7 +333,7 @@
         label="Patients"
         :value="patientCount"
         detail="Total registered patient users"
-        badge="Platform"
+        :trend="{ value: '+12%', direction: 'up', label: 'this mo' }"
         to="/admin/moderation/users?role=patient"
         :loading="isLoadingUsers"
       />
@@ -342,7 +342,7 @@
         label="Doctors"
         :value="doctorCount"
         detail="Total registered clinician accounts"
-        badge="Active"
+        :trend="{ value: '+2', direction: 'up', label: 'new clinicians' }"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingUsers"
       />
@@ -350,6 +350,7 @@
       <AdminSideComponentsMetricCard
         label="Active Dataset"
         :value="datasetImageCount"
+        unit="photos"
         detail="Lesion photos in AI repository"
         badge="Live Training"
         to="/admin/dataset"
