@@ -113,6 +113,37 @@
     }
   }
 
+  const patientUsersData = ref<User[]>([])
+  const doctorUsersData = ref<User[]>([])
+
+  const patientTrend = computed(() => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const recent = patientUsersData.value.filter(
+      u =>
+        (u.created_at || (u as any).createdAt) &&
+        new Date(u.created_at || (u as any).createdAt) >= thirtyDaysAgo
+    ).length
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
+  const doctorTrend = computed(() => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const recent = doctorUsersData.value.filter(
+      u =>
+        (u.created_at || (u as any).createdAt) &&
+        new Date(u.created_at || (u as any).createdAt) >= thirtyDaysAgo
+    ).length
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
   const fetchUserCounts = async () => {
     isLoadingCounts.value = true
 
@@ -124,6 +155,8 @@
 
       patientCount.value = getResponseTotal(patientsResponse)
       doctorCount.value = getResponseTotal(doctorsResponse)
+      patientUsersData.value = getResponseData(patientsResponse)
+      doctorUsersData.value = getResponseData(doctorsResponse)
     } catch (error) {
       console.error('Failed to fetch user counts:', error)
       patientCount.value = 0
@@ -262,7 +295,7 @@
         label="Patients"
         :value="patientCount"
         detail="Registered patient accounts"
-        :trend="{ value: '+8%', direction: 'up', label: 'active' }"
+        :trend="patientTrend"
         to="/admin/moderation/users?role=patient"
         :loading="isLoadingCounts"
       />
@@ -270,7 +303,7 @@
         label="Doctors"
         :value="doctorCount"
         detail="Registered doctor accounts"
-        :trend="{ value: '100%', direction: 'up', label: 'verified' }"
+        :trend="doctorTrend"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingCounts"
       />

@@ -241,14 +241,14 @@
         label="Total Updates"
         :value="totalCount"
         detail="System release logs"
-        badge="All-time"
+        :badge="`${totalCount} Total`"
       />
 
       <AdminSideComponentsMetricCard
         label="Published"
         :value="publishedCount"
         detail="Live changelogs"
-        badge="Live"
+        :badge="`${publishedCount} Live`"
       />
 
       <AdminSideComponentsMetricCard

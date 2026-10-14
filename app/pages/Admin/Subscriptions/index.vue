@@ -13,7 +13,7 @@
         label="Est. MRR"
         :value="`₱${metrics.mrr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`"
         detail="Monthly Recurring Revenue"
-        :trend="{ value: '+14.2%', direction: 'up', label: 'mo/mo' }"
+        :trend="metrics.mrr_growth"
         :loading="isLoading"
       />
 
@@ -21,7 +21,7 @@
         label="Active Subscribers"
         :value="metrics.active_count"
         detail="Doctors with active access"
-        :trend="{ value: '+1', direction: 'up', label: 'this mo' }"
+        :trend="metrics.active_growth"
         :loading="isLoading"
       />
 

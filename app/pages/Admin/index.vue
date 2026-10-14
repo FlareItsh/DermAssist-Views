@@ -65,6 +65,32 @@
 
   const recentAppeals = computed(() => sortedAppeals.value.slice(0, 4))
 
+  const patientTrend = computed(() => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const patients = usersForUsage.value.filter(u => getUserRole(u) === 'patient')
+    const recent = patients.filter(
+      u => (u.created_at || u.createdAt) && new Date(u.created_at || u.createdAt) >= thirtyDaysAgo
+    ).length
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
+  const doctorTrend = computed(() => {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const doctors = usersForUsage.value.filter(u => getUserRole(u) === 'doctor')
+    const recent = doctors.filter(
+      u => (u.created_at || u.createdAt) && new Date(u.created_at || u.createdAt) >= thirtyDaysAgo
+    ).length
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
   const usageRangeOptions = [
     { label: 'Week', value: 'week' },
     { label: 'Month', value: 'month' },
@@ -333,7 +359,7 @@
         label="Patients"
         :value="patientCount"
         detail="Total registered patient users"
-        :trend="{ value: '+12%', direction: 'up', label: 'this mo' }"
+        :trend="patientTrend"
         to="/admin/moderation/users?role=patient"
         :loading="isLoadingUsers"
       />
@@ -342,7 +368,7 @@
         label="Doctors"
         :value="doctorCount"
         detail="Total registered clinician accounts"
-        :trend="{ value: '+2', direction: 'up', label: 'new clinicians' }"
+        :trend="doctorTrend"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingUsers"
       />
@@ -352,7 +378,7 @@
         :value="datasetImageCount"
         unit="photos"
         detail="Lesion photos in AI repository"
-        badge="Live Training"
+        :badge="`${datasets.length} Categories`"
         to="/admin/dataset"
         :loading="isLoadingDatasets"
       />
@@ -361,7 +387,7 @@
         label="Scan Appeals"
         :value="sortedAppeals.length"
         detail="Doctor diagnostic appeal cases"
-        :badge="sortedAppeals.length > 0 ? 'Action Required' : 'All Clear'"
+        :badge="sortedAppeals.length > 0 ? `${sortedAppeals.length} Action Req.` : 'All Clear'"
         to="/admin/appeals"
         :loading="isLoadingAppeals"
       />
