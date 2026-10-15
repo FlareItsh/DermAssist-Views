@@ -93,7 +93,7 @@
   const { hasUnseenAppeals, sortedAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
   const { totalUnreadCount } = useConversations()
-  const { pendingAppointments } = useAppointments()
+  const { rescheduleRequestsCount } = useAppointments()
 
   const showWhatsNew = computed(() => {
     return hasUnseenUpdate.value || route.path.toLowerCase().endsWith('/updates')
@@ -201,8 +201,8 @@
             icon: 'lucide:calendar',
             label: 'Appointments',
             to: '/doctor/appointments',
-            showBadge: pendingAppointments.value.length > 0,
-            badgeCount: pendingAppointments.value.length
+            showBadge: rescheduleRequestsCount.value > 0,
+            badgeCount: rescheduleRequestsCount.value
           }
         ]
       },
@@ -259,8 +259,8 @@
           icon: 'lucide:calendar',
           label: 'Appointments',
           to: '/secretary/appointments',
-          showBadge: pendingAppointments.value.length > 0,
-          badgeCount: pendingAppointments.value.length
+          showBadge: rescheduleRequestsCount.value > 0,
+          badgeCount: rescheduleRequestsCount.value
         }
       ]
     },
