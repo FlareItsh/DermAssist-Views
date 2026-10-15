@@ -13,8 +13,7 @@
         label="Est. MRR"
         :value="`₱${metrics.mrr.toLocaleString('en-US', { minimumFractionDigits: 2 })}`"
         detail="Monthly Recurring Revenue"
-        icon="lucide:dollar-sign"
-        tone="emerald"
+        :trend="metrics.mrr_growth"
         :loading="isLoading"
       />
 
@@ -22,8 +21,7 @@
         label="Active Subscribers"
         :value="metrics.active_count"
         detail="Doctors with active access"
-        icon="lucide:check-circle-2"
-        tone="blue"
+        :trend="metrics.active_growth"
         :loading="isLoading"
       />
 
@@ -31,8 +29,13 @@
         label="Pending Checkout"
         :value="metrics.pending_payments_count"
         detail="Awaiting gateway completion"
-        icon="lucide:clock"
-        tone="amber"
+        :trend="{
+          value:
+            metrics.pending_payments_count > 0
+              ? `${metrics.pending_payments_count} pending`
+              : 'All clear',
+          direction: metrics.pending_payments_count > 0 ? 'down' : 'neutral'
+        }"
         to="/admin/subscriptions/payments"
         :loading="isLoading"
       />
@@ -41,8 +44,10 @@
         label="Past Due / Expired"
         :value="metrics.past_due_count"
         detail="Subscriptions needing renewal"
-        icon="lucide:alert-triangle"
-        tone="rose"
+        :trend="{
+          value: metrics.past_due_count > 0 ? `${metrics.past_due_count} renewal` : 'Zero debt',
+          direction: metrics.past_due_count > 0 ? 'down' : 'neutral'
+        }"
         :loading="isLoading"
       />
     </div>
