@@ -280,10 +280,43 @@
     }
   }
 
+  // ── Category Pagination ──────────────────────────────────────────────
+  const pageSize = 12
+  const priorityCategoryPage = ref<Record<string, number>>({})
+  const oosCategoryPage = ref<Record<string, number>>({})
+
+  const getCategoryCurrentPage = (category: string, isOos: boolean = false): number => {
+    const map = isOos ? oosCategoryPage.value : priorityCategoryPage.value
+    return map[category] || 1
+  }
+
+  const getCategoryTotalPages = (itemsCount: number): number => {
+    return Math.max(1, Math.ceil(itemsCount / pageSize))
+  }
+
+  const setCategoryPage = (category: string, page: number, isOos: boolean = false) => {
+    const target = isOos ? oosCategoryPage : priorityCategoryPage
+    target.value = {
+      ...target.value,
+      [category]: page
+    }
+  }
+
+  const getPaginatedCategoryItems = (
+    category: string,
+    items: any[],
+    isOos: boolean = false
+  ): any[] => {
+    const currentPage = getCategoryCurrentPage(category, isOos)
+    const start = (currentPage - 1) * pageSize
+    return (items || []).slice(start, start + pageSize)
+  }
+
   const fetchDataset = async () => {
     isLoading.value = true
     try {
-      datasets.value = await datasetService.getDataset()
+      const res = await datasetService.getDataset()
+      datasets.value = (res || []).filter(d => (d.category || '').toLowerCase() !== 'none')
     } catch (e) {
       console.error('Failed to fetch dataset', e)
       toast.error('Failed to load dataset gallery.')
@@ -326,7 +359,10 @@
   const fetchOutOfScopeDataset = async () => {
     isLoadingOutOfScope.value = true
     try {
-      outOfScopeDatasets.value = await outOfScopeDatasetService.getDataset()
+      const res = await outOfScopeDatasetService.getDataset()
+      outOfScopeDatasets.value = (res || []).filter(
+        d => (d.category || '').toLowerCase() !== 'none'
+      )
     } catch (e) {
       console.error('Failed to fetch out-of-scope dataset', e)
       toast.error('Failed to load out-of-scope dataset gallery.')
@@ -840,7 +876,11 @@
             class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
           >
             <div
-              v-for="item in getCategoryItems(dataset)"
+              v-for="item in getPaginatedCategoryItems(
+                dataset.category,
+                getCategoryItems(dataset),
+                false
+              )"
               :key="item.url"
               class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
               :class="
@@ -937,6 +977,91 @@
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Category Pagination Controls (Priority Dataset) -->
+          <div
+            v-if="getCategoryItems(dataset).length > pageSize"
+            class="border-border bg-muted/20 flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row md:px-6"
+          >
+            <span class="text-muted-foreground text-xs">
+              Showing
+              <span class="text-foreground font-semibold">
+                {{ (getCategoryCurrentPage(dataset.category, false) - 1) * pageSize + 1 }}
+              </span>
+              to
+              <span class="text-foreground font-semibold">
+                {{
+                  Math.min(
+                    getCategoryCurrentPage(dataset.category, false) * pageSize,
+                    getCategoryItems(dataset).length
+                  )
+                }}
+              </span>
+              of
+              <span class="text-foreground font-semibold">{{
+                getCategoryItems(dataset).length
+              }}</span>
+              images
+            </span>
+
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="getCategoryCurrentPage(dataset.category, false) <= 1"
+                @click="
+                  setCategoryPage(
+                    dataset.category,
+                    getCategoryCurrentPage(dataset.category, false) - 1,
+                    false
+                  )
+                "
+              >
+                <Icon
+                  name="lucide:chevron-left"
+                  size="14"
+                />
+                <span>Prev</span>
+              </button>
+
+              <button
+                v-for="p in getCategoryTotalPages(getCategoryItems(dataset).length)"
+                :key="p"
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-all"
+                :class="
+                  getCategoryCurrentPage(dataset.category, false) === p
+                    ? 'bg-primary text-white shadow-xs'
+                    : 'border-border bg-card text-foreground hover:bg-muted border'
+                "
+                @click="setCategoryPage(dataset.category, p, false)"
+              >
+                {{ p }}
+              </button>
+
+              <button
+                type="button"
+                class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="
+                  getCategoryCurrentPage(dataset.category, false) >=
+                  getCategoryTotalPages(getCategoryItems(dataset).length)
+                "
+                @click="
+                  setCategoryPage(
+                    dataset.category,
+                    getCategoryCurrentPage(dataset.category, false) + 1,
+                    false
+                  )
+                "
+              >
+                <span>Next</span>
+                <Icon
+                  name="lucide:chevron-right"
+                  size="14"
+                />
+              </button>
             </div>
           </div>
         </div>
@@ -1211,7 +1336,11 @@
             class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
           >
             <div
-              v-for="(url, idx) in dataset.images"
+              v-for="(url, idx) in getPaginatedCategoryItems(
+                dataset.category,
+                dataset.images,
+                true
+              )"
               :key="idx"
               class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
               :class="
@@ -1262,6 +1391,89 @@
                   />
                 </button>
               </div>
+            </div>
+          </div>
+
+          <!-- Category Pagination Controls (Out-of-Scope Research Dataset) -->
+          <div
+            v-if="dataset.images.length > pageSize"
+            class="flex flex-col items-center justify-between gap-3 border-t border-violet-500/10 bg-violet-500/5 px-4 py-3 sm:flex-row md:px-6"
+          >
+            <span class="text-muted-foreground text-xs">
+              Showing
+              <span class="text-foreground font-semibold">
+                {{ (getCategoryCurrentPage(dataset.category, true) - 1) * pageSize + 1 }}
+              </span>
+              to
+              <span class="text-foreground font-semibold">
+                {{
+                  Math.min(
+                    getCategoryCurrentPage(dataset.category, true) * pageSize,
+                    dataset.images.length
+                  )
+                }}
+              </span>
+              of
+              <span class="text-foreground font-semibold">{{ dataset.images.length }}</span>
+              images
+            </span>
+
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="getCategoryCurrentPage(dataset.category, true) <= 1"
+                @click="
+                  setCategoryPage(
+                    dataset.category,
+                    getCategoryCurrentPage(dataset.category, true) - 1,
+                    true
+                  )
+                "
+              >
+                <Icon
+                  name="lucide:chevron-left"
+                  size="14"
+                />
+                <span>Prev</span>
+              </button>
+
+              <button
+                v-for="p in getCategoryTotalPages(dataset.images.length)"
+                :key="p"
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-all"
+                :class="
+                  getCategoryCurrentPage(dataset.category, true) === p
+                    ? 'bg-violet-600 text-white shadow-xs'
+                    : 'border-border bg-card text-foreground hover:bg-muted border'
+                "
+                @click="setCategoryPage(dataset.category, p, true)"
+              >
+                {{ p }}
+              </button>
+
+              <button
+                type="button"
+                class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                :disabled="
+                  getCategoryCurrentPage(dataset.category, true) >=
+                  getCategoryTotalPages(dataset.images.length)
+                "
+                @click="
+                  setCategoryPage(
+                    dataset.category,
+                    getCategoryCurrentPage(dataset.category, true) + 1,
+                    true
+                  )
+                "
+              >
+                <span>Next</span>
+                <Icon
+                  name="lucide:chevron-right"
+                  size="14"
+                />
+              </button>
             </div>
           </div>
         </div>
