@@ -382,7 +382,7 @@
       return 'mt-0 h-full overflow-hidden bg-transparent p-0 lg:-mt-4 lg:p-5'
     }
     if (isFullHeightPage.value) {
-      return 'mt-0 flex h-full flex-col overflow-hidden bg-transparent p-0 lg:-mt-4 lg:block lg:p-5'
+      return 'mt-0 flex h-full flex-col overflow-hidden bg-transparent p-0 lg:-mt-4 lg:flex lg:overflow-y-auto lg:p-5'
     }
     return 'mt-0 overflow-y-auto p-0 lg:-mt-4 lg:p-5'
   })
