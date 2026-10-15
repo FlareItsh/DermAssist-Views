@@ -4,6 +4,10 @@ import { $api } from '~/composables/useApi'
 export interface OutOfScopeDatasetCategory {
   category: string
   images: string[]
+  total?: number
+  current_page?: number
+  per_page?: number
+  last_page?: number
 }
 
 export interface OutOfScopeDatasetStats {
@@ -26,8 +30,19 @@ export const OUT_OF_SCOPE_CATEGORIES = [
 export type OutOfScopeCategory = (typeof OUT_OF_SCOPE_CATEGORIES)[number]
 
 export class OutOfScopeDatasetService extends BaseService {
-  async getDataset(): Promise<OutOfScopeDatasetCategory[]> {
-    return this.request<OutOfScopeDatasetCategory[]>('/out-of-scope-dataset', 'GET')
+  async getDataset(params?: {
+    category?: string
+    page?: number
+    per_page?: number
+    all?: boolean
+  }): Promise<OutOfScopeDatasetCategory[]> {
+    const queryParts: string[] = []
+    if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`)
+    if (params?.page) queryParts.push(`page=${params.page}`)
+    if (params?.per_page) queryParts.push(`per_page=${params.per_page}`)
+    if (params?.all) queryParts.push(`all=true`)
+    const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
+    return this.request<OutOfScopeDatasetCategory[]>(`/out-of-scope-dataset${queryString}`, 'GET')
   }
 
   async getStats(): Promise<OutOfScopeDatasetStats> {
