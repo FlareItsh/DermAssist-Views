@@ -1292,20 +1292,6 @@
                 Close
               </AppButton>
               <AppButton
-                variant="outline"
-                size="md"
-                class="rounded-xl font-semibold"
-                :disabled="selectedCount === 0"
-                @click="handleConfirmScope"
-              >
-                <Icon
-                  name="lucide:check"
-                  size="15"
-                  class="mr-1.5"
-                />
-                Confirm Scope Only
-              </AppButton>
-              <AppButton
                 variant="solid"
                 size="md"
                 class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-md"
