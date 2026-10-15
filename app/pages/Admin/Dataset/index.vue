@@ -1,11 +1,16 @@
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
-  import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
+  import {
+    datasetService,
+    type DatasetCategory,
+    type DatasetImageItem
+  } from '~/api/dataset/DatasetService'
   import {
     outOfScopeDatasetService,
     type OutOfScopeDatasetCategory,
     OUT_OF_SCOPE_CATEGORIES
   } from '~/api/dataset/OutOfScopeDatasetService'
+  import { modelTrainingService } from '~/api/modelTraining/ModelTrainingService'
   import { toast } from 'vue-sonner'
 
   const { getStorageUrl } = useStorage()
@@ -188,14 +193,92 @@
     }
   }
 
-  // ── Standard Dataset ─────────────────────────────────────────────────
+  // ── Standard Dataset & Sync State ─────────────────────────────────────
   const isLoading = ref(false)
   const isDeleting = ref(false)
+  const isSyncing = ref(false)
+  const showSyncConfirm = ref(false)
+  const syncFilter = ref<'all' | 'synced' | 'pending'>('all')
   const datasets = ref<DatasetCategory[]>([])
 
   const totalImagesCount = computed(() => {
     return datasets.value.reduce((acc, cat) => acc + (cat.images?.length || 0), 0)
   })
+
+  const allPriorityItems = computed<DatasetImageItem[]>(() => {
+    const items: DatasetImageItem[] = []
+    datasets.value.forEach(cat => {
+      if (cat.items && cat.items.length > 0) {
+        items.push(...cat.items)
+      } else if (cat.images) {
+        cat.images.forEach(url => {
+          items.push({
+            url,
+            filename: url.split('/').pop(),
+            is_synced: true,
+            sync_status: 'synced',
+            source: 'dataset_gallery',
+            storage_location: 'dataset_storage'
+          })
+        })
+      }
+    })
+    return items
+  })
+
+  const syncedPriorityCount = computed(() => {
+    return allPriorityItems.value.filter(i => i.is_synced).length
+  })
+
+  const pendingSyncPriorityCount = computed(() => {
+    return allPriorityItems.value.filter(i => !i.is_synced).length
+  })
+
+  const syncedPercentage = computed(() => {
+    if (totalImagesCount.value === 0) return 100
+    return Math.round((syncedPriorityCount.value / totalImagesCount.value) * 100)
+  })
+
+  const getCategoryItems = (dataset: DatasetCategory): DatasetImageItem[] => {
+    const raw: DatasetImageItem[] =
+      dataset.items && dataset.items.length > 0
+        ? dataset.items
+        : (dataset.images || []).map(url => ({
+            url,
+            filename: url.split('/').pop(),
+            is_synced: true,
+            sync_status: 'synced',
+            source: 'dataset_gallery',
+            storage_location: 'dataset_storage'
+          }))
+
+    if (syncFilter.value === 'synced') {
+      return raw.filter(i => i.is_synced)
+    }
+    if (syncFilter.value === 'pending') {
+      return raw.filter(i => !i.is_synced)
+    }
+    return raw
+  }
+
+  const promptSyncDataset = () => {
+    showSyncConfirm.value = true
+  }
+
+  const handleExecuteSync = async () => {
+    showSyncConfirm.value = false
+    isSyncing.value = true
+    try {
+      const res = await modelTrainingService.syncDataset()
+      toast.success(res.message || 'Dataset synchronized successfully.')
+      await fetchDataset()
+    } catch (e: any) {
+      console.error('Failed to sync dataset', e)
+      toast.error('Failed to synchronize dataset.')
+    } finally {
+      isSyncing.value = false
+    }
+  }
 
   const fetchDataset = async () => {
     isLoading.value = true
@@ -308,29 +391,42 @@
     <!-- ═══════════════════════════════════════════════════════════
          SECTION 1: Priority Dataset (Acne, Eczema, Herpes)
          ═══════════════════════════════════════════════════════════ -->
-    <div class="space-y-4">
+    <div class="space-y-6">
+      <!-- Section Title & Global Actions -->
       <div class="flex w-full flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div class="flex items-center gap-3">
           <div
-            class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+            class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs"
           >
             <Icon
               name="lucide:database"
-              size="18"
+              size="20"
             />
           </div>
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h2 class="text-foreground text-base font-bold">Priority Retraining Dataset</h2>
+              <h2 class="text-foreground text-lg font-bold">Priority Retraining Dataset</h2>
               <AppBadge
                 color="primary"
                 size="sm"
                 variant="subtle"
                 >{{ totalImagesCount }} images</AppBadge
               >
+              <AppBadge
+                :color="pendingSyncPriorityCount > 0 ? 'amber' : 'green'"
+                size="sm"
+                variant="subtle"
+              >
+                {{
+                  pendingSyncPriorityCount > 0
+                    ? `${pendingSyncPriorityCount} Pending Sync`
+                    : '100% Synced'
+                }}
+              </AppBadge>
             </div>
             <p class="text-muted-foreground text-xs">
-              Acne, Eczema & Herpes — feeds directly into ensemble model retraining
+              Acne, Eczema & Herpes — verified repository scans feeding tri-model ensemble
+              retraining
             </p>
           </div>
         </div>
@@ -360,6 +456,220 @@
             />
             Upload Image
           </AppButton>
+        </div>
+      </div>
+
+      <!-- Rich Sync Overview & Status Control Center (Non-Minimalist) -->
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <!-- Metric 1: Total Scans -->
+        <div
+          class="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground text-xs font-semibold">Total Repository Scans</span>
+            <div
+              class="bg-muted text-muted-foreground flex h-7 w-7 items-center justify-center rounded-lg"
+            >
+              <Icon
+                name="lucide:layers"
+                size="14"
+              />
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-foreground text-2xl font-black">{{ totalImagesCount }}</span>
+            <span class="text-muted-foreground text-xs">images</span>
+          </div>
+          <div class="text-muted-foreground mt-2.5 flex items-center gap-2 text-[11px]">
+            <span class="inline-flex items-center gap-1">
+              <span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
+              3 Core Disease Classes
+            </span>
+          </div>
+        </div>
+
+        <!-- Metric 2: Synced to Model -->
+        <div
+          class="bg-card relative overflow-hidden rounded-2xl border border-emerald-500/30 p-4 shadow-xs"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-emerald-700 dark:text-emerald-400"
+              >Synced to AI Model</span
+            >
+            <div
+              class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+            >
+              <Icon
+                name="lucide:check-circle-2"
+                size="14"
+              />
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-foreground text-2xl font-black">{{ syncedPriorityCount }}</span>
+            <span class="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+              ({{ syncedPercentage }}%)
+            </span>
+          </div>
+          <div class="text-muted-foreground mt-2.5 flex items-center gap-1.5 text-[11px]">
+            <Icon
+              name="lucide:hard-drive"
+              size="12"
+              class="text-emerald-500"
+            />
+            <span>Mirrored in training storage</span>
+          </div>
+        </div>
+
+        <!-- Metric 3: Pending Sync Scans -->
+        <div
+          class="bg-card relative overflow-hidden rounded-2xl border border-amber-500/30 p-4 shadow-xs"
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-amber-700 dark:text-amber-400">Pending Sync</span>
+            <div
+              class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            >
+              <Icon
+                name="lucide:clock"
+                size="14"
+              />
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-foreground text-2xl font-black">{{ pendingSyncPriorityCount }}</span>
+            <span
+              v-if="pendingSyncPriorityCount > 0"
+              class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+            >
+              <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500"></span>
+              Needs Sync
+            </span>
+            <span
+              v-else
+              class="text-muted-foreground text-xs"
+              >All synced</span
+            >
+          </div>
+          <div class="text-muted-foreground mt-2.5 flex items-center gap-1.5 text-[11px]">
+            <Icon
+              name="lucide:user-check"
+              size="12"
+              class="text-amber-500"
+            />
+            <span>Consented clinical scans</span>
+          </div>
+        </div>
+
+        <!-- Metric 4: Immediate Sync Action Box -->
+        <div
+          class="border-border/80 bg-muted/30 flex flex-col justify-between rounded-2xl border p-4 shadow-xs"
+        >
+          <div>
+            <span class="text-foreground text-xs font-bold">Model Synchronization</span>
+            <p class="text-muted-foreground mt-0.5 text-[11px]">
+              Mirror pending scans to raw algorithm training directories.
+            </p>
+          </div>
+          <div class="mt-3">
+            <AppButton
+              variant="solid"
+              class="w-full gap-2 shadow-xs"
+              :loading="isSyncing"
+              :disabled="pendingSyncPriorityCount === 0"
+              @click="promptSyncDataset"
+            >
+              <Icon
+                name="lucide:refresh-cw"
+                size="14"
+                :class="{ 'animate-spin': isSyncing }"
+              />
+              <span v-if="pendingSyncPriorityCount > 0"
+                >Sync {{ pendingSyncPriorityCount }} Scans</span
+              >
+              <span v-else>Dataset Synchronized</span>
+            </AppButton>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Controls: All / Synced / Pending Sync -->
+      <div class="border-border flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+        <div class="flex items-center gap-1.5">
+          <span class="text-muted-foreground mr-1 text-xs font-semibold">Filter by Sync:</span>
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+            :class="
+              syncFilter === 'all'
+                ? 'bg-foreground text-background shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+            "
+            @click="syncFilter = 'all'"
+          >
+            <span>All Images</span>
+            <span
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold"
+              :class="
+                syncFilter === 'all'
+                  ? 'bg-background/20 text-background'
+                  : 'bg-muted text-muted-foreground'
+              "
+            >
+              {{ totalImagesCount }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+            :class="
+              syncFilter === 'synced'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-emerald-500/10 hover:text-emerald-600'
+            "
+            @click="syncFilter = 'synced'"
+          >
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span>Synced to Training</span>
+            <span
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold"
+              :class="
+                syncFilter === 'synced'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-muted text-muted-foreground'
+              "
+            >
+              {{ syncedPriorityCount }}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+            :class="
+              syncFilter === 'pending'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-muted-foreground hover:bg-amber-500/10 hover:text-amber-600'
+            "
+            @click="syncFilter = 'pending'"
+          >
+            <span
+              class="h-2 w-2 rounded-full bg-amber-500"
+              :class="{ 'animate-pulse': pendingSyncPriorityCount > 0 }"
+            ></span>
+            <span>Pending Sync</span>
+            <span
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold"
+              :class="
+                syncFilter === 'pending'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-muted text-muted-foreground'
+              "
+            >
+              {{ pendingSyncPriorityCount }}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -471,8 +781,9 @@
               <AppBadge
                 color="gray"
                 size="sm"
-                >{{ dataset.images.length }} images</AppBadge
               >
+                {{ getCategoryItems(dataset).length }} displayed
+              </AppBadge>
             </div>
 
             <div class="flex items-center gap-2.5">
@@ -481,16 +792,24 @@
               >
                 <input
                   type="checkbox"
-                  :checked="isCategoryAllSelectedPriority(dataset.images)"
+                  :checked="
+                    isCategoryAllSelectedPriority(getCategoryItems(dataset).map(i => i.url))
+                  "
                   class="border-border text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer rounded"
-                  @change="toggleSelectAllCategoryPriority(dataset.images)"
+                  @change="
+                    toggleSelectAllCategoryPriority(getCategoryItems(dataset).map(i => i.url))
+                  "
                 />
                 <span>Select All</span>
                 <span
-                  v-if="getCategorySelectedCountPriority(dataset.images) > 0"
+                  v-if="
+                    getCategorySelectedCountPriority(getCategoryItems(dataset).map(i => i.url)) > 0
+                  "
                   class="text-primary font-bold"
                 >
-                  ({{ getCategorySelectedCountPriority(dataset.images) }})
+                  ({{
+                    getCategorySelectedCountPriority(getCategoryItems(dataset).map(i => i.url))
+                  }})
                 </span>
               </label>
 
@@ -510,24 +829,33 @@
           </div>
 
           <div
+            v-if="getCategoryItems(dataset).length === 0"
+            class="text-muted-foreground p-8 text-center text-xs"
+          >
+            No {{ dataset.category }} images match the current sync filter.
+          </div>
+
+          <div
+            v-else
             class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
           >
             <div
-              v-for="(url, idx) in dataset.images"
-              :key="idx"
+              v-for="item in getCategoryItems(dataset)"
+              :key="item.url"
               class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
               :class="
-                selectedPriorityUrls.has(url)
+                selectedPriorityUrls.has(item.url)
                   ? 'border-primary ring-primary/40 shadow-sm ring-2'
                   : 'hover:border-foreground/30 border-transparent'
               "
-              @click="toggleSelectPriorityImage(url)"
+              @click="toggleSelectPriorityImage(item.url)"
             >
               <NuxtImg
-                :src="getStorageUrl(url)"
+                :src="getStorageUrl(item.url)"
                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 :class="{
-                  'brightness-90': !selectedPriorityUrls.has(url) && selectedPriorityUrls.size > 0
+                  'brightness-90':
+                    !selectedPriorityUrls.has(item.url) && selectedPriorityUrls.size > 0
                 }"
                 loading="lazy"
               />
@@ -537,7 +865,7 @@
                 <div
                   class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
                   :class="
-                    selectedPriorityUrls.has(url)
+                    selectedPriorityUrls.has(item.url)
                       ? 'bg-primary border-primary text-white shadow-xs'
                       : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
                   "
@@ -550,21 +878,64 @@
                 </div>
               </div>
 
-              <!-- Quick Delete Hover Button (Bottom Right) -->
-              <div
-                class="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-              >
-                <button
-                  type="button"
-                  class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
-                  title="Delete Single Image"
-                  @click.stop="promptDeleteImage(url, false)"
+              <!-- Permanent Status Badge (Top Right) -->
+              <div class="absolute top-2 right-2 z-10">
+                <div
+                  v-if="item.is_synced"
+                  class="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                  title="Mirrored in AI Algorithm local training directory"
                 >
                   <Icon
-                    name="lucide:trash-2"
-                    size="14"
+                    name="lucide:check-circle-2"
+                    size="11"
                   />
-                </button>
+                  <span>Synced</span>
+                </div>
+                <div
+                  v-else
+                  class="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                  title="Webapp Consultation Scan pending sync to training raw directory"
+                >
+                  <Icon
+                    name="lucide:clock"
+                    size="11"
+                  />
+                  <span>Pending Sync</span>
+                </div>
+              </div>
+
+              <!-- Rich Hover Metadata Overlay (Bottom) -->
+              <div
+                class="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pt-6 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+              >
+                <div class="flex items-center justify-between gap-1.5">
+                  <div class="min-w-0 flex-1">
+                    <span
+                      class="py-0.2 inline-flex items-center rounded px-1.5 text-[9px] font-semibold tracking-wider uppercase"
+                      :class="
+                        item.source === 'diagnosis'
+                          ? 'bg-sky-500/30 text-sky-200'
+                          : 'bg-white/20 text-white'
+                      "
+                    >
+                      {{ item.source === 'diagnosis' ? 'Patient Scan' : 'Uploaded' }}
+                    </span>
+                    <p class="truncate font-mono text-[10px] text-white/90">
+                      {{ item.filename || 'scan.jpg' }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600/80 text-white shadow-xs transition-transform hover:scale-110 hover:bg-red-600"
+                    title="Delete Image"
+                    @click.stop="promptDeleteImage(item.url, false)"
+                  >
+                    <Icon
+                      name="lucide:trash-2"
+                      size="13"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -965,6 +1336,20 @@
       confirm-variant="destructive"
       :loading="isBulkDeleting"
       @confirm="handleConfirmBulkDelete"
+    />
+
+    <!-- Synchronize Scans Confirmation Dialog -->
+    <AppModalConfirmation
+      v-model="showSyncConfirm"
+      title="Synchronize Repository Scans?"
+      :description="`This will promote ${pendingSyncPriorityCount} pending consultation scan(s) into local dataset storage and mirror them to the AI training raw directory.`"
+      icon="lucide:refresh-cw"
+      icon-color="primary"
+      confirm-text="Synchronize Now"
+      cancel-text="Cancel"
+      confirm-variant="solid"
+      :loading="isSyncing"
+      @confirm="handleExecuteSync"
     />
   </div>
 </template>

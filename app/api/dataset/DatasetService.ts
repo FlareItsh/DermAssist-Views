@@ -1,9 +1,21 @@
 import BaseService from '../BaseService'
 import { $api } from '~/composables/useApi'
 
+export interface DatasetImageItem {
+  url: string
+  filename?: string
+  is_synced: boolean
+  sync_status: 'synced' | 'needs_sync'
+  source?: 'diagnosis' | 'dataset_gallery'
+  storage_location?: string
+  diagnosis_uuid?: string
+  created_at?: string | null
+}
+
 export interface DatasetCategory {
   category: string
   images: string[]
+  items?: DatasetImageItem[]
 }
 
 export class DatasetService extends BaseService {
