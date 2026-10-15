@@ -1616,11 +1616,15 @@
               }}
             </h3>
             <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-              {{
-                unsyncedScansCount > 0
-                  ? `There are ${unsyncedScansCount} consultation scan image(s) from patient & doctor visits that have not been synced to the local dataset yet.`
-                  : 'All candidate images and dataset galleries are fully synced and ready.'
-              }}
+              <template v-if="unsyncedScansCount > 0">
+                There are
+                <strong class="text-foreground font-bold">{{ unsyncedScansCount }}</strong>
+                consultation scan image(s) from patient & doctor visits that have not been synced to
+                the local dataset yet.
+              </template>
+              <template v-else>
+                All candidate images and dataset galleries are fully synced and ready.
+              </template>
             </p>
           </div>
         </div>
