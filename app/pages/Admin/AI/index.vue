@@ -1134,27 +1134,6 @@
             </p>
           </div>
 
-          <!-- Untrained Notice Banner -->
-          <div
-            v-if="(stats?.gathered_dataset.untrained_count ?? 0) > 0"
-            class="border-primary/25 bg-primary/10 flex items-center gap-2.5 rounded-2xl border p-3.5 text-xs"
-          >
-            <div
-              class="bg-primary/20 text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-xl font-bold"
-            >
-              <Icon
-                name="lucide:sparkles"
-                size="15"
-              />
-            </div>
-            <span class="text-foreground leading-relaxed">
-              <strong class="text-primary font-black"
-                >{{ stats?.gathered_dataset.untrained_count }} new scan(s)</strong
-              >
-              ready to be incorporated into the model.
-            </span>
-          </div>
-
           <!-- Dataset Scope / Selective Retraining Trigger -->
           <div
             class="space-y-2 pt-1"

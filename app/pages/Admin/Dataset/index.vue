@@ -49,6 +49,7 @@
       isDeletingOutOfScope.value = true
       try {
         await outOfScopeDatasetService.deleteImage(imageToDelete.value)
+        selectedOosUrls.value.delete(imageToDelete.value)
         await fetchOutOfScopeDataset()
         toast.success('Image removed from research dataset.')
         showDeleteConfirm.value = false
@@ -63,6 +64,7 @@
       isDeleting.value = true
       try {
         await datasetService.deleteImage(imageToDelete.value)
+        selectedPriorityUrls.value.delete(imageToDelete.value)
         await fetchDataset()
         toast.success('Image removed from priority dataset.')
         showDeleteConfirm.value = false
@@ -73,6 +75,116 @@
       } finally {
         isDeleting.value = false
       }
+    }
+  }
+
+  // ── Multi-Select & Bulk Delete State ──────────────────────────────────
+  const selectedPriorityUrls = ref<Set<string>>(new Set())
+  const selectedOosUrls = ref<Set<string>>(new Set())
+  const isBulkDeleting = ref(false)
+  const showBulkDeleteConfirm = ref(false)
+  const bulkDeleteTarget = ref<'priority' | 'out_of_scope'>('priority')
+
+  const toggleSelectPriorityImage = (url: string) => {
+    const next = new Set(selectedPriorityUrls.value)
+    if (next.has(url)) {
+      next.delete(url)
+    } else {
+      next.add(url)
+    }
+    selectedPriorityUrls.value = next
+  }
+
+  const toggleSelectAllCategoryPriority = (categoryImages: string[]) => {
+    const next = new Set(selectedPriorityUrls.value)
+    const isAll = categoryImages.length > 0 && categoryImages.every(u => next.has(u))
+    if (isAll) {
+      categoryImages.forEach(u => next.delete(u))
+    } else {
+      categoryImages.forEach(u => next.add(u))
+    }
+    selectedPriorityUrls.value = next
+  }
+
+  const isCategoryAllSelectedPriority = (categoryImages: string[]) => {
+    return categoryImages.length > 0 && categoryImages.every(u => selectedPriorityUrls.value.has(u))
+  }
+
+  const getCategorySelectedCountPriority = (categoryImages: string[]) => {
+    return categoryImages.filter(u => selectedPriorityUrls.value.has(u)).length
+  }
+
+  const clearPrioritySelection = () => {
+    selectedPriorityUrls.value = new Set()
+  }
+
+  const promptBulkDeletePriority = () => {
+    if (selectedPriorityUrls.value.size === 0) return
+    bulkDeleteTarget.value = 'priority'
+    showBulkDeleteConfirm.value = true
+  }
+
+  const toggleSelectOosImage = (url: string) => {
+    const next = new Set(selectedOosUrls.value)
+    if (next.has(url)) {
+      next.delete(url)
+    } else {
+      next.add(url)
+    }
+    selectedOosUrls.value = next
+  }
+
+  const toggleSelectAllCategoryOos = (categoryImages: string[]) => {
+    const next = new Set(selectedOosUrls.value)
+    const isAll = categoryImages.length > 0 && categoryImages.every(u => next.has(u))
+    if (isAll) {
+      categoryImages.forEach(u => next.delete(u))
+    } else {
+      categoryImages.forEach(u => next.add(u))
+    }
+    selectedOosUrls.value = next
+  }
+
+  const isCategoryAllSelectedOos = (categoryImages: string[]) => {
+    return categoryImages.length > 0 && categoryImages.every(u => selectedOosUrls.value.has(u))
+  }
+
+  const getCategorySelectedCountOos = (categoryImages: string[]) => {
+    return categoryImages.filter(u => selectedOosUrls.value.has(u)).length
+  }
+
+  const clearOosSelection = () => {
+    selectedOosUrls.value = new Set()
+  }
+
+  const promptBulkDeleteOos = () => {
+    if (selectedOosUrls.value.size === 0) return
+    bulkDeleteTarget.value = 'out_of_scope'
+    showBulkDeleteConfirm.value = true
+  }
+
+  const handleConfirmBulkDelete = async () => {
+    isBulkDeleting.value = true
+    try {
+      if (bulkDeleteTarget.value === 'priority') {
+        const urls = Array.from(selectedPriorityUrls.value)
+        await datasetService.deleteImages(urls)
+        toast.success(`Deleted ${urls.length} images from priority dataset.`)
+        selectedPriorityUrls.value = new Set()
+        await fetchDataset()
+      } else {
+        const urls = Array.from(selectedOosUrls.value)
+        await outOfScopeDatasetService.deleteImages(urls)
+        toast.success(`Deleted ${urls.length} images from research dataset.`)
+        selectedOosUrls.value = new Set()
+        await fetchOutOfScopeDataset()
+      }
+      showBulkDeleteConfirm.value = false
+    } catch (e: any) {
+      console.error('Failed to bulk delete images', e)
+      toast.error('Failed to delete selected images.')
+    } finally {
+      isBulkDeleting.value = false
     }
   }
 
@@ -294,6 +406,57 @@
         v-else
         class="space-y-6"
       >
+        <!-- Priority Bulk Selection Toolbar -->
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-2"
+        >
+          <div
+            v-if="selectedPriorityUrls.size > 0"
+            class="border-primary/30 bg-primary/5 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 sm:px-6"
+          >
+            <div class="flex items-center gap-2.5">
+              <span
+                class="bg-primary inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold text-white shadow-xs"
+              >
+                {{ selectedPriorityUrls.size }}
+              </span>
+              <span class="text-foreground text-xs font-bold">
+                {{ selectedPriorityUrls.size }} image{{
+                  selectedPriorityUrls.size === 1 ? '' : 's'
+                }}
+                selected
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="text-muted-foreground hover:text-foreground cursor-pointer px-2 py-1 text-xs font-semibold transition-colors"
+                @click="clearPrioritySelection"
+              >
+                Clear
+              </button>
+              <AppButton
+                variant="destructive"
+                size="sm"
+                class="gap-1.5 shadow-xs"
+                @click="promptBulkDeletePriority"
+              >
+                <Icon
+                  name="lucide:trash-2"
+                  size="14"
+                />
+                Delete Selected ({{ selectedPriorityUrls.size }})
+              </AppButton>
+            </div>
+          </div>
+        </Transition>
+
         <div
           v-for="dataset in datasets"
           :key="dataset.category"
@@ -311,18 +474,39 @@
                 >{{ dataset.images.length }} images</AppBadge
               >
             </div>
-            <AppButton
-              variant="outline"
-              size="sm"
-              class="gap-1.5"
-              @click="downloadZip(dataset.category)"
-            >
-              <Icon
-                name="lucide:download"
-                size="14"
-              />
-              Download Category
-            </AppButton>
+
+            <div class="flex items-center gap-2.5">
+              <label
+                class="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 text-xs font-medium select-none"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isCategoryAllSelectedPriority(dataset.images)"
+                  class="border-border text-primary focus:ring-primary h-3.5 w-3.5 cursor-pointer rounded"
+                  @change="toggleSelectAllCategoryPriority(dataset.images)"
+                />
+                <span>Select All</span>
+                <span
+                  v-if="getCategorySelectedCountPriority(dataset.images) > 0"
+                  class="text-primary font-bold"
+                >
+                  ({{ getCategorySelectedCountPriority(dataset.images) }})
+                </span>
+              </label>
+
+              <AppButton
+                variant="outline"
+                size="sm"
+                class="gap-1.5"
+                @click="downloadZip(dataset.category)"
+              >
+                <Icon
+                  name="lucide:download"
+                  size="14"
+                />
+                Download Category
+              </AppButton>
+            </div>
           </div>
 
           <div
@@ -331,25 +515,54 @@
             <div
               v-for="(url, idx) in dataset.images"
               :key="idx"
-              class="group bg-muted border-border relative aspect-square overflow-hidden rounded-xl border"
+              class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
+              :class="
+                selectedPriorityUrls.has(url)
+                  ? 'border-primary ring-primary/40 shadow-sm ring-2'
+                  : 'hover:border-foreground/30 border-transparent'
+              "
+              @click="toggleSelectPriorityImage(url)"
             >
               <NuxtImg
                 :src="getStorageUrl(url)"
                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                :class="{
+                  'brightness-90': !selectedPriorityUrls.has(url) && selectedPriorityUrls.size > 0
+                }"
                 loading="lazy"
               />
+
+              <!-- Selection Checkmark (Top Left) -->
+              <div class="absolute top-2 left-2 z-10 transition-all">
+                <div
+                  class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
+                  :class="
+                    selectedPriorityUrls.has(url)
+                      ? 'bg-primary border-primary text-white shadow-xs'
+                      : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                  "
+                >
+                  <Icon
+                    name="lucide:check"
+                    size="12"
+                    class="stroke-3"
+                  />
+                </div>
+              </div>
+
+              <!-- Quick Delete Hover Button (Bottom Right) -->
               <div
-                class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                class="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
               >
                 <button
                   type="button"
-                  class="bg-destructive transform cursor-pointer rounded-full p-2.5 text-white shadow-lg transition-all hover:scale-110 hover:opacity-90"
-                  title="Delete Image"
-                  @click="promptDeleteImage(url, false)"
+                  class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                  title="Delete Single Image"
+                  @click.stop="promptDeleteImage(url, false)"
                 >
                   <Icon
                     name="lucide:trash-2"
-                    size="18"
+                    size="14"
                   />
                 </button>
               </div>
@@ -520,6 +733,54 @@
         v-else
         class="space-y-6"
       >
+        <!-- Out-of-Scope Bulk Selection Toolbar -->
+        <Transition
+          enter-active-class="transition-all duration-200 ease-out"
+          enter-from-class="opacity-0 -translate-y-2"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-active-class="transition-all duration-150 ease-in"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-2"
+        >
+          <div
+            v-if="selectedOosUrls.size > 0"
+            class="flex items-center justify-between gap-3 rounded-2xl border border-violet-500/30 bg-violet-500/5 px-4 py-3 sm:px-6"
+          >
+            <div class="flex items-center gap-2.5">
+              <span
+                class="inline-flex h-6 w-6 items-center justify-center rounded-full bg-violet-600 text-xs font-bold text-white shadow-xs"
+              >
+                {{ selectedOosUrls.size }}
+              </span>
+              <span class="text-foreground text-xs font-bold">
+                {{ selectedOosUrls.size }} image{{ selectedOosUrls.size === 1 ? '' : 's' }} selected
+              </span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="text-muted-foreground hover:text-foreground cursor-pointer px-2 py-1 text-xs font-semibold transition-colors"
+                @click="clearOosSelection"
+              >
+                Clear
+              </button>
+              <AppButton
+                variant="destructive"
+                size="sm"
+                class="gap-1.5 shadow-xs"
+                @click="promptBulkDeleteOos"
+              >
+                <Icon
+                  name="lucide:trash-2"
+                  size="14"
+                />
+                Delete Selected ({{ selectedOosUrls.size }})
+              </AppButton>
+            </div>
+          </div>
+        </Transition>
+
         <div
           v-for="dataset in outOfScopeDatasets"
           :key="dataset.category"
@@ -541,18 +802,38 @@
               </AppBadge>
             </div>
 
-            <AppButton
-              variant="outline"
-              size="sm"
-              class="gap-1.5 border-violet-500/30 hover:bg-violet-500/5"
-              @click="downloadOosZip(dataset.category)"
-            >
-              <Icon
-                name="lucide:download"
-                size="14"
-              />
-              Download Category
-            </AppButton>
+            <div class="flex items-center gap-2.5">
+              <label
+                class="text-muted-foreground hover:text-foreground flex cursor-pointer items-center gap-1.5 text-xs font-medium select-none"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isCategoryAllSelectedOos(dataset.images)"
+                  class="border-border h-3.5 w-3.5 cursor-pointer rounded text-violet-600 focus:ring-violet-500"
+                  @change="toggleSelectAllCategoryOos(dataset.images)"
+                />
+                <span>Select All</span>
+                <span
+                  v-if="getCategorySelectedCountOos(dataset.images) > 0"
+                  class="font-bold text-violet-600"
+                >
+                  ({{ getCategorySelectedCountOos(dataset.images) }})
+                </span>
+              </label>
+
+              <AppButton
+                variant="outline"
+                size="sm"
+                class="gap-1.5 border-violet-500/30 hover:bg-violet-500/5"
+                @click="downloadOosZip(dataset.category)"
+              >
+                <Icon
+                  name="lucide:download"
+                  size="14"
+                />
+                Download Category
+              </AppButton>
+            </div>
           </div>
 
           <div
@@ -561,25 +842,52 @@
             <div
               v-for="(url, idx) in dataset.images"
               :key="idx"
-              class="group bg-muted border-border relative aspect-square overflow-hidden rounded-xl border"
+              class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
+              :class="
+                selectedOosUrls.has(url)
+                  ? 'border-violet-500 shadow-sm ring-2 ring-violet-500/40'
+                  : 'hover:border-foreground/30 border-transparent'
+              "
+              @click="toggleSelectOosImage(url)"
             >
               <NuxtImg
                 :src="getStorageUrl(url)"
                 class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                :class="{ 'brightness-90': !selectedOosUrls.has(url) && selectedOosUrls.size > 0 }"
                 loading="lazy"
               />
+
+              <!-- Selection Checkmark (Top Left) -->
+              <div class="absolute top-2 left-2 z-10 transition-all">
+                <div
+                  class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
+                  :class="
+                    selectedOosUrls.has(url)
+                      ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
+                      : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                  "
+                >
+                  <Icon
+                    name="lucide:check"
+                    size="12"
+                    class="stroke-3"
+                  />
+                </div>
+              </div>
+
+              <!-- Quick Delete Hover Button (Bottom Right) -->
               <div
-                class="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                class="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
               >
                 <button
                   type="button"
-                  class="bg-destructive transform cursor-pointer rounded-full p-2.5 text-white shadow-lg transition-all hover:scale-110 hover:opacity-90"
-                  title="Delete Image"
-                  @click="promptDeleteImage(url, true)"
+                  class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                  title="Delete Single Image"
+                  @click.stop="promptDeleteImage(url, true)"
                 >
                   <Icon
                     name="lucide:trash-2"
-                    size="18"
+                    size="14"
                   />
                 </button>
               </div>
@@ -631,6 +939,32 @@
       confirm-variant="destructive"
       :loading="isDeleteOutOfScope ? isDeletingOutOfScope : isDeleting"
       @confirm="handleConfirmDelete"
+    />
+
+    <!-- Bulk Delete Confirmation Dialog -->
+    <AppModalConfirmation
+      v-model="showBulkDeleteConfirm"
+      :title="
+        bulkDeleteTarget === 'out_of_scope'
+          ? `Delete ${selectedOosUrls.size} Images from Research Dataset?`
+          : `Delete ${selectedPriorityUrls.size} Images from Priority Dataset?`
+      "
+      :description="
+        bulkDeleteTarget === 'out_of_scope'
+          ? `Are you sure you want to permanently delete ${selectedOosUrls.size} selected image(s) from the out-of-scope research dataset? This action cannot be undone.`
+          : `Are you sure you want to permanently delete ${selectedPriorityUrls.size} selected image(s) from the priority retraining dataset? This action cannot be undone.`
+      "
+      icon="lucide:trash-2"
+      icon-color="danger"
+      :confirm-text="
+        bulkDeleteTarget === 'out_of_scope'
+          ? `Delete ${selectedOosUrls.size} Images`
+          : `Delete ${selectedPriorityUrls.size} Images`
+      "
+      cancel-text="Cancel"
+      confirm-variant="destructive"
+      :loading="isBulkDeleting"
+      @confirm="handleConfirmBulkDelete"
     />
   </div>
 </template>
