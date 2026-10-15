@@ -74,6 +74,8 @@ export interface TrainingImageItem {
   storage_status: 'ready' | 'in_raw' | 'in_local_storage' | 'raw' | 'local_storage' | 'both'
   is_synced?: boolean
   sync_status?: 'synced' | 'needs_sync'
+  is_trained?: boolean
+  stage?: 'pending' | 'synced' | 'trained'
   is_contributed?: boolean
   contributed_to_dataset?: boolean
   created_at: string | null
