@@ -14,7 +14,7 @@
   // Configuration
   const selectedArch = ref<'swin_transformer' | 'resnet50' | 'efficientnet_v2'>('swin_transformer')
   const selectedEpochs = ref(3)
-  const syncDataset = ref(true)
+  const syncDataset = ref(false)
 
   // State
   const isLoadingStats = ref(false)
@@ -24,9 +24,12 @@
   const stats = ref<ModelStatsResponse | null>(null)
   const trainingStatus = ref<TrainingStatusResponse | null>(null)
   const showCancelConfirm = ref(false)
+  const showRetrainConfirm = ref(false)
+  const showSyncConfirm = ref(false)
+  const unsyncedScansCount = ref(0)
+  const isCheckingSyncBeforeTrain = ref(false)
   const showDatasetSlideover = ref(false)
   const showResultsModal = ref(false)
-  const showSelectImagesModal = ref(false)
   const selectedTrainingImageUuids = ref<string[]>([])
 
   const logContainer = ref<HTMLElement | null>(null)
@@ -254,14 +257,15 @@
     }
   }
 
-  const handleStartTraining = async () => {
+  const handleStartTraining = async (forceSync?: boolean) => {
     if (isStarting.value || isTrainingActive.value) return
     isStarting.value = true
     try {
+      const shouldSync = forceSync !== undefined ? forceSync : syncDataset.value
       const payload: any = {
         architecture: 'ensemble',
         epochs: Number(selectedEpochs.value),
-        sync_dataset: syncDataset.value
+        sync_dataset: shouldSync
       }
       if (selectedTrainingImageUuids.value.length > 0) {
         payload.selected_image_uuids = selectedTrainingImageUuids.value
@@ -278,22 +282,65 @@
     }
   }
 
-  const handleImagesSelected = (uuids: string[]) => {
-    selectedTrainingImageUuids.value = uuids
-    if (uuids.length > 0) {
-      toast.success(`${uuids.length} candidate scan(s) selected for retraining.`)
-    } else {
-      toast.info('Defaulting to all ready clinical scans.')
+  const promptRetrainConfirmation = async () => {
+    if (isStarting.value || isTrainingActive.value || isCheckingSyncBeforeTrain.value) return
+    isCheckingSyncBeforeTrain.value = true
+    try {
+      const res: any = await modelTrainingService.getTrainingImages()
+      const rawImages: TrainingImageItem[] = res.images || res.data || []
+      const unsynced = rawImages.filter(img => !img.is_in_local_storage && !img.is_in_raw)
+      unsyncedScansCount.value =
+        res.needs_sync_count ?? res.summary?.needs_sync_count ?? unsynced.length
+      showRetrainConfirm.value = true
+    } catch {
+      unsyncedScansCount.value = 0
+      showRetrainConfirm.value = true
+    } finally {
+      isCheckingSyncBeforeTrain.value = false
     }
   }
 
-  const handleSyncDataset = async () => {
+  const handleConfirmProceedAnyway = async () => {
+    showRetrainConfirm.value = false
+    await handleStartTraining(false)
+  }
+
+  const handleConfirmSyncAndProceed = async () => {
+    showRetrainConfirm.value = false
+    isSyncing.value = true
+    try {
+      const syncRes = await modelTrainingService.syncDataset()
+      toast.success(syncRes.message || 'Dataset synchronized.')
+      await fetchStats()
+    } catch {
+      toast.error('Failed to sync dataset before training.')
+    } finally {
+      isSyncing.value = false
+    }
+    await handleStartTraining(true)
+  }
+
+  const handleImagesSelected = (uuids: string[]) => {
+    selectedTrainingImageUuids.value = uuids
+    if (uuids.length > 0) {
+      toast.success(`${uuids.length} image(s) included for retraining.`)
+    } else {
+      toast.info('No images selected for retraining.')
+    }
+  }
+
+  const promptSyncDataset = () => {
+    showSyncConfirm.value = true
+  }
+
+  const handleExecuteSync = async () => {
+    showSyncConfirm.value = false
     isSyncing.value = true
     try {
       const res = await modelTrainingService.syncDataset()
       toast.success(res.message || 'Dataset synchronized successfully.')
-      fetchStats()
-    } catch (err: any) {
+      await fetchStats()
+    } catch {
       toast.error('Failed to synchronize dataset.')
     } finally {
       isSyncing.value = false
@@ -569,20 +616,6 @@
             size="16"
           />
           Retraining Report
-        </AppButton>
-
-        <AppButton
-          variant="outline"
-          class="!h-9 gap-1.5 !px-3 !text-xs md:!h-11 md:gap-2 md:!px-5 md:!text-sm"
-          :loading="isSyncing"
-          :disabled="isTrainingActive"
-          @click="handleSyncDataset"
-        >
-          <Icon
-            name="lucide:refresh-cw"
-            size="16"
-          />
-          Sync Scan Images
         </AppButton>
 
         <AppButton
@@ -1133,9 +1166,7 @@
               Training Dataset Scope
             </label>
             <div
-              class="bg-muted/30 border-border hover:border-primary/40 flex items-center justify-between rounded-2xl border p-3.5 transition-all"
-              :class="isTrainingActive ? 'cursor-not-allowed' : 'cursor-pointer'"
-              @click="!isTrainingActive && (showSelectImagesModal = true)"
+              class="bg-muted/30 border-border flex items-center justify-between rounded-2xl border p-3.5 transition-all"
             >
               <div class="flex items-center gap-3">
                 <div
@@ -1150,59 +1181,24 @@
                   <span class="text-foreground block text-xs font-bold">
                     {{
                       selectedTrainingImageUuids.length > 0
-                        ? `${selectedTrainingImageUuids.length} Scans Curated`
-                        : 'All Ready Scans (Default)'
+                        ? `${selectedTrainingImageUuids.length} Images Selected`
+                        : 'All Images Selected (Default)'
                     }}
                   </span>
                   <span class="text-muted-foreground block text-[11px]">
                     {{
                       selectedTrainingImageUuids.length > 0
-                        ? 'Custom image selection will be ingested'
-                        : 'All tangible unadded scans will be ingested'
+                        ? 'Curated selection will be ingested into retraining'
+                        : 'All available photos will be ingested into retraining'
                     }}
                   </span>
                 </div>
               </div>
-              <AppButton
-                variant="outline"
-                size="sm"
-                class="h-8 shrink-0 gap-1.5 text-xs font-semibold"
-                :disabled="isTrainingActive"
-                @click.stop="showSelectImagesModal = true"
-              >
-                <Icon
-                  name="lucide:sliders-horizontal"
-                  size="13"
-                />
-                {{ selectedTrainingImageUuids.length > 0 ? 'Edit Scope' : 'Select Images' }}
-              </AppButton>
             </div>
           </div>
 
-          <!-- Sync Toggle -->
-          <div class="border-border border-t pt-2">
-            <label
-              class="flex items-start gap-3"
-              :class="isTrainingActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'"
-            >
-              <input
-                v-model="syncDataset"
-                :disabled="isTrainingActive"
-                type="checkbox"
-                class="border-border text-primary focus:ring-primary mt-1 h-4 w-4 rounded disabled:cursor-not-allowed"
-              />
-              <div>
-                <span class="text-foreground block text-xs font-bold">Sync Clinical Scans</span>
-                <span class="text-muted-foreground mt-0.5 block text-[11px] leading-relaxed">
-                  Pulls newly uploaded Acne, Eczema, and Herpes scans and automatically removes
-                  deleted images from the training queue.
-                </span>
-              </div>
-            </label>
-          </div>
-
-          <!-- Start Button -->
-          <div class="space-y-2 pt-3">
+          <!-- Start Button & Sync Actions -->
+          <div class="space-y-2">
             <AppButton
               variant="outline"
               size="lg"
@@ -1215,36 +1211,55 @@
               />
               Browse Dataset
             </AppButton>
-            <AppButton
-              v-if="isTrainingActive"
-              variant="destructive"
-              size="lg"
-              class="w-full justify-center gap-2 font-bold shadow-md"
-              :loading="isCancellingActive || isCancelling"
-              :disabled="isCancellingActive || isCancelling"
-              @click="confirmCancelTraining"
-            >
-              <Icon
-                name="lucide:square"
-                size="18"
-              />
-              {{ isCancellingActive ? 'Stopping Pipeline...' : 'Stop Pipeline' }}
-            </AppButton>
-            <AppButton
-              v-else
-              variant="solid"
-              size="lg"
-              class="w-full justify-center gap-2 font-bold shadow-md"
-              :loading="isStarting"
-              :disabled="isStarting || isTrainingActive"
-              @click="handleStartTraining"
-            >
-              <Icon
-                name="lucide:play"
-                size="18"
-              />
-              Retrain All 3 Models
-            </AppButton>
+
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <AppButton
+                variant="outline"
+                size="lg"
+                class="border-primary/40 text-primary hover:bg-primary/5 hover:border-primary w-full justify-center gap-2 font-bold shadow-xs transition-all"
+                :loading="isSyncing"
+                :disabled="isTrainingActive || isSyncing"
+                @click="promptSyncDataset"
+              >
+                <Icon
+                  name="lucide:refresh-cw"
+                  size="17"
+                  :class="isSyncing ? 'animate-spin' : ''"
+                />
+                {{ isSyncing ? 'Syncing...' : 'Sync Dataset' }}
+              </AppButton>
+
+              <AppButton
+                v-if="isTrainingActive"
+                variant="destructive"
+                size="lg"
+                class="w-full justify-center gap-2 font-bold shadow-md"
+                :loading="isCancellingActive || isCancelling"
+                :disabled="isCancellingActive || isCancelling"
+                @click="confirmCancelTraining"
+              >
+                <Icon
+                  name="lucide:square"
+                  size="18"
+                />
+                {{ isCancellingActive ? 'Stopping Pipeline...' : 'Stop Pipeline' }}
+              </AppButton>
+              <AppButton
+                v-else
+                variant="solid"
+                size="lg"
+                class="w-full justify-center gap-2 font-bold shadow-md"
+                :loading="isStarting || isCheckingSyncBeforeTrain"
+                :disabled="isStarting || isTrainingActive || isCheckingSyncBeforeTrain"
+                @click="promptRetrainConfirmation"
+              >
+                <Icon
+                  name="lucide:play"
+                  size="18"
+                />
+                {{ isCheckingSyncBeforeTrain ? 'Checking Sync Status...' : 'Retrain All 3 Models' }}
+              </AppButton>
+            </div>
           </div>
         </div>
 
@@ -1610,17 +1625,141 @@
       @confirm="handleExecuteCancel"
     />
 
-    <!-- Dataset Slideover -->
-    <AppDatasetSlideover
-      v-model="showDatasetSlideover"
-      @deleted="fetchStats"
+    <!-- Confirmation Modal for Synchronizing Dataset -->
+    <AppModalConfirmation
+      v-model="showSyncConfirm"
+      title="Synchronize Dataset Scans?"
+      description="This will scan all patient and doctor consultation images and copy newly approved clinical scans into the local AI training dataset categories. Do you want to proceed?"
+      icon="lucide:refresh-cw"
+      icon-color="primary"
+      confirm-text="Sync Dataset"
+      cancel-text="Cancel"
+      confirm-variant="solid"
+      :loading="isSyncing"
+      @confirm="handleExecuteSync"
     />
 
-    <!-- Select Training Images Modal -->
-    <AppModalSelectTrainingImages
-      v-model="showSelectImagesModal"
+    <!-- Retrain Confirmation Modal (With Un-synced Scans Warning) -->
+    <AppModal
+      v-model="showRetrainConfirm"
+      size="lg"
+    >
+      <div class="space-y-5">
+        <div class="flex items-start gap-4">
+          <div
+            v-if="unsyncedScansCount > 0"
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400"
+          >
+            <Icon
+              name="lucide:alert-triangle"
+              size="26"
+            />
+          </div>
+          <div
+            v-else
+            class="bg-primary/10 text-primary flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl"
+          >
+            <Icon
+              name="lucide:play"
+              size="26"
+            />
+          </div>
+
+          <div class="flex-1 pr-6 sm:pr-8">
+            <h3 class="text-foreground text-lg font-bold sm:text-xl">
+              {{
+                unsyncedScansCount > 0 ? 'Un-synced Scans Detected' : 'Confirm Retraining Pipeline'
+              }}
+            </h3>
+            <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+              {{
+                unsyncedScansCount > 0
+                  ? `There are ${unsyncedScansCount} consultation scan image(s) from patient & doctor visits that have not been synced to the local dataset yet.`
+                  : 'All candidate images and dataset galleries are fully synced and ready.'
+              }}
+            </p>
+          </div>
+        </div>
+
+        <div
+          v-if="unsyncedScansCount > 0"
+          class="border-border bg-muted/40 rounded-2xl border p-4 text-xs"
+        >
+          <div class="flex items-center gap-2 font-semibold text-amber-600 dark:text-amber-400">
+            <Icon
+              name="lucide:info"
+              size="15"
+            />
+            <span>Impact on Model Retraining</span>
+          </div>
+          <p class="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+            If you proceed anyway, the model will train only on images currently present in the
+            local dataset. Un-synced scans will be excluded until synchronized.
+          </p>
+        </div>
+
+        <div
+          v-else
+          class="border-border bg-muted/30 rounded-2xl border p-4 text-xs"
+        >
+          <div class="text-foreground flex items-center gap-2 font-semibold">
+            <Icon
+              name="lucide:layers"
+              size="15"
+              class="text-primary"
+            />
+            <span>Tri-Model Ensemble Architecture</span>
+          </div>
+          <p class="text-muted-foreground mt-1 text-[11px] leading-relaxed">
+            Will train Swin Transformer, ResNet-50, and EfficientNet-V2 for
+            {{ selectedEpochs }} epochs across Acne, Eczema, and Herpes.
+          </p>
+        </div>
+
+        <div class="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-end">
+          <AppButton
+            variant="outline"
+            class="text-xs font-semibold sm:mr-auto"
+            @click="showRetrainConfirm = false"
+          >
+            Cancel
+          </AppButton>
+
+          <template v-if="unsyncedScansCount > 0">
+            <AppButton
+              variant="destructive"
+              class="gap-1.5 text-xs font-bold"
+              :loading="isStarting"
+              @click="handleConfirmProceedAnyway"
+            >
+              Proceed Anyway
+            </AppButton>
+          </template>
+
+          <template v-else>
+            <AppButton
+              variant="solid"
+              class="gap-1.5 text-xs font-bold"
+              :loading="isStarting"
+              @click="handleConfirmProceedAnyway"
+            >
+              <Icon
+                name="lucide:play"
+                size="14"
+              />
+              Start Retraining
+            </AppButton>
+          </template>
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- Unified Dataset & Retraining Scope Slideover -->
+    <AppDatasetSlideover
+      v-model="showDatasetSlideover"
       :initial-selected-uuids="selectedTrainingImageUuids"
       @confirm="handleImagesSelected"
+      @deleted="fetchStats"
     />
 
     <!-- Comprehensive Retraining Summary Modal -->

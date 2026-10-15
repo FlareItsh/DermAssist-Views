@@ -2,8 +2,7 @@
   import { ref, computed, watch } from 'vue'
   import {
     modelTrainingService,
-    type TrainingImageItem,
-    type TrainingImagesResponse
+    type TrainingImageItem
   } from '~/api/modelTraining/ModelTrainingService'
   import { toast } from 'vue-sonner'
 
@@ -33,14 +32,26 @@
 
   // State
   const isLoading = ref(false)
+  const isDeleting = ref(false)
+  const showDeleteConfirm = ref(false)
+  const isBulkDelete = ref(false)
+  const imageToDelete = ref<TrainingImageItem | null>(null)
+
   const images = ref<TrainingImageItem[]>([])
   const selectedUuids = ref<Set<string>>(new Set())
   const activeCategory = ref<string>('all')
-  const activeStatusFilter = ref<'all' | 'tangible' | 'intangible'>('all')
+  const activeInclusionFilter = ref<'all' | 'included' | 'excluded'>('all')
+  const activeLocationFilter = ref<'all' | 'webapp_scans' | 'uploaded'>('all')
+  const activeSyncFilter = ref<'all' | 'synced' | 'needs_sync'>('all')
   const searchQuery = ref('')
+  const failedImageUuids = ref<Set<string>>(new Set())
+  const isSyncingScans = ref(false)
+
   const categoryCounts = ref<Record<string, number>>({})
-  const tangibleCount = ref(0)
-  const intangibleCount = ref(0)
+  const uploadedCount = ref(0)
+  const webappScansCount = ref(0)
+  const syncedCount = ref(0)
+  const needsSyncCount = ref(0)
 
   const categories = [
     { id: 'all', label: 'All Categories' },
@@ -49,44 +60,72 @@
     { id: 'herpes', label: 'Herpes' }
   ]
 
-  const statusFilters = [
-    { id: 'all', label: 'All Images' },
-    { id: 'tangible', label: 'Ready to Train' },
-    { id: 'intangible', label: 'Already in Dataset (Locked)' }
-  ]
-
   const close = () => {
     isOpen.value = false
   }
 
+  const handleImageError = (uuid: string) => {
+    const next = new Set(failedImageUuids.value)
+    next.add(uuid)
+    failedImageUuids.value = next
+  }
+
   const loadImages = async () => {
     isLoading.value = true
+    failedImageUuids.value = new Set()
     try {
       const res: any = await modelTrainingService.getTrainingImages()
       const rawImages: TrainingImageItem[] = res.images || res.data || []
       images.value = rawImages
-      tangibleCount.value = res.tangible_count ?? res.summary?.tangible_count ?? 0
-      intangibleCount.value = res.intangible_count ?? res.summary?.intangible_count ?? 0
+
+      // Calculate origin & sync statistics:
+      let upCount = 0
+      let scanCount = 0
+      let sCount = 0
+      let nsCount = 0
+
+      rawImages.forEach(img => {
+        const isSynced = Boolean(img.is_synced ?? (img.is_in_local_storage || img.is_in_raw))
+        if (isSynced) {
+          sCount++
+        } else {
+          nsCount++
+        }
+
+        if (img.is_in_local_storage || img.is_in_raw) {
+          upCount++
+        } else {
+          scanCount++
+        }
+      })
+
+      uploadedCount.value = upCount
+      webappScansCount.value = scanCount
+      syncedCount.value = sCount
+      needsSyncCount.value = nsCount
+
       categoryCounts.value = res.by_category ?? {
-        acne: rawImages.filter(i => i.category.toLowerCase() === 'acne').length,
-        eczema: rawImages.filter(i => i.category.toLowerCase() === 'eczema').length,
-        herpes: rawImages.filter(i => i.category.toLowerCase() === 'herpes').length
+        acne: rawImages.filter(i => (i.category || '').toLowerCase() === 'acne').length,
+        eczema: rawImages.filter(i => (i.category || '').toLowerCase() === 'eczema').length,
+        herpes: rawImages.filter(i => (i.category || '').toLowerCase() === 'herpes').length
       }
 
-      // Preserve or initialize selections (strictly for tangible images only)
+      // Selection initialization: DEFAULT TO ALL SELECTED (INCLUDED)
       if (props.initialSelectedUuids && props.initialSelectedUuids.length > 0) {
-        const tangibleSet = new Set(
-          images.value.filter(img => img.is_tangible).map(img => img.uuid)
-        )
-        const validSelections = props.initialSelectedUuids.filter(uuid => tangibleSet.has(uuid))
-        selectedUuids.value = new Set(validSelections)
+        const availableUuids = new Set(images.value.map(img => img.uuid))
+        const validSelections = props.initialSelectedUuids.filter(uuid => availableUuids.has(uuid))
+        if (validSelections.length > 0) {
+          selectedUuids.value = new Set(validSelections)
+        } else {
+          // Default to all selected if saved IDs no longer match
+          selectedUuids.value = new Set(images.value.map(img => img.uuid))
+        }
       } else {
-        // By default, select all tangible scans ready to be trained
-        const tangibleUuids = images.value.filter(img => img.is_tangible).map(img => img.uuid)
-        selectedUuids.value = new Set(tangibleUuids)
+        // Default is strictly ALL selected as requested by the user
+        selectedUuids.value = new Set(images.value.map(img => img.uuid))
       }
     } catch (err) {
-      console.error('Failed to load candidate training images:', err)
+      console.error('Failed to load training images:', err)
       toast.error('Failed to load candidate training images.')
     } finally {
       isLoading.value = false
@@ -98,38 +137,60 @@
     val => {
       if (val) {
         activeCategory.value = props.initialCategory ? props.initialCategory.toLowerCase() : 'all'
-        activeStatusFilter.value = 'all'
+        activeInclusionFilter.value = 'all'
+        activeLocationFilter.value = 'all'
         searchQuery.value = ''
         loadImages()
       }
     }
   )
 
-  // Filtered dataset
+  // Filtered dataset computed
   const filteredImages = computed(() => {
     return images.value.filter(img => {
-      // Category filter
+      // 1. Category filter
       if (
         activeCategory.value !== 'all' &&
-        img.category.toLowerCase() !== activeCategory.value.toLowerCase()
+        (img.category || '').toLowerCase() !== activeCategory.value.toLowerCase()
       ) {
         return false
       }
 
-      // Status filter
-      if (activeStatusFilter.value === 'tangible' && !img.is_tangible) {
+      // 2. Inclusion filter (Included vs Excluded)
+      const isSelected = selectedUuids.value.has(img.uuid)
+      if (activeInclusionFilter.value === 'included' && !isSelected) {
         return false
       }
-      if (activeStatusFilter.value === 'intangible' && img.is_tangible) {
+      if (activeInclusionFilter.value === 'excluded' && isSelected) {
         return false
       }
 
-      // Search query
+      // 3. Origin filter (From Webapp Scans vs Uploaded)
+      const isUploaded = img.is_in_local_storage || img.is_in_raw
+      if (activeLocationFilter.value === 'uploaded' && !isUploaded) {
+        return false
+      }
+      if (activeLocationFilter.value === 'webapp_scans' && isUploaded) {
+        return false
+      }
+
+      // 4. Sync status filter (Synced vs Needs Sync)
+      const isSynced = Boolean(img.is_synced ?? (img.is_in_local_storage || img.is_in_raw))
+      if (activeSyncFilter.value === 'synced' && !isSynced) {
+        return false
+      }
+      if (activeSyncFilter.value === 'needs_sync' && isSynced) {
+        return false
+      }
+
+      // 5. Search query
       if (searchQuery.value.trim()) {
         const query = searchQuery.value.toLowerCase()
-        const nameMatch = (img.original_name || img.file_name || '').toLowerCase().includes(query)
-        const catMatch = img.category.toLowerCase().includes(query)
-        const uuidMatch = img.uuid.toLowerCase().includes(query)
+        const nameMatch = (img.original_name || img.file_name || img.filename || '')
+          .toLowerCase()
+          .includes(query)
+        const catMatch = (img.category || '').toLowerCase().includes(query)
+        const uuidMatch = (img.uuid || '').toLowerCase().includes(query)
         if (!nameMatch && !catMatch && !uuidMatch) return false
       }
 
@@ -137,30 +198,19 @@
     })
   })
 
-  // Tangible items within current filtered view
-  const tangibleInView = computed(() => filteredImages.value.filter(img => img.is_tangible))
+  // Selected & Excluded Counts
+  const selectedCount = computed(() => selectedUuids.value.size)
+  const excludedCount = computed(() => Math.max(0, images.value.length - selectedCount.value))
 
-  // Tangible items across entire dataset
-  const allTangible = computed(() => images.value.filter(img => img.is_tangible))
-
-  // Are all tangible items in view currently selected?
+  // In View selection status
+  const imagesInView = computed(() => filteredImages.value)
   const isAllInViewSelected = computed(() => {
-    if (tangibleInView.value.length === 0) return false
-    return tangibleInView.value.every(img => selectedUuids.value.has(img.uuid))
+    if (imagesInView.value.length === 0) return false
+    return imagesInView.value.every(img => selectedUuids.value.has(img.uuid))
   })
 
-  // Selected tangible count
-  const selectedCount = computed(() => {
-    return selectedUuids.value.size
-  })
-
+  // Toggle single image inclusion / exclusion
   const toggleImageSelection = (img: TrainingImageItem) => {
-    // STRICT TANGIBILITY CONSTRAINT: If intangible (in raw or local storage), refuse selection
-    if (!img.is_tangible) {
-      toast.info('This image is already stored in the training dataset and cannot be re-added.')
-      return
-    }
-
     const next = new Set(selectedUuids.value)
     if (next.has(img.uuid)) {
       next.delete(img.uuid)
@@ -170,27 +220,98 @@
     selectedUuids.value = next
   }
 
-  const toggleSelectAllTangibleInView = () => {
+  // Toggle selection for all currently visible images
+  const toggleSelectAllInView = () => {
     const next = new Set(selectedUuids.value)
     if (isAllInViewSelected.value) {
-      // Unselect all tangible in view
-      tangibleInView.value.forEach(img => next.delete(img.uuid))
+      imagesInView.value.forEach(img => next.delete(img.uuid))
     } else {
-      // Select all tangible in view (strictly skip intangibles)
-      tangibleInView.value.forEach(img => next.add(img.uuid))
+      imagesInView.value.forEach(img => next.add(img.uuid))
     }
     selectedUuids.value = next
   }
 
-  const selectAllTangible = () => {
+  // Include all images across the entire dataset
+  const selectAllImages = () => {
     const next = new Set<string>()
-    allTangible.value.forEach(img => next.add(img.uuid))
+    images.value.forEach(img => next.add(img.uuid))
     selectedUuids.value = next
-    toast.success(`Selected all ${allTangible.value.length} ready scans.`)
+    toast.success(`Included all ${images.value.length} images for retraining.`)
   }
 
-  const clearSelection = () => {
+  // Exclude all images
+  const deselectAllImages = () => {
     selectedUuids.value = new Set()
+    toast.info('Excluded all images from selection.')
+  }
+
+  // Prompt delete for a single image
+  const promptDeleteSingle = (img: TrainingImageItem) => {
+    imageToDelete.value = img
+    isBulkDelete.value = false
+    showDeleteConfirm.value = true
+  }
+
+  // Prompt delete for all currently selected images
+  const promptDeleteBulk = () => {
+    if (selectedCount.value === 0) return
+    imageToDelete.value = null
+    isBulkDelete.value = true
+    showDeleteConfirm.value = true
+  }
+
+  // Execute permanent deletion
+  const handleExecuteDelete = async () => {
+    isDeleting.value = true
+    try {
+      const targets = isBulkDelete.value
+        ? Array.from(selectedUuids.value)
+        : imageToDelete.value
+          ? [imageToDelete.value.uuid]
+          : []
+
+      if (targets.length === 0) {
+        showDeleteConfirm.value = false
+        return
+      }
+
+      await modelTrainingService.deleteTrainingImages(targets)
+
+      // Remove targets from images list
+      const targetSet = new Set(targets)
+      images.value = images.value.filter(img => !targetSet.has(img.uuid))
+
+      // Remove targets from selection
+      const next = new Set(selectedUuids.value)
+      targets.forEach(id => next.delete(id))
+      selectedUuids.value = next
+
+      // Recalculate statistics
+      let upCount = 0
+      let scanCount = 0
+      images.value.forEach(img => {
+        if (img.is_in_local_storage || img.is_in_raw) {
+          upCount++
+        } else {
+          scanCount++
+        }
+      })
+      uploadedCount.value = upCount
+      webappScansCount.value = scanCount
+
+      toast.success(
+        isBulkDelete.value
+          ? `Permanently deleted ${targets.length} image(s).`
+          : 'Image permanently deleted.'
+      )
+      showDeleteConfirm.value = false
+      imageToDelete.value = null
+    } catch (err: any) {
+      console.error('Failed to delete training images:', err)
+      toast.error(err?.data?.message || err?.message || 'Failed to delete images.')
+    } finally {
+      isDeleting.value = false
+    }
   }
 
   const handleConfirm = () => {
@@ -204,12 +325,67 @@
     if (lower === 'acne') return { label: 'Acne', color: 'primary' as const }
     if (lower === 'eczema') return { label: 'Eczema', color: 'info' as const }
     if (lower === 'herpes') return { label: 'Herpes', color: 'warning' as const }
-    return { label: cat, color: 'gray' as const }
+    return { label: cat || 'Skin Lesion', color: 'gray' as const }
   }
 
+  /**
+   * Resilient URL resolver: always routes through getStorageUrl()
+   * to ensure requests use NUXT_PUBLIC_STORAGE_BASE (e.g. http://127.0.0.1:8000/storage/...)
+   * rather than failing on port 80 or port 3000.
+   */
   const resolveImageUrl = (img: TrainingImageItem) => {
-    if (img.image_url) return img.image_url
-    return getStorageUrl(img.file_name)
+    const raw = img.image_url || img.file_name || img.filename
+    if (!raw) return ''
+    return getStorageUrl(raw)
+  }
+
+  const handleSyncAllScans = async () => {
+    isSyncingScans.value = true
+    try {
+      const res: any = await modelTrainingService.syncDataset()
+      toast.success(res.message || 'Scans synchronized to local dataset storage!')
+      await loadImages()
+    } catch {
+      toast.error('Failed to synchronize scans to local dataset.')
+    } finally {
+      isSyncingScans.value = false
+    }
+  }
+
+  const getSyncBadgeInfo = (img: TrainingImageItem) => {
+    const isSynced = Boolean(img.is_synced ?? (img.is_in_local_storage || img.is_in_raw))
+    if (isSynced) {
+      return {
+        label: 'Synced',
+        tooltip: 'Present in local dataset and training pool',
+        icon: 'lucide:check-circle-2',
+        colorClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+      }
+    }
+    return {
+      label: 'Needs Sync',
+      tooltip: 'Webapp consultation scan pending synchronization to local dataset storage',
+      icon: 'lucide:refresh-cw',
+      colorClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+    }
+  }
+
+  const getStorageBadgeInfo = (img: TrainingImageItem) => {
+    const isUploaded = img.is_in_local_storage || img.is_in_raw
+    if (isUploaded) {
+      return {
+        label: 'Uploaded',
+        tooltip: 'Dataset image uploaded to training pool',
+        icon: 'lucide:upload-cloud',
+        colorClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+      }
+    }
+    return {
+      label: 'From Webapp Scans',
+      tooltip: 'Real clinical scan from patient/doctor consultation',
+      icon: 'lucide:sparkles',
+      colorClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+    }
   }
 </script>
 
@@ -247,40 +423,81 @@
                     Select Training Images
                   </h3>
                   <p class="text-muted-foreground mt-0.5 text-xs">
-                    Choose candidate clinical scans to ingest into the training dataset.
+                    Choose candidate consultation scans or uploaded images to include or exclude
+                    from model retraining.
                   </p>
                 </div>
               </div>
 
-              <!-- Tangibility Summary Badges -->
+              <!-- Storage & Selection Summary Badges -->
               <div class="mt-3 flex flex-wrap items-center gap-2">
                 <span
-                  class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
-                >
-                  <Icon
-                    name="lucide:sparkles"
-                    size="13"
-                  />
-                  {{ tangibleCount }} Ready to Train (Tangible)
-                </span>
-                <span
-                  class="inline-flex items-center gap-1.5 rounded-full border border-zinc-500/20 bg-zinc-500/10 px-2.5 py-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400"
-                >
-                  <Icon
-                    name="lucide:lock"
-                    size="13"
-                  />
-                  {{ intangibleCount }} Already in Dataset (Intangible)
-                </span>
-                <span
-                  v-if="selectedCount > 0"
                   class="bg-primary/10 text-primary border-primary/30 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold"
                 >
                   <Icon
                     name="lucide:check"
                     size="13"
                   />
-                  {{ selectedCount }} of {{ allTangible.length }} Selected
+                  {{ selectedCount }} of {{ images.length }} Included
+                </span>
+
+                <span
+                  v-if="excludedCount > 0"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:text-rose-400"
+                >
+                  <Icon
+                    name="lucide:slash"
+                    size="12"
+                  />
+                  {{ excludedCount }} Excluded
+                </span>
+
+                <span
+                  v-if="webappScansCount > 0"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                  title="Clinical scans from patient and doctor consultations"
+                >
+                  <Icon
+                    name="lucide:sparkles"
+                    size="12"
+                  />
+                  {{ webappScansCount }} From Webapp Scans
+                </span>
+
+                <span
+                  v-if="syncedCount > 0"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                  title="Images already synchronized into local dataset storage"
+                >
+                  <Icon
+                    name="lucide:check-circle-2"
+                    size="12"
+                  />
+                  {{ syncedCount }} Synced
+                </span>
+
+                <span
+                  v-if="needsSyncCount > 0"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400"
+                  title="Consultation scans not yet copied into local dataset storage"
+                >
+                  <Icon
+                    name="lucide:refresh-cw"
+                    size="12"
+                  />
+                  {{ needsSyncCount }} Needs Sync
+                </span>
+
+                <span
+                  v-if="uploadedCount > 0"
+                  class="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
+                  title="Images uploaded to dataset or synced into algorithm training files"
+                >
+                  <Icon
+                    name="lucide:upload-cloud"
+                    size="12"
+                  />
+                  {{ uploadedCount }} Uploaded
                 </span>
               </div>
             </div>
@@ -301,7 +518,7 @@
 
           <!-- Controls Bar (Tabs, Filter, Search) -->
           <div class="border-border bg-muted/20 shrink-0 space-y-3 border-b px-6 py-3.5 sm:px-8">
-            <!-- Category Tabs & Status Filter Row -->
+            <!-- Row 1: Category Tabs & Search Bar -->
             <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <!-- Category Tabs -->
               <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -330,7 +547,7 @@
                       cat.id === 'all'
                         ? images.length
                         : (categoryCounts[cat.id] ??
-                          images.filter(i => i.category.toLowerCase() === cat.id).length)
+                          images.filter(i => (i.category || '').toLowerCase() === cat.id).length)
                     }}
                   </span>
                 </button>
@@ -346,7 +563,7 @@
                 <input
                   v-model="searchQuery"
                   type="text"
-                  placeholder="Search scans..."
+                  placeholder="Search scans by name or ID..."
                   class="bg-card border-border text-foreground placeholder:text-muted-foreground focus:ring-primary w-full rounded-xl border py-1.5 pr-3 pl-8 text-xs focus:ring-2 focus:outline-none"
                 />
                 <button
@@ -363,65 +580,209 @@
               </div>
             </div>
 
-            <!-- Status Filter and Bulk Action Buttons -->
+            <!-- Row 2: Status & Location Filters + Bulk Selection Actions -->
             <div class="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-              <div class="flex items-center gap-1.5 text-xs">
-                <span class="text-muted-foreground font-medium">Filter:</span>
-                <button
-                  v-for="flt in statusFilters"
-                  :key="flt.id"
-                  type="button"
-                  class="rounded-lg px-2.5 py-1 text-xs font-medium transition-all"
-                  :class="
-                    activeStatusFilter === flt.id
-                      ? 'bg-foreground/10 text-foreground font-bold'
-                      : 'text-muted-foreground hover:text-foreground'
-                  "
-                  @click="activeStatusFilter = flt.id as any"
+              <!-- Filter Chips (Included/Excluded & Origins) -->
+              <div class="flex flex-wrap items-center gap-2 text-xs">
+                <!-- Inclusion status -->
+                <div class="border-border bg-card flex items-center gap-1 rounded-xl border p-0.5">
+                  <button
+                    type="button"
+                    class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                    :class="
+                      activeInclusionFilter === 'all'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeInclusionFilter = 'all'"
+                  >
+                    All ({{ images.length }})
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                    :class="
+                      activeInclusionFilter === 'included'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeInclusionFilter = 'included'"
+                  >
+                    Included ({{ selectedCount }})
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                    :class="
+                      activeInclusionFilter === 'excluded'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeInclusionFilter = 'excluded'"
+                  >
+                    Excluded ({{ excludedCount }})
+                  </button>
+                </div>
+
+                <!-- Origin filter: All Origins, From Webapp Scans, Uploaded -->
+                <div
+                  class="border-border bg-card hidden items-center gap-1 rounded-xl border p-0.5 md:flex"
                 >
-                  {{ flt.label }}
-                </button>
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeLocationFilter === 'all'
+                        ? 'bg-foreground/10 text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeLocationFilter = 'all'"
+                  >
+                    All Origins
+                  </button>
+                  <button
+                    v-if="webappScansCount > 0"
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeLocationFilter === 'webapp_scans'
+                        ? 'bg-foreground/10 text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeLocationFilter = 'webapp_scans'"
+                  >
+                    From Webapp Scans ({{ webappScansCount }})
+                  </button>
+                  <button
+                    v-if="uploadedCount > 0"
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeLocationFilter === 'uploaded'
+                        ? 'bg-foreground/10 text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeLocationFilter = 'uploaded'"
+                  >
+                    Uploaded ({{ uploadedCount }})
+                  </button>
+                </div>
+
+                <!-- Sync Status Filter -->
+                <div
+                  class="border-border bg-card hidden items-center gap-1 rounded-xl border p-0.5 lg:flex"
+                >
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeSyncFilter === 'all'
+                        ? 'bg-foreground/10 text-foreground font-bold'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeSyncFilter = 'all'"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeSyncFilter === 'synced'
+                        ? 'bg-emerald-500/15 font-bold text-emerald-700 dark:text-emerald-300'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeSyncFilter = 'synced'"
+                  >
+                    Synced ({{ syncedCount }})
+                  </button>
+                  <button
+                    v-if="needsSyncCount > 0"
+                    type="button"
+                    class="rounded-lg px-2 py-1 text-[11px] font-medium transition-all"
+                    :class="
+                      activeSyncFilter === 'needs_sync'
+                        ? 'bg-amber-500/15 font-bold text-amber-700 dark:text-amber-300'
+                        : 'text-muted-foreground hover:text-foreground'
+                    "
+                    @click="activeSyncFilter = 'needs_sync'"
+                  >
+                    Needs Sync ({{ needsSyncCount }})
+                  </button>
+                </div>
               </div>
 
-              <!-- Quick Tangible Selection Helpers -->
-              <div class="flex items-center gap-2">
+              <!-- Quick Selection & Deletion Helpers -->
+              <div class="flex flex-wrap items-center gap-2">
                 <AppButton
                   variant="outline"
                   size="sm"
-                  class="h-7 gap-1.5 text-xs"
-                  :disabled="tangibleInView.length === 0"
-                  @click="toggleSelectAllTangibleInView"
+                  class="h-7 gap-1.5 text-xs font-semibold"
+                  :disabled="imagesInView.length === 0"
+                  @click="toggleSelectAllInView"
                 >
                   <Icon
-                    :name="isAllInViewSelected ? 'lucide:check-square' : 'lucide:square'"
+                    :name="isAllInViewSelected ? 'lucide:minus-square' : 'lucide:check-square'"
                     size="13"
                   />
                   {{
                     isAllInViewSelected
-                      ? 'Unselect View'
-                      : `Select Ready in View (${tangibleInView.length})`
+                      ? `Exclude View (${imagesInView.length})`
+                      : `Include View (${imagesInView.length})`
                   }}
+                </AppButton>
+
+                <AppButton
+                  v-if="selectedCount < images.length"
+                  variant="ghost"
+                  size="sm"
+                  class="text-primary hover:bg-primary/10 h-7 text-xs font-semibold"
+                  @click="selectAllImages"
+                >
+                  Include All ({{ images.length }})
                 </AppButton>
 
                 <AppButton
                   v-if="selectedCount > 0"
                   variant="ghost"
                   size="sm"
-                  class="text-muted-foreground hover:text-foreground h-7 text-xs"
-                  @click="clearSelection"
+                  class="text-muted-foreground hover:bg-foreground/10 h-7 text-xs font-medium"
+                  @click="deselectAllImages"
                 >
-                  Clear ({{ selectedCount }})
+                  Exclude All
                 </AppButton>
 
+                <!-- Bulk Permanent Delete Button -->
                 <AppButton
-                  v-else
+                  v-if="selectedCount > 0"
                   variant="ghost"
                   size="sm"
-                  class="text-primary h-7 text-xs font-semibold"
-                  :disabled="allTangible.length === 0"
-                  @click="selectAllTangible"
+                  class="text-destructive hover:bg-destructive/10 h-7 gap-1 text-xs font-semibold"
+                  @click="promptDeleteBulk"
                 >
-                  Select All Ready ({{ allTangible.length }})
+                  <Icon
+                    name="lucide:trash-2"
+                    size="12"
+                  />
+                  Delete Selected ({{ selectedCount }})
+                </AppButton>
+
+                <!-- Sync All to Local Dataset Action -->
+                <AppButton
+                  v-if="needsSyncCount > 0"
+                  variant="outline"
+                  size="sm"
+                  class="border-primary/40 text-primary hover:bg-primary/5 h-7 gap-1 text-xs font-semibold"
+                  :loading="isSyncingScans"
+                  :disabled="isSyncingScans"
+                  @click="handleSyncAllScans"
+                >
+                  <Icon
+                    name="lucide:refresh-cw"
+                    size="11"
+                    :class="isSyncingScans ? 'animate-spin' : ''"
+                  />
+                  Sync {{ needsSyncCount }} Scans to Dataset
                 </AppButton>
               </div>
             </div>
@@ -440,7 +801,7 @@
                 class="text-primary animate-spin"
               />
               <p class="text-muted-foreground mt-3 text-sm font-medium">
-                Scanning dataset & checking storage tangibility...
+                Loading candidate photos & checking image statuses...
               </p>
             </div>
 
@@ -457,12 +818,12 @@
                   size="28"
                 />
               </div>
-              <h4 class="text-foreground mt-4 text-base font-bold">No images found</h4>
+              <h4 class="text-foreground mt-4 text-base font-bold">No scans found</h4>
               <p class="text-muted-foreground mt-1 max-w-sm text-xs">
                 {{
                   searchQuery
-                    ? 'No scans match your search query or filter.'
-                    : 'No clinical scans available in this category.'
+                    ? 'No scans match your search query or active filter.'
+                    : 'No images available matching this selection.'
                 }}
               </p>
             </div>
@@ -475,35 +836,55 @@
               <div
                 v-for="img in filteredImages"
                 :key="img.uuid"
-                class="group bg-card border-border relative flex flex-col overflow-hidden rounded-2xl border transition-all select-none"
+                class="group bg-card border-border relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all select-none hover:shadow-md"
                 :class="{
-                  'ring-primary border-primary bg-primary/5 shadow-md ring-2':
-                    img.is_tangible && selectedUuids.has(img.uuid),
-                  'hover:border-foreground/20 cursor-pointer hover:shadow-xs': img.is_tangible,
-                  'bg-muted/40 cursor-not-allowed opacity-50': !img.is_tangible
+                  'ring-primary border-primary bg-primary/5 shadow-sm ring-2': selectedUuids.has(
+                    img.uuid
+                  ),
+                  'border-border/60 bg-muted/20 hover:border-foreground/30 opacity-70 hover:opacity-100':
+                    !selectedUuids.has(img.uuid)
                 }"
                 @click="toggleImageSelection(img)"
               >
                 <!-- Thumbnail Image Container -->
                 <div class="bg-muted relative aspect-square w-full overflow-hidden">
+                  <!-- Fallback placeholder if image load fails -->
+                  <div
+                    v-if="failedImageUuids.has(img.uuid)"
+                    class="bg-muted/60 flex h-full w-full flex-col items-center justify-center p-3 text-center"
+                  >
+                    <Icon
+                      name="lucide:image"
+                      size="28"
+                      class="text-muted-foreground/60"
+                    />
+                    <span class="text-muted-foreground mt-1 text-[11px] font-semibold capitalize">
+                      {{ img.category }} Scan
+                    </span>
+                    <span class="text-muted-foreground/80 font-mono text-[9px]">
+                      {{ img.filename || img.file_name || 'Scan image' }}
+                    </span>
+                  </div>
+
+                  <!-- Actual Image -->
                   <img
+                    v-else
                     :src="resolveImageUrl(img)"
-                    :alt="img.original_name || img.file_name"
+                    :alt="img.original_name || img.file_name || img.filename || 'Scan Image'"
                     class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    :class="{ 'brightness-90 saturate-75': !selectedUuids.has(img.uuid) }"
                     loading="lazy"
+                    @error="handleImageError(img.uuid)"
                   />
 
                   <!-- Selection Checkbox (Top Left) -->
-                  <div
-                    v-if="img.is_tangible"
-                    class="absolute top-2 left-2 z-10"
-                  >
+                  <div class="absolute top-2 left-2 z-10">
                     <div
                       class="flex h-6 w-6 items-center justify-center rounded-lg transition-all"
                       :class="
                         selectedUuids.has(img.uuid)
-                          ? 'bg-primary text-primary-foreground shadow-sm'
-                          : 'border border-white/20 bg-black/40 text-white/70 backdrop-blur-xs'
+                          ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-white/30'
+                          : 'border border-white/40 bg-black/50 text-white/40 backdrop-blur-xs'
                       "
                     >
                       <Icon
@@ -511,22 +892,6 @@
                         name="lucide:check"
                         size="14"
                         class="stroke-3"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Intangible Lock Icon Overlay (Top Left) -->
-                  <div
-                    v-else
-                    class="absolute top-2 left-2 z-10"
-                  >
-                    <div
-                      class="flex h-6 w-6 items-center justify-center rounded-lg bg-zinc-900/80 text-zinc-300 shadow-sm backdrop-blur-xs"
-                      title="Stored in Training Dataset (Locked)"
-                    >
-                      <Icon
-                        name="lucide:lock"
-                        size="13"
                       />
                     </div>
                   </div>
@@ -543,60 +908,65 @@
                     </AppBadge>
                   </div>
 
-                  <!-- Intangible Dark Overlay Warning -->
-                  <div
-                    v-if="!img.is_tangible"
-                    class="absolute inset-0 flex flex-col items-center justify-center bg-black/45 p-2 text-center backdrop-blur-[1px]"
+                  <!-- Trash Delete Button (Bottom Right overlay on hover/focus) -->
+                  <button
+                    type="button"
+                    class="hover:bg-destructive absolute right-2 bottom-2 z-20 flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    title="Permanently Delete Image"
+                    @click.stop="promptDeleteSingle(img)"
                   >
                     <Icon
-                      name="lucide:shield-check"
-                      size="20"
-                      class="text-white/80 drop-shadow-sm"
+                      name="lucide:trash-2"
+                      size="12"
                     />
-                    <span class="mt-1 text-[11px] font-bold text-white drop-shadow-sm">
-                      {{ img.is_in_raw ? 'In Raw Dataset' : 'In Local Storage' }}
-                    </span>
-                    <span class="text-[9px] font-medium text-white/75 drop-shadow-sm">
-                      Already Ingested
-                    </span>
-                  </div>
+                  </button>
                 </div>
 
                 <!-- Footer Card Info -->
                 <div class="flex flex-col justify-between p-2.5 text-xs">
                   <div class="flex items-center justify-between gap-1">
-                    <span class="text-foreground truncate font-mono text-[11px] font-semibold">
-                      {{ img.original_name || img.file_name.substring(0, 14) + '...' }}
+                    <span
+                      class="truncate font-mono text-[11px] font-semibold"
+                      :class="
+                        selectedUuids.has(img.uuid) ? 'text-foreground' : 'text-muted-foreground'
+                      "
+                    >
+                      {{
+                        img.original_name ||
+                        (img.filename || img.file_name || '').substring(0, 16) + '...'
+                      }}
                     </span>
                   </div>
 
-                  <div class="mt-1 flex items-center justify-between text-[10px]">
-                    <!-- Tangible status -->
+                  <div class="mt-1.5 flex items-center justify-between text-[10px]">
+                    <!-- Selected / Excluded Status Text -->
                     <span
-                      v-if="img.is_tangible"
-                      class="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400"
+                      v-if="selectedUuids.has(img.uuid)"
+                      class="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400"
                     >
                       <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                      Ready to Train
+                      Included
                     </span>
 
-                    <!-- Intangible status -->
                     <span
                       v-else
-                      class="text-muted-foreground inline-flex items-center gap-1 font-mono font-medium"
+                      class="text-muted-foreground inline-flex items-center gap-1 font-medium"
                     >
-                      <Icon
-                        name="lucide:lock"
-                        size="10"
-                      />
-                      Locked
+                      <span class="bg-muted-foreground/40 h-1.5 w-1.5 rounded-full"></span>
+                      Excluded
                     </span>
 
+                    <!-- Synced vs Needs Sync Status Badge -->
                     <span
-                      v-if="img.created_at"
-                      class="text-muted-foreground font-mono"
+                      class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold"
+                      :class="getSyncBadgeInfo(img).colorClass"
+                      :title="getSyncBadgeInfo(img).tooltip"
                     >
-                      {{ new Date(img.created_at).toLocaleDateString() }}
+                      <Icon
+                        :name="getSyncBadgeInfo(img).icon"
+                        size="9"
+                      />
+                      {{ getSyncBadgeInfo(img).label }}
                     </span>
                   </div>
                 </div>
@@ -609,16 +979,16 @@
             class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-3 border-t px-6 py-4 backdrop-blur-sm sm:flex-row sm:items-center sm:px-8"
           >
             <!-- Summary Info -->
-            <div class="text-muted-foreground flex items-center gap-2 text-xs">
+            <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
               <span class="text-foreground font-bold">
-                {{ selectedCount }} of {{ allTangible.length }}
+                {{ selectedCount }} of {{ images.length }}
               </span>
-              ready scans selected for retraining.
+              images included for retraining.
               <span
-                v-if="intangibleCount > 0"
-                class="hidden sm:inline"
+                v-if="excludedCount > 0"
+                class="font-semibold text-rose-600 dark:text-rose-400"
               >
-                ({{ intangibleCount }} locked images safely omitted)
+                ({{ excludedCount }} excluded)
               </span>
             </div>
 
@@ -644,7 +1014,7 @@
                   size="16"
                   class="mr-1.5"
                 />
-                Confirm Selection ({{ selectedCount }})
+                Confirm Selection ({{ selectedCount }} Included)
               </AppButton>
             </div>
           </div>
@@ -652,4 +1022,22 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Confirmation Dialog for Permanent Image Deletion -->
+  <AppModalConfirmation
+    v-model="showDeleteConfirm"
+    title="Permanently Delete Image?"
+    :description="
+      isBulkDelete
+        ? `Are you sure you want to permanently delete ${selectedCount} selected image(s)? They will be purged from storage, consultation records, and AI training data. This action cannot be undone.`
+        : 'Are you sure you want to permanently delete this image? It will be purged from storage, consultation records, and AI training data. This action cannot be undone.'
+    "
+    icon="lucide:trash-2"
+    icon-color="danger"
+    confirm-text="Delete Permanently"
+    cancel-text="Cancel"
+    confirm-variant="destructive"
+    :loading="isDeleting"
+    @confirm="handleExecuteDelete"
+  />
 </template>

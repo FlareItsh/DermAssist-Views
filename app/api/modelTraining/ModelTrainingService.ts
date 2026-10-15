@@ -62,25 +62,44 @@ export interface TrainingStatusResponse {
 
 export interface TrainingImageItem {
   uuid: string
-  file_name: string
+  file_name?: string
+  filename?: string
   original_name?: string
   image_url: string
   category: string
+  label?: string
   is_tangible: boolean
   is_in_raw: boolean
   is_in_local_storage: boolean
-  storage_status: 'ready' | 'in_raw' | 'in_local_storage'
-  is_contributed: boolean
-  created_at: string
+  storage_status: 'ready' | 'in_raw' | 'in_local_storage' | 'raw' | 'local_storage' | 'both'
+  is_synced?: boolean
+  sync_status?: 'synced' | 'needs_sync'
+  is_contributed?: boolean
+  contributed_to_dataset?: boolean
+  created_at: string | null
+  patient_consented?: boolean
   has_consent?: boolean
+  source?: 'diagnosis' | 'dataset_gallery'
 }
 
 export interface TrainingImagesResponse {
   images: TrainingImageItem[]
+  data?: TrainingImageItem[]
   total: number
-  tangible_count: number
-  intangible_count: number
+  tangible_count?: number
+  intangible_count?: number
+  synced_count?: number
+  needs_sync_count?: number
   by_category: Record<string, number>
+  summary?: {
+    total: number
+    tangible_count: number
+    intangible_count: number
+    in_local_storage_count: number
+    in_raw_count: number
+    synced_count?: number
+    needs_sync_count?: number
+  }
 }
 
 export interface StartTrainingPayload {
@@ -101,6 +120,10 @@ export class ModelTrainingService extends BaseService {
     const query =
       params?.category && params.category !== 'all' ? `?category=${params.category}` : ''
     return this.request<TrainingImagesResponse>(`/admin/model/training-images${query}`, 'GET')
+  }
+
+  async deleteTrainingImages(uuids: string[]): Promise<any> {
+    return this.request('/admin/model/training-images', 'DELETE', { uuids })
   }
 
   async startTraining(payload: StartTrainingPayload): Promise<any> {
