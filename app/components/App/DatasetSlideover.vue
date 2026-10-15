@@ -29,6 +29,7 @@
     (e: 'update:modelValue', value: boolean): void
     (e: 'deleted'): void
     (e: 'confirm', selectedUuids: string[]): void
+    (e: 'synced'): void
   }>()
 
   const isOpen = computed({
@@ -82,7 +83,11 @@
     failedImageUuids.value = next
   }
 
-  const loadStandardDataset = async () => {
+  const isImageTrained = (img: TrainingImageItem) => {
+    return Boolean(img.is_synced ?? (img.is_in_local_storage || img.is_in_raw))
+  }
+
+  const loadStandardDataset = async (isInitial = false) => {
     isLoading.value = true
     failedImageUuids.value = new Set()
     try {
@@ -121,17 +126,22 @@
         herpes: rawImages.filter(i => (i.category || '').toLowerCase() === 'herpes').length
       }
 
-      // Initialize selected UUIDs (default to all candidate images)
-      if (props.initialSelectedUuids && props.initialSelectedUuids.length > 0) {
-        const availableUuids = new Set(images.value.map(img => img.uuid))
+      // Initialize or preserve selected UUIDs (trained images are always permanently included)
+      const availableUuids = new Set(images.value.map(img => img.uuid))
+      const trainedUuids = images.value.filter(img => isImageTrained(img)).map(img => img.uuid)
+
+      if (!isInitial && selectedUuids.value.size > 0) {
+        // Preserve active user choices across reloads, filtering out any deleted scans
+        const next = new Set(Array.from(selectedUuids.value).filter(id => availableUuids.has(id)))
+        trainedUuids.forEach(id => next.add(id))
+        selectedUuids.value = next
+      } else if (props.initialSelectedUuids && props.initialSelectedUuids.length > 0) {
         const validSelections = props.initialSelectedUuids.filter(uuid => availableUuids.has(uuid))
-        if (validSelections.length > 0) {
-          selectedUuids.value = new Set(validSelections)
-        } else {
-          selectedUuids.value = new Set(images.value.map(img => img.uuid))
-        }
+        const next = new Set(validSelections.length > 0 ? validSelections : availableUuids)
+        trainedUuids.forEach(id => next.add(id))
+        selectedUuids.value = next
       } else {
-        selectedUuids.value = new Set(images.value.map(img => img.uuid))
+        selectedUuids.value = new Set(availableUuids)
       }
     } catch (err) {
       console.error('Failed to load training images:', err)
@@ -164,11 +174,11 @@
     }
   }
 
-  const loadData = async () => {
+  const loadData = async (isInitial = false) => {
     if (props.datasetType === 'out_of_scope') {
       await loadOutOfScopeDataset()
     } else {
-      await loadStandardDataset()
+      await loadStandardDataset(isInitial)
     }
   }
 
@@ -185,7 +195,7 @@
         activeLocationFilter.value = 'all'
         activeSyncFilter.value = 'all'
         searchQuery.value = ''
-        loadData()
+        loadData(true)
       } else {
         outOfScopeSelectedUrls.value = new Set()
       }
@@ -247,16 +257,30 @@
 
   // Selection counts
   const selectedCount = computed(() => selectedUuids.value.size)
-  const excludedCount = computed(() => Math.max(0, images.value.length - selectedCount.value))
+  const trainedCount = computed(() => images.value.filter(img => isImageTrained(img)).length)
+  const pendingScansCount = computed(() => images.value.filter(img => !isImageTrained(img)).length)
+  const pendingSelectedCount = computed(
+    () =>
+      images.value.filter(img => !isImageTrained(img) && selectedUuids.value.has(img.uuid)).length
+  )
+  const excludedPendingCount = computed(
+    () =>
+      images.value.filter(img => !isImageTrained(img) && !selectedUuids.value.has(img.uuid)).length
+  )
+  const excludedCount = computed(() => excludedPendingCount.value)
 
   const imagesInView = computed(() => filteredStandardImages.value)
   const isAllInViewSelected = computed(() => {
-    if (imagesInView.value.length === 0) return false
-    return imagesInView.value.every(img => selectedUuids.value.has(img.uuid))
+    const pendingInView = imagesInView.value.filter(img => !isImageTrained(img))
+    if (pendingInView.length === 0) return true
+    return pendingInView.every(img => selectedUuids.value.has(img.uuid))
   })
 
-  // Selection toggles
+  // Selection toggles (Trained images are untouchable)
   const toggleImageSelection = (img: TrainingImageItem) => {
+    if (isImageTrained(img)) {
+      return
+    }
     const next = new Set(selectedUuids.value)
     if (next.has(img.uuid)) {
       next.delete(img.uuid)
@@ -267,11 +291,16 @@
   }
 
   const toggleSelectAllInView = () => {
+    const pendingInView = imagesInView.value.filter(img => !isImageTrained(img))
+    if (pendingInView.length === 0) return
+
     const next = new Set(selectedUuids.value)
-    if (isAllInViewSelected.value) {
-      imagesInView.value.forEach(img => next.delete(img.uuid))
+    const allPendingInViewSelected = pendingInView.every(img => next.has(img.uuid))
+
+    if (allPendingInViewSelected) {
+      pendingInView.forEach(img => next.delete(img.uuid))
     } else {
-      imagesInView.value.forEach(img => next.add(img.uuid))
+      pendingInView.forEach(img => next.add(img.uuid))
     }
     selectedUuids.value = next
   }
@@ -280,23 +309,41 @@
     const next = new Set<string>()
     images.value.forEach(img => next.add(img.uuid))
     selectedUuids.value = next
-    toast.success(`Included all ${images.value.length} images for retraining.`)
+    toast.success('Included all candidate scans for retraining.')
   }
 
   const deselectAllImages = () => {
-    selectedUuids.value = new Set()
-    toast.info('Excluded all images from selection.')
+    // Only deselect pending candidate scans; trained images remain permanently locked
+    const next = new Set<string>()
+    images.value.forEach(img => {
+      if (isImageTrained(img)) {
+        next.add(img.uuid)
+      }
+    })
+    selectedUuids.value = next
+    toast.info('Excluded all pending scans from selection.')
   }
 
-  // Deletion Actions
+  // Deletion Actions (Trained images are permanent and cannot be deleted)
   const promptDeleteSingle = (img: TrainingImageItem) => {
+    if (isImageTrained(img)) {
+      toast.info('Trained images are permanently part of the dataset and cannot be deleted.')
+      return
+    }
     imageToDelete.value = img
     isBulkDelete.value = false
     showDeleteConfirm.value = true
   }
 
   const promptDeleteBulk = () => {
-    if (selectedCount.value === 0) return
+    const targets = Array.from(selectedUuids.value).filter(uuid => {
+      const match = images.value.find(i => i.uuid === uuid)
+      return match && !isImageTrained(match)
+    })
+    if (targets.length === 0) {
+      toast.info('No pending scans selected for deletion. Trained images cannot be deleted.')
+      return
+    }
     imageToDelete.value = null
     isBulkDelete.value = true
     showDeleteConfirm.value = true
@@ -319,8 +366,11 @@
         await loadOutOfScopeDataset()
       } else {
         const targets = isBulkDelete.value
-          ? Array.from(selectedUuids.value)
-          : imageToDelete.value
+          ? Array.from(selectedUuids.value).filter(uuid => {
+              const match = images.value.find(i => i.uuid === uuid)
+              return match && !isImageTrained(match)
+            })
+          : imageToDelete.value && !isImageTrained(imageToDelete.value)
             ? [imageToDelete.value.uuid]
             : []
 
@@ -352,8 +402,8 @@
 
         toast.success(
           isBulkDelete.value
-            ? `Permanently deleted ${targets.length} image(s).`
-            : 'Image permanently deleted.'
+            ? `Permanently deleted ${targets.length} pending scan(s).`
+            : 'Pending scan permanently deleted.'
         )
         showDeleteConfirm.value = false
         imageToDelete.value = null
@@ -368,20 +418,38 @@
   }
 
   // Scan Synchronization Action
-  const promptSyncAllScans = () => {
+  const promptSyncSelectedScans = () => {
+    if (pendingSelectedCount.value === 0) {
+      toast.info('All selected images are already trained and synced.')
+      return
+    }
     showSyncConfirm.value = true
   }
 
   const handleExecuteSyncScans = async () => {
+    const targets = Array.from(selectedUuids.value).filter(uuid => {
+      const match = images.value.find(i => i.uuid === uuid)
+      return match && !isImageTrained(match)
+    })
+    if (targets.length === 0) {
+      toast.info('All selected images are already trained and synced.')
+      showSyncConfirm.value = false
+      return
+    }
     isSyncingScans.value = true
     try {
-      const res: any = await modelTrainingService.syncDataset()
-      toast.success(res.message || 'Scans synchronized to local dataset storage!')
+      const res: any = await modelTrainingService.syncDataset(targets)
+      toast.success(
+        res.message || `Successfully synchronized ${targets.length} scan(s) to dataset!`
+      )
       showSyncConfirm.value = false
-      await loadStandardDataset()
-      emit('deleted')
-    } catch {
-      toast.error('Failed to synchronize scans to local dataset.')
+      await loadStandardDataset(false)
+      emit('synced')
+    } catch (err: any) {
+      console.error('Failed to sync scans:', err)
+      toast.error(
+        err?.data?.message || err?.message || 'Failed to synchronize scans to local dataset.'
+      )
     } finally {
       isSyncingScans.value = false
     }
@@ -555,18 +623,6 @@
                 />
                 {{ needsSyncCount }} Needs Sync
               </span>
-
-              <span
-                v-if="uploadedCount > 0"
-                class="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:text-blue-400"
-                title="Images uploaded to dataset or synced into algorithm training files"
-              >
-                <Icon
-                  name="lucide:upload-cloud"
-                  size="12"
-                />
-                {{ uploadedCount }} Uploaded
-              </span>
             </div>
           </div>
 
@@ -621,32 +677,6 @@
                         images.filter(i => (i.category || '').toLowerCase() === cat.id).length)
                   }}
                 </span>
-              </button>
-            </div>
-
-            <!-- Search Bar -->
-            <div class="relative w-full sm:w-64">
-              <Icon
-                name="lucide:search"
-                size="14"
-                class="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-              />
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Search scans by name or ID..."
-                class="bg-card border-border text-foreground placeholder:text-muted-foreground focus:ring-primary w-full rounded-xl border py-1.5 pr-7 pl-8 text-xs focus:ring-2 focus:outline-none"
-              />
-              <button
-                v-if="searchQuery"
-                type="button"
-                class="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
-                @click="searchQuery = ''"
-              >
-                <Icon
-                  name="lucide:x"
-                  size="12"
-                />
               </button>
             </div>
           </div>
@@ -786,46 +816,43 @@
             <!-- Quick Selection & Deletion Helpers -->
             <div class="flex flex-wrap items-center gap-2">
               <AppButton
+                v-if="pendingScansCount > 0"
                 variant="outline"
                 size="sm"
                 class="h-7 gap-1.5 text-xs font-semibold"
-                :disabled="imagesInView.length === 0"
+                :disabled="imagesInView.filter(img => !isImageTrained(img)).length === 0"
                 @click="toggleSelectAllInView"
               >
                 <Icon
                   :name="isAllInViewSelected ? 'lucide:minus-square' : 'lucide:check-square'"
                   size="13"
                 />
-                {{
-                  isAllInViewSelected
-                    ? `Exclude View (${imagesInView.length})`
-                    : `Include View (${imagesInView.length})`
-                }}
+                {{ isAllInViewSelected ? 'Exclude Pending in View' : 'Include Pending in View' }}
               </AppButton>
 
               <AppButton
-                v-if="selectedCount < images.length"
+                v-if="excludedPendingCount > 0"
                 variant="ghost"
                 size="sm"
                 class="text-primary hover:bg-primary/10 h-7 text-xs font-semibold"
                 @click="selectAllImages"
               >
-                Include All ({{ images.length }})
+                Include All Pending ({{ pendingScansCount }})
               </AppButton>
 
               <AppButton
-                v-if="selectedCount > 0"
+                v-if="pendingSelectedCount > 0"
                 variant="ghost"
                 size="sm"
                 class="text-muted-foreground hover:bg-foreground/10 h-7 text-xs font-medium"
                 @click="deselectAllImages"
               >
-                Exclude All
+                Exclude Pending ({{ pendingSelectedCount }})
               </AppButton>
 
-              <!-- Bulk Permanent Delete Button -->
+              <!-- Bulk Permanent Delete Button (Pending Scans Only) -->
               <AppButton
-                v-if="selectedCount > 0"
+                v-if="pendingSelectedCount > 0"
                 variant="ghost"
                 size="sm"
                 class="text-destructive hover:bg-destructive/10 h-7 gap-1 text-xs font-semibold"
@@ -835,25 +862,25 @@
                   name="lucide:trash-2"
                   size="12"
                 />
-                Delete Selected ({{ selectedCount }})
+                Delete Pending ({{ pendingSelectedCount }})
               </AppButton>
 
-              <!-- Sync All to Local Dataset Action -->
+              <!-- Sync Selected to Local Dataset Action -->
               <AppButton
-                v-if="needsSyncCount > 0"
+                v-if="pendingScansCount > 0"
                 variant="outline"
                 size="sm"
                 class="border-primary/40 text-primary hover:bg-primary/5 h-7 gap-1 text-xs font-semibold"
                 :loading="isSyncingScans"
-                :disabled="isSyncingScans"
-                @click="promptSyncAllScans"
+                :disabled="isSyncingScans || pendingSelectedCount === 0"
+                @click="promptSyncSelectedScans"
               >
                 <Icon
                   name="lucide:refresh-cw"
                   size="11"
                   :class="isSyncingScans ? 'animate-spin' : ''"
                 />
-                Sync {{ needsSyncCount }} Scans
+                Sync Selected ({{ pendingSelectedCount }})
               </AppButton>
             </div>
           </div>
@@ -992,6 +1019,48 @@
 
           <!-- Standard Retraining Dataset Gallery Grid -->
           <template v-else>
+            <!-- Unselected Scans Warning Notice Banner -->
+            <div
+              v-if="excludedPendingCount > 0"
+              class="mb-4 flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:text-amber-200"
+            >
+              <div class="flex items-start gap-2.5 sm:items-center">
+                <div
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                >
+                  <Icon
+                    name="lucide:alert-triangle"
+                    size="16"
+                  />
+                </div>
+                <div>
+                  <p class="font-bold">
+                    {{ excludedPendingCount }} pending
+                    {{ excludedPendingCount === 1 ? 'scan' : 'scans' }} unselected
+                  </p>
+                  <p class="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">
+                    Trained images are permanently included in the model. Unchecked pending scans
+                    will remain in consultation records and will not be synced to the AI model.
+                  </p>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+                <AppButton
+                  variant="outline"
+                  size="sm"
+                  class="h-7 border-amber-500/40 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                  @click="selectAllImages"
+                >
+                  <Icon
+                    name="lucide:check-check"
+                    size="12"
+                    class="mr-1"
+                  />
+                  Include All Pending ({{ pendingScansCount }})
+                </AppButton>
+              </div>
+            </div>
+
             <!-- Empty State -->
             <div
               v-if="filteredStandardImages.length === 0"
@@ -1023,13 +1092,14 @@
               <div
                 v-for="img in filteredStandardImages"
                 :key="img.uuid"
-                class="group bg-card border-border relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all select-none hover:shadow-md"
+                class="group bg-card border-border relative flex flex-col overflow-hidden rounded-2xl border transition-all select-none"
                 :class="{
-                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2': selectedUuids.has(
-                    img.uuid
-                  ),
+                  'ring-border/80 cursor-default ring-1': isImageTrained(img),
+                  'cursor-pointer hover:shadow-md': !isImageTrained(img),
+                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2':
+                    !isImageTrained(img) && selectedUuids.has(img.uuid),
                   'border-border/60 bg-muted/20 hover:border-foreground/30 opacity-70 hover:opacity-100':
-                    !selectedUuids.has(img.uuid)
+                    !isImageTrained(img) && !selectedUuids.has(img.uuid)
                 }"
                 @click="toggleImageSelection(img)"
               >
@@ -1058,15 +1128,33 @@
                     v-else
                     :src="resolveImageUrl(img)"
                     :alt="img.original_name || img.file_name || img.filename || 'Scan Image'"
-                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    :class="{ 'brightness-90 saturate-75': !selectedUuids.has(img.uuid) }"
+                    class="h-full w-full object-cover transition-transform duration-300"
+                    :class="{
+                      'group-hover:scale-105': !isImageTrained(img),
+                      'brightness-90 saturate-75':
+                        !isImageTrained(img) && !selectedUuids.has(img.uuid)
+                    }"
                     loading="lazy"
                     @error="handleImageError(img.uuid)"
                   />
 
-                  <!-- Selection Checkbox (Top Left) -->
+                  <!-- Selection Checkbox / Trained Lock Indicator (Top Left) -->
                   <div class="absolute top-2 left-2 z-10">
                     <div
+                      v-if="isImageTrained(img)"
+                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90 shadow-xs backdrop-blur-md select-none"
+                      title="Trained dataset image — permanent ground truth data"
+                    >
+                      <Icon
+                        name="lucide:lock"
+                        size="10"
+                        class="text-emerald-400"
+                      />
+                      <span>Trained</span>
+                    </div>
+
+                    <div
+                      v-else
                       class="flex h-6 w-6 items-center justify-center rounded-lg transition-all"
                       :class="
                         selectedUuids.has(img.uuid)
@@ -1095,11 +1183,12 @@
                     </AppBadge>
                   </div>
 
-                  <!-- Trash Delete Button (Bottom Right overlay) -->
+                  <!-- Trash Delete Button (Bottom Right overlay, only for pending scans) -->
                   <button
+                    v-if="!isImageTrained(img)"
                     type="button"
                     class="hover:bg-destructive absolute right-2 bottom-2 z-20 flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
-                    title="Permanently Delete Image"
+                    title="Permanently Delete Pending Scan"
                     @click.stop="promptDeleteSingle(img)"
                   >
                     <Icon
@@ -1127,10 +1216,21 @@
 
                   <div class="mt-1.5 flex items-center justify-between text-[10px]">
                     <span
-                      v-if="selectedUuids.has(img.uuid)"
+                      v-if="isImageTrained(img)"
                       class="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400"
+                      title="Trained model image — permanent ground truth data"
                     >
-                      <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                      <Icon
+                        name="lucide:shield-check"
+                        size="11"
+                      />
+                      Trained · Protected
+                    </span>
+                    <span
+                      v-else-if="selectedUuids.has(img.uuid)"
+                      class="text-primary inline-flex items-center gap-1 font-semibold"
+                    >
+                      <span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
                       Included
                     </span>
                     <span
@@ -1142,15 +1242,15 @@
                     </span>
 
                     <span
-                      class="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold"
-                      :class="getSyncBadgeInfo(img).colorClass"
-                      :title="getSyncBadgeInfo(img).tooltip"
+                      v-if="!isImageTrained(img)"
+                      class="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300"
+                      title="Webapp consultation scan pending synchronization to local dataset storage"
                     >
                       <Icon
-                        :name="getSyncBadgeInfo(img).icon"
+                        name="lucide:refresh-cw"
                         size="9"
                       />
-                      {{ getSyncBadgeInfo(img).label }}
+                      Pending
                     </span>
                   </div>
                 </div>
@@ -1169,12 +1269,15 @@
               <span class="text-foreground font-bold">
                 {{ selectedCount }} of {{ images.length }}
               </span>
-              images included for retraining.
+              images in training pool
+              <span class="text-muted-foreground/80">
+                ({{ trainedCount }} trained · permanent)
+              </span>
               <span
-                v-if="excludedCount > 0"
+                v-if="excludedPendingCount > 0"
                 class="font-semibold text-rose-600 dark:text-rose-400"
               >
-                ({{ excludedCount }} excluded)
+                · {{ excludedPendingCount }} pending excluded
               </span>
             </div>
 
@@ -1189,18 +1292,38 @@
                 Close
               </AppButton>
               <AppButton
-                variant="solid"
+                variant="outline"
                 size="md"
-                class="rounded-xl font-bold shadow-md"
+                class="rounded-xl font-semibold"
                 :disabled="selectedCount === 0"
                 @click="handleConfirmScope"
               >
                 <Icon
                   name="lucide:check"
-                  size="16"
+                  size="15"
                   class="mr-1.5"
                 />
-                Confirm Selection ({{ selectedCount }} Included)
+                Confirm Scope Only
+              </AppButton>
+              <AppButton
+                variant="solid"
+                size="md"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-md"
+                :loading="isSyncingScans"
+                :disabled="pendingSelectedCount === 0 || isSyncingScans"
+                @click="promptSyncSelectedScans"
+              >
+                <Icon
+                  name="lucide:refresh-cw"
+                  size="15"
+                  class="mr-1.5"
+                  :class="isSyncingScans ? 'animate-spin' : ''"
+                />
+                {{
+                  pendingSelectedCount > 0
+                    ? `Sync ${pendingSelectedCount} Selected ${pendingSelectedCount === 1 ? 'Scan' : 'Scans'}`
+                    : 'All Scans Synced'
+                }}
               </AppButton>
             </div>
           </template>
@@ -1241,13 +1364,13 @@
   <!-- Delete Confirmation Modal -->
   <AppModalConfirmation
     v-model="showDeleteConfirm"
-    title="Permanently Delete Images?"
+    title="Permanently Delete Scans?"
     :description="
       datasetType === 'out_of_scope'
         ? `You are about to permanently delete ${outOfScopeSelectedUrls.size} image(s) from the research dataset. This action cannot be undone.`
         : isBulkDelete
-          ? `Are you sure you want to permanently delete ${selectedCount} selected image(s)? They will be purged from storage, consultation records, and AI training data. This action cannot be undone.`
-          : 'Are you sure you want to permanently delete this image? It will be purged from storage, consultation records, and AI training data. This action cannot be undone.'
+          ? `Are you sure you want to permanently delete ${pendingSelectedCount} selected pending scan(s)? Trained dataset images are protected and cannot be deleted. This action cannot be undone.`
+          : 'Are you sure you want to permanently delete this pending scan? It will be removed from consultation records. This action cannot be undone.'
     "
     icon="lucide:trash-2"
     icon-color="danger"
@@ -1261,11 +1384,15 @@
   <!-- Sync Confirmation Modal -->
   <AppModalConfirmation
     v-model="showSyncConfirm"
-    title="Synchronize Scans to Dataset?"
-    :description="`This will copy ${needsSyncCount} approved consultation scan image(s) into local dataset storage under their respective disease categories. Do you want to proceed?`"
+    title="Synchronize Selected Scans to Dataset?"
+    :description="
+      excludedPendingCount > 0
+        ? `You are about to synchronize ${pendingSelectedCount} selected scan(s). Note that ${excludedPendingCount} unselected pending scan(s) will NOT be synced and will remain in consultation records without AI training inclusion. Do you want to proceed?`
+        : `This will synchronize all ${pendingSelectedCount} selected scan(s) into local dataset storage and mirror them to the AI training raw directory. Do you want to proceed?`
+    "
     icon="lucide:refresh-cw"
     icon-color="primary"
-    confirm-text="Sync Now"
+    confirm-text="Sync Selected Scans"
     cancel-text="Cancel"
     confirm-variant="solid"
     :loading="isSyncingScans"

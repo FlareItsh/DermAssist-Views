@@ -142,8 +142,12 @@ export class ModelTrainingService extends BaseService {
     return this.request('/admin/model/retrain/complete', 'POST')
   }
 
-  async syncDataset(): Promise<any> {
-    return this.request('/admin/model/dataset/sync', 'POST')
+  async syncDataset(uuids?: string[]): Promise<any> {
+    return this.request(
+      '/admin/model/dataset/sync',
+      'POST',
+      uuids && uuids.length > 0 ? { uuids } : {}
+    )
   }
 }
 

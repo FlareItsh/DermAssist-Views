@@ -20,6 +20,7 @@
   })
 
   // ── Modals & Action State ────────────────────────────────────────────
+  const showDatasetSlideover = ref(false)
   const showUploadModal = ref(false)
   const uploadMode = ref<'priority' | 'out_of_scope'>('priority')
 
@@ -262,7 +263,7 @@
   }
 
   const promptSyncDataset = () => {
-    showSyncConfirm.value = true
+    showDatasetSlideover.value = true
   }
 
   const handleExecuteSync = async () => {
@@ -524,6 +525,18 @@
 
         <div class="flex shrink-0 items-center gap-2 sm:gap-3">
           <AppButton
+            variant="solid"
+            size="sm"
+            class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 font-bold shadow-xs"
+            @click="promptSyncDataset"
+          >
+            <Icon
+              name="lucide:refresh-cw"
+              size="14"
+            />
+            Sync Scans
+          </AppButton>
+          <AppButton
             variant="outline"
             size="sm"
             class="gap-2"
@@ -551,7 +564,7 @@
       </div>
 
       <!-- Rich Sync Overview & Status Control Center (Non-Minimalist) -->
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <!-- Metric 1: Total Scans -->
         <div
           class="bg-card border-border/80 relative overflow-hidden rounded-2xl border p-4 shadow-xs"
@@ -642,44 +655,23 @@
               >All synced</span
             >
           </div>
-          <div class="text-muted-foreground mt-2.5 flex items-center gap-1.5 text-[11px]">
-            <Icon
-              name="lucide:user-check"
-              size="12"
-              class="text-amber-500"
-            />
-            <span>Consented clinical scans</span>
-          </div>
-        </div>
-
-        <!-- Metric 4: Immediate Sync Action Box -->
-        <div
-          class="border-border/80 bg-muted/30 flex flex-col justify-between rounded-2xl border p-4 shadow-xs"
-        >
-          <div>
-            <span class="text-foreground text-xs font-bold">Model Synchronization</span>
-            <p class="text-muted-foreground mt-0.5 text-[11px]">
-              Mirror pending scans to raw algorithm training directories.
-            </p>
-          </div>
-          <div class="mt-3">
-            <AppButton
-              variant="solid"
-              class="w-full gap-2 shadow-xs"
-              :loading="isSyncing"
-              :disabled="pendingSyncPriorityCount === 0"
+          <div class="mt-2.5 flex items-center justify-between text-[11px]">
+            <div class="text-muted-foreground flex items-center gap-1.5">
+              <Icon
+                name="lucide:user-check"
+                size="12"
+                class="text-amber-500"
+              />
+              <span>Consented clinical scans</span>
+            </div>
+            <button
+              v-if="pendingSyncPriorityCount > 0"
+              type="button"
+              class="cursor-pointer font-bold text-amber-600 hover:text-amber-700 hover:underline dark:text-amber-400"
               @click="promptSyncDataset"
             >
-              <Icon
-                name="lucide:refresh-cw"
-                size="14"
-                :class="{ 'animate-spin': isSyncing }"
-              />
-              <span v-if="pendingSyncPriorityCount > 0"
-                >Sync {{ pendingSyncPriorityCount }} Scans</span
-              >
-              <span v-else>Dataset Synchronized</span>
-            </AppButton>
+              Review & Sync →
+            </button>
           </div>
         </div>
       </div>
@@ -1623,18 +1615,11 @@
       @confirm="handleConfirmBulkDelete"
     />
 
-    <!-- Synchronize Scans Confirmation Dialog -->
-    <AppModalConfirmation
-      v-model="showSyncConfirm"
-      title="Synchronize Repository Scans?"
-      :description="`This will promote ${pendingSyncPriorityCount} pending consultation scan(s) into local dataset storage and mirror them to the AI training raw directory.`"
-      icon="lucide:refresh-cw"
-      icon-color="primary"
-      confirm-text="Synchronize Now"
-      cancel-text="Cancel"
-      confirm-variant="solid"
-      :loading="isSyncing"
-      @confirm="handleExecuteSync"
+    <!-- Unified Dataset Browser & Selective Sync Slideover -->
+    <AppDatasetSlideover
+      v-model="showDatasetSlideover"
+      @synced="fetchDataset"
+      @deleted="fetchDataset"
     />
   </div>
 </template>

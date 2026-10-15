@@ -305,18 +305,24 @@
     await handleStartTraining(false)
   }
 
-  const handleConfirmSyncAndProceed = async () => {
-    showRetrainConfirm.value = false
+  const handleSyncDataset = async () => {
     isSyncing.value = true
     try {
-      const syncRes = await modelTrainingService.syncDataset()
-      toast.success(syncRes.message || 'Dataset synchronized.')
+      const targets =
+        selectedTrainingImageUuids.value.length > 0 ? selectedTrainingImageUuids.value : undefined
+      const res = await modelTrainingService.syncDataset(targets)
+      toast.success(res.message || 'Dataset synchronized successfully.')
       await fetchStats()
     } catch {
-      toast.error('Failed to sync dataset before training.')
+      toast.error('Failed to synchronize dataset.')
     } finally {
       isSyncing.value = false
     }
+  }
+
+  const handleConfirmSyncAndProceed = async () => {
+    showRetrainConfirm.value = false
+    await handleSyncDataset()
     await handleStartTraining(true)
   }
 
@@ -330,21 +336,7 @@
   }
 
   const promptSyncDataset = () => {
-    showSyncConfirm.value = true
-  }
-
-  const handleExecuteSync = async () => {
-    showSyncConfirm.value = false
-    isSyncing.value = true
-    try {
-      const res = await modelTrainingService.syncDataset()
-      toast.success(res.message || 'Dataset synchronized successfully.')
-      await fetchStats()
-    } catch {
-      toast.error('Failed to synchronize dataset.')
-    } finally {
-      isSyncing.value = false
-    }
+    showDatasetSlideover.value = true
   }
 
   const confirmCancelTraining = () => {
@@ -1178,19 +1170,6 @@
 
           <!-- Start Button & Sync Actions -->
           <div class="space-y-2">
-            <AppButton
-              variant="outline"
-              size="lg"
-              class="w-full justify-center gap-2 font-semibold shadow-xs"
-              @click="showDatasetSlideover = true"
-            >
-              <Icon
-                name="lucide:images"
-                size="16"
-              />
-              Browse Dataset
-            </AppButton>
-
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <AppButton
                 variant="outline"
@@ -1604,20 +1583,6 @@
       @confirm="handleExecuteCancel"
     />
 
-    <!-- Confirmation Modal for Synchronizing Dataset -->
-    <AppModalConfirmation
-      v-model="showSyncConfirm"
-      title="Synchronize Dataset Scans?"
-      description="This will scan all patient and doctor consultation images and copy newly approved clinical scans into the local AI training dataset categories. Do you want to proceed?"
-      icon="lucide:refresh-cw"
-      icon-color="primary"
-      confirm-text="Sync Dataset"
-      cancel-text="Cancel"
-      confirm-variant="solid"
-      :loading="isSyncing"
-      @confirm="handleExecuteSync"
-    />
-
     <!-- Retrain Confirmation Modal (With Un-synced Scans Warning) -->
     <AppModal
       v-model="showRetrainConfirm"
@@ -1739,6 +1704,7 @@
       :initial-selected-uuids="selectedTrainingImageUuids"
       @confirm="handleImagesSelected"
       @deleted="fetchStats"
+      @synced="fetchStats"
     />
 
     <!-- Comprehensive Retraining Summary Modal -->
