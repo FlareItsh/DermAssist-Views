@@ -4,6 +4,7 @@
   import { userService } from '~/api/user/UserService'
   import { appealService } from '~/api/appeal/AppealService'
   import type { AppNotification } from '~/composables/useAppNotifications'
+  import { parseChatPreview, type ParsedChatPreview } from '~/composables/useChatPreview'
 
   const isNotificationsOpen = ref(false)
   const isMessagesOpen = ref(false)
@@ -158,6 +159,10 @@
    */
   const isLatestMessageMine = (conv: any): boolean => {
     return conv.latest_message?.sender_id === userUuid.value
+  }
+
+  const getConversationPreview = (conv: any): ParsedChatPreview => {
+    return parseChatPreview(conv.latest_message?.message, 'Start a conversation')
   }
 
   const handleMessageConversationClick = (conv: any) => {
@@ -453,11 +458,28 @@
                           class="text-foreground/40 mr-1"
                           >You:</span
                         >
-                        {{
-                          conv.latest_message
-                            ? stripSystemTags(conv.latest_message.message) || '📎 Attachment'
-                            : 'Start a conversation'
-                        }}
+                        <template v-if="getConversationPreview(conv).isSpecial">
+                          <span
+                            class="inline-flex items-center gap-1 font-semibold"
+                            :class="getConversationPreview(conv).iconColor"
+                          >
+                            <Icon
+                              v-if="getConversationPreview(conv).icon"
+                              :name="getConversationPreview(conv).icon!"
+                              class="shrink-0 text-xs"
+                            />
+                            <span>{{ getConversationPreview(conv).label }}</span>
+                          </span>
+                          <span
+                            v-if="getConversationPreview(conv).rawUserText"
+                            class="text-foreground/70 ml-1 font-normal"
+                          >
+                            • {{ getConversationPreview(conv).rawUserText }}
+                          </span>
+                        </template>
+                        <template v-else>
+                          {{ getConversationPreview(conv).text }}
+                        </template>
                       </p>
                     </div>
                   </button>
