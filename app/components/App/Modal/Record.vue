@@ -12,6 +12,7 @@
   const userName = useCookie('user_name')
   const { getStorageUrl } = useStorage()
   const isImageExpanded = ref(false)
+  const isShareModalOpen = ref(false)
 
   const activeDiseaseInfo = computed(() => {
     if (!props.record) return null
@@ -72,7 +73,7 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if (err?.status === 403 || err?.statusCode === 403) {
+      if ((err?.status === 403 || err?.statusCode === 403) && userRole.value === 'doctor') {
         toast.error(
           'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
           {
@@ -83,7 +84,7 @@
           }
         )
       } else {
-        toast.error(err?.message || 'Failed to download PDF report')
+        toast.error(err?.data?.message || err?.message || 'Failed to download PDF report')
       }
     } finally {
       isDownloadingPdf.value = false
@@ -349,6 +350,7 @@
           variant="unstyled"
           size="unstyled"
           rounded="unstyled"
+          @click="isShareModalOpen = true"
           class="inline-flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white px-3 py-2 text-xs font-semibold text-gray-700 shadow-2xs transition-all hover:bg-gray-50 active:scale-95"
         >
           <Icon
@@ -403,4 +405,10 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Share Record Modal -->
+  <AppModalShareRecord
+    v-model="isShareModalOpen"
+    :record="record"
+  />
 </template>

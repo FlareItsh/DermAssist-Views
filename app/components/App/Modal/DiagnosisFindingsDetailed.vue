@@ -151,7 +151,10 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if (err?.status === 403 || err?.statusCode === 403) {
+      if (
+        (err?.status === 403 || err?.statusCode === 403) &&
+        (props.role === 'doctor' || useCookie('user_role').value === 'doctor')
+      ) {
         toast.error(
           'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
           {
@@ -162,7 +165,7 @@
           }
         )
       } else {
-        toast.error(err?.message || 'Failed to export clinical report')
+        toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')
       }
     } finally {
       isDownloadingPdf.value = false

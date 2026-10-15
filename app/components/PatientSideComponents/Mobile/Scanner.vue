@@ -7,9 +7,11 @@
 
   const router = useRouter()
   const {
+    currentDiagnosis,
     isScanning,
     isScanned,
     setDiagnosis,
+    clearDiagnosis,
     qualityError,
     previewImage,
     selectedFile,
@@ -403,6 +405,15 @@
   }
 
   const resetToCamera = async () => {
+    const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+    if (diagUuid) {
+      try {
+        await diagnosisService.delete(String(diagUuid))
+      } catch (e) {
+        console.error('Failed to clean up retaken scan', e)
+      }
+    }
+    clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false
@@ -524,6 +535,14 @@
           errorMessage.value = 'Non-skin image detected. Scan skin to proceed.'
           toast.error('Non-skin image detected. Scan skin to proceed.')
         } else {
+          try {
+            const diagUuid = (response as any)?.uuid || (response as any)?.id
+            if (diagUuid) {
+              await diagnosisService.update(String(diagUuid), { status: 'completed' })
+            }
+          } catch (e) {
+            console.error('Failed to confirm diagnosis status', e)
+          }
           router.push('/Patient/Scan/Results')
         }
       }
