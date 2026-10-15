@@ -16,11 +16,28 @@ export interface DatasetCategory {
   category: string
   images: string[]
   items?: DatasetImageItem[]
+  total?: number
+  current_page?: number
+  per_page?: number
+  last_page?: number
+  synced_count?: number
+  needs_sync_count?: number
 }
 
 export class DatasetService extends BaseService {
-  async getDataset(): Promise<DatasetCategory[]> {
-    return this.request<DatasetCategory[]>('/dataset', 'GET')
+  async getDataset(params?: {
+    category?: string
+    page?: number
+    per_page?: number
+    all?: boolean
+  }): Promise<DatasetCategory[]> {
+    const queryParts: string[] = []
+    if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`)
+    if (params?.page) queryParts.push(`page=${params.page}`)
+    if (params?.per_page) queryParts.push(`per_page=${params.per_page}`)
+    if (params?.all) queryParts.push(`all=true`)
+    const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
+    return this.request<DatasetCategory[]>(`/dataset${queryString}`, 'GET')
   }
 
   async uploadImage(image: File, category: string): Promise<any> {

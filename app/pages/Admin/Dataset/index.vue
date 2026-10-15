@@ -202,7 +202,7 @@
   const datasets = ref<DatasetCategory[]>([])
 
   const totalImagesCount = computed(() => {
-    return datasets.value.reduce((acc, cat) => acc + (cat.images?.length || 0), 0)
+    return datasets.value.reduce((acc, cat) => acc + (cat.total ?? cat.images?.length ?? 0), 0)
   })
 
   const allPriorityItems = computed<DatasetImageItem[]>(() => {
@@ -227,11 +227,11 @@
   })
 
   const syncedPriorityCount = computed(() => {
-    return allPriorityItems.value.filter(i => i.is_synced).length
+    return datasets.value.reduce((acc, cat) => acc + (cat.synced_count ?? 0), 0)
   })
 
   const pendingSyncPriorityCount = computed(() => {
-    return allPriorityItems.value.filter(i => !i.is_synced).length
+    return datasets.value.reduce((acc, cat) => acc + (cat.needs_sync_count ?? 0), 0)
   })
 
   const syncedPercentage = computed(() => {
@@ -284,38 +284,90 @@
   const pageSize = 12
   const priorityCategoryPage = ref<Record<string, number>>({})
   const oosCategoryPage = ref<Record<string, number>>({})
+  const categoryLoadingMap = ref<Record<string, boolean>>({})
+
+  const isCategoryLoading = (category: string): boolean => {
+    return Boolean(categoryLoadingMap.value[category.toLowerCase()])
+  }
 
   const getCategoryCurrentPage = (category: string, isOos: boolean = false): number => {
+    const list = isOos ? outOfScopeDatasets.value : datasets.value
+    const found = list.find(d => (d.category || '').toLowerCase() === category.toLowerCase())
+    if (found?.current_page) {
+      return found.current_page
+    }
     const map = isOos ? oosCategoryPage.value : priorityCategoryPage.value
     return map[category] || 1
   }
 
-  const getCategoryTotalPages = (itemsCount: number): number => {
-    return Math.max(1, Math.ceil(itemsCount / pageSize))
+  const getCategoryTotalItems = (dataset: DatasetCategory | OutOfScopeDatasetCategory): number => {
+    return dataset.total ?? dataset.images?.length ?? 0
   }
 
-  const setCategoryPage = (category: string, page: number, isOos: boolean = false) => {
-    const target = isOos ? oosCategoryPage : priorityCategoryPage
-    target.value = {
-      ...target.value,
+  const getCategoryTotalPages = (dataset: DatasetCategory | OutOfScopeDatasetCategory): number => {
+    if (dataset.last_page) {
+      return dataset.last_page
+    }
+    const count = getCategoryTotalItems(dataset)
+    return Math.max(1, Math.ceil(count / pageSize))
+  }
+
+  const setCategoryPage = async (category: string, page: number, isOos: boolean = false) => {
+    const catKey = category.toLowerCase()
+    const targetMap = isOos ? oosCategoryPage : priorityCategoryPage
+    targetMap.value = {
+      ...targetMap.value,
       [category]: page
     }
-  }
 
-  const getPaginatedCategoryItems = (
-    category: string,
-    items: any[],
-    isOos: boolean = false
-  ): any[] => {
-    const currentPage = getCategoryCurrentPage(category, isOos)
-    const start = (currentPage - 1) * pageSize
-    return (items || []).slice(start, start + pageSize)
+    categoryLoadingMap.value = {
+      ...categoryLoadingMap.value,
+      [catKey]: true
+    }
+
+    try {
+      if (isOos) {
+        const res = await outOfScopeDatasetService.getDataset({
+          category,
+          page,
+          per_page: pageSize
+        })
+        if (res && res.length > 0) {
+          const index = outOfScopeDatasets.value.findIndex(
+            d => (d.category || '').toLowerCase() === catKey
+          )
+          if (index !== -1) {
+            outOfScopeDatasets.value[index] = res[0]
+          }
+        }
+      } else {
+        const res = await datasetService.getDataset({
+          category,
+          page,
+          per_page: pageSize
+        })
+        if (res && res.length > 0) {
+          const index = datasets.value.findIndex(d => (d.category || '').toLowerCase() === catKey)
+          if (index !== -1) {
+            datasets.value[index] = res[0]
+          }
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to load page ${page} for ${category}`, e)
+      toast.error(`Failed to load page ${page} for ${category}.`)
+    } finally {
+      categoryLoadingMap.value = {
+        ...categoryLoadingMap.value,
+        [catKey]: false
+      }
+    }
   }
 
   const fetchDataset = async () => {
     isLoading.value = true
     try {
-      const res = await datasetService.getDataset()
+      const res = await datasetService.getDataset({ page: 1, per_page: pageSize })
       datasets.value = (res || []).filter(d => (d.category || '').toLowerCase() !== 'none')
     } catch (e) {
       console.error('Failed to fetch dataset', e)
@@ -353,13 +405,16 @@
   const showOosInfo = ref(false)
 
   const totalOutOfScopeCount = computed(() => {
-    return outOfScopeDatasets.value.reduce((acc, cat) => acc + (cat.images?.length || 0), 0)
+    return outOfScopeDatasets.value.reduce(
+      (acc, cat) => acc + (cat.total ?? cat.images?.length ?? 0),
+      0
+    )
   })
 
   const fetchOutOfScopeDataset = async () => {
     isLoadingOutOfScope.value = true
     try {
-      const res = await outOfScopeDatasetService.getDataset()
+      const res = await outOfScopeDatasetService.getDataset({ page: 1, per_page: pageSize })
       outOfScopeDatasets.value = (res || []).filter(
         d => (d.category || '').toLowerCase() !== 'none'
       )
@@ -818,7 +873,7 @@
                 color="gray"
                 size="sm"
               >
-                {{ getCategoryItems(dataset).length }} displayed
+                {{ getCategoryTotalItems(dataset) }} total scans
               </AppBadge>
             </div>
 
@@ -864,117 +919,125 @@
             </div>
           </div>
 
-          <div
-            v-if="getCategoryItems(dataset).length === 0"
-            class="text-muted-foreground p-8 text-center text-xs"
-          >
-            No {{ dataset.category }} images match the current sync filter.
-          </div>
-
-          <div
-            v-else
-            class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
-          >
+          <div class="relative min-h-[140px]">
+            <!-- Category Loading Overlay -->
             <div
-              v-for="item in getPaginatedCategoryItems(
-                dataset.category,
-                getCategoryItems(dataset),
-                false
-              )"
-              :key="item.url"
-              class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
-              :class="
-                selectedPriorityUrls.has(item.url)
-                  ? 'border-primary ring-primary/40 shadow-sm ring-2'
-                  : 'hover:border-foreground/30 border-transparent'
-              "
-              @click="toggleSelectPriorityImage(item.url)"
+              v-if="isCategoryLoading(dataset.category)"
+              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center backdrop-blur-xs"
             >
-              <NuxtImg
-                :src="getStorageUrl(item.url)"
-                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                :class="{
-                  'brightness-90':
-                    !selectedPriorityUrls.has(item.url) && selectedPriorityUrls.size > 0
-                }"
-                loading="lazy"
-              />
-
-              <!-- Selection Checkmark (Top Left) -->
-              <div class="absolute top-2 left-2 z-10 transition-all">
-                <div
-                  class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
-                  :class="
-                    selectedPriorityUrls.has(item.url)
-                      ? 'bg-primary border-primary text-white shadow-xs'
-                      : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
-                  "
-                >
-                  <Icon
-                    name="lucide:check"
-                    size="12"
-                    class="stroke-3"
-                  />
-                </div>
-              </div>
-
-              <!-- Permanent Status Badge (Top Right) -->
-              <div class="absolute top-2 right-2 z-10">
-                <div
-                  v-if="item.is_synced"
-                  class="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
-                  title="Mirrored in AI Algorithm local training directory"
-                >
-                  <Icon
-                    name="lucide:check-circle-2"
-                    size="11"
-                  />
-                  <span>Synced</span>
-                </div>
-                <div
-                  v-else
-                  class="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
-                  title="Webapp Consultation Scan pending sync to training raw directory"
-                >
-                  <Icon
-                    name="lucide:clock"
-                    size="11"
-                  />
-                  <span>Pending Sync</span>
-                </div>
-              </div>
-
-              <!-- Rich Hover Metadata Overlay (Bottom) -->
               <div
-                class="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pt-6 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                class="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
+              />
+            </div>
+
+            <div
+              v-if="getCategoryItems(dataset).length === 0"
+              class="text-muted-foreground p-8 text-center text-xs"
+            >
+              No {{ dataset.category }} images match the current sync filter.
+            </div>
+
+            <div
+              v-else
+              class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
+            >
+              <div
+                v-for="item in getCategoryItems(dataset)"
+                :key="item.url"
+                class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
+                :class="
+                  selectedPriorityUrls.has(item.url)
+                    ? 'border-primary ring-primary/40 shadow-sm ring-2'
+                    : 'hover:border-foreground/30 border-transparent'
+                "
+                @click="toggleSelectPriorityImage(item.url)"
               >
-                <div class="flex items-center justify-between gap-1.5">
-                  <div class="min-w-0 flex-1">
-                    <span
-                      class="py-0.2 inline-flex items-center rounded px-1.5 text-[9px] font-semibold tracking-wider uppercase"
-                      :class="
-                        item.source === 'diagnosis'
-                          ? 'bg-sky-500/30 text-sky-200'
-                          : 'bg-white/20 text-white'
-                      "
-                    >
-                      {{ item.source === 'diagnosis' ? 'Patient Scan' : 'Uploaded' }}
-                    </span>
-                    <p class="truncate font-mono text-[10px] text-white/90">
-                      {{ item.filename || 'scan.jpg' }}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600/80 text-white shadow-xs transition-transform hover:scale-110 hover:bg-red-600"
-                    title="Delete Image"
-                    @click.stop="promptDeleteImage(item.url, false)"
+                <NuxtImg
+                  :src="getStorageUrl(item.url)"
+                  class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  :class="{
+                    'brightness-90':
+                      !selectedPriorityUrls.has(item.url) && selectedPriorityUrls.size > 0
+                  }"
+                  loading="lazy"
+                />
+
+                <!-- Selection Checkmark (Top Left) -->
+                <div class="absolute top-2 left-2 z-10 transition-all">
+                  <div
+                    class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
+                    :class="
+                      selectedPriorityUrls.has(item.url)
+                        ? 'bg-primary border-primary text-white shadow-xs'
+                        : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                    "
                   >
                     <Icon
-                      name="lucide:trash-2"
-                      size="13"
+                      name="lucide:check"
+                      size="12"
+                      class="stroke-3"
                     />
-                  </button>
+                  </div>
+                </div>
+
+                <!-- Permanent Status Badge (Top Right) -->
+                <div class="absolute top-2 right-2 z-10">
+                  <div
+                    v-if="item.is_synced"
+                    class="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                    title="Mirrored in AI Algorithm local training directory"
+                  >
+                    <Icon
+                      name="lucide:check-circle-2"
+                      size="11"
+                    />
+                    <span>Synced</span>
+                  </div>
+                  <div
+                    v-else
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                    title="Webapp Consultation Scan pending sync to training raw directory"
+                  >
+                    <Icon
+                      name="lucide:clock"
+                      size="11"
+                    />
+                    <span>Pending Sync</span>
+                  </div>
+                </div>
+
+                <!-- Rich Hover Metadata Overlay (Bottom) -->
+                <div
+                  class="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/40 to-transparent p-2.5 pt-6 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                >
+                  <div class="flex items-center justify-between gap-1.5">
+                    <div class="min-w-0 flex-1">
+                      <span
+                        class="py-0.2 inline-flex items-center rounded px-1.5 text-[9px] font-semibold tracking-wider uppercase"
+                        :class="
+                          item.source === 'diagnosis'
+                            ? 'bg-sky-500/30 text-sky-200'
+                            : 'bg-white/20 text-white'
+                        "
+                      >
+                        {{ item.source === 'diagnosis' ? 'Patient Scan' : 'Uploaded' }}
+                      </span>
+                      <p class="truncate font-mono text-[10px] text-white/90">
+                        {{ item.filename || 'scan.jpg' }}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600/80 text-white shadow-xs transition-transform hover:scale-110 hover:bg-red-600"
+                      title="Delete Image"
+                      @click.stop="promptDeleteImage(item.url, false)"
+                    >
+                      <Icon
+                        name="lucide:trash-2"
+                        size="13"
+                      />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -982,7 +1045,7 @@
 
           <!-- Category Pagination Controls (Priority Dataset) -->
           <div
-            v-if="getCategoryItems(dataset).length > pageSize"
+            v-if="getCategoryTotalItems(dataset) > pageSize"
             class="border-border bg-muted/20 flex flex-col items-center justify-between gap-3 border-t px-4 py-3 sm:flex-row md:px-6"
           >
             <span class="text-muted-foreground text-xs">
@@ -995,13 +1058,13 @@
                 {{
                   Math.min(
                     getCategoryCurrentPage(dataset.category, false) * pageSize,
-                    getCategoryItems(dataset).length
+                    getCategoryTotalItems(dataset)
                   )
                 }}
               </span>
               of
               <span class="text-foreground font-semibold">{{
-                getCategoryItems(dataset).length
+                getCategoryTotalItems(dataset)
               }}</span>
               images
             </span>
@@ -1027,7 +1090,7 @@
               </button>
 
               <button
-                v-for="p in getCategoryTotalPages(getCategoryItems(dataset).length)"
+                v-for="p in getCategoryTotalPages(dataset)"
                 :key="p"
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-all"
@@ -1045,8 +1108,7 @@
                 type="button"
                 class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="
-                  getCategoryCurrentPage(dataset.category, false) >=
-                  getCategoryTotalPages(getCategoryItems(dataset).length)
+                  getCategoryCurrentPage(dataset.category, false) >= getCategoryTotalPages(dataset)
                 "
                 @click="
                   setCategoryPage(
@@ -1294,7 +1356,7 @@
                 color="gray"
                 size="sm"
               >
-                {{ dataset.images.length }} images
+                {{ getCategoryTotalItems(dataset) }} images
               </AppBadge>
             </div>
 
@@ -1332,71 +1394,81 @@
             </div>
           </div>
 
-          <div
-            class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
-          >
+          <div class="relative min-h-[140px]">
+            <!-- Category Loading Overlay -->
             <div
-              v-for="(url, idx) in getPaginatedCategoryItems(
-                dataset.category,
-                dataset.images,
-                true
-              )"
-              :key="idx"
-              class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
-              :class="
-                selectedOosUrls.has(url)
-                  ? 'border-violet-500 shadow-sm ring-2 ring-violet-500/40'
-                  : 'hover:border-foreground/30 border-transparent'
-              "
-              @click="toggleSelectOosImage(url)"
+              v-if="isCategoryLoading(dataset.category)"
+              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center backdrop-blur-xs"
             >
-              <NuxtImg
-                :src="getStorageUrl(url)"
-                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                :class="{ 'brightness-90': !selectedOosUrls.has(url) && selectedOosUrls.size > 0 }"
-                loading="lazy"
-              />
-
-              <!-- Selection Checkmark (Top Left) -->
-              <div class="absolute top-2 left-2 z-10 transition-all">
-                <div
-                  class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
-                  :class="
-                    selectedOosUrls.has(url)
-                      ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
-                      : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
-                  "
-                >
-                  <Icon
-                    name="lucide:check"
-                    size="12"
-                    class="stroke-3"
-                  />
-                </div>
-              </div>
-
-              <!-- Quick Delete Hover Button (Bottom Right) -->
               <div
-                class="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                class="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent"
+              />
+            </div>
+
+            <div
+              class="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 md:gap-4 md:p-6 lg:grid-cols-6"
+            >
+              <div
+                v-for="(url, idx) in dataset.images"
+                :key="idx"
+                class="group bg-muted border-border relative aspect-square cursor-pointer overflow-hidden rounded-xl border-2 transition-all duration-150 select-none"
+                :class="
+                  selectedOosUrls.has(url)
+                    ? 'border-violet-500 shadow-sm ring-2 ring-violet-500/40'
+                    : 'hover:border-foreground/30 border-transparent'
+                "
+                @click="toggleSelectOosImage(url)"
               >
-                <button
-                  type="button"
-                  class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
-                  title="Delete Single Image"
-                  @click.stop="promptDeleteImage(url, true)"
+                <NuxtImg
+                  :src="getStorageUrl(url)"
+                  class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  :class="{
+                    'brightness-90': !selectedOosUrls.has(url) && selectedOosUrls.size > 0
+                  }"
+                  loading="lazy"
+                />
+
+                <!-- Selection Checkmark (Top Left) -->
+                <div class="absolute top-2 left-2 z-10 transition-all">
+                  <div
+                    class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
+                    :class="
+                      selectedOosUrls.has(url)
+                        ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
+                        : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                    "
+                  >
+                    <Icon
+                      name="lucide:check"
+                      size="12"
+                      class="stroke-3"
+                    />
+                  </div>
+                </div>
+
+                <!-- Quick Delete Hover Button (Bottom Right) -->
+                <div
+                  class="absolute right-2 bottom-2 z-10 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                 >
-                  <Icon
-                    name="lucide:trash-2"
-                    size="14"
-                  />
-                </button>
+                  <button
+                    type="button"
+                    class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    title="Delete Single Image"
+                    @click.stop="promptDeleteImage(url, true)"
+                  >
+                    <Icon
+                      name="lucide:trash-2"
+                      size="14"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Category Pagination Controls (Out-of-Scope Research Dataset) -->
           <div
-            v-if="dataset.images.length > pageSize"
+            v-if="getCategoryTotalItems(dataset) > pageSize"
             class="flex flex-col items-center justify-between gap-3 border-t border-violet-500/10 bg-violet-500/5 px-4 py-3 sm:flex-row md:px-6"
           >
             <span class="text-muted-foreground text-xs">
@@ -1409,12 +1481,14 @@
                 {{
                   Math.min(
                     getCategoryCurrentPage(dataset.category, true) * pageSize,
-                    dataset.images.length
+                    getCategoryTotalItems(dataset)
                   )
                 }}
               </span>
               of
-              <span class="text-foreground font-semibold">{{ dataset.images.length }}</span>
+              <span class="text-foreground font-semibold">{{
+                getCategoryTotalItems(dataset)
+              }}</span>
               images
             </span>
 
@@ -1439,7 +1513,7 @@
               </button>
 
               <button
-                v-for="p in getCategoryTotalPages(dataset.images.length)"
+                v-for="p in getCategoryTotalPages(dataset)"
                 :key="p"
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold transition-all"
@@ -1457,8 +1531,7 @@
                 type="button"
                 class="border-border bg-card text-foreground hover:bg-muted inline-flex h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40"
                 :disabled="
-                  getCategoryCurrentPage(dataset.category, true) >=
-                  getCategoryTotalPages(dataset.images.length)
+                  getCategoryCurrentPage(dataset.category, true) >= getCategoryTotalPages(dataset)
                 "
                 @click="
                   setCategoryPage(
