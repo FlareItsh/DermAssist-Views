@@ -270,6 +270,23 @@
     validatePhoneNumber
   } = useFormSanitizer()
 
+  const isDoctorRegistered = computed(() => Boolean(user.value?.is_doctor_registered))
+  const isWalkIn = computed(() => {
+    return Boolean(
+      user.value?.is_walk_in ||
+      (user.value?.email &&
+        user.value.email.startsWith('walkin.') &&
+        user.value.email.endsWith('@clinic.local'))
+    )
+  })
+  const canEditEmail = computed(() => isDoctorRegistered.value || isWalkIn.value)
+  const displayEmail = computed(() => {
+    if (isWalkIn.value && (!form.email || form.email.includes('@clinic.local'))) {
+      return 'No email registered yet (Walk-In)'
+    }
+    return form.email || user.value?.email || 'N/A'
+  })
+
   const loaded = ref(false)
   watch(
     user,
@@ -279,7 +296,12 @@
         form.first_name = sanitizeName(userData.first_name || '')
         form.middle_name = sanitizeName(userData.middle_name || '')
         form.last_name = sanitizeName(userData.last_name || '')
-        form.email = userData.email || ''
+        const isPlaceholderWalkin =
+          userData.is_walk_in ||
+          (userData.email &&
+            userData.email.startsWith('walkin.') &&
+            userData.email.endsWith('@clinic.local'))
+        form.email = isPlaceholderWalkin ? '' : userData.email || ''
         form.contact_number = userData.contact_number || userData.phone || ''
         form.street = userData.street || ''
         form.barangay = userData.barangay || ''
@@ -304,12 +326,28 @@
     first_name: '',
     middle_name: '',
     last_name: '',
+    email: '',
     date_of_birth: '',
     age: '',
     contact_number: ''
   })
 
   const calculatedPatientAge = computed(() => calculateAge(form.date_of_birth))
+
+  const validateEmailField = () => {
+    if (!canEditEmail.value || !form.email) {
+      errors.email = ''
+      return true
+    }
+    const clean = form.email.trim()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(clean)) {
+      errors.email = 'Please provide a valid email address.'
+      return false
+    }
+    errors.email = ''
+    return true
+  }
 
   const validateContactNumberField = () => {
     if (!form.contact_number) {
@@ -440,12 +478,14 @@
     const isMnValid = validateMiddleName()
     const isDobValid = validateDateOfBirthField()
     const isPhoneValid = validateContactNumberField()
+    const isEmailValid = validateEmailField()
 
-    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid || !isPhoneValid) {
+    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid || !isPhoneValid || !isEmailValid) {
       const firstError =
         errors.first_name ||
         errors.last_name ||
         errors.middle_name ||
+        errors.email ||
         errors.date_of_birth ||
         errors.contact_number
       toast.error(firstError || 'Please fix the errors in the form before saving.')
@@ -851,16 +891,40 @@
                           <input
                             v-model="form.email"
                             type="email"
-                            disabled
-                            class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
-                            placeholder="email@example.com"
+                            :disabled="!canEditEmail"
+                            @input="validateEmailField"
+                            :class="[
+                              'w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none',
+                              canEditEmail
+                                ? 'bg-background border-border focus:border-primary focus:ring-primary/20 focus:ring-2'
+                                : 'bg-foreground/5 border-border cursor-not-allowed pr-9 opacity-60'
+                            ]"
+                            :placeholder="
+                              isWalkIn
+                                ? 'Enter your email address for account recovery'
+                                : 'email@example.com'
+                            "
                           />
                           <Icon
+                            v-if="!canEditEmail"
                             name="heroicons:lock-closed-20-solid"
                             class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
                             size="16"
                           />
                         </div>
+                        <p
+                          v-if="errors.email"
+                          class="mt-1 text-xs font-medium text-rose-500"
+                        >
+                          {{ errors.email }}
+                        </p>
+                        <p
+                          v-else-if="canEditEmail"
+                          class="text-muted-foreground mt-1 text-[11px]"
+                        >
+                          Doctor-registered account: You can set or change your email address for
+                          password reset and notifications.
+                        </p>
                         <div
                           v-if="!isEmailVerified"
                           class="mt-0.5 flex items-center justify-between text-[11px]"
@@ -1153,7 +1217,7 @@
                     name="heroicons:check-circle-20-solid"
                     class="h-4 w-4"
                   />
-                  <span>Email Verified</span>
+                  <span>{{ isDoctorRegistered ? 'Doctor-Attested' : 'Email Verified' }}</span>
                 </div>
                 <div
                   v-else
@@ -1189,7 +1253,7 @@
                   </span>
                   <div class="mt-1 flex items-center gap-2">
                     <span class="text-foreground truncate text-sm font-semibold">{{
-                      form.email
+                      displayEmail
                     }}</span>
                     <Icon
                       :name="
@@ -1226,7 +1290,13 @@
                             : 'text-warning-text font-bold'
                       "
                     >
-                      {{ isEmailVerified ? 'Active & Protected' : timeRemainingText }}
+                      {{
+                        isEmailVerified
+                          ? isDoctorRegistered
+                            ? 'Doctor-Attested (Active)'
+                            : 'Active & Protected'
+                          : timeRemainingText
+                      }}
                     </span>
                   </div>
                 </div>

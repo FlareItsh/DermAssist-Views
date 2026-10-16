@@ -534,7 +534,6 @@
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
 
   const openRegistrationForm = () => {
-    resetRegisterForm()
     activeModalTab.value = 'register'
   }
 
@@ -554,6 +553,15 @@
   }
 
   const shouldCreateAccount = ref(true)
+
+  // Reset registration form inputs only when the modal is closed
+  watch(isPatientModalOpen, isOpen => {
+    if (!isOpen) {
+      resetRegisterForm()
+      shouldCreateAccount.value = true
+      activeModalTab.value = 'appointments'
+    }
+  })
 
   const handleRegisterPatient = async () => {
     if (!shouldCreateAccount.value) {
