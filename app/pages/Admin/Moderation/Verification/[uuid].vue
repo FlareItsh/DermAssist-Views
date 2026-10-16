@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { verificationService } from '~/api/verification/VerificationService'
+  import { toast } from 'vue-sonner'
 
   const route = useRoute()
   const router = useRouter()
@@ -18,6 +19,7 @@
     email: string
     role: string
     affiliation: string | null
+    prc_number?: string | null
     created_at: string
     updated_at: string
   }
@@ -25,8 +27,8 @@
   interface Verification {
     id: number
     uuid: string
-    prc_number: string
-    id_photo_path: string
+    prc_number?: string | null
+    id_photo_path?: string | null
     status: 'pending' | 'verified' | 'declined'
     rejection_reason?: string
     user: User
@@ -54,12 +56,32 @@
 
   const verification = computed(() => response.value)
 
+  const hasPrcNumber = computed(() => {
+    const prc = verification.value?.prc_number || verification.value?.user?.prc_number
+    return !!(prc && String(prc).trim())
+  })
+
+  const hasIdPhoto = computed(() => {
+    return !!verification.value?.id_photo_path
+  })
+
+  const canApprove = computed(() => {
+    return hasPrcNumber.value && hasIdPhoto.value
+  })
+
   const isUpdating = ref(false)
   const isApproveModalOpen = ref(false)
   const isRejectModalOpen = ref(false)
   const declinedReason = ref('')
 
   const updateStatus = async (status: 'verified' | 'declined', reason?: string) => {
+    if (status === 'verified' && !canApprove.value) {
+      toast.error(
+        'Cannot approve doctor: Both a valid PRC license number and uploaded ID document are required.'
+      )
+      return
+    }
+
     try {
       isUpdating.value = true
       await verificationService.update(route.params.uuid as string, {
@@ -69,8 +91,15 @@
       isApproveModalOpen.value = false
       isRejectModalOpen.value = false
       declinedReason.value = ''
+      toast.success(
+        status === 'verified'
+          ? 'Doctor successfully approved!'
+          : 'Doctor verification application rejected.'
+      )
       await fetchVerification()
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error?.data?.message || error?.message || 'Failed to update status.'
+      toast.error(msg)
       console.error('Failed to update status:', error)
     } finally {
       isUpdating.value = false
@@ -152,10 +181,42 @@
         </AppButton>
         <AppButton
           variant="solid"
+          :disabled="!canApprove"
+          :title="
+            !canApprove
+              ? 'PRC license number and uploaded ID photo are required to approve.'
+              : undefined
+          "
           @click="isApproveModalOpen = true"
         >
           Approve Doctor
         </AppButton>
+      </div>
+    </div>
+
+    <!-- Missing Credentials Alert -->
+    <div
+      v-if="verification && verification.status === 'pending' && !canApprove"
+      class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900 shadow-sm"
+    >
+      <Icon
+        name="heroicons:exclamation-triangle-20-solid"
+        class="mt-0.5 size-5 shrink-0 text-amber-600"
+      />
+      <div>
+        <h4 class="text-sm font-bold">PRC Credentials Incomplete</h4>
+        <p class="mt-0.5 text-xs text-amber-800">
+          This doctor cannot be approved because their credentials have not been uploaded yet:
+          <span class="font-semibold underline">
+            {{
+              !hasPrcNumber && !hasIdPhoto
+                ? 'PRC License Number and ID Photo Document'
+                : !hasPrcNumber
+                  ? 'PRC License Number'
+                  : 'ID Photo Document'
+            }} </span
+          >. Approval is disabled until the doctor provides these details.
+        </p>
       </div>
     </div>
 
@@ -257,9 +318,12 @@
               <span class="text-[10px] font-bold tracking-widest text-gray-400 uppercase"
                 >PRC License Number</span
               >
-              <span class="text-primary mt-1 font-mono text-lg font-bold">{{
-                verification.prc_number
-              }}</span>
+              <span
+                class="mt-1 font-mono text-lg font-bold"
+                :class="hasPrcNumber ? 'text-primary' : 'text-gray-400 italic'"
+              >
+                {{ verification.prc_number || verification.user?.prc_number || 'Not provided' }}
+              </span>
             </div>
           </div>
         </div>
@@ -273,6 +337,7 @@
           <div class="flex items-center justify-between border-b border-gray-100 px-8 py-4">
             <h3 class="text-lg font-bold text-gray-900">ID Verification Photo</h3>
             <a
+              v-if="verification.id_photo_path"
               :href="getStorageUrl(verification.id_photo_path)"
               target="_blank"
               class="text-primary text-sm font-semibold hover:opacity-80"
@@ -280,7 +345,10 @@
               Open in new tab
             </a>
           </div>
-          <div class="flex flex-1 items-center justify-center bg-gray-900/5 p-8">
+          <div
+            v-if="verification.id_photo_path"
+            class="flex flex-1 items-center justify-center bg-gray-900/5 p-8"
+          >
             <div
               class="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
             >
@@ -290,6 +358,24 @@
                 placeholder
               />
             </div>
+          </div>
+          <div
+            v-else
+            class="flex flex-1 flex-col items-center justify-center bg-gray-50 p-12 text-center"
+          >
+            <div
+              class="mb-3 flex size-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-600"
+            >
+              <Icon
+                name="heroicons:document-magnifying-glass-20-solid"
+                class="size-7"
+              />
+            </div>
+            <h4 class="text-base font-bold text-gray-900">No Document Attached</h4>
+            <p class="mt-1 max-w-sm text-xs text-gray-500">
+              The doctor skipped uploading their PRC ID photo during registration. Approval is
+              disabled until a valid credential document is provided.
+            </p>
           </div>
           <div class="border-t border-gray-100 bg-gray-50 px-8 py-6 text-center">
             <p class="text-sm text-gray-500">

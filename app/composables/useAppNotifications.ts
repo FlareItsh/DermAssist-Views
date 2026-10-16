@@ -526,41 +526,56 @@ export const useAppNotifications = () => {
       }
     }
 
-    if (
-      userRole.value === 'doctor' &&
-      userProfile.value?.doctor_verification?.status === 'verified'
-    ) {
-      const verif = userProfile.value.doctor_verification
-      list.push({
-        id: `approved-${verif.uuid}-${verif.updated_at}`,
-        type: 'verification',
-        title: 'Verification Approved',
-        description: 'Your doctor profile has been officially verified!',
-        time: 'Verified',
-        icon: 'heroicons:shield-check-solid',
-        color: 'text-green-500',
-        to: profileRoute.value
-      })
-    }
+    if (userRole.value === 'doctor') {
+      const verif = userProfile.value?.doctor_verification
+      const hasPrcNumber = !!(
+        userProfile.value?.prc_number ||
+        userProfile.value?.prcNumber ||
+        verif?.prcNumber ||
+        verif?.prc_number
+      )
+      const hasIdPhoto = !!verif?.id_photo_path
+      const isVerified = verif?.status === 'verified'
+      const isDeclined = verif?.status === 'declined'
 
-    if (
-      userRole.value === 'doctor' &&
-      userProfile.value?.doctor_verification?.status === 'declined'
-    ) {
-      const verif = userProfile.value.doctor_verification
-      const reason = verif.rejection_reason
-      list.push({
-        id: `declined-${verif.uuid}-${verif.updated_at}`,
-        type: 'verification',
-        title: 'Verification Declined',
-        description: reason
-          ? `Reason: ${reason}`
-          : 'Your doctor profile verification was declined. Please review your submission.',
-        time: 'Action needed',
-        icon: 'heroicons:x-circle-solid',
-        color: 'text-red-500',
-        to: profileRoute.value
-      })
+      if (isVerified) {
+        list.push({
+          id: `approved-${verif.uuid}-${verif.updated_at}`,
+          type: 'verification',
+          title: 'Verification Approved',
+          description: 'Your doctor profile has been officially verified!',
+          time: 'Verified',
+          icon: 'heroicons:shield-check-solid',
+          color: 'text-green-500',
+          to: profileRoute.value
+        })
+      } else if (isDeclined) {
+        const reason = verif.rejection_reason
+        list.push({
+          id: `declined-${verif.uuid}-${verif.updated_at}`,
+          type: 'verification',
+          title: 'Verification Declined',
+          description: reason
+            ? `Reason: ${reason}`
+            : 'Your doctor profile verification was declined. Please review your submission.',
+          time: 'Action needed',
+          icon: 'heroicons:x-circle-solid',
+          color: 'text-red-500',
+          to: profileRoute.value
+        })
+      } else if (!hasPrcNumber || !hasIdPhoto) {
+        list.unshift({
+          id: 'doctor-verification-upload-required',
+          type: 'verification',
+          title: 'PRC Verification Required',
+          description:
+            'Please upload your PRC license details and ID document so administrators can verify your account.',
+          time: 'Action needed',
+          icon: 'solar:shield-warning-bold',
+          color: 'text-amber-500',
+          to: `${profileRoute.value}?tab=security`
+        })
+      }
     }
 
     const isDoctorOrSecretary = userRole.value === 'doctor' || userRole.value === 'secretary'

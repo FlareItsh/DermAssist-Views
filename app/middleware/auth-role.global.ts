@@ -18,14 +18,17 @@ export default defineNuxtRouteMiddleware((to, from) => {
     return navigateTo('/auth/login')
   }
 
-  // If trying to access an Auth route while already logged in (exempt OAuth callback, verify, and check-email)
+  // If trying to access an Auth route while already logged in (exempt OAuth callback, verify, check-email, and doctor step 2 onboarding)
+  const isDoctorOnboarding =
+    path === '/auth/register' && (to.query.step === '2' || to.query.source === 'google')
   if (
     token.value &&
     role.value &&
     isAuthRoute &&
     path !== '/auth/callback' &&
     path !== '/auth/verify' &&
-    path !== '/auth/check-email'
+    path !== '/auth/check-email' &&
+    !isDoctorOnboarding
   ) {
     return navigateTo(`/${role.value}`)
   }

@@ -20,8 +20,8 @@
   interface Verification {
     id: number
     uuid: string
-    prc_number: string
-    id_photo_path: string
+    prc_number: string | null
+    id_photo_path: string | null
     status: 'pending' | 'verified' | 'declined'
     user: User
     created_at: string
@@ -207,7 +207,15 @@
           class="group relative block overflow-hidden rounded-3xl border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         >
           <!-- Status Badge -->
-          <div class="absolute top-5 right-5 z-10">
+          <div class="absolute top-5 right-5 z-10 flex items-center gap-1.5">
+            <AppBadge
+              v-if="!verification.prc_number || !verification.id_photo_path"
+              color="amber"
+              size="xs"
+              class="font-medium"
+            >
+              Incomplete
+            </AppBadge>
             <AppBadge
               :color="getStatusColor(verification.status)"
               size="xs"
@@ -238,9 +246,20 @@
                   >PRC License Number</span
                 >
                 <span
+                  v-if="verification.prc_number"
                   class="w-full truncate text-left font-mono text-xs leading-none font-semibold text-gray-900"
                   >{{ verification.prc_number }}</span
                 >
+                <span
+                  v-else
+                  class="flex items-center gap-1 text-left text-xs font-medium text-amber-600 italic"
+                >
+                  <Icon
+                    name="heroicons:exclamation-circle"
+                    class="size-3.5"
+                  />
+                  Not provided
+                </span>
               </div>
 
               <div class="flex flex-col items-start gap-1">
@@ -248,6 +267,7 @@
                   >ID Verification Photo</span
                 >
                 <div
+                  v-if="verification.id_photo_path"
                   class="group/img group-hover:border-primary/40 relative mt-2 w-full overflow-hidden rounded-xl border-2 border-dashed border-gray-200 transition-colors"
                 >
                   <NuxtImg
@@ -255,6 +275,17 @@
                     class="aspect-video w-full object-cover transition-transform duration-500 group-hover/img:scale-105"
                     placeholder
                   />
+                </div>
+                <div
+                  v-else
+                  class="mt-2 flex aspect-video w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 p-4 text-center text-amber-700"
+                >
+                  <Icon
+                    name="heroicons:document-text"
+                    class="mb-1 size-6 text-amber-500"
+                  />
+                  <span class="text-xs font-semibold">No ID Photo Uploaded</span>
+                  <span class="text-[10px] text-amber-600">Pending doctor upload</span>
                 </div>
               </div>
             </div>
