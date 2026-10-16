@@ -21,12 +21,83 @@
   const isSuccess = ref(false)
   const errorMessage = ref('')
 
+  const errors = reactive({
+    password: '',
+    confirmPassword: ''
+  })
+
+  const touched = reactive({
+    password: false,
+    confirmPassword: false
+  })
+
+  const passwordCriteria = computed(() => {
+    const p = newPassword.value || ''
+    return {
+      minLength: p.length >= 8,
+      hasUpper: /[A-Z]/.test(p),
+      hasLower: /[a-z]/.test(p),
+      hasNumber: /[0-9]/.test(p),
+      hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(p)
+    }
+  })
+
+  const isPasswordStrong = computed(() => {
+    const c = passwordCriteria.value
+    return c.minLength && c.hasUpper && c.hasLower && c.hasNumber && c.hasSpecial
+  })
+
+  const validateField = (field: 'password' | 'confirmPassword') => {
+    if (!touched[field]) return
+
+    if (field === 'password') {
+      if (!newPassword.value) {
+        errors.password = 'Password is required'
+      } else if (newPassword.value.length < 8) {
+        errors.password = 'Minimum 8 characters'
+      } else if (!isPasswordStrong.value) {
+        errors.password = 'Must meet all password criteria below'
+      } else {
+        errors.password = ''
+      }
+      if (touched.confirmPassword) {
+        validateField('confirmPassword')
+      }
+    } else if (field === 'confirmPassword') {
+      if (!confirmPassword.value) {
+        errors.confirmPassword = 'Please confirm your password'
+      } else if (confirmPassword.value !== newPassword.value) {
+        errors.confirmPassword = 'Passwords do not match'
+      } else {
+        errors.confirmPassword = ''
+      }
+    }
+  }
+
+  const markTouched = (field: 'password' | 'confirmPassword') => {
+    touched[field] = true
+    validateField(field)
+  }
+
+  watch(newPassword, () => {
+    if (touched.password) validateField('password')
+  })
+
+  watch(confirmPassword, () => {
+    if (touched.confirmPassword) validateField('confirmPassword')
+  })
+
   const handleResetPassword = async () => {
-    if (!email.value.trim()) {
+    touched.password = true
+    touched.confirmPassword = true
+    validateField('password')
+    validateField('confirmPassword')
+
+    if (!email.value?.trim()) {
       errorMessage.value = 'Email address is required.'
       return
     }
-    if (!token.value.trim()) {
+    if (!token.value?.trim()) {
       errorMessage.value = 'Password reset token is missing or invalid.'
       return
     }
@@ -34,8 +105,8 @@
       errorMessage.value = 'Please enter your new password.'
       return
     }
-    if (newPassword.value.length < 8) {
-      errorMessage.value = 'Password must be at least 8 characters long.'
+    if (!isPasswordStrong.value) {
+      errorMessage.value = 'Password does not meet all security criteria below.'
       return
     }
     if (newPassword.value !== confirmPassword.value) {
@@ -48,7 +119,7 @@
 
     try {
       const response = await userService.resetPasswordWithToken({
-        email: email.value.trim(),
+        email: email.value.trim().toLowerCase(),
         token: token.value.trim(),
         password: newPassword.value,
         password_confirmation: confirmPassword.value
@@ -142,7 +213,7 @@
           Password Updated!
         </h2>
         <p class="mt-2 max-w-xs text-center text-xs leading-relaxed text-slate-500 sm:text-sm">
-          Your confidential password has been set. All previous login sessions have been secured.
+          Your new password has been set. All previous login sessions have been secured.
         </p>
 
         <div class="mt-8 w-full">
@@ -164,10 +235,10 @@
       <!-- State 2: Enter New Password Form -->
       <template v-else>
         <h2 class="text-center text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-          Create Private Password
+          Set New Password
         </h2>
         <p class="mt-2 max-w-xs text-center text-xs leading-relaxed text-slate-500 sm:text-sm">
-          Choose a secure password for your clinical patient account. Only you will have access.
+          Enter a strong, secure new password for your account.
         </p>
 
         <!-- Error Alert -->
@@ -213,9 +284,15 @@
                 :type="showPassword ? 'text' : 'password'"
                 v-model="newPassword"
                 required
-                minlength="8"
-                placeholder="Min. 8 characters"
-                class="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3.5 pr-10 text-xs font-medium text-slate-900 transition outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                placeholder="Enter new password"
+                @blur="markTouched('password')"
+                @input="markTouched('password')"
+                class="h-11 w-full rounded-2xl border bg-white px-3.5 pr-10 text-xs font-medium text-slate-900 transition outline-none"
+                :class="
+                  errors.password
+                    ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                    : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+                "
               />
               <button
                 type="button"
@@ -228,6 +305,82 @@
                 />
               </button>
             </div>
+            <p
+              v-if="errors.password"
+              class="mt-1 text-xs font-medium text-rose-500"
+            >
+              {{ errors.password }}
+            </p>
+
+            <!-- Password Requirements Checklist -->
+            <div
+              v-if="newPassword || touched.password"
+              class="mt-2.5 rounded-xl border border-slate-200/60 bg-slate-50/80 p-2.5 transition-all"
+            >
+              <p class="mb-1.5 text-[11px] font-medium text-slate-600">Password Requirements:</p>
+              <div class="grid grid-cols-2 gap-1.5 text-[11px]">
+                <div
+                  class="flex items-center gap-1.5 transition-colors"
+                  :class="
+                    passwordCriteria.minLength ? 'font-medium text-emerald-600' : 'text-slate-400'
+                  "
+                >
+                  <Icon
+                    :name="passwordCriteria.minLength ? 'lucide:check-circle-2' : 'lucide:circle'"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>At least 8 characters</span>
+                </div>
+                <div
+                  class="flex items-center gap-1.5 transition-colors"
+                  :class="
+                    passwordCriteria.hasUpper ? 'font-medium text-emerald-600' : 'text-slate-400'
+                  "
+                >
+                  <Icon
+                    :name="passwordCriteria.hasUpper ? 'lucide:check-circle-2' : 'lucide:circle'"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>One uppercase letter</span>
+                </div>
+                <div
+                  class="flex items-center gap-1.5 transition-colors"
+                  :class="
+                    passwordCriteria.hasLower ? 'font-medium text-emerald-600' : 'text-slate-400'
+                  "
+                >
+                  <Icon
+                    :name="passwordCriteria.hasLower ? 'lucide:check-circle-2' : 'lucide:circle'"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>One lowercase letter</span>
+                </div>
+                <div
+                  class="flex items-center gap-1.5 transition-colors"
+                  :class="
+                    passwordCriteria.hasNumber ? 'font-medium text-emerald-600' : 'text-slate-400'
+                  "
+                >
+                  <Icon
+                    :name="passwordCriteria.hasNumber ? 'lucide:check-circle-2' : 'lucide:circle'"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>One number (0-9)</span>
+                </div>
+                <div
+                  class="col-span-2 flex items-center gap-1.5 transition-colors"
+                  :class="
+                    passwordCriteria.hasSpecial ? 'font-medium text-emerald-600' : 'text-slate-400'
+                  "
+                >
+                  <Icon
+                    :name="passwordCriteria.hasSpecial ? 'lucide:check-circle-2' : 'lucide:circle'"
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>One special symbol (!@#$%^&*...)</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div>
@@ -236,10 +389,22 @@
               :type="showPassword ? 'text' : 'password'"
               v-model="confirmPassword"
               required
-              minlength="8"
               placeholder="Re-enter password"
-              class="mt-1 h-11 w-full rounded-2xl border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-900 transition outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              @blur="markTouched('confirmPassword')"
+              @input="markTouched('confirmPassword')"
+              class="mt-1 h-11 w-full rounded-2xl border bg-white px-3.5 text-xs font-medium text-slate-900 transition outline-none"
+              :class="
+                errors.confirmPassword
+                  ? 'border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20'
+                  : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
+              "
             />
+            <p
+              v-if="errors.confirmPassword"
+              class="mt-1 text-xs font-medium text-rose-500"
+            >
+              {{ errors.confirmPassword }}
+            </p>
           </div>
 
           <div class="pt-2">
@@ -247,10 +412,11 @@
               type="submit"
               variant="solid"
               size="lg"
-              class="w-full justify-center rounded-2xl bg-indigo-600 font-bold text-white shadow-md hover:bg-indigo-700"
+              class="w-full justify-center rounded-2xl bg-indigo-600 font-bold text-white shadow-md hover:bg-indigo-700 disabled:opacity-50"
               :loading="isSubmitting"
+              :disabled="isSubmitting || (touched.password && !isPasswordStrong)"
             >
-              <span>Set Private Password</span>
+              <span>Set New Password</span>
               <Icon
                 name="lucide:lock"
                 class="ml-1 text-sm"
