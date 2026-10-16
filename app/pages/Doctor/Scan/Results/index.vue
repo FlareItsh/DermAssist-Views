@@ -12,6 +12,7 @@
     isNoneState,
     chartData,
     patientUuid,
+    appointmentUuid: diagnosisAppointmentUuid,
     pendingPatientRegistration,
     pendingPatientName,
     isProceededToResults,
@@ -19,7 +20,7 @@
     clearDiagnosis,
     resetScanner
   } = useDiagnosis()
-  const { appointments, pendingAppointments } = useAppointments()
+  const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const userName = useCookie('user_name')
 
   const showBackConfirmModal = ref(false)
@@ -116,6 +117,7 @@
   })
 
   const appointmentUuid = computed(() => {
+    if (diagnosisAppointmentUuid.value) return diagnosisAppointmentUuid.value
     if (!patientUuid.value) return null
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
     const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
@@ -128,7 +130,7 @@
   })
 
   // Redirect to scanner if no diagnosis is present, no patient is assigned, or if scan is healthy/non-skin; set isProceededToResults when on results page
-  onMounted(() => {
+  onMounted(async () => {
     if (
       !currentDiagnosis.value ||
       !isScanned.value ||
@@ -140,10 +142,15 @@
     } else {
       isProceededToResults.value = true
       saveActiveDiagnosisState()
+      try {
+        await fetchAppointments()
+      } catch (e) {
+        console.error('Failed to load appointments on results page', e)
+      }
     }
   })
 
-  const handleFinished = (payload?: { conversationUuid?: string; followUpScheduled?: boolean }) => {
+  const handleFinished = () => {
     if (import.meta.client) {
       try {
         localStorage.removeItem('dermassist_active_diagnosis')
@@ -158,13 +165,7 @@
       }
     }
     resetScanner()
-    if (payload?.conversationUuid) {
-      navigateTo(`/Doctor/Messages/${payload.conversationUuid}`)
-    } else if (payload?.followUpScheduled) {
-      navigateTo('/Doctor/Messages')
-    } else {
-      navigateTo('/Doctor/Scan')
-    }
+    navigateTo('/Doctor/Appointments')
   }
 </script>
 

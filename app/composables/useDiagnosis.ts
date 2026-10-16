@@ -217,6 +217,7 @@ const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
+const appointmentUuid = ref<string | null>(null)
 const pendingPatientRegistration = ref<PendingPatientRegistration | null>(null)
 const boundUserUuid = ref<string | null>(null)
 
@@ -235,6 +236,7 @@ const resetScannerInMemory = () => {
   previewImage.value = null
   selectedFile.value = null
   patientUuid.value = null
+  appointmentUuid.value = null
   pendingPatientRegistration.value = null
   boundUserUuid.value = null
 }
@@ -269,6 +271,7 @@ const restoreActiveDiagnosisState = () => {
           isProceededToResults.value = parsed.isProceededToResults
         if (parsed.previewImage) previewImage.value = parsed.previewImage
         if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
+        if (parsed.appointmentUuid) appointmentUuid.value = parsed.appointmentUuid
         if (parsed.pendingPatientRegistration)
           pendingPatientRegistration.value = parsed.pendingPatientRegistration
         return
@@ -304,6 +307,7 @@ const saveActiveDiagnosisState = () => {
       isScanned.value ||
       previewImage.value ||
       patientUuid.value ||
+      appointmentUuid.value ||
       pendingPatientRegistration.value
     ) {
       boundUserUuid.value = currentUuid
@@ -316,6 +320,7 @@ const saveActiveDiagnosisState = () => {
           isProceededToResults: isProceededToResults.value,
           previewImage: previewImage.value,
           patientUuid: patientUuid.value,
+          appointmentUuid: appointmentUuid.value,
           pendingPatientRegistration: pendingPatientRegistration.value
         })
       )
@@ -471,6 +476,7 @@ export const useDiagnosis = () => {
     previewImage,
     selectedFile,
     patientUuid,
+    appointmentUuid,
     pendingPatientRegistration,
     pendingPatientName,
     isHealthyState,

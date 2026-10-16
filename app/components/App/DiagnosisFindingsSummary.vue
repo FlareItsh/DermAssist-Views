@@ -29,6 +29,7 @@
     chartData,
     resetScanner,
     patientUuid,
+    appointmentUuid,
     pendingPatientRegistration,
     pendingPatientName,
     isProceededToResults,
@@ -454,6 +455,7 @@
 
   const selectAppointment = (appt: any) => {
     patientUuid.value = appt.patient_uuid
+    appointmentUuid.value = appt.id || appt.uuid || null
     pendingPatientRegistration.value = null
     assignedName.value = appt.patientName
     userName.value = appt.patientName
@@ -477,6 +479,7 @@
       return
     }
     patientUuid.value = patient.uuid
+    appointmentUuid.value = null
     pendingPatientRegistration.value = null
     assignedName.value = `${patient.first_name} ${patient.last_name}`
     userName.value = assignedName.value
@@ -488,6 +491,7 @@
 
   const clearAssignedPatient = () => {
     patientUuid.value = null
+    appointmentUuid.value = null
     pendingPatientRegistration.value = null
     assignedName.value = ''
     assignedAppointment.value = null
