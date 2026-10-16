@@ -1,5 +1,4 @@
 <script setup lang="ts">
-  import { onBeforeRouteLeave } from 'vue-router'
   import { userService } from '~/api/user/UserService'
   import { calculateAge } from '~/composables/useFormSanitizer'
 
@@ -14,6 +13,7 @@
     patientUuid,
     appointmentUuid: diagnosisAppointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
     pendingPatientName,
     isProceededToResults,
     saveActiveDiagnosisState,
@@ -23,42 +23,21 @@
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const userName = useCookie('user_name')
 
-  const showBackConfirmModal = ref(false)
-  const targetRoute = ref<string | null>(null)
-  let isNavigatingAwayConfirmed = false
-
   const handleBackClick = () => {
-    if (pendingPatientRegistration.value) {
-      targetRoute.value = '/Doctor/Scan'
-      showBackConfirmModal.value = true
-    } else {
-      navigateTo('/Doctor/Scan')
-    }
+    navigateTo('/Doctor/Scan')
   }
 
-  const confirmDiscardAndLeave = () => {
-    showBackConfirmModal.value = false
-    isNavigatingAwayConfirmed = true
-    pendingPatientRegistration.value = null
-    resetScanner()
-    if (targetRoute.value) {
-      navigateTo(targetRoute.value)
-    } else {
-      navigateTo('/Doctor/Scan')
-    }
-  }
-
-  onBeforeRouteLeave((to, from) => {
-    if (pendingPatientRegistration.value && !isNavigatingAwayConfirmed) {
-      targetRoute.value = to.fullPath
-      showBackConfirmModal.value = true
-      return false
-    }
-    return true
+  const isRealPatientUuid = computed(() => {
+    return (
+      !!patientUuid.value &&
+      patientUuid.value !== 'pending_new_patient' &&
+      patientUuid.value !== 'walk_in_guest' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(patientUuid.value)
+    )
   })
 
   const { data: patientResponse } = userService.useShow(patientUuid.value || '', {
-    immediate: !!patientUuid.value
+    immediate: isRealPatientUuid.value
   })
   const assignedPatient = computed(() => patientResponse.value?.data || patientResponse.value)
 
@@ -84,6 +63,9 @@
     if (pendingPatientRegistration.value?.age) {
       return pendingPatientRegistration.value.age
     }
+    if (walkInPatientInfo.value?.age) {
+      return walkInPatientInfo.value.age
+    }
     if (!patientUuid.value) return null
 
     if (assignedPatient.value) {
@@ -101,6 +83,9 @@
   const patientDateOfBirth = computed<string | null>(() => {
     if (pendingPatientRegistration.value?.date_of_birth) {
       return pendingPatientRegistration.value.date_of_birth
+    }
+    if (walkInPatientInfo.value?.date_of_birth) {
+      return walkInPatientInfo.value.date_of_birth
     }
     if (!patientUuid.value) return null
 
@@ -221,17 +206,6 @@
             >#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span
           >
         </div>
-        <AppButton
-          variant="unstyled"
-          size="unstyled"
-          rounded="unstyled"
-          class="bg-primary/10 text-primary hover:bg-primary/20 flex h-8 w-8 items-center justify-center rounded-xl transition-colors sm:h-10 sm:w-10"
-        >
-          <Icon
-            name="material-symbols:share-rounded"
-            class="text-base sm:text-xl"
-          />
-        </AppButton>
       </div>
     </header>
 
@@ -275,19 +249,6 @@
         </template>
       </ClientOnly>
     </main>
-
-    <!-- Confirmation Modal when leaving/discarding with a pending patient -->
-    <AppModalConfirmation
-      v-model="showBackConfirmModal"
-      title="Discard Unsaved Patient & Scan?"
-      :description="`The registered account for ${pendingPatientName || 'this patient'} has NOT been saved or officially created yet. If you exit or discard this diagnosis, the account will not be saved — only added to the list with no account to be usable unless officially created. To officially create and save this account, click 'Continue Assessment' and then 'Finish Diagnosis & Save'.`"
-      icon="lucide:trash-2"
-      icon-color="danger"
-      confirm-text="Discard & Leave"
-      cancel-text="Continue Assessment"
-      confirm-variant="destructive"
-      @confirm="confirmDiscardAndLeave"
-    />
   </div>
 </template>
 

@@ -31,6 +31,8 @@
     patientUuid,
     appointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
+    pendingPatientName,
     isProceededToResults,
     saveActiveDiagnosisState
   } = useDiagnosis()
@@ -58,7 +60,11 @@
   }
 
   const hasPatient = computed(
-    () => props.role === 'patient' || !!patientUuid.value || !!assignedName.value
+    () =>
+      props.role === 'patient' ||
+      !!patientUuid.value ||
+      !!assignedName.value ||
+      !!pendingPatientRegistration.value
   )
 
   const errorMessage = computed(() => {
@@ -115,10 +121,14 @@
         try {
           if ((currentDiagnosis.value as any).uuid || currentDiagnosis.value.id) {
             const uuid = (currentDiagnosis.value as any).uuid || currentDiagnosis.value.id
+            const isValidUuid = (val?: string | null) =>
+              !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+
             if (
-              patientUuid.value &&
+              isValidUuid(patientUuid.value) &&
               !pendingPatientRegistration.value &&
-              patientUuid.value !== 'pending_new_patient'
+              patientUuid.value !== 'pending_new_patient' &&
+              patientUuid.value !== 'walk_in_guest'
             ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
             }
@@ -366,9 +376,30 @@
     return list
   })
 
+  // Registered Patients (including Active Staged Patient if present)
+  const allRegisteredPatients = computed(() => {
+    const list = [...doctorRegisteredPatients.value]
+    if (pendingPatientRegistration.value) {
+      const p = pendingPatientRegistration.value
+      list.unshift({
+        uuid: 'pending_new_patient',
+        first_name: p.firstName,
+        last_name: p.lastName,
+        email: p.email,
+        contact_number: p.contact_number,
+        date_of_birth: p.date_of_birth,
+        age: p.age,
+        gender: p.gender,
+        isPendingCreation: true,
+        account_status: 'Staged (Unsaved)'
+      })
+    }
+    return list
+  })
+
   // Filtered Registered Patients (for Walk-Ins)
   const filteredRegisteredPatients = computed(() => {
-    let list = doctorRegisteredPatients.value
+    let list = allRegisteredPatients.value
     const q = patientSearchQuery.value.trim().toLowerCase()
     if (q) {
       list = list.filter((p: any) => {
@@ -382,6 +413,13 @@
 
   const selectedPatientName = computed(() => {
     if (assignedName.value) return assignedName.value
+    if (walkInPatientInfo.value) {
+      return `${walkInPatientInfo.value.firstName} ${walkInPatientInfo.value.lastName}`
+    }
+    if (pendingPatientName.value) return pendingPatientName.value
+    if (pendingPatientRegistration.value) {
+      return `${pendingPatientRegistration.value.firstName} ${pendingPatientRegistration.value.lastName}`
+    }
     if (patientUuid.value) {
       const reg = doctorRegisteredPatients.value.find(p => p.uuid === patientUuid.value)
       if (reg) return `${reg.first_name} ${reg.last_name}`
@@ -390,6 +428,43 @@
     }
     return ''
   })
+
+  // Watch pendingPatientRegistration to restore assignedName when navigating across pages
+  watch(
+    () => pendingPatientRegistration.value,
+    val => {
+      if (val) {
+        assignedName.value = `${val.firstName} ${val.lastName}`
+        if (!userName.value) userName.value = assignedName.value
+      }
+    },
+    { immediate: true }
+  )
+
+  // Watch patientUuid and loaded lists to re-hydrate assignedName & appointment after navigation
+  watch(
+    [patientUuid, doctorRegisteredPatients, availableAppointments],
+    ([uuid, patients, appts]) => {
+      if (uuid && !assignedName.value && !pendingPatientRegistration.value) {
+        if (uuid === 'walk_in_guest' && walkInPatientInfo.value) {
+          assignedName.value = `${walkInPatientInfo.value.firstName} ${walkInPatientInfo.value.lastName}`
+          if (!userName.value) userName.value = assignedName.value
+          return
+        }
+        const reg = patients.find((p: any) => p.uuid === uuid)
+        if (reg) {
+          assignedName.value = `${reg.first_name} ${reg.last_name}`
+          return
+        }
+        const appt = appts.find((a: any) => a.patient_uuid === uuid)
+        if (appt) {
+          assignedName.value = appt.patientName
+          assignedAppointment.value = appt
+        }
+      }
+    },
+    { immediate: true }
+  )
 
   const selectAppointment = (appt: any) => {
     patientUuid.value = appt.patient_uuid
@@ -406,6 +481,16 @@
   }
 
   const selectRegisteredPatient = (patient: any) => {
+    if (patient.isPendingCreation) {
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${patient.first_name} ${patient.last_name}`
+      userName.value = assignedName.value
+      assignedAppointment.value = null
+      saveActiveDiagnosisState()
+      isPatientModalOpen.value = false
+      toast.success(`Assigned to ${assignedName.value} (Staged Patient)`)
+      return
+    }
     patientUuid.value = patient.uuid
     appointmentUuid.value = null
     pendingPatientRegistration.value = null
@@ -421,10 +506,13 @@
     patientUuid.value = null
     appointmentUuid.value = null
     pendingPatientRegistration.value = null
+    walkInPatientInfo.value = null
     assignedName.value = ''
+    userName.value = ''
     assignedAppointment.value = null
     saveActiveDiagnosisState()
     isPatientModalOpen.value = false
+    toast.info('Assigned patient cleared.')
   }
 
   // Register Patient Form State
@@ -439,9 +527,7 @@
     age: '',
     gender: 'Female',
     street: '',
-    barangay: '',
-    city: '',
-    province: ''
+    barangay: ''
   })
   const isSubmittingRegistration = ref(false)
   const registrationError = ref<string | null>(null)
@@ -464,12 +550,74 @@
     registerForm.gender = 'Female'
     registerForm.street = ''
     registerForm.barangay = ''
-    registerForm.city = ''
-    registerForm.province = ''
     registrationError.value = null
   }
 
+  const shouldCreateAccount = ref(true)
+
   const handleRegisterPatient = async () => {
+    if (!shouldCreateAccount.value) {
+      if (!registerForm.firstName.trim() || !registerForm.lastName.trim()) {
+        registrationError.value = 'First Name and Last Name are required.'
+        return
+      }
+
+      if (!registerForm.date_of_birth) {
+        registrationError.value = 'Please provide the patient’s Date of Birth.'
+        return
+      }
+
+      const calculatedAge = calculatedRegisterAge.value ?? undefined
+
+      if (registerForm.contact_number) {
+        const parts = splitFullPhoneNumber(registerForm.contact_number)
+        const res = validatePhoneNumber(parts.national, parts.dialCode)
+        if (!res.valid) {
+          registrationError.value = res.error
+          return
+        }
+      }
+
+      const walkInPayload: PendingPatientRegistration = {
+        firstName: registerForm.firstName.trim(),
+        middleName: registerForm.middleName?.trim() || undefined,
+        lastName: registerForm.lastName.trim(),
+        date_of_birth: registerForm.date_of_birth || undefined,
+        age: calculatedAge,
+        gender: registerForm.gender || undefined,
+        contact_number: registerForm.contact_number?.trim() || undefined,
+        email: '',
+        password: '',
+        is_walk_in: true
+      }
+
+      walkInPatientInfo.value = {
+        firstName: walkInPayload.firstName,
+        middleName: walkInPayload.middleName,
+        lastName: walkInPayload.lastName,
+        age: walkInPayload.age,
+        gender: walkInPayload.gender,
+        date_of_birth: walkInPayload.date_of_birth,
+        contact_number: walkInPayload.contact_number
+      }
+      pendingPatientRegistration.value = walkInPayload
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${walkInPayload.firstName} ${walkInPayload.lastName}`
+      userName.value = assignedName.value
+      assignedAppointment.value = null
+
+      saveActiveDiagnosisState()
+
+      toast.success(
+        `Walk-in patient ${assignedName.value} prepared! Patient record will be saved when you complete the diagnosis.`
+      )
+
+      activeModalTab.value = 'appointments'
+      isPatientModalOpen.value = false
+      resetRegisterForm()
+      return
+    }
+
     if (
       !registerForm.firstName.trim() ||
       !registerForm.lastName.trim() ||
@@ -501,16 +649,13 @@
         contact_number: registerForm.contact_number?.trim() || undefined,
         password: registerForm.password,
         date_of_birth: registerForm.date_of_birth || undefined,
-        age:
-          calculatedRegisterAge.value ??
-          (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
+        age: calculatedRegisterAge.value ?? undefined,
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
-        barangay: registerForm.barangay?.trim() || undefined,
-        city: registerForm.city?.trim() || undefined,
-        province: registerForm.province?.trim() || undefined
+        barangay: registerForm.barangay?.trim() || undefined
       }
 
+      walkInPatientInfo.value = null
       pendingPatientRegistration.value = payload
       patientUuid.value = 'pending_new_patient'
       assignedName.value = `${payload.firstName} ${payload.lastName}`
@@ -634,14 +779,29 @@
                     </p>
                   </div>
                 </div>
-                <AppButton
-                  variant="ghost"
-                  size="sm"
-                  class="hover:text-primary shrink-0 rounded-xl text-xs font-bold text-gray-500"
-                  @click="isPatientModalOpen = true"
-                >
-                  Change
-                </AppButton>
+                <div class="flex shrink-0 items-center gap-1">
+                  <AppButton
+                    variant="ghost"
+                    size="sm"
+                    class="hover:text-primary rounded-xl text-xs font-bold text-gray-500"
+                    @click="isPatientModalOpen = true"
+                  >
+                    Change
+                  </AppButton>
+                  <AppButton
+                    variant="ghost"
+                    size="sm"
+                    class="rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 hover:text-rose-700"
+                    @click="clearAssignedPatient"
+                    title="Clear assigned patient"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="mr-1 text-xs"
+                    />
+                    Clear
+                  </AppButton>
+                </div>
               </div>
               <AppButton
                 v-else
@@ -679,7 +839,33 @@
                       : 'Select a scheduled appointment patient for this clinical scan session.'
                 "
                 size="2xl"
+                compact
+                hide-scrollbar
               >
+                <!-- Clear current assignment notice / button inside modal if patient is assigned -->
+                <div
+                  v-if="
+                    patientUuid || pendingPatientRegistration || walkInPatientInfo || assignedName
+                  "
+                  class="mb-3.5 flex items-center justify-between rounded-2xl border border-gray-200/80 bg-gray-50 px-3.5 py-2 text-xs"
+                >
+                  <span class="truncate font-medium text-gray-600">
+                    Currently assigned:
+                    <strong class="text-gray-900">{{ selectedPatientName || assignedName }}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    @click="clearAssignedPatient"
+                    class="ml-2 inline-flex cursor-pointer items-center gap-1 font-bold text-rose-600 transition-colors hover:text-rose-800"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="text-xs"
+                    />
+                    Clear Assignment
+                  </button>
+                </div>
+
                 <!-- Mode Navigation Tabs -->
                 <div
                   class="mb-4 flex items-center gap-1.5 rounded-2xl bg-gray-100/80 p-1 text-xs font-bold"
@@ -1097,7 +1283,11 @@
                       type="button"
                       class="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border p-3.5 text-left transition-all"
                       :class="
-                        patientUuid === patient.uuid && !assignedAppointment
+                        (patientUuid === patient.uuid ||
+                          (patient.isPendingCreation &&
+                            (patientUuid === 'pending_new_patient' ||
+                              !!pendingPatientRegistration))) &&
+                        !assignedAppointment
                           ? 'border-primary bg-primary/5 ring-primary/30 shadow-sm ring-1'
                           : 'hover:border-primary/40 border-gray-100 hover:bg-gray-50/80'
                       "
@@ -1120,6 +1310,13 @@
                             {{ patient.first_name }} {{ patient.last_name }}
                           </p>
                           <span
+                            v-if="patient.isPendingCreation"
+                            class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black tracking-wider text-amber-800 uppercase"
+                          >
+                            Staged Scan Patient
+                          </span>
+                          <span
+                            v-else
                             class="bg-primary/10 text-primary border-primary/20 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black tracking-wider uppercase"
                           >
                             Registered ({{ patient.account_status || 'Active' }})
@@ -1170,30 +1367,62 @@
                 <!-- 3. Register Patient Form View -->
                 <div
                   v-else-if="activeModalTab === 'register'"
-                  class="flex flex-col gap-4 py-1"
+                  class="flex flex-col gap-3 py-0.5"
                 >
-                  <div class="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <button
-                      type="button"
-                      @click="activeModalTab = 'appointments'"
-                      class="hover:text-primary inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold text-gray-500 transition-colors"
+                  <!-- Account Creation Selection Mode -->
+                  <div class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-2.5">
+                    <label class="mb-1.5 block px-1 text-[11px] font-bold text-indigo-900"
+                      >Patient Registration Type</label
                     >
-                      <Icon
-                        name="material-symbols:arrow-back-rounded"
-                        class="text-base"
-                      />
-                      Back to Appointments
-                    </button>
-                    <span
-                      class="text-primary/80 bg-primary/5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-                    >
-                      Linked to your clinic
-                    </span>
+                    <div class="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        @click="shouldCreateAccount = true"
+                        class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition-all"
+                        :class="
+                          shouldCreateAccount
+                            ? 'border border-indigo-200/60 bg-white text-indigo-600 shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        "
+                      >
+                        <Icon
+                          name="material-symbols:account-circle-outline"
+                          class="shrink-0 text-sm"
+                        />
+                        <span>Create Account</span>
+                      </button>
+                      <button
+                        type="button"
+                        @click="shouldCreateAccount = false"
+                        class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition-all"
+                        :class="
+                          !shouldCreateAccount
+                            ? 'border border-indigo-200/60 bg-white text-indigo-600 shadow-xs'
+                            : 'text-gray-600 hover:text-gray-900'
+                        "
+                      >
+                        <Icon
+                          name="material-symbols:badge-outline"
+                          class="shrink-0 text-sm"
+                        />
+                        <span>No Account (Walk-In)</span>
+                      </button>
+                    </div>
+                    <p class="mt-1.5 px-1 text-[10px] leading-relaxed text-gray-500">
+                      <span v-if="shouldCreateAccount">
+                        Generates online portal credentials (email & temporary password) so the
+                        patient can log in.
+                      </span>
+                      <span v-else>
+                        Sets patient name & age for this consultation only without creating an
+                        online login account.
+                      </span>
+                    </p>
                   </div>
 
                   <div
                     v-if="registrationError"
-                    class="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700"
+                    class="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700"
                   >
                     <Icon
                       name="material-symbols:error-rounded"
@@ -1202,7 +1431,8 @@
                     <p>{{ registrationError }}</p>
                   </div>
 
-                  <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <!-- Names Row -->
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label class="mb-1 block text-xs font-bold text-gray-700"
                         >First Name <span class="text-rose-500">*</span></label
@@ -1229,21 +1459,34 @@
                     </div>
                   </div>
 
-                  <div>
-                    <label class="mb-1 block text-xs font-bold text-gray-700"
-                      >Email Address <span class="text-rose-500">*</span></label
-                    >
-                    <input
-                      v-model="registerForm.email"
-                      type="email"
-                      placeholder="patient@example.com"
-                      required
-                      class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
-                    />
+                  <!-- Email & Contact Number Row (When Creating Account) -->
+                  <div
+                    v-if="shouldCreateAccount"
+                    class="grid grid-cols-1 gap-3 sm:grid-cols-2"
+                  >
+                    <div>
+                      <label class="mb-1 block text-xs font-bold text-gray-700"
+                        >Email Address <span class="text-rose-500">*</span></label
+                      >
+                      <input
+                        v-model="registerForm.email"
+                        type="email"
+                        placeholder="patient@example.com"
+                        :required="shouldCreateAccount"
+                        class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
+                      />
+                    </div>
+                    <div>
+                      <AppPhoneInput
+                        v-model="registerForm.contact_number"
+                        label="Contact Number"
+                        placeholder="917 123 4567"
+                      />
+                    </div>
                   </div>
 
-                  <!-- Temporary Password with Auto-Generate and Copy -->
-                  <div>
+                  <!-- Temporary Password (Only when creating an account) -->
+                  <div v-if="shouldCreateAccount">
                     <div class="mb-1 flex items-center justify-between">
                       <label class="block text-xs font-bold text-gray-700"
                         >Temporary Password <span class="text-rose-500">*</span></label
@@ -1256,7 +1499,7 @@
                       <input
                         v-model="registerForm.password"
                         type="text"
-                        required
+                        :required="shouldCreateAccount"
                         placeholder="Temporary password"
                         class="text-primary focus:border-primary focus:ring-primary/20 h-10 flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 font-mono text-xs font-bold transition-all outline-none focus:ring-2"
                       />
@@ -1287,10 +1530,18 @@
                     </div>
                   </div>
 
-                  <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                  <!-- Date of Birth & Gender Row (Auto calculates Age!) -->
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <div class="mb-1 flex items-center justify-between">
-                        <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
+                        <label class="block text-xs font-bold text-gray-700">
+                          Date of Birth
+                          <span
+                            v-if="!shouldCreateAccount"
+                            class="text-rose-500"
+                            >*</span
+                          >
+                        </label>
                         <span
                           v-if="calculatedRegisterAge !== null"
                           class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -1306,6 +1557,7 @@
                         v-model="registerForm.date_of_birth"
                         type="date"
                         :max="todayIsoDate"
+                        :required="!shouldCreateAccount"
                         class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
                       />
                     </div>
@@ -1322,33 +1574,13 @@
                     </div>
                   </div>
 
-                  <div>
+                  <!-- Contact Number (Only for Walk-In mode where email row is not present) -->
+                  <div v-if="!shouldCreateAccount">
                     <AppPhoneInput
                       v-model="registerForm.contact_number"
-                      label="Contact Number"
+                      label="Contact Number (Optional)"
                       placeholder="917 123 4567"
                     />
-                  </div>
-
-                  <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <div>
-                      <label class="mb-1 block text-xs font-bold text-gray-700">City</label>
-                      <input
-                        v-model="registerForm.city"
-                        type="text"
-                        placeholder="City"
-                        class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
-                      />
-                    </div>
-                    <div>
-                      <label class="mb-1 block text-xs font-bold text-gray-700">Province</label>
-                      <input
-                        v-model="registerForm.province"
-                        type="text"
-                        placeholder="Province"
-                        class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
-                      />
-                    </div>
                   </div>
                 </div>
 
@@ -1375,7 +1607,11 @@
                         class="mr-1.5 text-base"
                       />
                       {{
-                        isSubmittingRegistration ? 'Creating Account...' : 'Create & Assign Patient'
+                        isSubmittingRegistration
+                          ? 'Assigning...'
+                          : shouldCreateAccount
+                            ? 'Create & Assign Patient'
+                            : 'Set Patient (No Account)'
                       }}
                     </AppButton>
                   </div>

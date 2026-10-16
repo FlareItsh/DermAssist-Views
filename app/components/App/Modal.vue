@@ -4,11 +4,15 @@
     title?: string
     description?: string
     size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl'
+    hideScrollbar?: boolean
+    compact?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
     modelValue: false,
-    size: 'md'
+    size: 'md',
+    hideScrollbar: false,
+    compact: false
   })
 
   const emit = defineEmits(['update:modelValue', 'close'])
@@ -41,8 +45,11 @@
 
         <!-- Modal Container -->
         <div
-          class="modal-container relative max-h-[92vh] w-full overflow-y-auto rounded-[2rem] bg-white shadow-2xl transition-all sm:rounded-[2.5rem]"
-          :class="sizeClasses[size]"
+          class="modal-container relative max-h-[92vh] w-full rounded-[2rem] bg-white shadow-2xl transition-all sm:rounded-[2.5rem]"
+          :class="[
+            sizeClasses[size],
+            hideScrollbar ? 'scrollbar-none overflow-y-auto' : 'overflow-y-auto'
+          ]"
         >
           <!-- Close Button -->
           <AppButton
@@ -58,20 +65,24 @@
           </AppButton>
 
           <!-- Content -->
-          <div class="p-6 sm:p-10">
+          <div :class="compact ? 'p-5 sm:p-7' : 'p-6 sm:p-10'">
             <div
               v-if="title || description"
-              class="mb-6 pr-8 sm:mb-8 sm:pr-12"
+              :class="compact ? 'mb-4 pr-8 sm:mb-5 sm:pr-10' : 'mb-6 pr-8 sm:mb-8 sm:pr-12'"
             >
               <h3
                 v-if="title"
-                class="text-xl font-bold text-gray-900 sm:text-2xl"
+                :class="
+                  compact
+                    ? 'text-lg font-bold text-gray-900 sm:text-xl'
+                    : 'text-xl font-bold text-gray-900 sm:text-2xl'
+                "
               >
                 {{ title }}
               </h3>
               <p
                 v-if="description"
-                class="mt-1.5 text-xs text-gray-500 sm:mt-2 sm:text-base"
+                class="mt-1 text-xs text-gray-500 sm:text-sm"
               >
                 {{ description }}
               </p>
@@ -83,7 +94,11 @@
 
             <div
               v-if="$slots.footer"
-              class="mt-10 flex items-center justify-end gap-3"
+              :class="
+                compact
+                  ? 'mt-6 flex items-center justify-end gap-3'
+                  : 'mt-10 flex items-center justify-end gap-3'
+              "
             >
               <slot name="footer" />
             </div>

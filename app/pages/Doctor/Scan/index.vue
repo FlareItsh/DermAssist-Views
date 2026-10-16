@@ -12,23 +12,13 @@
 
   const showConfirmDiscard = ref(false)
 
-  const discardModalTitle = computed(() => {
-    return pendingPatientRegistration.value
-      ? 'Discard Unsaved Patient & Scan?'
-      : 'Discard Active Scan?'
-  })
+  const discardModalTitle = computed(() => 'Discard Active Scan?')
 
   const discardModalDescription = computed(() => {
-    if (pendingPatientRegistration.value) {
-      const name = pendingPatientName.value || 'this patient'
-      return `The registered account for ${name} has NOT been officially created or saved yet. If you discard and start fresh, this account will not be saved — only added to the list with no account to be usable unless officially created. To officially create and save this account, resume and click "Finish Diagnosis & Save".`
-    }
-    return 'Are you sure you want to discard the active scan and unsaved draft notes? This action cannot be undone.'
+    return 'Are you sure you want to discard the active scan and unsaved notes? This action cannot be undone.'
   })
 
-  const discardModalConfirmText = computed(() => {
-    return pendingPatientRegistration.value ? 'Discard & Start Fresh' : 'Discard & Start New'
-  })
+  const discardModalConfirmText = computed(() => 'Discard & Start New')
 
   onMounted(async () => {
     await fetchSubscription()
@@ -160,31 +150,6 @@
             <span class="font-bold text-gray-900">"Finish Diagnosis & Save"</span> to finish and
             unlock the scanner for new scans.
           </p>
-
-          <!-- Staged Pending Patient Advisory Notice -->
-          <div
-            v-if="pendingPatientRegistration"
-            class="mt-4 max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-xs text-amber-900 shadow-2xs"
-          >
-            <div class="flex items-start gap-2.5">
-              <Icon
-                name="lucide:alert-triangle"
-                class="mt-0.5 h-4 w-4 shrink-0 text-amber-600"
-              />
-              <div class="space-y-1">
-                <span class="font-bold">Pending Staged Patient Account:</span>
-                <p class="leading-relaxed text-amber-800">
-                  The account for
-                  <span class="font-bold text-amber-950">{{
-                    pendingPatientName || 'this patient'
-                  }}</span>
-                  has not been saved or officially created yet. If discarded, the account will not
-                  be saved — only added to the list with no account to be usable unless officially
-                  created.
-                </p>
-              </div>
-            </div>
-          </div>
 
           <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
             <AppButton

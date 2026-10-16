@@ -71,9 +71,10 @@ export const useAppointments = () => {
 
   const appointments = useState<Appointment[]>('shared_appointments_list', () => [])
   const pendingAppointments = useState<Appointment[]>('shared_pending_appointments_list', () => [])
-  const declinedAppointments = useState<
-    { id: string; doctor: string; info: string; conversation_uuid?: string }[]
-  >('shared_declined_appointments_list', () => [])
+  const declinedAppointments = useState<Appointment[]>(
+    'shared_declined_appointments_list',
+    () => []
+  )
   const completedAppointments = useState<Appointment[]>(
     'shared_completed_appointments_list',
     () => []
@@ -169,15 +170,7 @@ export const useAppointments = () => {
 
           declinedAppointments.value = res
             .filter((appt: any) => appt.status === 'declined')
-            .map((appt: any) => ({
-              id: appt.uuid,
-              doctor: mapPerson(appt),
-              info:
-                appt.diagnosis?.label ||
-                appt.clinical_note?.diagnosis?.label ||
-                'General Appointment',
-              conversation_uuid: appt.conversation_uuid
-            }))
+            .map(mapAppt)
 
           completedAppointments.value = res
             .filter((appt: any) => appt.status === 'completed')

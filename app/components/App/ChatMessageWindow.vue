@@ -82,23 +82,18 @@
 
   const conversationDoctorUuid = ref<string | null>(null)
 
-  // Fetch conversation data if on secretary side to obtain the doctor's UUID
-  if (
-    (userRole.value === 'secretary' || route.path.toLowerCase().startsWith('/secretary')) &&
-    props.conversationUuid
-  ) {
-    const { data: convResp } = await conversationService.useShow(() => props.conversationUuid)
-    const convData = computed(() => (convResp.value as any)?.data ?? convResp.value)
-    watch(
-      convData,
-      val => {
-        if (val?.doctor?.id) {
-          conversationDoctorUuid.value = val.doctor.id
-        }
-      },
-      { immediate: true }
-    )
-  }
+  // Fetch conversation data to obtain the doctor's UUID and metadata
+  const { data: convResp } = await conversationService.useShow(() => props.conversationUuid)
+  const convData = computed(() => (convResp.value as any)?.data ?? convResp.value)
+  watch(
+    convData,
+    val => {
+      if (val?.doctor?.id) {
+        conversationDoctorUuid.value = val.doctor.id
+      }
+    },
+    { immediate: true }
+  )
 
   // When logged in as secretary, the sender in conversations is attributed to their doctor's UUID
   const effectiveUserUuid = computed(() => {
@@ -127,6 +122,26 @@
   const lastPage = ref(1)
   const isFetchingOlder = ref(false)
   const pending = ref(false)
+
+  // Deduplicated displayed messages to filter out duplicate system cards (e.g. repeated decline tags)
+  const displayedMessages = computed(() => {
+    const valid = allMessages.value.filter(m => m && m.id)
+    const seenDeclinedUuids = new Set<string>()
+
+    return valid.filter(m => {
+      if (m.message && m.message.includes('[APPOINTMENT_DECLINED:')) {
+        const match = m.message.match(/\[APPOINTMENT_DECLINED:([a-f0-9-]+)\]/i)
+        if (match && match[1]) {
+          const apptUuid = match[1]
+          if (seenDeclinedUuids.has(apptUuid)) {
+            return false
+          }
+          seenDeclinedUuids.add(apptUuid)
+        }
+      }
+      return true
+    })
+  })
 
   const { getEcho } = useEcho()
   const partnerIsTyping = ref(false)
@@ -256,6 +271,123 @@
     return activeAppointment.value?.id === uuid && activeAppointment.value?.status === 'scheduled'
   }
 
+  // --- Rebook Appointment (Patient Side) ---
+  const isRebookingAppt = ref(false)
+  const rebookedDeclinedApptUuids = ref<Set<string>>(new Set())
+  const lastRebookTimestamp = ref<number>(0)
+
+  const extractDeclinedAppointmentUuid = (message: string): string => {
+    const match = message.match(/\[APPOINTMENT_DECLINED:([a-f0-9-]+)\]/i)
+    return match ? match[1] : ''
+  }
+
+  const getDeclinedDiagnosisUuid = (declinedApptUuid?: string): string | null => {
+    if (!declinedApptUuid) return null
+    for (const m of allMessages.value) {
+      if (m.message.includes(`[APPOINTMENT_REQUEST:${declinedApptUuid}:`)) {
+        const match = m.message.match(
+          new RegExp(`\\[APPOINTMENT_REQUEST:${declinedApptUuid}:([a-f0-9-]+)\\]`, 'i')
+        )
+        if (match && match[1]) {
+          return match[1]
+        }
+      }
+    }
+    return null
+  }
+
+  const getDeclinedDiagnosisData = (msg: Message) => {
+    if (msg.appointment_data?.diagnosis) {
+      return msg.appointment_data.diagnosis
+    }
+    const apptUuid = extractDeclinedAppointmentUuid(msg.message)
+    if (!apptUuid) return null
+    const reqMsg = allMessages.value.find(
+      m =>
+        m.message.includes(`[APPOINTMENT_REQUEST:${apptUuid}:`) ||
+        m.message.includes(`[APPOINTMENT_REQUEST:${apptUuid}]`)
+    )
+    return reqMsg?.appointment_data?.diagnosis || null
+  }
+
+  const canRebookAppointment = (msg: Message): boolean => {
+    if (userRole.value?.toLowerCase() !== 'patient') return false
+
+    const apptUuid = extractDeclinedAppointmentUuid(msg.message)
+    if (apptUuid && rebookedDeclinedApptUuids.value.has(apptUuid)) return false
+
+    if (activeAppointment.value || pendingAppointmentForConversation.value) return false
+
+    const hasPendingOrActiveInConversation = appointments.value.some(
+      a =>
+        a.conversation_uuid === props.conversationUuid &&
+        ['scheduled', 'pending', 'reschedule_proposed', 'reschedule_requested'].includes(a.status)
+    )
+    if (hasPendingOrActiveInConversation) return false
+
+    const hasUnhandledRequest = allMessages.value.some(
+      m => m.message.includes('[APPOINTMENT_REQUEST:') && !isAppointmentHandled(m.message)
+    )
+    if (hasUnhandledRequest) return false
+
+    return true
+  }
+
+  const handleRebookAppointment = async (msg: Message) => {
+    if (isRebookingAppt.value) return
+
+    const now = Date.now()
+    if (now - lastRebookTimestamp.value < 5000) {
+      toast.warning('Please wait a moment before sending another request.')
+      return
+    }
+
+    const declinedApptUuid = extractDeclinedAppointmentUuid(msg.message)
+    if (declinedApptUuid && rebookedDeclinedApptUuids.value.has(declinedApptUuid)) return
+
+    const diagnosisUuid =
+      (msg.appointment_data as any)?.diagnosis_uuid ||
+      (msg.appointment_data as any)?.diagnosis?.id ||
+      getDeclinedDiagnosisUuid(declinedApptUuid)
+
+    const doctorId =
+      (msg.appointment_data as any)?.doctor_uuid ||
+      (msg.appointment_data as any)?.doctor_id ||
+      convData.value?.doctor?.uuid ||
+      convData.value?.doctor?.user_id ||
+      convData.value?.doctor?.id
+
+    if (!doctorId) {
+      toast.error('Unable to find doctor information to rebook appointment.')
+      return
+    }
+
+    if (declinedApptUuid) {
+      rebookedDeclinedApptUuids.value.add(declinedApptUuid)
+    }
+    lastRebookTimestamp.value = now
+    isRebookingAppt.value = true
+
+    try {
+      await appointmentService.create({
+        doctor_id: doctorId,
+        diagnosis_uuid: diagnosisUuid || undefined,
+        message: 'I would like to schedule an appointment regarding my recent skin scan.'
+      })
+      toast.success('Appointment request sent successfully!')
+      await fetchAppointments()
+      await fetchMessages(1)
+    } catch (e: any) {
+      console.error('Failed to rebook appointment:', e)
+      if (e?.status !== 429 && e?.status !== 422 && declinedApptUuid) {
+        rebookedDeclinedApptUuids.value.delete(declinedApptUuid)
+      }
+      toast.error(e?.data?.message || 'Failed to rebook appointment. Please try again.')
+    } finally {
+      isRebookingAppt.value = false
+    }
+  }
+
   const openScheduleModal = (message: string) => {
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return
@@ -263,20 +395,26 @@
     showScheduleModal.value = true
   }
 
+  const decliningApptUuids = ref<Set<string>>(new Set())
+
   const declineAppointment = async (message: string) => {
     const uuid = extractAppointmentUuid(message, 'REQUEST')
-    if (!uuid) return
+    if (!uuid || decliningApptUuids.value.has(uuid)) return
+    decliningApptUuids.value.add(uuid)
     try {
       await appointmentService.update(uuid, { status: 'declined' })
-      fetchMessages(1)
+      await fetchMessages(1)
+      await fetchAppointments()
     } catch (e) {
       console.error(e)
+      decliningApptUuids.value.delete(uuid)
     }
   }
 
   const isAppointmentHandled = (message: string) => {
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return true
+    if (decliningApptUuids.value.has(uuid)) return true
     return allMessages.value.some(
       m =>
         m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) ||
@@ -435,12 +573,15 @@
 
   /** Decline a pending appointment directly from the banner. */
   const declineAppointmentFromPending = async (appt: any) => {
+    if (!appt?.id || decliningApptUuids.value.has(appt.id)) return
+    decliningApptUuids.value.add(appt.id)
     try {
       await appointmentService.update(appt.id, { status: 'declined' })
-      fetchMessages(1)
-      fetchAppointments()
+      await fetchMessages(1)
+      await fetchAppointments()
     } catch (e) {
       console.error(e)
+      decliningApptUuids.value.delete(appt.id)
     }
   }
 
@@ -1453,7 +1594,7 @@
 
         <!-- Loading skeleton (Initial) -->
         <div
-          v-if="pending && allMessages.length === 0"
+          v-if="pending && displayedMessages.length === 0"
           class="flex flex-1 items-center justify-center"
         >
           <div class="text-foreground/20 text-center">
@@ -1467,7 +1608,7 @@
 
         <!-- Empty state -->
         <div
-          v-else-if="allMessages.length === 0"
+          v-else-if="displayedMessages.length === 0"
           class="flex flex-1 items-center justify-center"
         >
           <div class="text-foreground/20 text-center">
@@ -1483,7 +1624,7 @@
         <!-- Message bubbles -->
         <div class="flex flex-col gap-4">
           <div
-            v-for="msg in allMessages.filter(m => m && m.id)"
+            v-for="msg in displayedMessages"
             :key="msg.id"
             class="group flex items-end gap-3"
             :class="msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row'"
@@ -1747,6 +1888,89 @@
                     >
                       {{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}
                     </p>
+
+                    <!-- Diagnosis Details Preview (if available) -->
+                    <div
+                      v-if="getDeclinedDiagnosisData(msg)"
+                      class="mt-3 rounded-2xl border p-4 shadow-sm"
+                      :class="[
+                        msg.sender?.id === effectiveUserUuid
+                          ? 'border-white/20 bg-white text-gray-900 shadow-md'
+                          : 'border-border/50 bg-card/50 text-foreground backdrop-blur-sm'
+                      ]"
+                    >
+                      <div class="flex gap-4">
+                        <img
+                          v-if="getDeclinedDiagnosisData(msg)?.image_path"
+                          :src="getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path)"
+                          class="border-border h-20 w-20 shrink-0 rounded-xl border object-cover shadow-sm"
+                          alt="Diagnosis scan"
+                        />
+                        <div class="flex min-w-0 flex-col justify-center gap-0.5">
+                          <p class="text-primary text-[10px] font-black tracking-widest uppercase">
+                            Clinical Findings
+                          </p>
+                          <h4
+                            class="truncate text-base leading-tight font-black"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-900'
+                                : 'text-foreground'
+                            "
+                          >
+                            {{ getDeclinedDiagnosisData(msg)?.label }}
+                          </h4>
+                          <div class="mt-0.5 flex flex-col gap-0.5">
+                            <p
+                              class="truncate text-xs font-bold"
+                              :class="
+                                msg.sender?.id === effectiveUserUuid
+                                  ? 'text-gray-700'
+                                  : 'text-foreground/70'
+                              "
+                            >
+                              {{ getDeclinedDiagnosisData(msg)?.patient_name }}
+                            </p>
+                            <p
+                              v-if="getDeclinedDiagnosisData(msg)?.date"
+                              class="text-[11px] font-medium"
+                              :class="
+                                msg.sender?.id === effectiveUserUuid
+                                  ? 'text-gray-500'
+                                  : 'text-foreground/50'
+                              "
+                            >
+                              {{ getDeclinedDiagnosisData(msg)?.date }}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Rebook Appointment Button for Patients -->
+                    <div
+                      v-if="canRebookAppointment(msg)"
+                      class="mt-3.5 flex items-center gap-2"
+                    >
+                      <button
+                        type="button"
+                        :disabled="isRebookingAppt"
+                        @click.prevent="handleRebookAppointment(msg)"
+                        class="bg-primary hover:bg-primary/90 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+                      >
+                        <Icon
+                          v-if="isRebookingAppt"
+                          name="svg-spinners:ring-resize"
+                          class="text-sm"
+                        />
+                        <Icon
+                          v-else
+                          name="material-symbols:replay-rounded"
+                          class="text-sm"
+                        />
+                        <span>{{ isRebookingAppt ? 'Rebooking...' : 'Rebook Appointment' }}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">

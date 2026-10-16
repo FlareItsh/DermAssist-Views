@@ -39,7 +39,8 @@
     age: '',
     gender: '',
     affiliation: '',
-    prcNumber: ''
+    prcNumber: '',
+    idPhoto: null as string | null
   })
 
   const middleInitial = computed(() => {
@@ -143,6 +144,79 @@
       )
     } finally {
       isUploadingAvatar.value = false
+    }
+  }
+
+  // PRC ID Photo Document Upload
+  const prcFileInputRef = ref<HTMLInputElement | null>(null)
+  const prcUploadedFileName = ref('')
+  const prcUploadedFileSize = ref('')
+  const isPrcDragging = ref(false)
+
+  const triggerPrcUpload = () => {
+    prcFileInputRef.value?.click()
+  }
+
+  const handlePrcFileChange = (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPG, PNG, or WebP).')
+      target.value = ''
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size exceeds 10MB limit. Please choose a smaller image.')
+      target.value = ''
+      return
+    }
+
+    prcUploadedFileName.value = file.name
+    prcUploadedFileSize.value = `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+
+    const reader = new FileReader()
+    reader.onload = (event: ProgressEvent<FileReader>) => {
+      form.idPhoto = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handlePrcDrop = (e: DragEvent) => {
+    isPrcDragging.value = false
+    const file = e.dataTransfer?.files?.[0]
+    if (!file) return
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please upload a valid image file (JPG, PNG, or WebP).')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size exceeds 10MB limit. Please choose a smaller image.')
+      return
+    }
+
+    prcUploadedFileName.value = file.name
+    prcUploadedFileSize.value = `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+
+    const reader = new FileReader()
+    reader.onload = (event: ProgressEvent<FileReader>) => {
+      form.idPhoto = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removePrcPhoto = () => {
+    form.idPhoto = null
+    prcUploadedFileName.value = ''
+    prcUploadedFileSize.value = ''
+    if (prcFileInputRef.value) {
+      prcFileInputRef.value.value = ''
     }
   }
 
@@ -652,9 +726,12 @@
         form.date_of_birth = userData.date_of_birth || ''
         form.age = sanitizeAge(userData.age)
         form.gender = normalizeGender(userData.gender)
-        form.affiliation = userData.affiliation || ''
-
-        form.prcNumber = userData.prcNumber || userData.doctor_verification?.prcNumber || ''
+        form.prcNumber =
+          userData.prcNumber ||
+          userData.prc_number ||
+          userData.doctor_verification?.prcNumber ||
+          userData.doctor_verification?.prc_number ||
+          ''
 
         loaded.value = true
         initialFormState.value = JSON.stringify(form)
@@ -669,7 +746,8 @@
     last_name: '',
     date_of_birth: '',
     age: '',
-    contact_number: ''
+    contact_number: '',
+    prcNumber: ''
   })
 
   const calculatedDoctorAge = computed(() => calculateAge(form.date_of_birth))
@@ -753,6 +831,30 @@
     }
   )
 
+  const validatePrcNumber = () => {
+    if (user.value?.doctor_verification?.status === 'verified') {
+      errors.prcNumber = ''
+      return true
+    }
+    if (form.prcNumber && !/^\d{7}$/.test(form.prcNumber)) {
+      errors.prcNumber = 'PRC License Number must be exactly 7 digits.'
+      return false
+    }
+    errors.prcNumber = ''
+    return true
+  }
+
+  watch(
+    () => form.prcNumber,
+    newVal => {
+      if (newVal) {
+        const sanitized = newVal.replace(/\D/g, '').slice(0, 7)
+        if (sanitized !== newVal) form.prcNumber = sanitized
+      }
+      if (errors.prcNumber) validatePrcNumber()
+    }
+  )
+
   const isLoading = ref(false)
   const isGeoLoading = ref(false)
   const isSuccess = ref(false)
@@ -803,14 +905,16 @@
     const isMnValid = validateMiddleName()
     const isDobValid = validateDateOfBirthField()
     const isPhoneValid = validateContactNumberField()
+    const isPrcValid = validatePrcNumber()
 
-    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid || !isPhoneValid) {
+    if (!isFnValid || !isLnValid || !isMnValid || !isDobValid || !isPhoneValid || !isPrcValid) {
       const firstError =
         errors.first_name ||
         errors.last_name ||
         errors.middle_name ||
         errors.date_of_birth ||
-        errors.contact_number
+        errors.contact_number ||
+        errors.prcNumber
       toast.error(firstError || 'Please fix the errors in the form before saving.')
       return
     }
@@ -823,6 +927,12 @@
       }
 
       await userService.update(useCookie('user_uuid').value as string, form)
+      form.idPhoto = null
+      prcUploadedFileName.value = ''
+      prcUploadedFileSize.value = ''
+      if (prcFileInputRef.value) {
+        prcFileInputRef.value.value = ''
+      }
       initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
       toast.success('Doctor profile updated successfully.')
@@ -1060,9 +1170,12 @@
                     <!-- First, Middle & Last Name -->
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                       <div class="flex flex-col gap-1.5">
-                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >First Name</label
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
                         >
+                          First Name
+                          <span class="font-bold text-rose-500">*</span>
+                        </label>
                         <input
                           v-model="form.first_name"
                           type="text"
@@ -1106,9 +1219,12 @@
                         </p>
                       </div>
                       <div class="flex flex-col gap-1.5">
-                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >Last Name</label
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
                         >
+                          Last Name
+                          <span class="font-bold text-rose-500">*</span>
+                        </label>
                         <input
                           v-model="form.last_name"
                           type="text"
@@ -1130,63 +1246,310 @@
                       </div>
                     </div>
 
-                    <!-- Email & PRC License -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="text-foreground flex flex-col gap-1.5">
-                        <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >Email Address</label
+                    <!-- Email Address -->
+                    <div class="text-foreground flex flex-col gap-1.5">
+                      <label class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
+                        >Email Address</label
+                      >
+                      <div class="relative">
+                        <input
+                          v-model="form.email"
+                          type="email"
+                          disabled
+                          class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
+                        />
+                        <Icon
+                          name="heroicons:lock-closed-20-solid"
+                          class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
+                          size="16"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- PRC License Number (Below Email) -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
                         >
-                        <div class="relative">
-                          <input
-                            v-model="form.email"
-                            type="email"
-                            disabled
-                            class="bg-foreground/5 border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 pr-9 text-sm font-medium opacity-60 outline-none"
-                          />
+                          PRC License Number
+                          <span
+                            v-if="user?.doctor_verification?.status !== 'verified'"
+                            class="font-bold text-rose-500"
+                            >*</span
+                          >
+                        </label>
+                        <span
+                          v-if="user?.doctor_verification?.status === 'verified'"
+                          class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-emerald-600 uppercase"
+                        >
                           <Icon
+                            name="heroicons:check-badge-20-solid"
+                            size="12"
+                          />
+                          Verified
+                        </span>
+                        <span
+                          v-else-if="user?.doctor_verification?.status === 'pending'"
+                          class="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-amber-600 uppercase"
+                        >
+                          <Icon
+                            name="heroicons:clock-20-solid"
+                            size="12"
+                          />
+                          Pending Review
+                        </span>
+                        <span
+                          v-else-if="user?.doctor_verification?.status === 'declined'"
+                          class="inline-flex items-center gap-1 rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold tracking-wide text-rose-600 uppercase"
+                        >
+                          <Icon
+                            name="heroicons:x-circle-20-solid"
+                            size="12"
+                          />
+                          Declined
+                        </span>
+                        <span
+                          v-else
+                          class="bg-muted/60 text-muted-foreground inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase"
+                        >
+                          <Icon
+                            name="heroicons:shield-exclamation-20-solid"
+                            size="12"
+                          />
+                          Unverified
+                        </span>
+                      </div>
+                      <div class="relative">
+                        <input
+                          v-model="form.prcNumber"
+                          type="text"
+                          maxlength="7"
+                          :disabled="user?.doctor_verification?.status === 'verified'"
+                          :class="[
+                            user?.doctor_verification?.status === 'verified'
+                              ? 'bg-foreground/5 text-muted-foreground border-border cursor-not-allowed opacity-70'
+                              : errors.prcNumber
+                                ? 'bg-foreground/5 border-rose-400 focus:border-rose-500'
+                                : 'border-border focus:border-primary bg-foreground/5'
+                          ]"
+                          class="w-full rounded-2xl border px-4 py-3 pr-12 text-sm font-medium transition-all outline-none"
+                          placeholder="Enter 7-digit PRC License Number"
+                        />
+                        <span
+                          class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2 text-xs"
+                        >
+                          <Icon
+                            v-if="user?.doctor_verification?.status === 'verified'"
                             name="heroicons:lock-closed-20-solid"
-                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2"
                             size="16"
                           />
+                          <span
+                            v-else
+                            class="font-mono text-[10px] font-medium"
+                            >{{ form.prcNumber ? form.prcNumber.length : 0 }}/7</span
+                          >
+                        </span>
+                      </div>
+                      <p
+                        v-if="errors.prcNumber"
+                        class="text-xs font-medium text-rose-500"
+                      >
+                        {{ errors.prcNumber }}
+                      </p>
+                      <p
+                        v-else-if="user?.doctor_verification?.status === 'verified'"
+                        class="text-muted-foreground/70 text-[11px] leading-tight"
+                      >
+                        PRC license number is officially verified and cannot be changed directly.
+                      </p>
+                      <p
+                        v-else
+                        class="text-muted-foreground/70 text-[11px] leading-tight"
+                      >
+                        Enter your official 7-digit PRC license number for verification.
+                      </p>
+                    </div>
+
+                    <!-- PRC ID Document Photo Upload -->
+                    <div class="flex flex-col gap-2">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                        >
+                          PRC License ID Document / Card
+                          <span
+                            v-if="user?.doctor_verification?.status !== 'verified'"
+                            class="font-bold text-rose-500"
+                            >*</span
+                          >
+                        </label>
+                        <span
+                          v-if="
+                            form.idPhoto ||
+                            user?.doctor_verification?.id_photo_url ||
+                            user?.doctor_verification?.id_photo_path
+                          "
+                          class="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400"
+                        >
+                          <Icon
+                            name="heroicons:document-check-20-solid"
+                            size="14"
+                          />
+                          Document Attached
+                        </span>
+                      </div>
+
+                      <!-- Hidden File Input -->
+                      <input
+                        ref="prcFileInputRef"
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        class="hidden"
+                        @change="handlePrcFileChange"
+                      />
+
+                      <!-- Rejection Notice if declined -->
+                      <div
+                        v-if="
+                          user?.doctor_verification?.status === 'declined' &&
+                          user?.doctor_verification?.rejection_reason
+                        "
+                        class="flex items-start gap-2.5 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300"
+                      >
+                        <Icon
+                          name="heroicons:exclamation-triangle-20-solid"
+                          class="mt-0.5 h-4 w-4 shrink-0 text-rose-600"
+                        />
+                        <div class="space-y-0.5">
+                          <span class="font-bold">Verification Note from Admin:</span>
+                          <p class="text-rose-600/90 dark:text-rose-300/90">
+                            {{ user.doctor_verification.rejection_reason }}
+                          </p>
+                          <p class="text-muted-foreground mt-1 text-[11px]">
+                            Please re-upload a clear photo of your PRC ID card and update your
+                            profile to resubmit.
+                          </p>
                         </div>
                       </div>
-                      <div class="flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between">
-                          <label
-                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                            >PRC License Number</label
-                          >
-                          <span
-                            v-if="user?.doctor_verification?.status === 'verified'"
-                            class="inline-flex items-center gap-1 text-[10px] font-bold tracking-wide text-emerald-600 uppercase"
-                          >
-                            <Icon
-                              name="heroicons:check-badge-20-solid"
-                              size="12"
-                            />
-                            Verified
-                          </span>
-                        </div>
-                        <div class="relative">
-                          <input
-                            v-model="form.prcNumber"
-                            type="text"
-                            disabled
-                            class="bg-foreground/5 text-muted-foreground border-border w-full cursor-not-allowed rounded-2xl border px-4 py-3 text-sm font-medium opacity-70"
-                            placeholder="Not registered"
+
+                      <!-- State A: Newly selected photo in form -->
+                      <div
+                        v-if="form.idPhoto"
+                        class="border-border bg-card flex items-center gap-4 rounded-2xl border p-3.5 shadow-xs"
+                      >
+                        <div
+                          class="bg-muted/40 border-border/50 h-16 w-24 shrink-0 overflow-hidden rounded-xl border"
+                        >
+                          <img
+                            :src="form.idPhoto"
+                            alt="PRC ID Preview"
+                            class="h-full w-full object-cover"
                           />
-                          <span
-                            class="text-muted-foreground/60 absolute top-1/2 right-3 -translate-y-1/2 text-xs"
-                          >
-                            <Icon
-                              name="heroicons:lock-closed-20-solid"
-                              size="16"
-                            />
-                          </span>
                         </div>
-                        <p class="text-muted-foreground/70 text-[11px] leading-tight">
-                          PRC license number is tied to your professional verification and cannot be
-                          changed directly.
+                        <div class="min-w-0 flex-1">
+                          <p class="text-foreground truncate text-xs font-bold">
+                            {{ prcUploadedFileName || 'PRC_ID_Document.png' }}
+                          </p>
+                          <p class="text-foreground/50 mt-0.5 text-[11px]">
+                            {{ prcUploadedFileSize || 'Ready to submit with profile' }}
+                          </p>
+                          <div
+                            class="mt-1 flex items-center gap-2"
+                            v-if="user?.doctor_verification?.status !== 'verified'"
+                          >
+                            <button
+                              type="button"
+                              @click="triggerPrcUpload"
+                              class="text-primary cursor-pointer text-[11px] font-semibold hover:underline"
+                            >
+                              Replace Photo
+                            </button>
+                            <span class="text-foreground/20 text-xs">•</span>
+                            <button
+                              type="button"
+                              @click="removePrcPhoto"
+                              class="text-destructive cursor-pointer text-[11px] font-semibold hover:underline"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- State B: Existing photo on server (when no new photo selected) -->
+                      <div
+                        v-else-if="
+                          user?.doctor_verification?.id_photo_url ||
+                          user?.doctor_verification?.id_photo_path
+                        "
+                        class="border-border bg-card flex items-center gap-4 rounded-2xl border p-3.5 shadow-xs"
+                      >
+                        <div
+                          class="bg-muted/40 border-border/50 h-16 w-24 shrink-0 overflow-hidden rounded-xl border"
+                        >
+                          <img
+                            :src="
+                              user?.doctor_verification?.id_photo_url ||
+                              getStorageUrl(user.doctor_verification.id_photo_path)
+                            "
+                            alt="Uploaded PRC ID"
+                            class="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p class="text-foreground truncate text-xs font-bold">
+                            Current Uploaded PRC ID
+                          </p>
+                          <p class="text-muted-foreground mt-0.5 text-[11px]">
+                            Stored document for verification
+                          </p>
+                          <div
+                            class="mt-1 flex items-center gap-2"
+                            v-if="user?.doctor_verification?.status !== 'verified'"
+                          >
+                            <button
+                              type="button"
+                              @click="triggerPrcUpload"
+                              class="text-primary flex cursor-pointer items-center gap-1 text-[11px] font-semibold hover:underline"
+                            >
+                              <Icon
+                                name="heroicons:arrow-up-tray-20-solid"
+                                size="12"
+                              />
+                              Upload Replacement
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- State C: No photo yet (Dropzone) -->
+                      <div
+                        v-else-if="user?.doctor_verification?.status !== 'verified'"
+                        @click="triggerPrcUpload"
+                        @dragover.prevent="isPrcDragging = true"
+                        @dragleave.prevent="isPrcDragging = false"
+                        @drop.prevent="handlePrcDrop"
+                        :class="[
+                          isPrcDragging
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border/80 bg-foreground/2 hover:bg-foreground/5 hover:border-primary/50'
+                        ]"
+                        class="group flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-4 text-center transition-all"
+                      >
+                        <div
+                          class="bg-foreground/5 text-foreground/70 group-hover:bg-primary/10 group-hover:text-primary mb-2 flex h-10 w-10 items-center justify-center rounded-xl transition-all"
+                        >
+                          <Icon
+                            name="heroicons:arrow-up-tray-20-solid"
+                            class="h-5 w-5"
+                          />
+                        </div>
+                        <p class="text-foreground text-xs font-semibold">
+                          Click to browse or drag & drop PRC ID photo
+                        </p>
+                        <p class="text-muted-foreground mt-0.5 text-[11px]">
+                          Supports JPG, PNG, WebP (up to 10MB)
                         </p>
                       </div>
                     </div>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { authService } from '~/api/auth/AuthService'
+  import { userService } from '~/api/user/UserService'
   import { toast } from 'vue-sonner'
   definePageMeta({
     layout: 'auth-split-layout'
@@ -11,6 +12,7 @@
   // State
   const currentStep = ref(1)
   const role = ref<Role>('patient')
+  const isGoogleOnboarding = ref(false)
   const verificationMode = ref<'upload' | 'camera'>('upload')
   const isCapturing = ref(false)
   const video = ref<HTMLVideoElement | null>(null)
@@ -351,6 +353,33 @@
     }
   }
 
+  const showSkipConfirmModal = ref(false)
+
+  const handleStep2Click = () => {
+    if (!form.idPhoto) {
+      showSkipConfirmModal.value = true
+      return
+    }
+
+    if (!/^\d{7}$/.test(form.prcNumber)) {
+      touched.prcNumber = true
+      validateField('prcNumber', true)
+      toast.error('Please enter a valid 7-digit PRC License Number.')
+      return
+    }
+
+    handleRegister(false)
+  }
+
+  const confirmSkipRegistration = () => {
+    showSkipConfirmModal.value = false
+    handleRegister(true)
+  }
+
+  const cancelSkipModal = () => {
+    showSkipConfirmModal.value = false
+  }
+
   const handleRegister = async (allowSkip = false) => {
     if (debounceTimeout) clearTimeout(debounceTimeout)
 
@@ -360,7 +389,7 @@
       validateField(key, true)
     })
 
-    if (!agreeToTerms.value) {
+    if (!agreeToTerms.value && !isGoogleOnboarding.value) {
       toast.warning('Please agree to the Terms and Conditions and Privacy Policy.')
       return
     }
@@ -377,16 +406,53 @@
     isLoading.value = true
 
     try {
+      const authToken = useCookie('auth_token')
+      const userUuid = useCookie('user_uuid')
+
+      // Case A: Doctor onboarding via Google completing or skipping Step 2
+      if (
+        isGoogleOnboarding.value ||
+        (authToken.value && userUuid.value && currentStep.value === 2)
+      ) {
+        if (allowSkip) {
+          toast.info(
+            'PRC verification skipped for now. You can upload it anytime in your Profile Settings.'
+          )
+          await navigateTo('/doctor')
+          return
+        }
+
+        await userService.update(userUuid.value as string, {
+          prcNumber: form.prcNumber,
+          idPhoto: form.idPhoto
+        })
+
+        toast.success(
+          'PRC details submitted successfully! Your account credentials will be reviewed by an administrator.'
+        )
+        await navigateTo('/doctor')
+        return
+      }
+
+      // Case B: Standard Registration flow
       sanitizeForm()
       const { deviceId, isAccepted } = useDeviceIdentifier()
-      const response = await authService.register({
+
+      const payload: any = {
         role: role.value,
         consent_dataset: role.value === 'patient' ? consentDataset.value : false,
         agree_to_terms: agreeToTerms.value,
         device_token: deviceId.value,
         cookies_accepted: isAccepted.value,
         ...form
-      })
+      }
+
+      if (allowSkip && role.value === 'doctor') {
+        payload.prcNumber = null
+        payload.idPhoto = null
+      }
+
+      const response = await authService.register(payload)
 
       if (response.token) {
         // Set the auth token cookie
@@ -585,10 +651,33 @@
   }
 
   const config = useRuntimeConfig()
+  const route = useRoute()
+
   const registerWithGoogle = () => {
     const apiBase = config.public.apiBase || 'http://localhost:8000/api'
-    window.location.href = `${apiBase}/auth/google/redirect`
+    window.location.href = `${apiBase}/auth/google/redirect?role=${role.value}`
   }
+
+  onMounted(() => {
+    const stepParam = route.query.step as string
+    const roleParam = route.query.role as Role
+    const sourceParam = route.query.source as string
+
+    if (roleParam === 'doctor') {
+      role.value = 'doctor'
+    }
+    if (stepParam === '2') {
+      role.value = 'doctor'
+      currentStep.value = 2
+      if (sourceParam === 'google') {
+        isGoogleOnboarding.value = true
+        agreeToTerms.value = true
+        toast.info(
+          'Google account verified! Please upload your PRC credentials to finish onboarding.'
+        )
+      }
+    }
+  })
 
   onUnmounted(() => {
     stopCamera()
@@ -1039,10 +1128,7 @@
             </template>
           </AppButton>
 
-          <div
-            v-if="role === 'patient'"
-            class="relative my-1.5 flex items-center justify-center"
-          >
+          <div class="relative my-1.5 flex items-center justify-center">
             <div class="border-border/60 absolute inset-0 flex items-center">
               <div class="border-border/60 w-full border-t" />
             </div>
@@ -1054,7 +1140,6 @@
           </div>
 
           <button
-            v-if="role === 'patient'"
             type="button"
             :disabled="isLoading"
             class="border-border/80 bg-background hover:bg-muted/50 text-foreground flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border px-4 py-2.5 text-xs font-semibold shadow-xs transition-all hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
@@ -1104,6 +1189,7 @@
           <!-- Top Step Back Navigation -->
           <div class="flex items-center justify-between">
             <AppButton
+              v-if="!isGoogleOnboarding"
               variant="ghost"
               size="sm"
               @click="prevStep"
@@ -1118,6 +1204,16 @@
               </template>
               Back to Account Info
             </AppButton>
+            <div
+              v-else
+              class="border-primary/20 bg-primary/10 text-primary flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold"
+            >
+              <Icon
+                name="heroicons:check-circle-20-solid"
+                class="size-4 text-emerald-500"
+              />
+              <span>Google Account Connected</span>
+            </div>
             <span class="text-foreground/40 text-[11px] font-medium">Step 2 of 2</span>
           </div>
 
@@ -1411,11 +1507,11 @@
               block
               size="lg"
               :loading="isLoading"
-              :disabled="!isStep2Valid || isLoading"
-              @click="handleRegister(false)"
+              :disabled="isLoading"
+              @click="handleStep2Click"
             >
               <span>{{
-                isLoading ? 'Completing Registration...' : 'Complete Doctor Registration'
+                isLoading ? 'Completing Registration...' : 'Complete Registration'
               }}</span>
               <template
                 #trailing
@@ -1427,43 +1523,6 @@
                 />
               </template>
             </AppButton>
-
-            <!-- Friendly Skip Notice Card -->
-            <div
-              class="border-border/50 bg-muted/20 hover:bg-muted/40 flex items-start gap-2.5 rounded-xl border p-3 transition-colors"
-            >
-              <Icon
-                name="lucide:shield-check"
-                class="text-primary mt-0.5 h-4 w-4 shrink-0"
-              />
-              <div class="flex-1">
-                <p class="text-foreground text-xs font-semibold">
-                  Don't have your PRC license on hand?
-                </p>
-                <p class="text-foreground/60 mt-0.5 text-[11px] leading-relaxed">
-                  You can finish account creation now. Your profile will stay pending until you
-                  upload your credentials later.
-                </p>
-                <button
-                  type="button"
-                  @click="handleRegister(true)"
-                  :disabled="isLoading"
-                  class="text-primary mt-1.5 inline-flex cursor-pointer items-center gap-1.5 text-xs font-bold hover:underline disabled:cursor-wait disabled:opacity-60"
-                >
-                  <Icon
-                    v-if="isLoading"
-                    name="svg-spinners:ring-resize"
-                    class="h-3.5 w-3.5 shrink-0"
-                  />
-                  <span>{{ isLoading ? 'Creating Account...' : 'Skip Verification for Now' }}</span>
-                  <Icon
-                    v-if="!isLoading"
-                    name="lucide:chevron-right"
-                    class="h-3 w-3"
-                  />
-                </button>
-              </div>
-            </div>
           </div>
 
           <div class="mt-2 text-center">
@@ -1484,6 +1543,21 @@
         </div>
       </transition>
     </div>
+
+    <!-- Skip Verification Confirmation Modal -->
+    <AppModalConfirmation
+      v-model="showSkipConfirmModal"
+      title="No PRC ID Document Attached"
+      description="You haven't uploaded your PRC license ID photo. Would you like to skip this step for now and finish registration? You can upload your credentials anytime in Profile Settings, but your account will remain pending until verified by an administrator."
+      icon="lucide:file-warning"
+      icon-color="warning"
+      confirm-text="Skip for Now"
+      cancel-text="Upload Photo"
+      confirm-variant="solid"
+      :loading="isLoading"
+      @confirm="confirmSkipRegistration"
+      @cancel="cancelSkipModal"
+    />
 
     <!-- Terms & Conditions / Privacy Policy Modal -->
     <AppModalTermsModal

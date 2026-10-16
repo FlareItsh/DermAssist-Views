@@ -232,7 +232,7 @@
           @click.self="isOpen = false"
         >
           <div
-            class="modal-container relative max-h-[90vh] w-[95vw] overflow-y-auto rounded-3xl bg-white shadow-2xl md:w-full md:max-w-2xl md:rounded-4xl"
+            class="modal-container relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
           >
             <AppModalRecord
               v-if="selectedRecord"

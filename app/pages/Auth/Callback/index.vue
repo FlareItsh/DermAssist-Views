@@ -33,9 +33,11 @@
       return
     }
 
+    let exchangeRes: any = null
+
     try {
       if (code) {
-        const exchangeRes: any = await $api('/auth/google/exchange', {
+        exchangeRes = await $api('/auth/google/exchange', {
           method: 'POST',
           body: { code }
         })
@@ -133,14 +135,28 @@
         maxAge: 60 * 60 * 24 * 7,
         path: '/'
       })
-      verificationDeadlineCookie.value = userData?.verification_deadline || null
+      const isDoctor = baseRole === 'doctor'
+      const needsPrcOnboarding =
+        isDoctor &&
+        (exchangeRes?.needs_prc_onboarding ||
+          exchangeRes?.is_new_user ||
+          !userData?.prc_number ||
+          !userData?.doctor_verification?.id_photo_path)
 
       isCompleted.value = true
-      toast.success('Signed in with Google successfully!')
+      toast.success(
+        isDoctor && needsPrcOnboarding
+          ? 'Google authentication confirmed! Let’s complete your verification.'
+          : 'Signed in with Google successfully!'
+      )
 
-      // Smooth navigate to designated role dashboard
+      // Smooth navigate to designated role dashboard or Step 2 for doctors
       setTimeout(async () => {
-        await navigateTo(`/${baseRole}`, { replace: true })
+        if (needsPrcOnboarding) {
+          await navigateTo('/auth/register?step=2&role=doctor&source=google', { replace: true })
+        } else {
+          await navigateTo(`/${baseRole}`, { replace: true })
+        }
       }, 600)
     } catch (err: any) {
       const msg = err?.data?.message || err?.message || 'Failed to authenticate with Google.'

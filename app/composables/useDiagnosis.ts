@@ -34,12 +34,21 @@ export type DiseaseName =
   | 'Inconclusive'
   | 'OutOfScope'
 
+export interface DiseaseCharacteristicSet {
+  lesionType: string
+  distribution: string
+  texture: string
+  sensation: string
+  progression: string
+}
+
 export interface DiseaseInfo {
   description: string
   prescription?: string
   guidelines: string[]
   symptoms: string[]
   causes: string[]
+  characteristics?: DiseaseCharacteristicSet
   color: string
 }
 
@@ -74,6 +83,17 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Bacteria',
       'Inflammation'
     ],
+    characteristics: {
+      lesionType:
+        'Whiteheads, blackheads, small red pimples, and deeper tender bumps under the skin',
+      distribution: 'Most common on the face, forehead, cheeks, chin, neck, chest, and upper back',
+      texture:
+        'Bumpy and oily to the touch. Pimples may feel raised, slightly swollen, or tender when pressed',
+      sensation:
+        'Usually painless unless bumped or touched. Larger pimples can feel sore, tender, or achy',
+      progression:
+        'Starts as a clogged pore or tiny bump → turns into a red pimple → dries up and fades away (may leave a temporary dark mark)'
+    },
     color: COLOR_MAP['Acne']
   },
   Eczema: {
@@ -96,6 +116,18 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Environmental triggers',
       'Skin barrier defects'
     ],
+    characteristics: {
+      lesionType:
+        'Dry, red, rough patches of skin that look flaky, scaly, or cracked. When irritated, tiny clear fluid drops may appear',
+      distribution:
+        'Inside the bends of elbows, behind knees, around wrists, neck, hands, or on the face',
+      texture:
+        'Rough, dry, and coarse like sandpaper. Skin often feels tight, chapped, or easily irritated',
+      sensation:
+        'Intense, uncomfortable itching (especially at night or when warm), with a dry, stinging sensation',
+      progression:
+        'Starts with an itchy red patch → skin gets irritated and flaky → calms down and smooths out with daily moisturizing'
+    },
     color: COLOR_MAP['Eczema']
   },
   Herpes: {
@@ -117,6 +149,18 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Herpes Simplex Virus Type 2 (HSV-2)',
       'Contact with infected skin or bodily fluids'
     ],
+    characteristics: {
+      lesionType:
+        'A tight cluster of tiny, fluid-filled blisters that pop, form shallow sores, and dry into yellowish crusts',
+      distribution:
+        'Most often along the border of the lips or mouth (cold sores), or in private and sensitive skin areas',
+      texture:
+        'Soft, tender little bumps that can easily burst when touched, leaving raw, crusted sores',
+      sensation:
+        'Starts with a tingling, itching, or prickling feeling before blisters appear, followed by a burning or stinging ache',
+      progression:
+        'Early tingling or burning → small blisters pop up → blisters burst and crust over → scab falls off as skin heals completely'
+    },
     color: COLOR_MAP['Herpes']
   },
   Clear: {
@@ -129,6 +173,14 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
     ],
     symptoms: ['Natural elasticity', 'Even texture', 'Hydrated appearance', 'Consistent color'],
     causes: ['Consistent skincare', 'Proper hydration', 'Sun protection', 'Healthy diet'],
+    characteristics: {
+      lesionType: 'Clean, even skin with no visible rashes, unusual bumps, or signs of irritation',
+      distribution: 'Even and uniform across the entire checked skin area',
+      texture: 'Soft, smooth, and comfortable with no rough, tight, or flaky patches',
+      sensation: 'Normal and calm. No itching, burning, tingling, or soreness',
+      progression:
+        'Your skin is healthy and maintaining its natural protection with everyday gentle care and sun protection'
+    },
     color: COLOR_MAP['Clear']
   },
   None: {
@@ -149,6 +201,15 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Distant or out-of-focus capture',
       'Extreme lighting or non-medical perspective'
     ],
+    characteristics: {
+      lesionType: 'The photo does not clearly show human skin or a visible skin spot',
+      distribution:
+        'The camera might have captured clothing, background items, or an area taken from too far away',
+      texture: 'Cannot check skin texture because the photo does not show skin up close',
+      sensation: 'Not applicable since no skin condition was found in the image',
+      progression:
+        'Please take a new, clear, close-up photo in good room lighting to check your skin'
+    },
     color: COLOR_MAP['None']
   },
   OutOfScope: {
@@ -169,6 +230,15 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Non-target skin infection or chronic dermatosis',
       'Condition outside the 3 trained neural classification backbones'
     ],
+    characteristics: {
+      lesionType:
+        'A skin spot or rash that looks different from common acne, eczema, or cold sores (such as ring-like rashes, silvery scales, or raised hives)',
+      distribution: 'Can appear on elbows, knees, scalp, back, chest, or anywhere on the body',
+      texture: 'May feel scaly, raised, bumpy, or thick, depending on the specific skin condition',
+      sensation: 'You might feel mild itching, dry tightness, stinging, or no discomfort at all',
+      progression:
+        'Because many skin conditions can look alike, a doctor or dermatologist can examine it in person to give you the right treatment'
+    },
     color: COLOR_MAP['OutOfScope']
   },
   Inconclusive: {
@@ -189,6 +259,18 @@ export const DISEASE_DATABASE: Record<string, DiseaseInfo> = {
       'Atypical lesion morphology or overlapping presentation',
       'Equally distributed or ambiguous probability distribution'
     ],
+    characteristics: {
+      lesionType:
+        'The skin mark or rash in the photo looks unclear or overlaps with several different conditions',
+      distribution:
+        'The affected area might be partly shadowed, blurry, or at an angle that is hard to see clearly',
+      texture:
+        'Cannot be confirmed from this photo alone without a physical touch or closer examination',
+      sensation:
+        'Only you know how it feels—tell your doctor if it itches, stings, burns, or hurts',
+      progression:
+        'Try snapping a clearer photo in good lighting, or visit a doctor for a quick in-person check'
+    },
     color: COLOR_MAP['Inconclusive']
   }
 }
@@ -201,9 +283,9 @@ export interface PendingPatientRegistration {
   firstName: string
   middleName?: string
   lastName: string
-  email: string
+  email?: string
   contact_number?: string
-  password: string
+  password?: string
   date_of_birth?: string
   age?: number
   gender?: string
@@ -211,6 +293,17 @@ export interface PendingPatientRegistration {
   barangay?: string
   city?: string
   province?: string
+  is_walk_in?: boolean
+}
+
+export interface WalkInPatientInfo {
+  firstName: string
+  middleName?: string
+  lastName: string
+  age?: number
+  gender?: string
+  date_of_birth?: string
+  contact_number?: string
 }
 
 const qualityError = ref<string | null>(null)
@@ -219,6 +312,7 @@ const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
 const appointmentUuid = ref<string | null>(null)
 const pendingPatientRegistration = ref<PendingPatientRegistration | null>(null)
+const walkInPatientInfo = ref<WalkInPatientInfo | null>(null)
 const boundUserUuid = ref<string | null>(null)
 
 const getStorageKey = (uuid?: string | null): string | null => {
@@ -238,6 +332,7 @@ const resetScannerInMemory = () => {
   patientUuid.value = null
   appointmentUuid.value = null
   pendingPatientRegistration.value = null
+  walkInPatientInfo.value = null
   boundUserUuid.value = null
 }
 
@@ -274,6 +369,7 @@ const restoreActiveDiagnosisState = () => {
         if (parsed.appointmentUuid) appointmentUuid.value = parsed.appointmentUuid
         if (parsed.pendingPatientRegistration)
           pendingPatientRegistration.value = parsed.pendingPatientRegistration
+        if (parsed.walkInPatientInfo) walkInPatientInfo.value = parsed.walkInPatientInfo
         return
       } else {
         localStorage.removeItem(key)
@@ -308,7 +404,8 @@ const saveActiveDiagnosisState = () => {
       previewImage.value ||
       patientUuid.value ||
       appointmentUuid.value ||
-      pendingPatientRegistration.value
+      pendingPatientRegistration.value ||
+      walkInPatientInfo.value
     ) {
       boundUserUuid.value = currentUuid
       localStorage.setItem(
@@ -321,7 +418,8 @@ const saveActiveDiagnosisState = () => {
           previewImage: previewImage.value,
           patientUuid: patientUuid.value,
           appointmentUuid: appointmentUuid.value,
-          pendingPatientRegistration: pendingPatientRegistration.value
+          pendingPatientRegistration: pendingPatientRegistration.value,
+          walkInPatientInfo: walkInPatientInfo.value
         })
       )
     } else {
@@ -478,6 +576,7 @@ export const useDiagnosis = () => {
     patientUuid,
     appointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
     pendingPatientName,
     isHealthyState,
     isInconclusiveState,

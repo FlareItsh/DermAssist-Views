@@ -30,6 +30,7 @@
     patientUuid,
     appointmentUuid: diagnosisAppointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
     saveActiveDiagnosisState
   } = useDiagnosis()
   const userName = useCookie('user_name')
@@ -580,11 +581,13 @@
       // Create pending patient account now when finishing diagnosis and save
       if (pendingPatientRegistration.value) {
         try {
+          const isWalkIn = !!pendingPatientRegistration.value.is_walk_in
           const res = await userService.createDoctorPatient(pendingPatientRegistration.value)
           const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
           patientUuid.value = createdUser.uuid
           userName.value = `${createdUser.first_name} ${createdUser.last_name}`
           pendingPatientRegistration.value = null
+          walkInPatientInfo.value = null
           saveActiveDiagnosisState()
 
           if (props.diagnosisUuid) {
@@ -594,9 +597,15 @@
               console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
             }
           }
-          toast.success(
-            `Account for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
-          )
+          if (isWalkIn) {
+            toast.success(
+              `Patient record for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
+            )
+          } else {
+            toast.success(
+              `Account for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
+            )
+          }
         } catch (accountErr: any) {
           console.error('Failed to create pending patient account:', accountErr)
           const msg =
