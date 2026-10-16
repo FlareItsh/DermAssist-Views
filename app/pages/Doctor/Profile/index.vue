@@ -1828,176 +1828,178 @@
 
                   <!-- Card 2 Fields -->
                   <div class="space-y-4">
-                    <!-- Region & Province -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="flex flex-col gap-1.5">
+                    <!-- Region -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
                         <label
                           class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
                         >
                           Region
                           <span class="font-bold text-rose-500">*</span>
                         </label>
-                        <select
-                          v-model="codes.region"
-                          class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                        >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            Select Region
-                          </option>
-                          <option
-                            v-for="r in regions"
-                            :key="r.code"
-                            :value="r.code"
-                          >
-                            {{ r.name }}
-                          </option>
-                        </select>
                       </div>
-                      <div class="flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between">
-                          <label
-                            class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
-                          >
-                            Province
-                            <span class="font-bold text-rose-500">*</span>
-                          </label>
-                          <span
-                            v-if="!codes.region"
-                            class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
-                          >
-                            <span class="font-bold text-rose-500">*</span> Select Region first
-                          </span>
-                        </div>
-                        <select
-                          v-model="codes.province"
-                          :disabled="!codes.region || !provinces.length"
-                          :class="[
-                            !codes.region
-                              ? 'cursor-not-allowed border-rose-300 bg-rose-500/5 opacity-75 dark:border-rose-900/60'
-                              : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
-                          ]"
-                          class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      <select
+                        v-model="codes.region"
+                        class="bg-foreground/5 border-border focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      >
+                        <option
+                          value=""
+                          disabled
                         >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            {{
-                              !codes.region
-                                ? 'Select Region first *'
-                                : provinces.length
-                                  ? 'Select Province'
-                                  : 'Loading provinces...'
-                            }}
-                          </option>
-                          <option
-                            v-for="p in provinces"
-                            :key="p.code"
-                            :value="p.code"
-                          >
-                            {{ p.name }}
-                          </option>
-                        </select>
-                      </div>
+                          Select Region (e.g. NCR, Region VII - Central Visayas)
+                        </option>
+                        <option
+                          v-for="r in regions"
+                          :key="r.code"
+                          :value="r.code"
+                        >
+                          {{ r.name }}
+                        </option>
+                      </select>
                     </div>
 
-                    <!-- City & Barangay -->
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div class="flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between">
-                          <label
-                            class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
-                          >
-                            City / Municipality
-                            <span class="font-bold text-rose-500">*</span>
-                          </label>
-                          <span
-                            v-if="!codes.province"
-                            class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
-                          >
-                            <span class="font-bold text-rose-500">*</span> Select Province first
-                          </span>
-                        </div>
-                        <select
-                          v-model="codes.city"
-                          :disabled="!codes.province || !cities.length"
-                          :class="[
+                    <!-- Province -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                        >
+                          Province
+                          <span class="font-bold text-rose-500">*</span>
+                        </label>
+                        <span
+                          v-if="!codes.region"
+                          class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
+                        >
+                          <span class="font-bold text-rose-500">*</span> Select Region first
+                        </span>
+                      </div>
+                      <select
+                        v-model="codes.province"
+                        :disabled="!codes.region || !provinces.length"
+                        :class="[
+                          !codes.region
+                            ? 'cursor-not-allowed border-rose-300/60 bg-rose-500/5 opacity-40 dark:border-rose-900/40'
+                            : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
+                        ]"
+                        class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      >
+                        <option
+                          value=""
+                          disabled
+                        >
+                          {{
+                            !codes.region
+                              ? 'e.g. Cebu, Cavite, Laguna, Pangasinan'
+                              : provinces.length
+                                ? 'Select Province'
+                                : 'Loading provinces...'
+                          }}
+                        </option>
+                        <option
+                          v-for="p in provinces"
+                          :key="p.code"
+                          :value="p.code"
+                        >
+                          {{ p.name }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <!-- City / Municipality -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                        >
+                          City / Municipality
+                          <span class="font-bold text-rose-500">*</span>
+                        </label>
+                        <span
+                          v-if="!codes.province"
+                          class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
+                        >
+                          <span class="font-bold text-rose-500">*</span> Select Province first
+                        </span>
+                      </div>
+                      <select
+                        v-model="codes.city"
+                        :disabled="!codes.province || !cities.length"
+                        :class="[
+                          !codes.province
+                            ? 'cursor-not-allowed border-rose-300/60 bg-rose-500/5 opacity-40 dark:border-rose-900/40'
+                            : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
+                        ]"
+                        class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      >
+                        <option
+                          value=""
+                          disabled
+                        >
+                          {{
                             !codes.province
-                              ? 'cursor-not-allowed border-rose-300 bg-rose-500/5 opacity-75 dark:border-rose-900/60'
-                              : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
-                          ]"
-                          class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                              ? 'e.g. Cebu City, Quezon City, Davao City'
+                              : cities.length
+                                ? 'Select City / Municipality'
+                                : 'Loading cities...'
+                          }}
+                        </option>
+                        <option
+                          v-for="c in cities"
+                          :key="c.code"
+                          :value="c.code"
                         >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            {{
-                              !codes.province
-                                ? 'Select Province first *'
-                                : cities.length
-                                  ? 'Select City / Municipality'
-                                  : 'Loading cities...'
-                            }}
-                          </option>
-                          <option
-                            v-for="c in cities"
-                            :key="c.code"
-                            :value="c.code"
-                          >
-                            {{ c.name }}
-                          </option>
-                        </select>
+                          {{ c.name }}
+                        </option>
+                      </select>
+                    </div>
+
+                    <!-- Barangay -->
+                    <div class="flex flex-col gap-1.5">
+                      <div class="flex items-center justify-between">
+                        <label
+                          class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
+                        >
+                          Barangay
+                          <span class="font-bold text-rose-500">*</span>
+                        </label>
+                        <span
+                          v-if="!codes.city"
+                          class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
+                        >
+                          <span class="font-bold text-rose-500">*</span> Select City first
+                        </span>
                       </div>
-                      <div class="flex flex-col gap-1.5">
-                        <div class="flex items-center justify-between">
-                          <label
-                            class="text-foreground/70 flex items-center gap-1 text-xs font-bold tracking-wider uppercase"
-                          >
-                            Barangay
-                            <span class="font-bold text-rose-500">*</span>
-                          </label>
-                          <span
-                            v-if="!codes.city"
-                            class="flex items-center gap-1 text-[10px] font-semibold text-rose-500 dark:text-rose-400"
-                          >
-                            <span class="font-bold text-rose-500">*</span> Select City first
-                          </span>
-                        </div>
-                        <select
-                          v-model="codes.barangay"
-                          :disabled="!codes.city || !barangays.length"
-                          :class="[
+                      <select
+                        v-model="codes.barangay"
+                        :disabled="!codes.city || !barangays.length"
+                        :class="[
+                          !codes.city
+                            ? 'cursor-not-allowed border-rose-300/60 bg-rose-500/5 opacity-40 dark:border-rose-900/40'
+                            : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
+                        ]"
+                        class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                      >
+                        <option
+                          value=""
+                          disabled
+                        >
+                          {{
                             !codes.city
-                              ? 'cursor-not-allowed border-rose-300 bg-rose-500/5 opacity-75 dark:border-rose-900/60'
-                              : 'border-border focus:border-primary bg-foreground/5 cursor-pointer'
-                          ]"
-                          class="w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
+                              ? 'e.g. Brgy. Poblacion, San Antonio, Guadalupe'
+                              : barangays.length
+                                ? 'Select Barangay'
+                                : 'Loading barangays...'
+                          }}
+                        </option>
+                        <option
+                          v-for="b in barangays"
+                          :key="b.code"
+                          :value="b.code"
                         >
-                          <option
-                            value=""
-                            disabled
-                          >
-                            {{
-                              !codes.city
-                                ? 'Select City first *'
-                                : barangays.length
-                                  ? 'Select Barangay'
-                                  : 'Loading barangays...'
-                            }}
-                          </option>
-                          <option
-                            v-for="b in barangays"
-                            :key="b.code"
-                            :value="b.code"
-                          >
-                            {{ b.name }}
-                          </option>
-                        </select>
-                      </div>
+                          {{ b.name }}
+                        </option>
+                      </select>
                     </div>
 
                     <!-- Street Address / Practice Room -->
