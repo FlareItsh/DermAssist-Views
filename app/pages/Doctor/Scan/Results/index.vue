@@ -14,6 +14,7 @@
     patientUuid,
     appointmentUuid: diagnosisAppointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
     pendingPatientName,
     isProceededToResults,
     saveActiveDiagnosisState,
@@ -84,6 +85,9 @@
     if (pendingPatientRegistration.value?.age) {
       return pendingPatientRegistration.value.age
     }
+    if (walkInPatientInfo.value?.age) {
+      return walkInPatientInfo.value.age
+    }
     if (!patientUuid.value) return null
 
     if (assignedPatient.value) {
@@ -101,6 +105,9 @@
   const patientDateOfBirth = computed<string | null>(() => {
     if (pendingPatientRegistration.value?.date_of_birth) {
       return pendingPatientRegistration.value.date_of_birth
+    }
+    if (walkInPatientInfo.value?.date_of_birth) {
+      return walkInPatientInfo.value.date_of_birth
     }
     if (!patientUuid.value) return null
 

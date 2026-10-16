@@ -213,12 +213,23 @@ export interface PendingPatientRegistration {
   province?: string
 }
 
+export interface WalkInPatientInfo {
+  firstName: string
+  middleName?: string
+  lastName: string
+  age?: number
+  gender?: string
+  date_of_birth?: string
+  contact_number?: string
+}
+
 const qualityError = ref<string | null>(null)
 const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const patientUuid = ref<string | null>(null)
 const appointmentUuid = ref<string | null>(null)
 const pendingPatientRegistration = ref<PendingPatientRegistration | null>(null)
+const walkInPatientInfo = ref<WalkInPatientInfo | null>(null)
 const boundUserUuid = ref<string | null>(null)
 
 const getStorageKey = (uuid?: string | null): string | null => {
@@ -238,6 +249,7 @@ const resetScannerInMemory = () => {
   patientUuid.value = null
   appointmentUuid.value = null
   pendingPatientRegistration.value = null
+  walkInPatientInfo.value = null
   boundUserUuid.value = null
 }
 
@@ -274,6 +286,7 @@ const restoreActiveDiagnosisState = () => {
         if (parsed.appointmentUuid) appointmentUuid.value = parsed.appointmentUuid
         if (parsed.pendingPatientRegistration)
           pendingPatientRegistration.value = parsed.pendingPatientRegistration
+        if (parsed.walkInPatientInfo) walkInPatientInfo.value = parsed.walkInPatientInfo
         return
       } else {
         localStorage.removeItem(key)
@@ -308,7 +321,8 @@ const saveActiveDiagnosisState = () => {
       previewImage.value ||
       patientUuid.value ||
       appointmentUuid.value ||
-      pendingPatientRegistration.value
+      pendingPatientRegistration.value ||
+      walkInPatientInfo.value
     ) {
       boundUserUuid.value = currentUuid
       localStorage.setItem(
@@ -321,7 +335,8 @@ const saveActiveDiagnosisState = () => {
           previewImage: previewImage.value,
           patientUuid: patientUuid.value,
           appointmentUuid: appointmentUuid.value,
-          pendingPatientRegistration: pendingPatientRegistration.value
+          pendingPatientRegistration: pendingPatientRegistration.value,
+          walkInPatientInfo: walkInPatientInfo.value
         })
       )
     } else {
@@ -478,6 +493,7 @@ export const useDiagnosis = () => {
     patientUuid,
     appointmentUuid,
     pendingPatientRegistration,
+    walkInPatientInfo,
     pendingPatientName,
     isHealthyState,
     isInconclusiveState,
