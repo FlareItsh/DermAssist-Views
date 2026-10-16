@@ -36,6 +36,22 @@ export class UserService extends BaseService {
     return await this.request('/doctor/patients', 'GET', params)
   }
 
+  async updateDoctorPatient(uuid: string, payload: object): Promise<any> {
+    return await this.request(`/doctor/patients/${uuid}`, 'PUT', payload)
+  }
+
+  async sendPatientPasswordResetLink(uuid: string): Promise<any> {
+    return await this.request(`/doctor/patients/${uuid}/send-reset-link`, 'POST')
+  }
+
+  async issuePatientTemporaryPassword(uuid: string, payload: object = {}): Promise<any> {
+    return await this.request(`/doctor/patients/${uuid}/temporary-password`, 'POST', payload)
+  }
+
+  async resetPasswordWithToken(payload: object): Promise<any> {
+    return await this.request('/reset-password', 'POST', payload)
+  }
+
   async enablePatient(uuid: string): Promise<any> {
     return await this.request(`/doctor/patients/${uuid}/enable`, 'POST')
   }

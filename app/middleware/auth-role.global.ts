@@ -28,6 +28,8 @@ export default defineNuxtRouteMiddleware((to, from) => {
     path !== '/auth/callback' &&
     path !== '/auth/verify' &&
     path !== '/auth/check-email' &&
+    path !== '/auth/reset-password' &&
+    path !== '/auth/resetpassword' &&
     !isDoctorOnboarding
   ) {
     return navigateTo(`/${role.value}`)
