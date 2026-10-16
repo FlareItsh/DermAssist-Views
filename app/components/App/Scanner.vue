@@ -4,6 +4,7 @@
   import { toast } from 'vue-sonner'
 
   const {
+    currentDiagnosis,
     isScanning,
     isScanned,
     setDiagnosis,
@@ -261,6 +262,15 @@
   }
 
   const resetToCamera = async () => {
+    const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+    if (diagUuid) {
+      try {
+        await diagnosisService.delete(String(diagUuid))
+      } catch (e) {
+        console.error('Failed to clean up retaken scan', e)
+      }
+    }
+    clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false
@@ -712,7 +722,7 @@
             autoplay
             playsinline
             muted
-            class="h-full w-full -scale-x-100 rounded-4xl object-cover p-1 transition-opacity duration-500"
+            class="absolute inset-0 h-full w-full -scale-x-100 rounded-4xl object-cover p-1 transition-opacity duration-500"
             :class="{ 'pointer-events-none opacity-30': isScanning }"
           ></video>
           <div
@@ -761,7 +771,7 @@
 
           <div
             v-if="!isScanning"
-            class="pointer-events-auto absolute bottom-3 left-2 z-20 flex max-w-[calc(100%-23rem)] items-center"
+            class="pointer-events-auto absolute bottom-3 left-2 z-20 hidden max-w-[calc(100%-23rem)] items-center sm:flex"
           >
             <div
               class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md"

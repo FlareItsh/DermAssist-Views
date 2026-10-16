@@ -421,24 +421,17 @@
                 />
               </div>
 
-              <!-- Start & End Time Fields (Range Drag & Custom Time Input) -->
+              <!-- Start & End Time Fields (Time Slot Selection) -->
               <div class="mb-4">
                 <AppTimeRangePicker
                   v-model:start-time="scheduleTime"
                   v-model:end-time="scheduleEndTime"
+                  :date="selectedDate"
                   :blocked-slots="blockedSlotsForDate"
                   :duty-slots="dutySlotsForDate"
                   :existing-appointments="existingApptSlotsForDate"
                   label="Appointment Time"
                 />
-
-                <!-- Time range invalid warning -->
-                <div
-                  v-if="isTimeRangeInvalid"
-                  class="mt-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
-                >
-                  End time must be after start time.
-                </div>
 
                 <!-- Off-duty warning (Doctor has no duty hours on this date) -->
                 <Transition name="fade-scale">

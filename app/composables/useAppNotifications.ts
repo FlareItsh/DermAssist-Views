@@ -10,6 +10,7 @@ import { recordService, type RecordItem } from '~/api/record/RecordService'
 import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
 import { useConversations } from '~/composables/useConversations'
 import { usePatchNotes } from '~/composables/usePatchNotes'
+import { parseChatPreview } from '~/composables/useChatPreview'
 
 export interface AppNotification {
   id: string | number
@@ -803,24 +804,15 @@ export const useAppNotifications = () => {
                 : 'Patient'
 
           const rawMessage = conv.latest_message.message || ''
-          let cleanSnippet = rawMessage
-            .replace(/\[[A-Za-z0-9_]+:[^\]]+\]/g, '')
-            .replace(/<[^>]*>?/gm, '')
-            .trim()
-
-          if (!cleanSnippet) {
-            if (rawMessage.includes('APPOINTMENT_REQUEST')) {
-              cleanSnippet = 'Sent an appointment request'
-            } else if (rawMessage.includes('DIAGNOSIS_ONLY')) {
-              cleanSnippet = 'Shared clinical scan findings'
-            } else if (rawMessage.includes('APPOINTMENT_SCHEDULED')) {
-              cleanSnippet = 'Appointment confirmed'
-            } else if (rawMessage.includes('APPOINTMENT_DECLINED')) {
-              cleanSnippet = 'Appointment request declined'
-            } else {
-              cleanSnippet = 'Sent an attachment'
-            }
-          }
+          const preview = parseChatPreview(
+            rawMessage,
+            'You have an unread message in this conversation.'
+          )
+          const cleanSnippet = preview.isSpecial
+            ? preview.rawUserText
+              ? `${preview.label}: ${preview.rawUserText}`
+              : preview.text
+            : preview.text
 
           list.push({
             id: `msg-unread-${conv.id}-${conv.latest_message.created_at || 'now'}`,
@@ -828,8 +820,8 @@ export const useAppNotifications = () => {
             title: `New Message from ${partnerName}`,
             description: cleanSnippet || 'You have an unread message in this conversation.',
             time: formatRelativeTime(conv.latest_message.created_at) || 'Unread',
-            icon: 'solar:chat-round-dots-bold',
-            color: 'text-sky-500',
+            icon: preview.isSpecial && preview.icon ? preview.icon : 'solar:chat-round-dots-bold',
+            color: preview.isSpecial && preview.iconColor ? preview.iconColor : 'text-sky-500',
             to: `/${roleFolder}/Messages/${conv.id}`,
             data: conv
           })

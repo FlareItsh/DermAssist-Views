@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { conversationService } from '~/api/conversation/ConversationService'
+  import { parseChatPreview, type ParsedChatPreview } from '~/composables/useChatPreview'
 
   interface ConversationPerson {
     id: string
@@ -138,6 +139,14 @@
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   })
+
+  const isLatestMessageMine = (conv: Conversation): boolean => {
+    return !!conv.latest_message?.sender_id && conv.latest_message.sender_id === userUuid.value
+  }
+
+  const getMessagePreview = (conv: Conversation): ParsedChatPreview => {
+    return parseChatPreview(conv.latest_message?.message, 'Tap to open chat')
+  }
 
   const handleSelect = (conv: Conversation) => {
     if (conv.unread_count) {
@@ -289,7 +298,35 @@
                 : 'text-foreground/50 font-normal'
             "
           >
-            {{ conv.latest_message?.message || 'Tap to open chat' }}
+            <span
+              v-if="isLatestMessageMine(conv)"
+              class="text-foreground/40 mr-1 font-normal"
+            >
+              You:
+            </span>
+
+            <template v-if="getMessagePreview(conv).isSpecial">
+              <span
+                class="inline-flex items-center gap-1 font-semibold"
+                :class="getMessagePreview(conv).iconColor"
+              >
+                <Icon
+                  v-if="getMessagePreview(conv).icon"
+                  :name="getMessagePreview(conv).icon!"
+                  class="shrink-0 text-xs"
+                />
+                <span>{{ getMessagePreview(conv).label }}</span>
+              </span>
+              <span
+                v-if="getMessagePreview(conv).rawUserText"
+                class="text-foreground/70 ml-1 font-normal"
+              >
+                • {{ getMessagePreview(conv).rawUserText }}
+              </span>
+            </template>
+            <template v-else>
+              {{ getMessagePreview(conv).text }}
+            </template>
           </p>
         </div>
       </button>

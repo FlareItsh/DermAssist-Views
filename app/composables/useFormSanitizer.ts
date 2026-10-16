@@ -241,6 +241,79 @@ export const todayIsoDate = (() => {
   return `${yyyy}-${mm}-${dd}`
 })()
 
+export interface PasswordCriteria {
+  minLength: boolean
+  hasUpper: boolean
+  hasLower: boolean
+  hasNumber: boolean
+  hasSpecial: boolean
+}
+
+/**
+ * Evaluates password against standard registration & security criteria:
+ * - At least 8 characters
+ * - At least one uppercase letter (A-Z)
+ * - At least one lowercase letter (a-z)
+ * - At least one digit (0-9)
+ * - At least one special symbol (!@#$%^&*...)
+ */
+export const evaluatePasswordCriteria = (password: string | null | undefined): PasswordCriteria => {
+  const p = password || ''
+  return {
+    minLength: p.length >= 8,
+    hasUpper: /[A-Z]/.test(p),
+    hasLower: /[a-z]/.test(p),
+    hasNumber: /[0-9]/.test(p),
+    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(p)
+  }
+}
+
+/**
+ * Returns true if password satisfies all 5 security criteria.
+ */
+export const isPasswordStrong = (password: string | null | undefined): boolean => {
+  const c = evaluatePasswordCriteria(password)
+  return c.minLength && c.hasUpper && c.hasLower && c.hasNumber && c.hasSpecial
+}
+
+/**
+ * Validates a password string and returns a descriptive error message if invalid.
+ */
+export const validatePassword = (
+  password: string | null | undefined,
+  required = true
+): { valid: boolean; error: string } => {
+  const p = password || ''
+  if (!p) {
+    return required ? { valid: false, error: 'Password is required' } : { valid: true, error: '' }
+  }
+  if (p.length < 8) {
+    return { valid: false, error: 'Minimum 8 characters' }
+  }
+  if (!isPasswordStrong(p)) {
+    return { valid: false, error: 'Must meet all password criteria below' }
+  }
+  return { valid: true, error: '' }
+}
+
+/**
+ * Validates password confirmation matches password.
+ */
+export const validatePasswordConfirmation = (
+  password: string | null | undefined,
+  confirmation: string | null | undefined
+): { valid: boolean; error: string } => {
+  const p = password || ''
+  const c = confirmation || ''
+  if (!c) {
+    return { valid: false, error: 'Please confirm your password' }
+  }
+  if (p !== c) {
+    return { valid: false, error: 'Passwords do not match' }
+  }
+  return { valid: true, error: '' }
+}
+
 export const useFormSanitizer = () => ({
   sanitizeName,
   blockNameKey,
@@ -253,6 +326,11 @@ export const useFormSanitizer = () => ({
   formatAge,
   validateDateOfBirth,
   todayIsoDate,
+  // Password Evaluation & Validation
+  evaluatePasswordCriteria,
+  isPasswordStrong,
+  validatePassword,
+  validatePasswordConfirmation,
   // Phone & Geolocation Utilities
   COUNTRY_DIAL_CODES,
   detectUserCountry,

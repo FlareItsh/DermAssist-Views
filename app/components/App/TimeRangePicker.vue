@@ -1,28 +1,46 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+  import { computed } from 'vue'
+
+  export interface TimeSlotOption {
+    time24: string
+    endTime24: string
+    label: string
+    endLabel: string
+    durationLabel: string
+    isAvailable: boolean
+    isCurrentApptTime?: boolean
+    clinicName?: string
+  }
 
   const props = withDefaults(
     defineProps<{
       startTime: string // e.g. "09:00"
-      endTime: string // e.g. "10:00"
-      minTime?: string // default "07:00"
-      maxTime?: string // default "20:00"
+      endTime?: string // e.g. "10:00"
+      date?: string // e.g. "2026-10-20"
+      minTime?: string // default "08:00"
+      maxTime?: string // default "18:00"
       stepMinutes?: number // default 30
+      durationMinutes?: number // default 60
       disabled?: boolean
       label?: string
       blockedSlots?: Array<{ start_time: string; end_time: string }>
       existingAppointments?: Array<{ start_time: string; end_time: string; label?: string }>
       dutySlots?: Array<{ start_time: string; end_time: string; location_name?: string }>
+      currentStartTime?: string
     }>(),
     {
-      minTime: '07:00',
-      maxTime: '20:00',
+      endTime: '',
+      date: undefined,
+      minTime: '08:00',
+      maxTime: '18:00',
       stepMinutes: 30,
+      durationMinutes: 60,
       disabled: false,
       label: '',
       blockedSlots: () => [],
       existingAppointments: () => [],
-      dutySlots: undefined
+      dutySlots: undefined,
+      currentStartTime: undefined
     }
   )
 
@@ -40,13 +58,6 @@
     return (h || 0) * 60 + (m || 0)
   }
 
-  const minutesToTime = (mins: number): string => {
-    const clamped = Math.max(0, Math.min(24 * 60 - 1, mins))
-    const h = Math.floor(clamped / 60)
-    const m = Math.round(clamped % 60)
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  }
-
   const format12H = (t: string): string => {
     if (!t) return ''
     const [hStr, mStr] = t.split(':')
@@ -58,637 +69,267 @@
     return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`
   }
 
-  const snapToStep = (mins: number, step = 30): number => {
-    return Math.round(mins / step) * step
-  }
+  const normalizedStartTime = computed(() => (props.startTime || '').slice(0, 5))
 
-  // ─── Bounds Computation ──────────────────────────────────────────────────────
-
-  const effectiveMinMins = computed(() => {
-    const propMin = timeToMinutes(props.minTime)
-    const curStart = timeToMinutes(props.startTime)
-    return Math.min(propMin, Math.floor(curStart / 60) * 60)
-  })
-
-  const effectiveMaxMins = computed(() => {
-    const propMax = timeToMinutes(props.maxTime)
-    const curEnd = timeToMinutes(props.endTime)
-    return Math.max(propMax, Math.ceil(curEnd / 60) * 60)
-  })
-
-  const totalRangeMins = computed(() =>
-    Math.max(60, effectiveMaxMins.value - effectiveMinMins.value)
-  )
-
-  // Generate hourly ticks along the timeline
-  const ticks = computed(() => {
-    const result: { mins: number; label: string; percent: number }[] = []
-    const step = 60 // Hourly major ticks
-    for (let m = effectiveMinMins.value; m <= effectiveMaxMins.value; m += step) {
-      const pct = ((m - effectiveMinMins.value) / totalRangeMins.value) * 100
-      const h = Math.floor(m / 60)
-      const ampm = h >= 12 ? 'PM' : 'AM'
-      const hour12 = h % 12 || 12
-      const label = `${hour12} ${ampm}`
-      result.push({ mins: m, label, percent: pct })
+  const formattedDateLabel = computed(() => {
+    if (!props.date) return ''
+    try {
+      const [y, m, d] = props.date.split('-').map(Number)
+      if (!y || !m || !d) return props.date
+      const obj = new Date(y, m - 1, d)
+      return obj.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch {
+      return props.date
     }
-    return result
   })
 
-  // ─── Current Selection Range State ───────────────────────────────────────────
+  // ─── Available Time Slots Computation ─────────────────────────────────────────
 
-  const startMins = computed(() => timeToMinutes(props.startTime))
-  const endMins = computed(() => timeToMinutes(props.endTime))
+  const availableTimeSlots = computed<TimeSlotOption[]>(() => {
+    const duration = props.durationMinutes || 60
+    const step = props.stepMinutes || 30
+    const durationLabel = duration >= 60 ? `${Math.floor(duration / 60)} hr` : `${duration} mins`
 
-  const startPercent = computed(() => {
-    const p = ((startMins.value - effectiveMinMins.value) / totalRangeMins.value) * 100
-    return Math.max(0, Math.min(100, p))
-  })
+    const isSlotBlocked = (startM: number) => {
+      const endM = startM + duration
+      return (props.blockedSlots || []).some((b: any) => {
+        const bStart = timeToMinutes(b.start_time)
+        let bEnd = timeToMinutes(b.end_time)
+        if (bEnd <= bStart) {
+          bEnd = 24 * 60
+        }
+        return startM < bEnd && endM > bStart
+      })
+    }
 
-  const endPercent = computed(() => {
-    const p = ((endMins.value - effectiveMinMins.value) / totalRangeMins.value) * 100
-    return Math.max(0, Math.min(100, p))
-  })
+    const isSlotBooked = (startM: number) => {
+      const endM = startM + duration
+      return (props.existingAppointments || []).some((a: any) => {
+        const aStart = timeToMinutes(a.start_time)
+        let aEnd = timeToMinutes(a.end_time)
+        if (aEnd <= aStart) {
+          aEnd = aStart + duration
+        }
+        return startM < aEnd && endM > aStart
+      })
+    }
 
-  const durationText = computed(() => {
-    const diff = endMins.value - startMins.value
-    if (diff <= 0) return 'Invalid range'
-    const hours = Math.floor(diff / 60)
-    const mins = diff % 60
-    if (hours > 0 && mins > 0) return `${hours}h ${mins}m`
-    if (hours > 0) return `${hours} hr${hours > 1 ? 's' : ''}`
-    return `${mins} mins`
-  })
+    const slots: TimeSlotOption[] = []
+    const seenTimes = new Set<string>()
 
-  // ─── Blocked Slots & Existing Appointments Visual Overlays & Conflict Detection ──────────
+    if (props.dutySlots && props.dutySlots.length > 0) {
+      props.dutySlots.forEach((duty: any) => {
+        const dutyStart = timeToMinutes(duty.start_time)
+        const dutyEnd = timeToMinutes(duty.end_time)
+        const clinicName = duty.clinic?.name || duty.location_name || 'Clinic Duty'
 
-  const blockedVisualRanges = computed(() => {
-    if (!props.blockedSlots || !props.blockedSlots.length) return []
-    return props.blockedSlots
-      .map(slot => {
-        const sMins = Math.max(effectiveMinMins.value, timeToMinutes(slot.start_time.slice(0, 5)))
-        const eMins = Math.min(effectiveMaxMins.value, timeToMinutes(slot.end_time.slice(0, 5)))
-        if (eMins <= sMins) return null
-        const leftPct = ((sMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        const rightPct = 100 - ((eMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        return {
-          leftPct: Math.max(0, Math.min(100, leftPct)),
-          rightPct: Math.max(0, Math.min(100, rightPct)),
-          label: `${format12H(slot.start_time)} – ${format12H(slot.end_time)}`
+        for (let m = dutyStart; m + duration <= dutyEnd; m += step) {
+          const hh = String(Math.floor(m / 60)).padStart(2, '0')
+          const mm = String(m % 60).padStart(2, '0')
+          const time24 = `${hh}:${mm}`
+
+          if (seenTimes.has(time24)) continue
+          seenTimes.add(time24)
+
+          const endM = m + duration
+          const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+          const endMm = String(endM % 60).padStart(2, '0')
+          const endTime24 = `${endHh}:${endMm}`
+
+          const isCurrent = props.currentStartTime
+            ? time24 === props.currentStartTime.slice(0, 5)
+            : false
+          const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
+
+          slots.push({
+            time24,
+            endTime24,
+            label: format12H(time24),
+            endLabel: format12H(endTime24),
+            durationLabel,
+            isAvailable: isAvail,
+            isCurrentApptTime: isCurrent,
+            clinicName
+          })
         }
       })
-      .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
-  })
+    } else {
+      const startBound = timeToMinutes(props.minTime || '08:00')
+      const endBound = timeToMinutes(props.maxTime || '18:00')
 
-  const appointmentVisualRanges = computed(() => {
-    if (!props.existingAppointments || !props.existingAppointments.length) return []
-    return props.existingAppointments
-      .map(slot => {
-        const sMins = Math.max(effectiveMinMins.value, timeToMinutes(slot.start_time.slice(0, 5)))
-        const eMins = Math.min(effectiveMaxMins.value, timeToMinutes(slot.end_time.slice(0, 5)))
-        if (eMins <= sMins) return null
-        const leftPct = ((sMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        const rightPct = 100 - ((eMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        return {
-          leftPct: Math.max(0, Math.min(100, leftPct)),
-          rightPct: Math.max(0, Math.min(100, rightPct)),
-          label: `${format12H(slot.start_time)} – ${format12H(slot.end_time)}${slot.label ? ' (' + slot.label + ')' : ''}`
-        }
-      })
-      .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
-  })
+      for (let m = startBound; m + duration <= endBound; m += step) {
+        const hh = String(Math.floor(m / 60)).padStart(2, '0')
+        const mm = String(m % 60).padStart(2, '0')
+        const time24 = `${hh}:${mm}`
 
-  const dutyVisualRanges = computed(() => {
-    if (!props.dutySlots || !props.dutySlots.length) return []
-    return props.dutySlots
-      .map(slot => {
-        const sMins = Math.max(effectiveMinMins.value, timeToMinutes(slot.start_time.slice(0, 5)))
-        const eMins = Math.min(effectiveMaxMins.value, timeToMinutes(slot.end_time.slice(0, 5)))
-        if (eMins <= sMins) return null
-        const leftPct = ((sMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        const rightPct = 100 - ((eMins - effectiveMinMins.value) / totalRangeMins.value) * 100
-        return {
-          leftPct: Math.max(0, Math.min(100, leftPct)),
-          rightPct: Math.max(0, Math.min(100, rightPct)),
-          label: `${format12H(slot.start_time)} – ${format12H(slot.end_time)}${slot.location_name ? ' (' + slot.location_name + ')' : ''}`
-        }
-      })
-      .filter(Boolean) as { leftPct: number; rightPct: number; label: string }[]
-  })
+        if (seenTimes.has(time24)) continue
+        seenTimes.add(time24)
 
-  const isInsideDuty = computed(() => {
-    if (props.dutySlots === undefined) return true
-    if (!props.dutySlots.length) return false
-    const curStart = startMins.value
-    const curEnd = endMins.value
-    return props.dutySlots.some(slot => {
-      const dStart = timeToMinutes(slot.start_time.slice(0, 5))
-      const dEnd = timeToMinutes(slot.end_time.slice(0, 5))
-      return curStart >= dStart && curEnd <= dEnd
-    })
-  })
+        const endM = m + duration
+        const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+        const endMm = String(endM % 60).padStart(2, '0')
+        const endTime24 = `${endHh}:${endMm}`
 
-  const hasDutyConflict = computed(() => props.dutySlots !== undefined && !isInsideDuty.value)
+        const isCurrent = props.currentStartTime
+          ? time24 === props.currentStartTime.slice(0, 5)
+          : false
+        const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
 
-  const hasBlockedConflict = computed(() => {
-    if (!props.blockedSlots || !props.blockedSlots.length) return false
-    const curStart = startMins.value
-    const curEnd = endMins.value
-    return props.blockedSlots.some(slot => {
-      const bStart = timeToMinutes(slot.start_time.slice(0, 5))
-      const bEnd = timeToMinutes(slot.end_time.slice(0, 5))
-      return curStart < bEnd && curEnd > bStart
-    })
-  })
-
-  const hasApptConflict = computed(() => {
-    if (!props.existingAppointments || !props.existingAppointments.length) return false
-    const curStart = startMins.value
-    const curEnd = endMins.value
-    return props.existingAppointments.some(slot => {
-      const aStart = timeToMinutes(slot.start_time.slice(0, 5))
-      const aEnd = timeToMinutes(slot.end_time.slice(0, 5))
-      return curStart < aEnd && curEnd > aStart
-    })
-  })
-
-  const conflictReason = computed(() => {
-    if (hasDutyConflict.value) {
-      if (props.dutySlots && props.dutySlots.length === 0) {
-        return 'Off-Duty (No Duty Hours)'
+        slots.push({
+          time24,
+          endTime24,
+          label: format12H(time24),
+          endLabel: format12H(endTime24),
+          durationLabel,
+          isAvailable: isAvail,
+          isCurrentApptTime: isCurrent
+        })
       }
-      return 'Outside Duty Hours'
     }
-    if (hasBlockedConflict.value) return 'Overlaps Blocked Hours'
-    if (hasApptConflict.value) return 'Overlaps Booked Appointment'
-    return ''
+
+    return slots.sort((a, b) => timeToMinutes(a.time24) - timeToMinutes(b.time24))
   })
 
-  const hasConflict = computed(
-    () => hasBlockedConflict.value || hasApptConflict.value || hasDutyConflict.value
-  )
-
-  // ─── Custom Time Inputs (Two-Way Binding) ────────────────────────────────────
-
-  const localStart = ref(props.startTime)
-  const localEnd = ref(props.endTime)
-
-  watch(
-    () => props.startTime,
-    val => {
-      if (val !== localStart.value) localStart.value = val
-    }
-  )
-  watch(
-    () => props.endTime,
-    val => {
-      if (val !== localEnd.value) localEnd.value = val
-    }
-  )
-
-  const handleInputStartChange = (e: Event) => {
-    const val = (e.target as HTMLInputElement).value
-    localStart.value = val
-    emit('update:startTime', val)
-    emit('change', { startTime: val, endTime: props.endTime })
+  const isSlotSelected = (slot: TimeSlotOption) => {
+    return normalizedStartTime.value === slot.time24
   }
 
-  const handleInputEndChange = (e: Event) => {
-    const val = (e.target as HTMLInputElement).value
-    localEnd.value = val
-    emit('update:endTime', val)
-    emit('change', { startTime: props.startTime, endTime: val })
-  }
+  const selectedSlotInfo = computed(() => {
+    if (!normalizedStartTime.value) return null
+    return availableTimeSlots.value.find(s => s.time24 === normalizedStartTime.value) || null
+  })
 
-  // ─── Quick Presets ────────────────────────────────────────────────────────────
-
-  const applyDurationPreset = (minutesDuration: number) => {
-    if (props.disabled) return
-    let newStart = startMins.value
-    let newEnd = newStart + minutesDuration
-    if (newEnd > effectiveMaxMins.value) {
-      newEnd = effectiveMaxMins.value
-      newStart = Math.max(effectiveMinMins.value, newEnd - minutesDuration)
-    }
-    const sStr = minutesToTime(newStart)
-    const eStr = minutesToTime(newEnd)
-    localStart.value = sStr
-    localEnd.value = eStr
-    emit('update:startTime', sStr)
-    emit('update:endTime', eStr)
-    emit('change', { startTime: sStr, endTime: eStr })
-  }
-
-  const applyFullDayPreset = () => {
-    if (props.disabled) return
-    const sStr = '00:00'
-    const eStr = '23:59'
-    localStart.value = sStr
-    localEnd.value = eStr
-    emit('update:startTime', sStr)
-    emit('update:endTime', eStr)
-    emit('change', { startTime: sStr, endTime: eStr })
-  }
-
-  // ─── Drag & Pointer Interaction Engine ───────────────────────────────────────
-
-  const trackRef = ref<HTMLElement | null>(null)
-  const activeDrag = ref<'start' | 'end' | 'middle' | null>(null)
-  const dragStartMouseX = ref(0)
-  const initialStartMins = ref(0)
-  const initialEndMins = ref(0)
-  const activeTooltipTime = ref<string | null>(null)
-
-  const getMinsFromEvent = (e: PointerEvent): number => {
-    if (!trackRef.value) return effectiveMinMins.value
-    const rect = trackRef.value.getBoundingClientRect()
-    const offsetX = Math.max(0, Math.min(rect.width, e.clientX - rect.left))
-    const ratio = offsetX / rect.width
-    const rawMins = effectiveMinMins.value + ratio * totalRangeMins.value
-    const snapped = snapToStep(rawMins, props.stepMinutes)
-    return Math.max(effectiveMinMins.value, Math.min(effectiveMaxMins.value, snapped))
-  }
-
-  const onPointerDownStartHandle = (e: PointerEvent) => {
-    if (props.disabled) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    activeDrag.value = 'start'
-    activeTooltipTime.value = props.startTime
-  }
-
-  const onPointerDownEndHandle = (e: PointerEvent) => {
-    if (props.disabled) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    activeDrag.value = 'end'
-    activeTooltipTime.value = props.endTime
-  }
-
-  const onPointerDownMiddle = (e: PointerEvent) => {
-    if (props.disabled) return
-    e.stopPropagation()
-    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    activeDrag.value = 'middle'
-    dragStartMouseX.value = e.clientX
-    initialStartMins.value = startMins.value
-    initialEndMins.value = endMins.value
-    activeTooltipTime.value = `${props.startTime} - ${props.endTime}`
-  }
-
-  const onTrackClick = (e: PointerEvent) => {
-    if (props.disabled || activeDrag.value) return
-    const clickedMins = getMinsFromEvent(e)
-    const duration = Math.max(props.stepMinutes, endMins.value - startMins.value)
-
-    // Decide whether to move start or end handle, or center range on click
-    let newStart = clickedMins
-    let newEnd = clickedMins + duration
-    if (newEnd > effectiveMaxMins.value) {
-      newEnd = effectiveMaxMins.value
-      newStart = Math.max(effectiveMinMins.value, newEnd - duration)
-    }
-
-    const sStr = minutesToTime(newStart)
-    const eStr = minutesToTime(newEnd)
-    localStart.value = sStr
-    localEnd.value = eStr
-    emit('update:startTime', sStr)
-    emit('update:endTime', eStr)
-    emit('change', { startTime: sStr, endTime: eStr })
-  }
-
-  const onPointerMove = (e: PointerEvent) => {
-    if (!activeDrag.value || !trackRef.value) return
-
-    if (activeDrag.value === 'start') {
-      const newMins = getMinsFromEvent(e)
-      // Start must be before end by at least stepMinutes
-      const maxAllowedStart = endMins.value - props.stepMinutes
-      const clampedStart = Math.min(newMins, maxAllowedStart)
-      const sStr = minutesToTime(clampedStart)
-      localStart.value = sStr
-      activeTooltipTime.value = format12H(sStr)
-      emit('update:startTime', sStr)
-      emit('change', { startTime: sStr, endTime: props.endTime })
-    } else if (activeDrag.value === 'end') {
-      const newMins = getMinsFromEvent(e)
-      // End must be after start by at least stepMinutes
-      const minAllowedEnd = startMins.value + props.stepMinutes
-      const clampedEnd = Math.max(newMins, minAllowedEnd)
-      const eStr = minutesToTime(clampedEnd)
-      localEnd.value = eStr
-      activeTooltipTime.value = format12H(eStr)
-      emit('update:endTime', eStr)
-      emit('change', { startTime: props.startTime, endTime: eStr })
-    } else if (activeDrag.value === 'middle') {
-      const rect = trackRef.value.getBoundingClientRect()
-      const deltaX = e.clientX - dragStartMouseX.value
-      const deltaMinsRaw = (deltaX / rect.width) * totalRangeMins.value
-      const deltaMins = snapToStep(deltaMinsRaw, props.stepMinutes)
-      const duration = initialEndMins.value - initialStartMins.value
-
-      let newStart = initialStartMins.value + deltaMins
-      let newEnd = initialEndMins.value + deltaMins
-
-      if (newStart < effectiveMinMins.value) {
-        newStart = effectiveMinMins.value
-        newEnd = newStart + duration
-      }
-      if (newEnd > effectiveMaxMins.value) {
-        newEnd = effectiveMaxMins.value
-        newStart = newEnd - duration
-      }
-
-      const sStr = minutesToTime(newStart)
-      const eStr = minutesToTime(newEnd)
-      localStart.value = sStr
-      localEnd.value = eStr
-      activeTooltipTime.value = `${format12H(sStr)} – ${format12H(eStr)}`
-      emit('update:startTime', sStr)
-      emit('update:endTime', eStr)
-      emit('change', { startTime: sStr, endTime: eStr })
-    }
-  }
-
-  const onPointerUp = (e: PointerEvent) => {
-    if (activeDrag.value) {
-      try {
-        ;(e.target as HTMLElement).releasePointerCapture(e.pointerId)
-      } catch {}
-      activeDrag.value = null
-      activeTooltipTime.value = null
-    }
+  const selectTimeSlot = (slot: TimeSlotOption) => {
+    if (props.disabled || !slot.isAvailable || slot.isCurrentApptTime) return
+    emit('update:startTime', slot.time24)
+    emit('update:endTime', slot.endTime24)
+    emit('change', { startTime: slot.time24, endTime: slot.endTime24 })
   }
 </script>
 
 <template>
-  <div
-    class="time-range-picker flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/50 to-white p-4 shadow-sm"
-    :class="{ 'pointer-events-none opacity-60': disabled }"
-  >
-    <div class="flex flex-wrap items-center justify-between gap-2">
+  <div class="w-full select-none">
+    <!-- Header with label & slot counts -->
+    <div class="mb-3 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <Icon
-          name="material-symbols:schedule-rounded"
-          class="shrink-0 text-lg text-indigo-600"
+          name="lucide:clock"
+          class="text-primary text-base"
         />
-        <span class="text-xs font-extrabold tracking-wider text-gray-700 uppercase">
-          {{ label || 'Time Range Selection' }}
+        <h4 class="text-foreground text-xs font-bold tracking-wider uppercase">
+          {{ label || 'Available Times' }}
+        </h4>
+      </div>
+      <div class="flex items-center gap-2">
+        <span
+          v-if="formattedDateLabel"
+          class="text-muted-foreground hidden text-[11px] font-medium sm:inline"
+        >
+          {{ formattedDateLabel }}
         </span>
         <span
-          class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 shadow-xs"
+          v-if="availableTimeSlots.length > 0"
+          class="text-muted-foreground text-[11px] font-medium"
         >
-          {{ durationText }}
+          {{ availableTimeSlots.filter(s => s.isAvailable && !s.isCurrentApptTime).length }} slots
+          available
         </span>
       </div>
-
-      <!-- Quick Preset Buttons (30m, 1h, 2h, Full Day) -->
-      <div class="flex items-center gap-1">
-        <button
-          type="button"
-          @click="applyDurationPreset(30)"
-          class="cursor-pointer rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
-        >
-          30m
-        </button>
-        <button
-          type="button"
-          @click="applyDurationPreset(60)"
-          class="cursor-pointer rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
-        >
-          1h
-        </button>
-        <button
-          type="button"
-          @click="applyDurationPreset(120)"
-          class="cursor-pointer rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
-        >
-          2h
-        </button>
-        <button
-          type="button"
-          @click="applyFullDayPreset"
-          class="cursor-pointer rounded-lg border border-indigo-200 bg-white px-2 py-1 text-[10px] font-bold text-indigo-600 transition-all hover:bg-indigo-50 active:scale-95"
-          title="Select full day range"
-        >
-          Full Day
-        </button>
-      </div>
     </div>
 
-    <!-- Custom Time Input Fields (Allows manual custom time entry) -->
-    <div class="grid grid-cols-2 gap-3">
-      <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-bold tracking-wider text-gray-500 uppercase"
-          >Start Time</label
-        >
-        <div class="relative flex items-center">
-          <input
-            type="time"
-            :value="localStart"
-            @input="handleInputStartChange"
-            :disabled="disabled"
-            class="w-full cursor-text rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all outline-none hover:cursor-text focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-1">
-        <label class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">End Time</label>
-        <div class="relative flex items-center">
-          <input
-            type="time"
-            :value="localEnd"
-            @input="handleInputEndChange"
-            :disabled="disabled"
-            class="w-full cursor-text rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all outline-none hover:cursor-text focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-          />
-        </div>
-      </div>
+    <!-- Empty State: Date is required but not selected -->
+    <div
+      v-if="date === ''"
+      class="border-border text-muted-foreground rounded-2xl border border-dashed p-6 text-center text-xs"
+    >
+      <Icon
+        name="lucide:calendar"
+        class="text-muted-foreground/40 mx-auto mb-2 text-2xl"
+      />
+      <p class="font-bold">Please select a date from the calendar</p>
+      <p class="text-muted-foreground/80 mt-1 text-[11px]">
+        Available consultation slots will appear here once a date is selected.
+      </p>
     </div>
 
-    <!-- Visual Interactive Timeline Range Drag Bar -->
-    <div class="mt-2 flex flex-col gap-1 select-none">
-      <!-- Time Ticks Header -->
-      <div class="relative h-5 w-full text-[10px] font-semibold text-gray-400">
-        <div
-          v-for="(tick, idx) in ticks"
-          :key="tick.mins"
-          class="absolute top-0 flex -translate-x-1/2 flex-col items-center"
-          :style="{ left: `${tick.percent}%` }"
-        >
-          <span :class="{ 'hidden sm:inline': idx % 2 !== 0 }">{{ tick.label }}</span>
-          <div class="mt-0.5 h-1.5 w-0.5 rounded-full bg-gray-300"></div>
-        </div>
-      </div>
+    <!-- Empty State: No slots available on this date -->
+    <div
+      v-else-if="availableTimeSlots.length === 0"
+      class="border-border text-muted-foreground rounded-2xl border border-dashed p-6 text-center text-xs"
+    >
+      <Icon
+        name="lucide:calendar-x"
+        class="text-muted-foreground/40 mx-auto mb-2 text-2xl"
+      />
+      <p class="font-bold">No available time slots on this date.</p>
+      <p class="text-muted-foreground/80 mt-1 text-[11px]">
+        The doctor does not have available duty hours or all slots are booked.
+      </p>
+    </div>
 
-      <!-- Main Slider Track -->
-      <div
-        ref="trackRef"
-        class="relative h-12 w-full cursor-pointer touch-none overflow-hidden rounded-2xl border border-gray-300/50 bg-gray-200/80 shadow-inner"
-        @pointerdown="onTrackClick"
-        @pointermove="onPointerMove"
-        @pointerup="onPointerUp"
+    <!-- Time Slots Grid -->
+    <div
+      v-else
+      class="grid max-h-[320px] grid-cols-2 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-3"
+    >
+      <button
+        v-for="slot in availableTimeSlots"
+        :key="slot.time24"
+        type="button"
+        :disabled="disabled || !slot.isAvailable || slot.isCurrentApptTime"
+        @click="selectTimeSlot(slot)"
+        class="relative flex flex-col items-start justify-center gap-1 rounded-xl p-3 text-left transition-all"
+        :class="[
+          slot.isCurrentApptTime
+            ? 'cursor-not-allowed border border-amber-300/80 bg-amber-500/10 text-amber-800 opacity-90'
+            : !slot.isAvailable
+              ? 'bg-muted/40 text-muted-foreground/40 cursor-not-allowed border border-transparent line-through'
+              : isSlotSelected(slot)
+                ? 'bg-secondary ring-secondary/30 scale-[1.02] font-bold text-white shadow-md ring-2'
+                : 'bg-card text-foreground hover:bg-primary/10 hover:text-primary border-border/70 cursor-pointer border shadow-xs active:scale-95'
+        ]"
       >
-        <!-- 30-min Sub-tick guides inside track -->
-        <div
-          class="pointer-events-none absolute inset-0 flex items-center overflow-hidden rounded-2xl"
-        >
-          <div
-            v-for="m in Math.floor(totalRangeMins / stepMinutes)"
-            :key="m"
-            class="h-full border-r border-gray-300/30"
-            :style="{ width: `${(stepMinutes / totalRangeMins) * 100}%` }"
-          ></div>
-        </div>
-
-        <!-- Visually Rendered Active Doctor Duty Windows (Subtle Emerald Tint) -->
-        <div
-          v-for="(d, idx) in dutyVisualRanges"
-          :key="'duty-' + idx"
-          class="pointer-events-none absolute top-0 bottom-0 z-5 overflow-hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/10"
-          :style="{ left: `${d.leftPct}%`, right: `${d.rightPct}%` }"
-          :title="`Duty Hours: ${d.label}`"
-        >
-          <div
-            class="pointer-events-none absolute top-1 left-2 text-[9px] font-black tracking-wider text-emerald-700/70 uppercase"
-          >
-            Duty Shift
-          </div>
-        </div>
-
-        <!-- Visually Rendered Blocked Slots (Red Striped Overlays on Track) -->
-        <div
-          v-for="(b, idx) in blockedVisualRanges"
-          :key="'block-' + idx"
-          class="pointer-events-none absolute top-0 bottom-0 z-10 overflow-hidden rounded-2xl border border-red-500/40"
-          :style="{ left: `${b.leftPct}%`, right: `${b.rightPct}%` }"
-          :title="`Blocked: ${b.label}`"
-        >
-          <div
-            class="h-full w-full bg-red-500/20 bg-[linear-gradient(45deg,rgba(239,68,68,0.25)_25%,transparent_25%,transparent_50%,rgba(239,68,68,0.25)_50%,rgba(239,68,68,0.25)_75%,transparent_75%,transparent)] bg-[length:10px_10px]"
-          ></div>
-        </div>
-
-        <!-- Visually Rendered Existing Booked Appointments (Amber Striped Overlays on Track) -->
-        <div
-          v-for="(a, idx) in appointmentVisualRanges"
-          :key="'appt-' + idx"
-          class="pointer-events-none absolute top-0 bottom-0 z-10 overflow-hidden rounded-2xl border border-amber-500/50"
-          :style="{ left: `${a.leftPct}%`, right: `${a.rightPct}%` }"
-          :title="`Booked Appointment: ${a.label}`"
-        >
-          <div
-            class="h-full w-full bg-amber-500/20 bg-[linear-gradient(45deg,rgba(245,158,11,0.25)_25%,transparent_25%,transparent_50%,rgba(245,158,11,0.25)_50%,rgba(245,158,11,0.25)_75%,transparent_75%,transparent)] bg-[length:10px_10px]"
-          ></div>
-        </div>
-
-        <!-- Draggable Selection Band (Active Range) -->
-        <div
-          class="group absolute top-1 bottom-1 z-20 flex cursor-grab items-center justify-between rounded-xl border shadow-md transition-all active:cursor-grabbing"
-          :class="
-            hasConflict
-              ? 'border-red-500 bg-gradient-to-r from-red-600 via-rose-500 to-red-600 ring-2 ring-red-400/50'
-              : 'border-indigo-400/40 bg-gradient-to-r from-indigo-600 via-blue-500 to-indigo-600'
-          "
-          :style="{ left: `${startPercent}%`, right: `${100 - endPercent}%` }"
-          @pointerdown="onPointerDownMiddle"
-        >
-          <div
-            class="absolute top-1/2 -left-2 z-30 flex h-8 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-md border-2 bg-white shadow-md transition-transform hover:scale-110 active:scale-95"
+        <div class="flex w-full items-center justify-between">
+          <span class="text-xs font-bold">{{ slot.label }}</span>
+          <span
+            class="rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase"
             :class="
-              hasConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'
+              isSlotSelected(slot) ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground'
             "
-            title="Drag to change Start Time (30-min steps)"
-            @pointerdown="onPointerDownStartHandle"
           >
-            <div class="h-3.5 w-0.5 rounded-full bg-current"></div>
-          </div>
-
-          <div
-            class="pointer-events-none flex w-full items-center justify-center gap-1.5 truncate px-2 text-center"
-          >
-            <Icon
-              v-if="hasConflict"
-              name="material-symbols:block-rounded"
-              class="shrink-0 animate-pulse text-sm text-white"
-            />
-            <span class="text-[11px] font-extrabold tracking-wide text-white drop-shadow-sm">
-              {{ format12H(localStart) }} – {{ format12H(localEnd) }}
-            </span>
-            <span
-              v-if="hasConflict && conflictReason"
-              class="rounded-full bg-black/40 px-1.5 py-0.5 text-[9px] font-extrabold tracking-tight text-red-100 uppercase"
-            >
-              {{ conflictReason }}
-            </span>
-          </div>
-
-          <div
-            class="absolute top-1/2 -right-2 z-30 flex h-8 w-3 -translate-y-1/2 cursor-ew-resize items-center justify-center rounded-md border-2 bg-white shadow-md transition-transform hover:scale-110 active:scale-95"
-            :class="
-              hasConflict ? 'border-red-600 text-red-600' : 'border-indigo-600 text-indigo-600'
-            "
-            title="Drag to change End Time (30-min steps)"
-            @pointerdown="onPointerDownEndHandle"
-          >
-            <div class="h-3.5 w-0.5 rounded-full bg-current"></div>
-          </div>
+            {{ slot.durationLabel }}
+          </span>
         </div>
+        <span
+          class="text-[10px]"
+          :class="isSlotSelected(slot) ? 'text-white/80' : 'text-muted-foreground'"
+        >
+          until {{ slot.endLabel }}
+        </span>
+        <span
+          v-if="slot.isCurrentApptTime"
+          class="mt-1 rounded-full border border-amber-300/70 bg-amber-100 px-1.5 py-0.5 text-[9px] leading-none font-bold text-amber-800"
+        >
+          Current Time
+        </span>
+      </button>
+    </div>
 
-        <!-- Floating Tooltip when Dragging -->
-        <Transition name="fade">
-          <div
-            v-if="activeTooltipTime"
-            class="pointer-events-none absolute -top-10 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-bold whitespace-nowrap text-white shadow-xl"
-            :class="hasConflict ? 'border-red-700 bg-red-950' : 'border-gray-700 bg-gray-900'"
-          >
-            <Icon
-              name="material-symbols:drag-pan-rounded"
-              :class="hasConflict ? 'text-red-400' : 'text-indigo-400'"
-              class="text-sm"
-            />
-            <span>{{ activeTooltipTime }}</span>
-            <span
-              v-if="hasConflict && conflictReason"
-              class="text-[10px] font-semibold text-red-300"
-              >({{ conflictReason }})</span
-            >
-          </div>
-        </Transition>
-      </div>
-
-      <div class="mt-1 flex flex-col gap-1 px-1">
-        <div class="flex items-center justify-between text-[10px] font-semibold text-gray-400">
-          <span>Drag handles or middle band to snap 30 mins</span>
-          <span>Snaps: :00, :30</span>
-        </div>
-      </div>
+    <!-- Selected Slot Feedback Card -->
+    <div
+      v-if="selectedSlotInfo"
+      class="bg-primary/5 border-primary/20 mt-3 flex items-center justify-between rounded-xl border px-3 py-2 text-xs"
+    >
+      <span class="text-muted-foreground">Selected Window:</span>
+      <span class="text-primary font-bold">
+        {{ selectedSlotInfo.label }} – {{ selectedSlotInfo.endLabel }} ({{
+          selectedSlotInfo.durationLabel
+        }})
+      </span>
     </div>
   </div>
 </template>
-
-<style scoped>
-  input[type='time']::-webkit-calendar-picker-indicator,
-  input[type='time']::-webkit-inner-spin-button,
-  input[type='time']::-webkit-clear-button {
-    display: none !important;
-    -webkit-appearance: none !important;
-  }
-  input[type='time'] {
-    cursor: text !important;
-  }
-
-  .fade-enter-active,
-  .fade-leave-active {
-    transition:
-      opacity 0.15s ease,
-      transform 0.15s ease;
-  }
-  .fade-enter-from,
-  .fade-leave-to {
-    opacity: 0;
-    transform: translate(-50%, 4px);
-  }
-</style>

@@ -77,20 +77,6 @@
     }
   }
 
-  const {
-    regions,
-    provinces,
-    cities,
-    barangays,
-    fetchRegions,
-    fetchProvinces,
-    fetchCities,
-    fetchBarangays,
-    findProvinceByName,
-    findCityByName,
-    findBarangayByName
-  } = usePhLocations()
-
   const { getStorageUrl } = useStorage()
   const {
     missingPatientFields,
@@ -98,13 +84,6 @@
     isAccountPendingVerification,
     verificationDeadline
   } = useAppNotifications()
-
-  const codes = reactive({
-    region: '',
-    province: '',
-    city: '',
-    barangay: ''
-  })
 
   const form = reactive({
     first_name: '',
@@ -231,7 +210,6 @@
   )
 
   onMounted(async () => {
-    await fetchRegions()
     updateCountdown()
     countdownInterval = setInterval(updateCountdown, 60000)
   })
@@ -240,83 +218,6 @@
     if (countdownInterval) clearInterval(countdownInterval)
     if (cooldownTimer) clearInterval(cooldownTimer)
   })
-
-  // Cascading logic
-  watch(
-    () => codes.region,
-    async newVal => {
-      if (newVal) {
-        codes.province = ''
-        codes.city = ''
-        codes.barangay = ''
-        const region = regions.value.find(r => r.code === newVal)
-        if (region) form.province = region.name
-        await fetchProvinces(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.province,
-    async newVal => {
-      if (newVal) {
-        codes.city = ''
-        codes.barangay = ''
-        const prov = provinces.value.find(p => p.code === newVal)
-        if (prov) form.province = prov.name
-        await fetchCities(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.city,
-    async newVal => {
-      if (newVal) {
-        codes.barangay = ''
-        const city = cities.value.find(c => c.code === newVal)
-        if (city) form.city = city.name
-        await fetchBarangays(newVal)
-      }
-    }
-  )
-
-  watch(
-    () => codes.barangay,
-    newVal => {
-      if (newVal) {
-        const brgy = barangays.value.find(b => b.code === newVal)
-        if (brgy) form.barangay = brgy.name
-      }
-    }
-  )
-
-  const initDropdowns = async () => {
-    if (form.province) {
-      const prov = await findProvinceByName(form.province)
-      if (prov) {
-        codes.region = prov.regionCode
-        await fetchProvinces(prov.regionCode)
-        codes.province = prov.code
-
-        if (form.city) {
-          const city = await findCityByName(prov.code, form.city)
-          if (city) {
-            await fetchCities(prov.code)
-            codes.city = city.code
-
-            if (form.barangay) {
-              const brgy = await findBarangayByName(city.code, form.barangay)
-              if (brgy) {
-                await fetchBarangays(city.code)
-                codes.barangay = brgy.code
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 
   // Inner Sidebar Tabs
   type SettingsTab = 'profile' | 'security'
@@ -347,69 +248,6 @@
     },
     { immediate: true }
   )
-
-  // Change Password State
-  const passwordForm = reactive({
-    current_password: '',
-    new_password: '',
-    new_password_confirmation: ''
-  })
-  const isChangingPassword = ref(false)
-  const showCurrentPassword = ref(false)
-  const showNewPassword = ref(false)
-  const showConfirmPassword = ref(false)
-  const passwordError = ref<string | null>(null)
-
-  // Clear password error on tab switch
-  watch(activeTab, () => {
-    passwordError.value = null
-  })
-
-  const handlePasswordChange = async () => {
-    passwordError.value = null
-    if (!passwordForm.current_password) {
-      passwordError.value = 'Please enter your current password.'
-      return
-    }
-    if (passwordForm.new_password.length < 8) {
-      passwordError.value = 'New password must be at least 8 characters long.'
-      return
-    }
-    if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
-      passwordError.value = 'The new password confirmation does not match.'
-      return
-    }
-
-    isChangingPassword.value = true
-    try {
-      await userService.update(userUuid, {
-        current_password: passwordForm.current_password,
-        new_password: passwordForm.new_password,
-        new_password_confirmation: passwordForm.new_password_confirmation
-      })
-      toast.success('Password updated successfully!')
-      passwordForm.current_password = ''
-      passwordForm.new_password = ''
-      passwordForm.new_password_confirmation = ''
-    } catch (err: any) {
-      const errors = err?.response?.data?.errors || err?.data?.errors
-      let msg =
-        err?.response?.data?.message ||
-        err?.data?.message ||
-        err?.message ||
-        'Failed to update password.'
-      if (errors && typeof errors === 'object') {
-        const firstKey = Object.keys(errors)[0]
-        if (firstKey && errors[firstKey]?.[0]) {
-          msg = errors[firstKey][0]
-        }
-      }
-      passwordError.value = msg
-      toast.error(msg)
-    } finally {
-      isChangingPassword.value = false
-    }
-  }
 
   const initialFormState = ref<string>('')
   const hasFormChanges = computed(() => {
@@ -455,7 +293,6 @@
         form.gender = normalizeGender(userData.gender)
         form.consent_dataset = Boolean(userData.consent_dataset)
 
-        initDropdowns()
         loaded.value = true
         initialFormState.value = JSON.stringify(form)
       }
@@ -1178,162 +1015,18 @@
 
               <!-- Column 2: Residential Address -->
               <div class="flex flex-col">
-                <div
-                  class="bg-card border-border flex h-full flex-col justify-between rounded-3xl border p-6 shadow-xs"
+                <AppLocationCascade
+                  v-model:province="form.province"
+                  v-model:city="form.city"
+                  v-model:barangay="form.barangay"
+                  v-model:street="form.street"
+                  title="Residential Address"
+                  subtitle="Your home address for localized dermatologist discovery."
+                  street-label="Street Address"
+                  street-placeholder="House No., Building, Street Name"
+                  icon="heroicons:map-pin-20-solid"
+                  @change="geocodeAddress"
                 >
-                  <div>
-                    <div class="mb-5 flex items-center justify-between gap-3">
-                      <div class="flex items-center gap-3">
-                        <div
-                          class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600"
-                        >
-                          <Icon
-                            name="heroicons:map-pin-20-solid"
-                            size="22"
-                          />
-                        </div>
-                        <div>
-                          <h2 class="text-foreground text-base font-bold sm:text-lg">
-                            Residential Address
-                          </h2>
-                          <p class="text-muted-foreground mt-0.5 text-xs">
-                            Your home address for localized dermatologist discovery.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="bg-border/60 mb-5 h-px"></div>
-
-                    <div class="space-y-4">
-                      <!-- Region & Province -->
-                      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div class="flex flex-col gap-1.5">
-                          <label
-                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >
-                            Region
-                          </label>
-                          <select
-                            v-model="codes.region"
-                            class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          >
-                            <option
-                              value=""
-                              disabled
-                            >
-                              Select Region
-                            </option>
-                            <option
-                              v-for="r in regions"
-                              :key="r.code"
-                              :value="r.code"
-                            >
-                              {{ r.name }}
-                            </option>
-                          </select>
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                          <label
-                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >
-                            Province
-                          </label>
-                          <select
-                            v-model="codes.province"
-                            :disabled="!provinces.length"
-                            class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                          >
-                            <option
-                              value=""
-                              disabled
-                            >
-                              {{ provinces.length ? 'Select Province' : 'N/A' }}
-                            </option>
-                            <option
-                              v-for="p in provinces"
-                              :key="p.code"
-                              :value="p.code"
-                            >
-                              {{ p.name }}
-                            </option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <!-- City & Barangay -->
-                      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div class="flex flex-col gap-1.5">
-                          <label
-                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >
-                            City / Municipality
-                          </label>
-                          <select
-                            v-model="codes.city"
-                            :disabled="!cities.length"
-                            class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                          >
-                            <option
-                              value=""
-                              disabled
-                            >
-                              Select City
-                            </option>
-                            <option
-                              v-for="c in cities"
-                              :key="c.code"
-                              :value="c.code"
-                            >
-                              {{ c.name }}
-                            </option>
-                          </select>
-                        </div>
-                        <div class="flex flex-col gap-1.5">
-                          <label
-                            class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                          >
-                            Barangay
-                          </label>
-                          <select
-                            v-model="codes.barangay"
-                            :disabled="!barangays.length"
-                            class="bg-foreground/5 border-border focus:border-primary w-full appearance-none rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none disabled:opacity-50"
-                          >
-                            <option
-                              value=""
-                              disabled
-                            >
-                              Select Barangay
-                            </option>
-                            <option
-                              v-for="b in barangays"
-                              :key="b.code"
-                              :value="b.code"
-                            >
-                              {{ b.name }}
-                            </option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <!-- Street Address -->
-                      <div class="flex flex-col gap-1.5">
-                        <label
-                          class="text-foreground/70 text-xs font-bold tracking-wider uppercase"
-                        >
-                          Street Address
-                        </label>
-                        <input
-                          v-model="form.street"
-                          type="text"
-                          class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium transition-all outline-none"
-                          placeholder="House No., Building, Street Name"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
                   <!-- Clinic Proximity Info Pill -->
                   <div class="bg-primary/5 border-primary/20 mt-6 rounded-2xl border p-4">
                     <div class="flex items-start gap-3">
@@ -1348,7 +1041,7 @@
                       </p>
                     </div>
                   </div>
-                </div>
+                </AppLocationCascade>
               </div>
             </div>
 
@@ -1606,185 +1299,11 @@
           <!-- Security Cards Grid (Side-by-side on xl, stacked on mobile/tablet) -->
           <div class="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-2">
             <!-- Card 1: Change Password Card -->
-            <div
-              class="bg-card border-border flex flex-col justify-between rounded-3xl border p-6 shadow-xs sm:p-7"
-            >
-              <div>
-                <div class="mb-5 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-                    >
-                      <Icon
-                        name="heroicons:key-20-solid"
-                        size="22"
-                      />
-                    </div>
-                    <div>
-                      <h3 class="text-foreground text-base font-bold sm:text-lg">
-                        Change Password
-                      </h3>
-                      <p class="text-muted-foreground mt-0.5 text-xs">
-                        Ensure your account is using a long, secure password to protect your
-                        records.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="bg-border/60 mb-6 h-px"></div>
-
-                <form
-                  @submit.prevent="handlePasswordChange"
-                  class="space-y-4"
-                >
-                  <div
-                    v-if="passwordError"
-                    class="border-destructive/30 bg-destructive/10 text-destructive flex items-center gap-2 rounded-2xl border p-3.5 text-xs font-semibold"
-                  >
-                    <Icon
-                      name="heroicons:exclamation-circle-20-solid"
-                      size="16"
-                      class="shrink-0"
-                    />
-                    <span>{{ passwordError }}</span>
-                  </div>
-
-                  <!-- Current Password -->
-                  <div class="flex flex-col gap-1.5">
-                    <label
-                      for="patient_current_password"
-                      class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
-                    >
-                      Current Password
-                    </label>
-                    <div class="relative">
-                      <input
-                        id="patient_current_password"
-                        v-model="passwordForm.current_password"
-                        :type="showCurrentPassword ? 'text' : 'password'"
-                        autocomplete="current-password"
-                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
-                        placeholder="Enter current password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        :aria-label="
-                          showCurrentPassword ? 'Hide current password' : 'Show current password'
-                        "
-                        :aria-pressed="showCurrentPassword"
-                        @click="showCurrentPassword = !showCurrentPassword"
-                        class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
-                      >
-                        <Icon
-                          :name="
-                            showCurrentPassword
-                              ? 'heroicons:eye-slash-20-solid'
-                              : 'heroicons:eye-20-solid'
-                          "
-                          size="18"
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- New Password -->
-                  <div class="flex flex-col gap-1.5">
-                    <div class="flex items-center justify-between">
-                      <label
-                        for="patient_new_password"
-                        class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
-                      >
-                        New Password
-                      </label>
-                      <span class="text-muted-foreground text-[11px]">Min. 8 characters</span>
-                    </div>
-                    <div class="relative">
-                      <input
-                        id="patient_new_password"
-                        v-model="passwordForm.new_password"
-                        :type="showNewPassword ? 'text' : 'password'"
-                        autocomplete="new-password"
-                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
-                        placeholder="Enter new password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        :aria-label="showNewPassword ? 'Hide new password' : 'Show new password'"
-                        :aria-pressed="showNewPassword"
-                        @click="showNewPassword = !showNewPassword"
-                        class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
-                      >
-                        <Icon
-                          :name="
-                            showNewPassword
-                              ? 'heroicons:eye-slash-20-solid'
-                              : 'heroicons:eye-20-solid'
-                          "
-                          size="18"
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Confirm New Password -->
-                  <div class="flex flex-col gap-1.5">
-                    <label
-                      for="patient_confirm_password"
-                      class="text-foreground/70 cursor-pointer text-xs font-bold tracking-wider uppercase"
-                    >
-                      Confirm New Password
-                    </label>
-                    <div class="relative">
-                      <input
-                        id="patient_confirm_password"
-                        v-model="passwordForm.new_password_confirmation"
-                        :type="showConfirmPassword ? 'text' : 'password'"
-                        autocomplete="new-password"
-                        class="bg-foreground/5 border-border focus:border-primary w-full rounded-2xl border px-4 py-3 pr-11 text-sm font-medium transition-all outline-none"
-                        placeholder="Confirm new password"
-                        required
-                      />
-                      <button
-                        type="button"
-                        :aria-label="
-                          showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
-                        "
-                        :aria-pressed="showConfirmPassword"
-                        @click="showConfirmPassword = !showConfirmPassword"
-                        class="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer p-1"
-                      >
-                        <Icon
-                          :name="
-                            showConfirmPassword
-                              ? 'heroicons:eye-slash-20-solid'
-                              : 'heroicons:eye-20-solid'
-                          "
-                          size="18"
-                        />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div class="pt-2">
-                    <AppButton
-                      type="submit"
-                      :loading="isChangingPassword"
-                      :disabled="
-                        isChangingPassword ||
-                        !passwordForm.current_password ||
-                        !passwordForm.new_password
-                      "
-                      class="min-w-[150px]"
-                    >
-                      Update Password
-                    </AppButton>
-                  </div>
-                </form>
-              </div>
-            </div>
+            <AppChangePasswordCard
+              :user-uuid="userUuid || ''"
+              id-prefix="patient"
+              subtitle="Ensure your account is using a long, secure password to protect your records."
+            />
 
             <!-- Card 2: Two-Factor Authentication (2FA) Card -->
             <AppTwoFactorCard
