@@ -31,7 +31,9 @@
   // Modals
   const showRegisterModal = ref(false)
   const showScheduleModal = ref(false)
+  const selectedPatientForAppointment = ref<any | null>(null)
   const selectedPatientForDetail = ref<any | null>(null)
+  const isOpeningChat = ref(false)
 
   // Account Management Modals
   const showDisableModal = ref(false)
@@ -409,21 +411,46 @@
     selectedPatientForDetail.value = patient
   }
 
+  const openBookAppointmentModal = (patient: any) => {
+    selectedPatientForAppointment.value = patient
+    showScheduleModal.value = true
+  }
+
+  const openNewAppointmentModal = () => {
+    selectedPatientForAppointment.value = null
+    showScheduleModal.value = true
+  }
+
+  const closeScheduleModal = () => {
+    showScheduleModal.value = false
+    selectedPatientForAppointment.value = null
+  }
+
   const openPatientChat = async (patient: PatientDirectoryItem) => {
+    if (!patient) return
+
     if (patient.conversationUuid) {
       navigateTo(`/Doctor/Messages/${patient.conversationUuid}`)
       return
     }
-    if (patient.id) {
+
+    if (patient.id || patient.uuid) {
+      isOpeningChat.value = true
       try {
-        const res = await conversationService.create({ patient_id: patient.id })
-        const convUuid = res?.data?.uuid || res?.uuid
+        const payload: Record<string, any> = {}
+        if (patient.id) payload.patient_id = patient.id
+        if (patient.uuid) payload.patient_uuid = patient.uuid
+        const res = await conversationService.create(payload)
+        const convUuid = res?.data?.id || res?.data?.uuid || res?.uuid || res?.id
         if (convUuid) {
           navigateTo(`/Doctor/Messages/${convUuid}`)
           return
         }
       } catch (e) {
         console.error('Could not auto-start conversation:', e)
+        toast.error('Unable to open patient conversation.')
+      } finally {
+        isOpeningChat.value = false
       }
     }
     navigateTo('/Doctor/Messages')
@@ -763,9 +790,19 @@
     { value: '23:59', label: '11:59 PM' }
   ]
 
-  const handleScheduledModal = () => {
-    fetchAppointments()
-    fetchRegisteredPatients()
+  const handleScheduledModal = async () => {
+    await fetchAppointments()
+    await fetchRegisteredPatients()
+    if (selectedPatientForDetail.value) {
+      const refreshed = unifiedPatients.value.find(
+        p =>
+          (p.uuid && p.uuid === selectedPatientForDetail.value.uuid) ||
+          (p.id && p.id === selectedPatientForDetail.value.id)
+      )
+      if (refreshed) {
+        selectedPatientForDetail.value = refreshed
+      }
+    }
   }
 </script>
 
@@ -797,7 +834,7 @@
         <AppButton
           variant="outline"
           rounded="both"
-          @click="showScheduleModal = true"
+          @click="openNewAppointmentModal"
           class="inline-flex cursor-pointer items-center justify-center gap-2 border-indigo-200 bg-indigo-50/50 px-4 py-2 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-100/70 active:scale-95"
         >
           <Icon
@@ -1418,7 +1455,7 @@
                   <!-- Book Follow-up -->
                   <button
                     type="button"
-                    @click="showScheduleModal = true"
+                    @click="openBookAppointmentModal(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
                     title="Schedule Appointment"
                   >
@@ -1466,7 +1503,7 @@
     <!-- 1. Patient Clinical Details Slideover / Modal -->
     <AppModal
       :model-value="!!selectedPatientForDetail"
-      size="2xl"
+      size="4xl"
       @close="selectedPatientForDetail = null"
     >
       <div
@@ -1563,6 +1600,7 @@
             <AppButton
               variant="solid"
               size="sm"
+              :loading="isOpeningChat"
               @click="openPatientChat(selectedPatientForDetail)"
               class="inline-flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700"
             >
@@ -1576,7 +1614,7 @@
             <AppButton
               variant="outline"
               size="sm"
-              @click="showScheduleModal = true"
+              @click="openBookAppointmentModal(selectedPatientForDetail)"
               class="inline-flex items-center gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50"
             >
               <Icon
@@ -1755,23 +1793,21 @@
           v-if="
             selectedPatientForDetail.isRegistered && !selectedPatientForDetail.isPendingCreation
           "
-          class="flex justify-between space-y-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4"
+          class="flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"
         >
-          <div class="flex items-center justify-between">
-            <div>
-              <h4 class="text-xs font-bold text-gray-900 uppercase">Clinic Account Controls</h4>
-              <p class="text-[11px] text-gray-500">
-                Manage login privileges, schedule auto-deletion, or delete this patient record.
-              </p>
-            </div>
+          <div class="min-w-0 pr-2">
+            <h4 class="text-xs font-bold text-gray-900 uppercase">Clinic Account Controls</h4>
+            <p class="text-[11px] text-gray-500">
+              Manage login privileges, schedule auto-deletion, or delete this patient record.
+            </p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 pt-1">
+          <div class="flex shrink-0 items-center gap-2">
             <AppButton
               v-if="selectedPatientForDetail.accountStatus === 'disabled'"
               size="sm"
               variant="solid"
-              class="rounded-xl bg-emerald-600 text-xs font-bold text-white hover:bg-emerald-700"
+              class="rounded-xl bg-emerald-600 text-xs font-bold whitespace-nowrap text-white hover:bg-emerald-700"
               :disabled="isActionLoading"
               @click="handleEnable(selectedPatientForDetail)"
             >
@@ -1781,7 +1817,7 @@
               v-else
               size="sm"
               variant="outline"
-              class="rounded-xl border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100"
+              class="rounded-xl border-gray-300 text-xs font-bold whitespace-nowrap text-gray-700 hover:bg-gray-100"
               :disabled="isActionLoading"
               @click="promptDisable(selectedPatientForDetail)"
             >
@@ -1791,7 +1827,7 @@
             <AppButton
               size="sm"
               variant="outline"
-              class="rounded-xl border-orange-200 text-xs font-bold text-orange-700 hover:bg-orange-50"
+              class="rounded-xl border-orange-200 text-xs font-bold whitespace-nowrap text-orange-700 hover:bg-orange-50"
               :disabled="isActionLoading"
               @click="promptScheduleAction(selectedPatientForDetail)"
             >
@@ -1805,7 +1841,7 @@
             <AppButton
               size="sm"
               variant="outline"
-              class="ml-auto rounded-xl border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50"
+              class="rounded-xl border-rose-200 text-xs font-bold whitespace-nowrap text-rose-600 hover:bg-rose-50"
               :disabled="isActionLoading"
               @click="promptDelete(selectedPatientForDetail)"
             >
@@ -1822,8 +1858,6 @@
           v-else-if="selectedPatientForDetail.isPendingCreation"
           class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4"
         >
-          
-
           <AppButton
             size="sm"
             variant="outline"
@@ -2164,9 +2198,14 @@
     />
 
     <!-- 7. Schedule New Appointment Modal -->
-    <AppModalDoctorScheduleNewModal
+    <AppModalAppointmentSchedule
       v-if="showScheduleModal"
-      @close="showScheduleModal = false"
+      :patient="selectedPatientForAppointment"
+      :patients="unifiedPatients"
+      :patient-name="selectedPatientForAppointment?.name || selectedPatientForAppointment?.doctor"
+      :patient-avatar="selectedPatientForAppointment?.avatar"
+      mode="schedule"
+      @close="closeScheduleModal"
       @scheduled="handleScheduledModal"
     />
   </div>

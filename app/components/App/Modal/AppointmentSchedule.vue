@@ -1,11 +1,15 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+  import { toast } from 'vue-sonner'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
   const props = withDefaults(
     defineProps<{
-      appointmentUuid: string
+      appointmentUuid?: string
+      patient?: any
+      patientId?: number | string
+      patients?: any[]
       mode?: 'schedule' | 'reschedule'
       prefillDate?: string
       prefillTime?: string
@@ -14,6 +18,10 @@
       patientAvatar?: string
     }>(),
     {
+      appointmentUuid: '',
+      patient: null,
+      patientId: '',
+      patients: () => [],
       mode: 'schedule',
       prefillDate: '',
       prefillTime: '',
@@ -27,6 +35,30 @@
     (e: 'close'): void
     (e: 'scheduled'): void
   }>()
+
+  const internalSelectedPatient = ref<any>(props.patient || null)
+  watch(
+    () => props.patient,
+    newVal => {
+      if (newVal) internalSelectedPatient.value = newVal
+    }
+  )
+
+  const displayPatientName = computed(() => {
+    if (props.patientName) return props.patientName
+    const p = internalSelectedPatient.value || props.patient
+    if (!p) return ''
+    if (p.name) return p.name
+    if (p.doctor && !p.doctor.startsWith('Dr.')) return p.doctor
+    const full = [p.first_name || p.firstName, p.last_name || p.lastName].filter(Boolean).join(' ')
+    return full || p.email || 'Patient'
+  })
+
+  const displayPatientAvatar = computed(() => {
+    return (
+      props.patientAvatar || internalSelectedPatient.value?.avatar || props.patient?.avatar || ''
+    )
+  })
 
   const isMobile = ref(false)
   const updateIsMobile = () => {
@@ -103,9 +135,11 @@
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
     findEarliestAvailableSlot,
-    fetchBlockedSlotsForDoctor
+    fetchBlockedSlotsForDoctor,
+    fetchBlockedSlots
   } = useBlockedDates()
-  const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor } = useAppointments()
+  const { appointments, isApptTimeConflicting, fetchAppointmentsForDoctor, fetchAppointments } =
+    useAppointments()
 
   const effectiveAppointmentsList = computed(() => {
     if (doctorBookedAppts.value.length > 0) {
@@ -156,6 +190,12 @@
 
   const handleDateSelected = (date: string) => {
     selectedDate.value = date
+
+    if (!hasDutyOnDate(date)) {
+      scheduleTime.value = ''
+      scheduleEndTime.value = ''
+      return
+    }
 
     // Smart-default to the earliest conflict-free slot on this date:
     // Must be strictly within duty hours, not blocked, and not overlapping existing appointments
@@ -211,6 +251,18 @@
         }
       } catch (e) {
         console.error('Failed to load target doctor schedule details:', e)
+      }
+    } else {
+      // Direct patient scheduling (e.g. from Patients page)
+      try {
+        await Promise.all([fetchBlockedSlots(), fetchAppointments()])
+        if (props.prefillDate) {
+          selectedDate.value = props.prefillDate
+        } else if (!selectedDate.value) {
+          selectedDate.value = getTodayStr()
+        }
+      } catch (e) {
+        console.error('Failed to initialize doctor schedule slots:', e)
       }
     }
 
@@ -351,28 +403,59 @@
       isApptConflict.value ||
       isOutsideDutyHours.value ||
       hasNoDutyOnDate.value
-    )
+    ) {
       return
+    }
+
+    const targetPatient = internalSelectedPatient.value || props.patient
+    const targetPatientId = props.patientId || targetPatient?.patient_id || targetPatient?.id
+
+    if (!props.appointmentUuid && !targetPatientId) {
+      errorMessage.value = 'Please select a patient for this appointment.'
+      return
+    }
+
     isScheduling.value = true
     try {
       const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
       const endDateTime = `${selectedDate.value} ${scheduleEndTime.value}:00`
 
-      if (props.mode === 'reschedule') {
+      if (props.mode === 'reschedule' && props.appointmentUuid) {
         await appointmentService.proposeReschedule(props.appointmentUuid, {
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
           location: effectiveLocation.value
         })
-      } else {
+      } else if (props.appointmentUuid) {
         await appointmentService.update(props.appointmentUuid, {
           status: 'scheduled',
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
           location: effectiveLocation.value
         })
+      } else {
+        const targetPatientUuid = targetPatient?.uuid
+        const purpose =
+          targetPatient?.latestCondition ||
+          targetPatient?.info ||
+          targetPatient?.diagnosis ||
+          'Clinical Consultation'
+
+        await appointmentService.scheduleForPatient({
+          patient_id: targetPatientId,
+          patient_uuid: targetPatientUuid,
+          scheduled_at: dateTime,
+          scheduled_end_at: endDateTime,
+          location: effectiveLocation.value,
+          purpose
+        })
       }
 
+      toast.success(
+        props.mode === 'reschedule'
+          ? 'Reschedule proposal submitted.'
+          : 'Appointment scheduled successfully.'
+      )
       emit('scheduled')
       emit('close')
     } catch (e: any) {
@@ -410,13 +493,13 @@
         <!-- Patient Avatar & Name / Title -->
         <div class="flex min-w-0 flex-1 items-center gap-2.5">
           <div
-            v-if="props.patientAvatar || props.patientName"
+            v-if="displayPatientAvatar || displayPatientName"
             class="bg-primary/10 h-10 w-10 shrink-0 overflow-hidden rounded-full"
           >
             <img
-              v-if="props.patientAvatar && !avatarError"
-              :src="getStorageUrl(props.patientAvatar)"
-              :alt="props.patientName"
+              v-if="displayPatientAvatar && !avatarError"
+              :src="getStorageUrl(displayPatientAvatar)"
+              :alt="displayPatientName"
               class="h-full w-full object-cover"
               @error="avatarError = true"
             />
@@ -424,13 +507,13 @@
               v-else
               class="text-primary flex h-full w-full items-center justify-center text-sm font-bold uppercase"
             >
-              {{ (props.patientName || 'P').charAt(0) }}
+              {{ (displayPatientName || 'P').charAt(0) }}
             </div>
           </div>
           <div class="min-w-0 flex-1">
             <h2 class="text-foreground truncate text-sm font-bold">
               {{
-                props.patientName ||
+                displayPatientName ||
                 (props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment')
               }}
             </h2>
@@ -487,121 +570,130 @@
 
       <!-- Time Range & Warnings -->
       <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
-        <AppTimeRangePicker
-          v-model:start-time="scheduleTime"
-          v-model:end-time="scheduleEndTime"
-          :date="selectedDate"
-          :current-start-time="props.prefillTime"
-          :blocked-slots="blockedSlotsForDate"
-          :duty-slots="dutySlotsForDate"
-          :existing-appointments="existingApptSlotsForDate"
-          label="Appointment Time"
-        />
-
-        <Transition name="fade-scale">
-          <div
-            v-if="isApptConflict"
-            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-          >
-            <Icon
-              name="material-symbols:warning-rounded"
-              class="mt-0.5 shrink-0 text-sm"
-            />
-            <div>
-              <p class="font-bold">Conflicting Appointment</p>
-              <p class="mt-0.5 text-red-500">
-                An appointment is already scheduled during this time slot. Please choose a different
-                time.
-              </p>
-            </div>
-          </div>
-        </Transition>
-
-        <div
-          v-if="errorMessage"
-          class="mt-2 flex items-start gap-1.5 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
-        >
-          <Icon
-            name="material-symbols:warning-rounded"
-            class="mt-0.5 shrink-0 text-base text-red-500"
+        <template v-if="!hasNoDutyOnDate">
+          <AppTimeRangePicker
+            v-model:start-time="scheduleTime"
+            v-model:end-time="scheduleEndTime"
+            :date="selectedDate"
+            :current-start-time="props.prefillTime"
+            :blocked-slots="blockedSlotsForDate"
+            :duty-slots="dutySlotsForDate"
+            :existing-appointments="existingApptSlotsForDate"
+            label="Appointment Time"
           />
-          <span>{{ errorMessage }}</span>
-        </div>
 
-        <Transition name="fade-scale">
-          <div
-            v-if="selectedDate && hasNoDutyOnDate"
-            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-          >
-            <Icon
-              name="material-symbols:block-rounded"
-              class="mt-0.5 shrink-0 text-sm"
-            />
-            <div>
-              <p class="font-bold">Doctor is Off-Duty on this date</p>
-              <p class="mt-0.5 text-red-500">
-                The doctor has no scheduled duty hours on this date. Please select an available date
-                from the calendar.
-              </p>
+          <Transition name="fade-scale">
+            <div
+              v-if="isApptConflict"
+              class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+            >
+              <Icon
+                name="material-symbols:warning-rounded"
+                class="mt-0.5 shrink-0 text-sm"
+              />
+              <div>
+                <p class="font-bold">Conflicting Appointment</p>
+                <p class="mt-0.5 text-red-500">
+                  An appointment is already scheduled during this time slot. Please choose a
+                  different time.
+                </p>
+              </div>
             </div>
-          </div>
-        </Transition>
+          </Transition>
 
-        <Transition name="fade-scale">
           <div
-            v-if="selectedDate && !hasNoDutyOnDate && isOutsideDutyHours"
-            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+            v-if="errorMessage"
+            class="mt-2 flex items-start gap-1.5 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
           >
             <Icon
               name="material-symbols:warning-rounded"
-              class="mt-0.5 shrink-0 text-sm"
+              class="mt-0.5 shrink-0 text-base text-red-500"
             />
-            <div>
-              <p class="font-bold">Outside Doctor's Duty Hours</p>
-              <p class="mt-0.5 text-red-500">
-                Appointments must be scheduled during active duty hours on this date:
-                <strong>{{ dutyRangesLabel }}</strong
+            <span>{{ errorMessage }}</span>
+          </div>
+
+          <Transition name="fade-scale">
+            <div
+              v-if="selectedDate && isOutsideDutyHours"
+              class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+            >
+              <Icon
+                name="material-symbols:warning-rounded"
+                class="mt-0.5 shrink-0 text-sm"
+              />
+              <div>
+                <p class="font-bold">Outside Doctor's Duty Hours</p>
+                <p class="mt-0.5 text-red-500">
+                  Appointments must be scheduled during active duty hours on this date:
+                  <strong>{{ dutyRangesLabel }}</strong
+                  >.
+                </p>
+              </div>
+            </div>
+          </Transition>
+
+          <Transition name="fade-scale">
+            <div
+              v-if="isSelectedTimeBlocked"
+              class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+            >
+              <Icon
+                name="material-symbols:block-rounded"
+                class="mt-0.5 shrink-0 text-sm"
+              />
+              <div>
+                <p class="font-bold">This time is blocked</p>
+                <p class="mt-0.5 text-red-500">
+                  Blocked on this date: <strong>{{ blockedRangesLabel }}</strong
+                  >. Please choose a different time.
+                </p>
+              </div>
+            </div>
+          </Transition>
+
+          <Transition name="fade-scale">
+            <div
+              v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
+              class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
+            >
+              <Icon
+                name="material-symbols:warning-rounded"
+                class="mt-0.5 shrink-0 text-sm"
+              />
+              <p>
+                <span class="font-bold">Note:</span>
+                This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong
                 >.
               </p>
             </div>
-          </div>
-        </Transition>
+          </Transition>
+        </template>
 
-        <Transition name="fade-scale">
+        <!-- Off-Duty / Unavailable Placeholder (fills the space when doctor has no duty on this date) -->
+        <div
+          v-else
+          class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200/90 bg-gray-50/60 p-6 text-center"
+        >
           <div
-            v-if="isSelectedTimeBlocked"
-            class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+            class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200/60 bg-amber-50 text-amber-600 shadow-xs"
           >
             <Icon
-              name="material-symbols:block-rounded"
-              class="mt-0.5 shrink-0 text-sm"
+              name="material-symbols:event-busy-rounded"
+              class="h-6 w-6"
             />
-            <div>
-              <p class="font-bold">This time is blocked</p>
-              <p class="mt-0.5 text-red-500">
-                Blocked on this date: <strong>{{ blockedRangesLabel }}</strong
-                >. Please choose a different time.
-              </p>
-            </div>
           </div>
-        </Transition>
-
-        <Transition name="fade-scale">
+          <h4 class="text-sm font-bold text-gray-800">Doctor is Off-Duty on this date</h4>
+          <p class="mt-1 max-w-xs text-xs leading-relaxed text-gray-500">
+            The doctor has no scheduled duty hours on this date. Please select an available date
+            from the calendar.
+          </p>
           <div
-            v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
-            class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
+            class="mt-3.5 inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-xs"
           >
-            <Icon
-              name="material-symbols:warning-rounded"
-              class="mt-0.5 shrink-0 text-sm"
-            />
-            <p>
-              <span class="font-bold">Note:</span>
-              This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong
-              >.
-            </p>
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+            Not Available
           </div>
-        </Transition>
+        </div>
       </div>
 
       <!-- Clinic / Location Selector -->
@@ -672,7 +764,11 @@
           isTimeRangeInvalid ||
           isApptConflict ||
           isOutsideDutyHours ||
-          hasNoDutyOnDate
+          hasNoDutyOnDate ||
+          (!props.appointmentUuid &&
+            !displayPatientName &&
+            !internalSelectedPatient &&
+            !props.patientId)
         "
         @click="confirmSchedule"
       >
@@ -722,9 +818,56 @@
           <div
             class="bg-foreground/5 flex w-[95vw] max-w-2xl flex-col justify-center p-8 lg:w-[34rem]"
           >
-            <h3 class="mb-6 text-2xl font-bold">
+            <h3
+              class="text-2xl font-bold"
+              :class="
+                displayPatientName || (!props.appointmentUuid && props.patients?.length)
+                  ? 'mb-1'
+                  : 'mb-6'
+              "
+            >
               {{ props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment' }}
             </h3>
+
+            <!-- Patient identification / selector -->
+            <div
+              v-if="displayPatientName"
+              class="mb-4 flex items-center gap-1.5 text-xs font-bold text-indigo-600"
+            >
+              <Icon
+                name="heroicons:user-20-solid"
+                class="h-3.5 w-3.5"
+              />
+              <span>Patient: {{ displayPatientName }}</span>
+            </div>
+
+            <div
+              v-else-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
+              class="mb-4"
+            >
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase">
+                Select Patient *
+              </label>
+              <select
+                v-model="internalSelectedPatient"
+                class="w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-2.5 text-xs font-semibold text-gray-800 outline-none focus:border-indigo-500"
+              >
+                <option
+                  :value="null"
+                  disabled
+                >
+                  -- Choose a Patient --
+                </option>
+                <option
+                  v-for="pat in props.patients"
+                  :key="pat.id || pat.uuid"
+                  :value="pat"
+                >
+                  {{ pat.name || pat.doctor || `${pat.first_name || ''} ${pat.last_name || ''}` }}
+                  ({{ pat.email || pat.id }})
+                </option>
+              </select>
+            </div>
 
             <div class="mb-4">
               <label class="mb-2 block text-sm font-bold text-gray-500">Selected Date</label>
@@ -737,127 +880,135 @@
 
             <!-- Start & End Time Fields (Time Slot Selection) -->
             <div class="mb-4">
-              <AppTimeRangePicker
-                v-model:start-time="scheduleTime"
-                v-model:end-time="scheduleEndTime"
-                :date="selectedDate"
-                :current-start-time="props.prefillTime"
-                :blocked-slots="blockedSlotsForDate"
-                :duty-slots="dutySlotsForDate"
-                :existing-appointments="existingApptSlotsForDate"
-                label="Appointment Time"
-              />
-
-              <!-- Conflicting Appointment Warning -->
-              <Transition name="fade-scale">
-                <div
-                  v-if="isApptConflict"
-                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-                >
-                  <Icon
-                    name="material-symbols:warning-rounded"
-                    class="mt-0.5 shrink-0 text-sm"
-                  />
-                  <div>
-                    <p class="font-bold">Conflicting Appointment</p>
-                    <p class="mt-0.5 text-red-500">
-                      An appointment is already scheduled during this time slot. Please choose a
-                      different time.
-                    </p>
-                  </div>
-                </div>
-              </Transition>
-
-              <!-- Conflict / Error Alert -->
-              <div
-                v-if="errorMessage"
-                class="mt-2 flex items-start gap-1.5 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
-              >
-                <Icon
-                  name="material-symbols:warning-rounded"
-                  class="mt-0.5 shrink-0 text-base text-red-500"
+              <template v-if="!hasNoDutyOnDate">
+                <AppTimeRangePicker
+                  v-model:start-time="scheduleTime"
+                  v-model:end-time="scheduleEndTime"
+                  :date="selectedDate"
+                  :current-start-time="props.prefillTime"
+                  :blocked-slots="blockedSlotsForDate"
+                  :duty-slots="dutySlotsForDate"
+                  :existing-appointments="existingApptSlotsForDate"
+                  label="Appointment Time"
                 />
-                <span>{{ errorMessage }}</span>
-              </div>
 
-              <!-- Off-duty warning (Doctor has no duty hours on this date) -->
-              <Transition name="fade-scale">
-                <div
-                  v-if="selectedDate && hasNoDutyOnDate"
-                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-                >
-                  <Icon
-                    name="material-symbols:block-rounded"
-                    class="mt-0.5 shrink-0 text-sm"
-                  />
-                  <div>
-                    <p class="font-bold">Doctor is Off-Duty on this date</p>
-                    <p class="mt-0.5 text-red-500">
-                      The doctor has no scheduled duty hours on this date. Please select an
-                      available date from the calendar.
-                    </p>
+                <!-- Conflicting Appointment Warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="isApptConflict"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <div>
+                      <p class="font-bold">Conflicting Appointment</p>
+                      <p class="mt-0.5 text-red-500">
+                        An appointment is already scheduled during this time slot. Please choose a
+                        different time.
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </Transition>
+                </Transition>
 
-              <!-- Outside duty hours warning -->
-              <Transition name="fade-scale">
+                <!-- Conflict / Error Alert -->
                 <div
-                  v-if="selectedDate && !hasNoDutyOnDate && isOutsideDutyHours"
-                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  v-if="errorMessage"
+                  class="mt-2 flex items-start gap-1.5 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs font-bold text-red-600"
                 >
                   <Icon
                     name="material-symbols:warning-rounded"
-                    class="mt-0.5 shrink-0 text-sm"
+                    class="mt-0.5 shrink-0 text-base text-red-500"
                   />
-                  <div>
-                    <p class="font-bold">Outside Doctor's Duty Hours</p>
-                    <p class="mt-0.5 text-red-500">
-                      Appointments must be scheduled during active duty hours on this date:
-                      <strong>{{ dutyRangesLabel }}</strong
+                  <span>{{ errorMessage }}</span>
+                </div>
+
+                <!-- Outside duty hours warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="selectedDate && isOutsideDutyHours"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <div>
+                      <p class="font-bold">Outside Doctor's Duty Hours</p>
+                      <p class="mt-0.5 text-red-500">
+                        Appointments must be scheduled during active duty hours on this date:
+                        <strong>{{ dutyRangesLabel }}</strong
+                        >.
+                      </p>
+                    </div>
+                  </div>
+                </Transition>
+
+                <!-- Blocked time warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="isSelectedTimeBlocked"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon
+                      name="material-symbols:block-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <div>
+                      <p class="font-bold">This time is blocked</p>
+                      <p class="mt-0.5 text-red-500">
+                        Blocked on this date: <strong>{{ blockedRangesLabel }}</strong
+                        >. Please choose a different time.
+                      </p>
+                    </div>
+                  </div>
+                </Transition>
+
+                <!-- Partial block info (date has blocks but selected time is fine) -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
+                  >
+                    <Icon
+                      name="material-symbols:warning-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <p>
+                      <span class="font-bold">Note:</span>
+                      This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong
                       >.
                     </p>
                   </div>
-                </div>
-              </Transition>
+                </Transition>
+              </template>
 
-              <!-- Blocked time warning -->
-              <Transition name="fade-scale">
+              <!-- Off-duty empty state filling the space -->
+              <div
+                v-else
+                class="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/90 bg-gray-50/60 p-8 text-center"
+              >
                 <div
-                  v-if="isSelectedTimeBlocked"
-                  class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  class="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200/60 bg-amber-50 text-amber-600 shadow-xs"
                 >
                   <Icon
-                    name="material-symbols:block-rounded"
-                    class="mt-0.5 shrink-0 text-sm"
+                    name="material-symbols:event-busy-rounded"
+                    class="h-7 w-7"
                   />
-                  <div>
-                    <p class="font-bold">This time is blocked</p>
-                    <p class="mt-0.5 text-red-500">
-                      Blocked on this date: <strong>{{ blockedRangesLabel }}</strong
-                      >. Please choose a different time.
-                    </p>
-                  </div>
                 </div>
-              </Transition>
-
-              <!-- Partial block info (date has blocks but selected time is fine) -->
-              <Transition name="fade-scale">
+                <h4 class="text-sm font-bold text-gray-800">Doctor is Off-Duty on this date</h4>
+                <p class="mt-1.5 max-w-xs text-xs leading-relaxed text-gray-500">
+                  The doctor has no scheduled duty hours on this date. Please select an available
+                  date from the calendar.
+                </p>
                 <div
-                  v-if="selectedDate && blockedRangesLabel && !isSelectedTimeBlocked"
-                  class="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700"
+                  class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-xs"
                 >
-                  <Icon
-                    name="material-symbols:warning-rounded"
-                    class="mt-0.5 shrink-0 text-sm"
-                  />
-                  <p>
-                    <span class="font-bold">Note:</span>
-                    This date has blocked periods: <strong>{{ blockedRangesLabel }}</strong
-                    >.
-                  </p>
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                  Not Available for Booking
                 </div>
-              </Transition>
+              </div>
             </div>
 
             <!-- Clinic / Location Selector -->
@@ -922,7 +1073,11 @@
                   isTimeRangeInvalid ||
                   isApptConflict ||
                   isOutsideDutyHours ||
-                  hasNoDutyOnDate
+                  hasNoDutyOnDate ||
+                  (!props.appointmentUuid &&
+                    !displayPatientName &&
+                    !internalSelectedPatient &&
+                    !props.patientId)
                 "
                 @click="confirmSchedule"
               >

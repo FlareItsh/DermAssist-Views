@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
+  import { toast } from 'vue-sonner'
+
+  const props = defineProps<{
+    patient?: any
+  }>()
 
   const emit = defineEmits<{
     (e: 'close'): void
@@ -9,7 +14,7 @@
 
   // ─── Data ───────────────────────────────────────────────────────────────────
 
-  const { completedAppointments, fetchAppointments } = useAppointments()
+  const { appointments, completedAppointments, fetchAppointments } = useAppointments()
 
   /**
    * Deduplicate completed patients — keep only the most recent appointment per patient.
@@ -34,12 +39,30 @@
   const step = ref<1 | 2>(1)
   const selectedPatient = ref<any>(null)
 
+  watch(
+    () => props.patient,
+    newPatient => {
+      if (newPatient) {
+        selectedPatient.value = newPatient
+        step.value = 2
+      } else {
+        step.value = 1
+        selectedPatient.value = null
+      }
+    },
+    { immediate: true }
+  )
+
   const selectPatient = (appt: any) => {
     selectedPatient.value = appt
     step.value = 2
   }
 
   const backToPatients = () => {
+    if (props.patient) {
+      emit('close')
+      return
+    }
     step.value = 1
     selectedPatient.value = null
     resetForm()
@@ -67,17 +90,6 @@
 
   const { clinics, fetchClinics } = useDoctorClinics()
 
-  onMounted(async () => {
-    await fetchClinics()
-  })
-
-  watch(scheduleTime, newStart => {
-    if (!newStart) return
-    const [h, m] = newStart.split(':').map(Number)
-    const endHour = (h + 1) % 24
-    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-  })
-
   // ─── Blocked dates & Duty Presets ───────────────────────────────────────────
 
   const {
@@ -90,8 +102,13 @@
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
-    findEarliestAvailableSlot
+    findEarliestAvailableSlot,
+    fetchBlockedSlots
   } = useBlockedDates()
+
+  onMounted(async () => {
+    await Promise.all([fetchClinics(), fetchAppointments(), fetchBlockedSlots()])
+  })
 
   // Smart autofill clinic location from duty preset when date & time change
   watch(
@@ -131,17 +148,37 @@
     return getDutySlotsForDate(selectedDate.value)
   })
 
+  watch(scheduleTime, newStart => {
+    if (!newStart) return
+    const [h, m] = newStart.split(':').map(Number)
+    const endHour = (h + 1) % 24
+    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  })
+
   const existingApptSlotsForDate = computed(() => {
     if (!selectedDate.value) return []
-    return appointments.value
+    return (appointments.value || [])
       .filter(appt => {
         const p = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at || appt.date)
-        return p.date === selectedDate.value && (appt.raw_scheduled_at || appt.scheduled_at)
+        const apptDate = p.date || appt.date
+        return apptDate === selectedDate.value
       })
       .map(appt => {
-        const startP = parseAppointmentDateTime(appt.raw_scheduled_at || appt.scheduled_at)
-        let endH = String((Number(startP.startH) + 1) % 24).padStart(2, '0')
-        let endM = startP.startM
+        const rawStart = appt.raw_scheduled_at || appt.scheduled_at
+        let startH = '00'
+        let startM = '00'
+        if (rawStart) {
+          const startP = parseAppointmentDateTime(rawStart)
+          startH = startP.startH
+          startM = startP.startM
+        } else if (appt.time) {
+          const parsed = parseAppointmentDateTime(`${appt.date || selectedDate.value} ${appt.time}`)
+          startH = parsed.startH
+          startM = parsed.startM
+        }
+
+        let endH = String((Number(startH) + 1) % 24).padStart(2, '0')
+        let endM = startM
         const rawEnd = appt.raw_scheduled_end_at || appt.scheduled_end_at
         if (rawEnd) {
           const endP = parseAppointmentDateTime(rawEnd)
@@ -150,9 +187,14 @@
         }
 
         return {
-          start_time: `${startP.startH}:${startP.startM}`,
+          start_time: `${startH}:${startM}`,
           end_time: `${endH}:${endM}`,
-          label: appt.doctor || 'Booked Patient'
+          label:
+            appt.doctor ||
+            appt.patient_name ||
+            (appt.patient
+              ? `${appt.patient.first_name} ${appt.patient.last_name}`
+              : 'Booked Patient')
         }
       })
   })
@@ -254,6 +296,17 @@
     return scheduleLocation.value.trim()
   })
 
+  const overlappingAppointment = computed(() => {
+    if (!selectedDate.value || !scheduleTime.value || !scheduleEndTime.value) return null
+    return (
+      existingApptSlotsForDate.value.find(slot => {
+        return scheduleTime.value < slot.end_time && scheduleEndTime.value > slot.start_time
+      }) || null
+    )
+  })
+
+  const hasAppointmentConflict = computed(() => !!overlappingAppointment.value)
+
   const isFormValid = computed(
     () =>
       !!selectedDate.value &&
@@ -264,7 +317,8 @@
       !isSelectedTimeBlocked.value &&
       !isTimeRangeInvalid.value &&
       !isOutsideDutyHours.value &&
-      !hasNoDutyOnDate.value
+      !hasNoDutyOnDate.value &&
+      !hasAppointmentConflict.value
   )
 
   const confirmSchedule = async () => {
@@ -274,14 +328,17 @@
     try {
       const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
       const endDateTime = `${selectedDate.value} ${scheduleEndTime.value}:00`
+      const targetPatientId = selectedPatient.value.patient_id || selectedPatient.value.id
       await appointmentService.scheduleForPatient({
-        patient_id: selectedPatient.value.patient_id,
+        patient_id: targetPatientId,
+        patient_uuid: selectedPatient.value.uuid,
         scheduled_at: dateTime,
         scheduled_end_at: endDateTime,
         location: effectiveLocation.value,
         purpose: schedulePurpose.value
       })
       await fetchAppointments()
+      toast.success('Appointment scheduled successfully.')
       emit('scheduled')
       emit('close')
     } catch (e: any) {
@@ -310,6 +367,14 @@
     const parts = cleanName.trim().split(/\s+/)
     if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  }
+
+  const getPatientDisplayName = (p: any): string => {
+    if (!p) return ''
+    if (p.name) return p.name
+    if (p.doctor && !p.doctor.startsWith('Dr.')) return p.doctor
+    const full = [p.first_name || p.firstName, p.last_name || p.lastName].filter(Boolean).join(' ')
+    return full || p.email || 'Patient'
   }
 </script>
 
@@ -394,7 +459,7 @@
                     class="mt-0.5 text-xs font-bold text-indigo-600"
                     v-if="selectedPatient"
                   >
-                    Patient: {{ selectedPatient.doctor }}
+                    Patient: {{ getPatientDisplayName(selectedPatient) }}
                   </p>
                 </div>
                 <button
@@ -493,6 +558,28 @@
                     </div>
                   </div>
                 </Transition>
+
+                <!-- Overlapping appointment conflict warning -->
+                <Transition name="fade-scale">
+                  <div
+                    v-if="hasAppointmentConflict && overlappingAppointment"
+                    class="mt-2 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
+                  >
+                    <Icon
+                      name="material-symbols:block-rounded"
+                      class="mt-0.5 shrink-0 text-sm"
+                    />
+                    <div>
+                      <p class="font-bold">Schedule Conflict with Existing Appointment</p>
+                      <p class="mt-0.5 text-red-500">
+                        This time overlaps with an existing appointment ({{
+                          overlappingAppointment.start_time
+                        }}
+                        – {{ overlappingAppointment.end_time }}). Please choose another time.
+                      </p>
+                    </div>
+                  </div>
+                </Transition>
               </div>
 
               <!-- Clinic / Location Selector -->
@@ -578,7 +665,7 @@
                   class="rounded-2xl bg-gray-100 py-3 font-bold text-gray-700 transition-all hover:bg-gray-200"
                   @click="backToPatients"
                 >
-                  Back
+                  {{ props.patient ? 'Cancel' : 'Back' }}
                 </AppButton>
               </div>
             </div>
