@@ -957,13 +957,14 @@
       autoplay
       playsinline
       muted
-      class="absolute inset-0 h-full w-full -scale-x-100 object-cover"
+      class="absolute inset-0 h-full w-full object-cover"
+      :class="{ '-scale-x-100': currentFacingMode === 'user' }"
     ></video>
 
     <img
       v-if="previewImage"
       :src="previewImage"
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full bg-black object-contain"
     />
 
     <!-- === EMPTY STATE (no camera, no image) === -->

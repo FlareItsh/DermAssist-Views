@@ -60,10 +60,10 @@
 </script>
 
 <template>
-  <div>
+  <div class="h-full min-h-0 w-full">
     <!-- Desktop Layout -->
-    <div class="desktop-only flex h-full gap-5">
-      <div class="min-w-0 flex-1">
+    <div class="desktop-only flex h-full min-h-0 w-full gap-5">
+      <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <!-- Loading Subscription State -->
         <div
           v-if="isLoadingSubscription"
@@ -217,7 +217,7 @@
         </ClientOnly>
       </div>
 
-      <div class="sticky top-0 w-[450px] shrink-0">
+      <div class="flex h-full min-h-0 w-[380px] shrink-0 flex-col xl:w-[440px]">
         <ClientOnly>
           <AppDiagnosisFindingsSummary role="doctor" />
         </ClientOnly>
@@ -384,12 +384,12 @@
 </template>
 
 <style scoped>
-  @media (min-width: 768px) {
+  @media (min-width: 1024px) {
     .mobile-only {
       display: none !important;
     }
   }
-  @media (max-width: 767px) {
+  @media (max-width: 1023px) {
     .desktop-only {
       display: none !important;
     }

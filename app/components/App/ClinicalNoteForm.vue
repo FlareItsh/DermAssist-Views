@@ -1205,29 +1205,17 @@
                 </div>
               </div>
 
-              <!-- Full-Width Bottom Row: Spacious Consultation Time Window -->
+              <!-- Full-Width Bottom Row: Time Slot Selection -->
               <div class="w-full space-y-3">
                 <AppTimeRangePicker
                   v-model:start-time="followUpTimeOnly"
                   v-model:end-time="followUpEndTimeOnly"
+                  :date="followUpDateOnly"
                   :blocked-slots="dateBlockedSlots"
                   :duty-slots="dateDutySlots"
                   :existing-appointments="dateExistingAppts"
                   label="Consultation Time Window"
                 />
-
-                <Transition name="fade-scale">
-                  <div
-                    v-if="followUpEndTimeOnly <= followUpTimeOnly"
-                    class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-2.5 text-xs text-red-600"
-                  >
-                    <Icon
-                      name="material-symbols:warning-rounded"
-                      class="mt-0.5 shrink-0 text-sm"
-                    />
-                    <p class="font-bold">End time must be after start time.</p>
-                  </div>
-                </Transition>
 
                 <!-- Off-Duty on date warning -->
                 <Transition name="fade-scale">

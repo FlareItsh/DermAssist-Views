@@ -1,11 +1,22 @@
 <script setup lang="ts">
-  import { ref, onMounted } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
+  import { useRoute, useRouter } from '#app'
+  import { toast } from 'vue-sonner'
   import { userService } from '~/api/user/UserService'
+  import { conversationService } from '~/api/conversation/ConversationService'
+  import { appointmentService } from '~/api/appointment/AppointmentService'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout',
     alias: ['/patient/scan/select-doctor', '/Patient/Scan/SelectDoctor']
   })
+
+  const route = useRoute()
+  const router = useRouter()
+  const diagnosisUuid = computed(
+    () => (route.query.diagnosis_uuid as string) || (route.query.diagnosis as string) || ''
+  )
+  const actionType = computed(() => (route.query.action as string) || 'appointment')
 
   const { getStorageUrl } = useStorage()
   const userUuid = useCookie('user_uuid')
@@ -13,6 +24,7 @@
 
   const allNearbyDoctors = ref<any[]>([])
   const isLoading = ref(true)
+  const isSubmitting = ref(false)
   const isDoctorRegistered = ref(false)
 
   const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
@@ -80,9 +92,53 @@
     }
   }
 
-  const handleSelect = (doc: any) => {
+  const handleSelect = async (doc: any) => {
+    if (diagnosisUuid.value) {
+      if (isSubmitting.value) return
+      isSubmitting.value = true
+      try {
+        const docId = doc.id || doc.uuid
+        if (actionType.value === 'chat') {
+          const convRes = await conversationService.create({ doctor_id: docId })
+          const convUuid = convRes?.data?.id || convRes?.id
+          if (convUuid) {
+            await conversationService.sendMessage(convUuid, `[SCAN_RESULT:${diagnosisUuid.value}]`)
+            toast.success(`Scan findings shared with Dr. ${doc.last_name || 'Doctor'}!`)
+            await navigateTo(`/Patient/Messages/${convUuid}`)
+            return
+          }
+        } else {
+          const res = await appointmentService.create({
+            doctor_id: docId,
+            diagnosis_uuid: diagnosisUuid.value
+          })
+          toast.success('Appointment request submitted with scan attached!')
+          if (res?.conversation_uuid) {
+            await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
+            return
+          }
+          await navigateTo('/Patient/Messages')
+          return
+        }
+      } catch (err: any) {
+        console.error('Failed to dispatch doctor selection:', err)
+        toast.error(err?.data?.message || err?.message || 'Could not process request.')
+      } finally {
+        isSubmitting.value = false
+      }
+      return
+    }
+
     selectDoctor(doc.uuid)
     navigateTo('/Patient/Scan/Results')
+  }
+
+  const handleBack = () => {
+    if (diagnosisUuid.value) {
+      router.back()
+    } else {
+      navigateTo('/Patient/Scan/Results')
+    }
   }
 
   onMounted(() => {
@@ -102,7 +158,7 @@
         variant="unstyled"
         size="unstyled"
         rounded="unstyled"
-        @click="navigateTo('/Patient/Scan/Results')"
+        @click="handleBack"
         class="group hover:text-primary flex shrink-0 items-center gap-1.5 text-gray-500 transition-colors sm:gap-2"
       >
         <div
@@ -113,11 +169,21 @@
             class="text-base sm:text-lg"
           />
         </div>
-        <span class="xs:inline hidden text-xs font-medium sm:text-sm">Back to Results</span>
+        <span class="xs:inline hidden text-xs font-medium sm:text-sm">
+          {{ diagnosisUuid ? 'Back' : 'Back to Results' }}
+        </span>
       </AppButton>
 
       <h1 class="truncate text-center text-base font-semibold text-gray-900 sm:text-xl">
-        {{ isDoctorRegistered ? 'Your Attending Doctor' : 'Select Specialist' }}
+        {{
+          isDoctorRegistered
+            ? 'Your Attending Doctor'
+            : diagnosisUuid
+              ? actionType === 'chat'
+                ? 'Select Doctor for Chat'
+                : 'Select Doctor for Consultation'
+              : 'Select Specialist'
+        }}
       </h1>
 
       <div class="w-8 shrink-0 sm:w-32"></div>

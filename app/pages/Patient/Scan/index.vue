@@ -13,16 +13,16 @@
 </script>
 
 <template>
-  <div>
+  <div class="h-full min-h-0 w-full">
     <!-- Desktop Layout -->
-    <div class="desktop-only flex h-[calc(100vh-8rem)] gap-5 overflow-hidden">
-      <div class="h-full min-w-0 flex-1">
+    <div class="desktop-only flex h-full min-h-0 w-full gap-5">
+      <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <ClientOnly>
           <AppScanner />
         </ClientOnly>
       </div>
 
-      <div class="h-full w-[450px] shrink-0">
+      <div class="flex h-full min-h-0 w-[380px] shrink-0 flex-col xl:w-[440px]">
         <ClientOnly>
           <AppDiagnosisFindingsSummary />
         </ClientOnly>

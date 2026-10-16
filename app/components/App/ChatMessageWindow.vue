@@ -1546,7 +1546,8 @@
                 <div
                   v-if="
                     msg.message.includes('[APPOINTMENT_REQUEST:') ||
-                    msg.message.includes('[DIAGNOSIS_ONLY:')
+                    msg.message.includes('[DIAGNOSIS_ONLY:') ||
+                    msg.message.includes('[SCAN_RESULT:')
                   "
                 >
                   <div class="mb-2">
@@ -1573,6 +1574,7 @@
                       {{
                         msg.message
                           .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
+                          .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
                           .trim() ||
                         (msg.message.includes('[APPOINTMENT_REQUEST:')
                           ? 'A diagnosis was shared.'

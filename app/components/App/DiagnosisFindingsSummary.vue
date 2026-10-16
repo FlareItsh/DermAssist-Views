@@ -78,6 +78,36 @@
     return validScan
   })
 
+  const showDiscardModal = ref(false)
+  const isDiscarding = ref(false)
+
+  const handleTriggerDiscard = () => {
+    if (!currentDiagnosis.value && !isScanned.value) {
+      resetScanner()
+      return
+    }
+    showDiscardModal.value = true
+  }
+
+  const handleConfirmDiscard = async () => {
+    isDiscarding.value = true
+    try {
+      const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+      if (diagUuid) {
+        await diagnosisService.delete(String(diagUuid))
+      }
+      resetScanner()
+      showDiscardModal.value = false
+      toast.info('Scan discarded and will not be saved in your records.')
+    } catch (e) {
+      console.error('Failed to discard scan', e)
+      resetScanner()
+      showDiscardModal.value = false
+    } finally {
+      isDiscarding.value = false
+    }
+  }
+
   const handleProceed = async () => {
     if (canProceed.value) {
       if (props.role === 'doctor') {
@@ -97,6 +127,14 @@
         }
         navigateTo('/Doctor/Scan/Results')
       } else {
+        const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+        if (diagUuid) {
+          try {
+            await diagnosisService.update(String(diagUuid), { status: 'completed' })
+          } catch (e) {
+            console.error('Failed to confirm diagnosis status', e)
+          }
+        }
         navigateTo('/Patient/Scan/Results')
       }
     } else {
@@ -1580,8 +1618,9 @@
           variant="unstyled"
           size="unstyled"
           rounded="unstyled"
-          @click="resetScanner"
+          @click="handleTriggerDiscard"
           class="bg-primary text-card flex w-fit items-center justify-center rounded-full p-3 font-bold transition-all hover:opacity-90 active:scale-95"
+          title="Discard Scan"
         >
           <Icon
             name="iconamoon:trash-light"
@@ -1601,5 +1640,18 @@
         </AppButton>
       </div>
     </div>
+
+    <!-- Discard Scan Confirmation Modal -->
+    <AppModalConfirmation
+      v-model="showDiscardModal"
+      title="Discard Unsaved Scan?"
+      message="Are you sure you want to discard this scan? It will be deleted immediately and will not be saved in your records."
+      confirm-text="Discard Scan"
+      cancel-text="Keep Scan"
+      confirm-variant="danger"
+      :loading="isDiscarding"
+      @confirm="handleConfirmDiscard"
+      @cancel="showDiscardModal = false"
+    />
   </div>
 </template>
