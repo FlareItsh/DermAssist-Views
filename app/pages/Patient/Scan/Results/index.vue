@@ -11,7 +11,6 @@
     chartData
   } = useDiagnosis()
   const userName = useCookie('user_name')
-  const isShareModalOpen = ref(false)
 
   definePageMeta({
     ssr: false,
@@ -65,18 +64,6 @@
               >#{{ currentDiagnosis?.uuid?.slice(0, 8) || 'PENDING' }}</span
             >
           </div>
-          <AppButton
-            variant="unstyled"
-            size="unstyled"
-            rounded="unstyled"
-            @click="isShareModalOpen = true"
-            class="bg-primary/10 text-primary hover:bg-primary/20 flex h-10 w-10 items-center justify-center rounded-xl transition-colors"
-          >
-            <Icon
-              name="material-symbols:share-rounded"
-              class="text-xl"
-            />
-          </AppButton>
         </div>
       </header>
 
@@ -123,12 +110,6 @@
         <PatientSideComponentsMobileScanResults />
       </ClientOnly>
     </div>
-
-    <!-- Share Record Modal -->
-    <AppModalShareRecord
-      v-model="isShareModalOpen"
-      :record="currentDiagnosis"
-    />
   </div>
 </template>
 

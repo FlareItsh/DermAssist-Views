@@ -899,7 +899,6 @@
                 <th class="px-4 py-3">Date</th>
                 <th class="px-4 py-3">Plan / Cycle</th>
                 <th class="px-4 py-3">Payment Method</th>
-                <th class="px-4 py-3">Reference</th>
                 <th class="px-4 py-3">Amount</th>
                 <th class="px-4 py-3 text-right">Status</th>
               </tr>
@@ -923,9 +922,6 @@
                   {{ inv.subscription?.plan?.name || 'Subscription' }}
                 </td>
                 <td class="px-4 py-3 font-semibold text-gray-600 uppercase">Online Checkout</td>
-                <td class="px-4 py-3 font-mono text-[11px] text-gray-500">
-                  {{ inv.transaction_reference || 'N/A' }}
-                </td>
                 <td class="px-4 py-3 font-extrabold text-gray-900">
                   ₱{{ Number(inv.final_amount).toLocaleString() }}
                 </td>

@@ -762,6 +762,7 @@
     patientUuid.value = null
     appointmentUuid.value = null
     assignedName.value = ''
+    userName.value = ''
     assignedAppointment.value = null
     saveActiveDiagnosisState()
     isPatientModalOpen.value = false
@@ -824,14 +825,12 @@
         return
       }
 
-      const calculatedAge =
-        calculatedRegisterAge.value ??
-        (registerForm.age ? parseInt(String(registerForm.age)) : undefined)
-
-      if (calculatedAge === undefined && !registerForm.date_of_birth) {
-        registrationError.value = 'Please provide the patient’s Age or Date of Birth.'
+      if (!registerForm.date_of_birth) {
+        registrationError.value = 'Please provide the patient’s Date of Birth.'
         return
       }
+
+      const calculatedAge = calculatedRegisterAge.value ?? undefined
 
       if (registerForm.contact_number) {
         const parts = splitFullPhoneNumber(registerForm.contact_number)
@@ -842,42 +841,43 @@
         }
       }
 
-      isSubmittingRegistration.value = true
-      registrationError.value = null
-
-      try {
-        const walkInPayload = {
-          firstName: registerForm.firstName.trim(),
-          middleName: registerForm.middleName?.trim() || undefined,
-          lastName: registerForm.lastName.trim(),
-          age: calculatedAge,
-          gender: registerForm.gender || undefined,
-          date_of_birth: registerForm.date_of_birth || undefined,
-          contact_number: registerForm.contact_number?.trim() || undefined
-        }
-
-        pendingPatientRegistration.value = null
-        walkInPatientInfo.value = walkInPayload
-        patientUuid.value = 'walk_in_guest'
-        assignedName.value = `${walkInPayload.firstName} ${walkInPayload.lastName}`
-        userName.value = assignedName.value
-        assignedAppointment.value = null
-
-        saveActiveDiagnosisState()
-
-        toast.success(`Patient ${assignedName.value} assigned! (No account created)`)
-
-        activeModalTab.value = 'appointments'
-        isPatientModalOpen.value = false
-        resetRegisterForm()
-      } catch (e: any) {
-        console.error('Registration failed:', e)
-        const msg = e?.data?.message || e?.message || 'Failed to assign walk-in patient.'
-        registrationError.value = msg
-        toast.error(msg)
-      } finally {
-        isSubmittingRegistration.value = false
+      const walkInPayload: PendingPatientRegistration = {
+        firstName: registerForm.firstName.trim(),
+        middleName: registerForm.middleName?.trim() || undefined,
+        lastName: registerForm.lastName.trim(),
+        date_of_birth: registerForm.date_of_birth || undefined,
+        age: calculatedAge,
+        gender: registerForm.gender || undefined,
+        contact_number: registerForm.contact_number?.trim() || undefined,
+        email: '',
+        password: '',
+        is_walk_in: true
       }
+
+      walkInPatientInfo.value = {
+        firstName: walkInPayload.firstName,
+        middleName: walkInPayload.middleName,
+        lastName: walkInPayload.lastName,
+        age: walkInPayload.age,
+        gender: walkInPayload.gender,
+        date_of_birth: walkInPayload.date_of_birth,
+        contact_number: walkInPayload.contact_number
+      }
+      pendingPatientRegistration.value = walkInPayload
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${walkInPayload.firstName} ${walkInPayload.lastName}`
+      userName.value = assignedName.value
+      assignedAppointment.value = null
+
+      saveActiveDiagnosisState()
+
+      toast.success(
+        `Walk-in patient ${assignedName.value} prepared! Patient record will be saved when you complete the diagnosis.`
+      )
+
+      activeModalTab.value = 'appointments'
+      isPatientModalOpen.value = false
+      resetRegisterForm()
       return
     }
 
@@ -912,9 +912,7 @@
         contact_number: registerForm.contact_number?.trim() || undefined,
         password: registerForm.password,
         date_of_birth: registerForm.date_of_birth || undefined,
-        age:
-          calculatedRegisterAge.value ??
-          (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
+        age: calculatedRegisterAge.value ?? undefined,
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
         barangay: registerForm.barangay?.trim() || undefined
@@ -1014,8 +1012,11 @@
       if (userUuid.value) {
         formData.append('user_uuid', userUuid.value)
       }
+      const isValidUuid = (val?: string | null) =>
+        !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+
       if (
-        patientUuid.value &&
+        isValidUuid(patientUuid.value) &&
         !pendingPatientRegistration.value &&
         patientUuid.value !== 'pending_new_patient' &&
         patientUuid.value !== 'walk_in_guest'
@@ -1040,7 +1041,7 @@
             const uuid = (response as any).uuid || (response as any).id
             if (
               uuid &&
-              patientUuid.value &&
+              isValidUuid(patientUuid.value) &&
               patientUuid.value !== 'pending_new_patient' &&
               patientUuid.value !== 'walk_in_guest'
             ) {
@@ -1135,32 +1136,48 @@
     >
       <!-- Doctor Patient Assignment Floating Chip -->
       <div class="pointer-events-auto mt-2 sm:mt-3">
-        <button
+        <div
           v-if="selectedPatientName"
-          type="button"
-          @click="openPatientModal"
-          class="flex items-center gap-2.5 rounded-full border border-white/20 bg-black/70 px-4 py-1.5 text-white backdrop-blur-md transition-all active:scale-95"
+          class="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/70 py-1 pr-2.5 pl-3.5 text-white shadow-lg backdrop-blur-md"
         >
-          <div
-            class="bg-primary/20 text-primary flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+          <button
+            type="button"
+            @click="openPatientModal"
+            class="flex items-center gap-2.5 text-left transition-all active:scale-95"
+          >
+            <div
+              class="bg-primary/20 text-primary flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold"
+            >
+              <Icon
+                name="material-symbols:person"
+                class="text-sm"
+              />
+            </div>
+            <div class="flex flex-col text-left">
+              <span class="max-w-[140px] truncate text-xs leading-tight font-bold">{{
+                selectedPatientName
+              }}</span>
+              <span class="text-[10px] font-medium text-white/70">{{ assignedBadgeText }}</span>
+            </div>
+            <span
+              class="text-primary hover:text-primary/80 ml-1 text-[11px] font-bold underline underline-offset-2"
+            >
+              Change
+            </span>
+          </button>
+
+          <button
+            type="button"
+            @click.stop="clearAssignedPatient"
+            class="ml-1 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white/70 transition-all hover:bg-rose-500 hover:text-white"
+            title="Clear assigned patient"
           >
             <Icon
-              name="material-symbols:person"
-              class="text-sm"
+              name="lucide:x"
+              class="text-[11px]"
             />
-          </div>
-          <div class="flex flex-col text-left">
-            <span class="max-w-[160px] truncate text-xs leading-tight font-bold">{{
-              selectedPatientName
-            }}</span>
-            <span class="text-[10px] font-medium text-white/70">{{ assignedBadgeText }}</span>
-          </div>
-          <span
-            class="text-primary hover:text-primary/80 ml-1 text-[11px] font-bold underline underline-offset-2"
-          >
-            Change
-          </span>
-        </button>
+          </button>
+        </div>
 
         <button
           v-else
@@ -1453,7 +1470,31 @@
             : 'Select a scheduled appointment patient for this clinical scan session.'
       "
       size="2xl"
+      compact
+      hide-scrollbar
     >
+      <!-- Clear current assignment notice / button inside modal if patient is assigned -->
+      <div
+        v-if="patientUuid || pendingPatientRegistration || walkInPatientInfo || assignedName"
+        class="mb-3.5 flex items-center justify-between rounded-2xl border border-gray-200/80 bg-gray-50 px-3.5 py-2 text-xs"
+      >
+        <span class="truncate font-medium text-gray-600">
+          Currently assigned:
+          <strong class="text-gray-900">{{ selectedPatientName || assignedName }}</strong>
+        </span>
+        <button
+          type="button"
+          @click="clearAssignedPatient"
+          class="ml-2 inline-flex cursor-pointer items-center gap-1 font-bold text-rose-600 transition-colors hover:text-rose-800"
+        >
+          <Icon
+            name="lucide:x"
+            class="text-xs"
+          />
+          Clear Assignment
+        </button>
+      </div>
+
       <!-- Mode Navigation Tabs -->
       <div
         class="mb-4 flex items-center gap-1 rounded-2xl bg-gray-100/80 p-1 text-xs font-bold sm:gap-1.5"
@@ -1777,11 +1818,11 @@
       <!-- 3. + New Patient Account Creation Form -->
       <div
         v-else-if="activeModalTab === 'register'"
-        class="custom-scrollbar max-h-[60vh] overflow-y-auto pr-1"
+        class="flex flex-col gap-3 py-0.5"
       >
         <form
           @submit.prevent="handleRegisterPatient"
-          class="flex flex-col gap-4 text-left"
+          class="flex flex-col gap-3 text-left"
         >
           <!-- Account Creation Selection Mode -->
           <div class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-2.5">
@@ -1967,40 +2008,34 @@
             </p>
           </div>
 
-          <!-- DOB, Age, Gender -->
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <!-- DOB & Gender -->
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div class="flex flex-col gap-1">
-              <label class="text-[11px] font-bold text-gray-600">Date of Birth</label>
+              <div class="flex items-center justify-between">
+                <label class="text-[11px] font-bold text-gray-600">
+                  Date of Birth
+                  <span
+                    v-if="!shouldCreateAccount"
+                    class="text-red-500"
+                    >*</span
+                  >
+                </label>
+                <span
+                  v-if="calculatedRegisterAge !== null"
+                  class="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+                >
+                  <Icon
+                    name="heroicons:cake-20-solid"
+                    size="10"
+                  />
+                  {{ calculatedRegisterAge }} yrs old
+                </span>
+              </div>
               <input
                 v-model="registerForm.date_of_birth"
                 type="date"
                 :max="todayIsoDate"
-                class="focus:border-primary rounded-xl border border-gray-200 p-2.5 text-xs outline-none"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label class="text-[11px] font-bold text-gray-600">
-                Age
-                <span
-                  v-if="!shouldCreateAccount"
-                  class="text-red-500"
-                  >*</span
-                >
-              </label>
-              <div
-                v-if="calculatedRegisterAge !== null"
-                class="flex h-10 items-center rounded-xl border border-gray-100 bg-gray-50 px-3 text-xs font-bold text-gray-800"
-              >
-                {{ calculatedRegisterAge }} yrs old
-              </div>
-              <input
-                v-else
-                v-model="registerForm.age"
-                type="number"
-                min="0"
-                max="125"
-                placeholder="Age"
-                :required="!shouldCreateAccount && !registerForm.date_of_birth"
+                :required="!shouldCreateAccount"
                 class="focus:border-primary rounded-xl border border-gray-200 p-2.5 text-xs outline-none"
               />
             </div>

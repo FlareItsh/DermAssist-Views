@@ -182,25 +182,13 @@
           @click.self="isOpen = false"
         >
           <div
-            class="modal-container bg-card relative max-h-[90vh] w-[95vw] overflow-y-auto rounded-3xl shadow-2xl md:w-full md:max-w-2xl md:rounded-4xl"
+            class="modal-container bg-card relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
           >
-            <AppButton
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
-              @click="isOpen = false"
-              class="group absolute top-6 right-6 z-10 rounded-full p-3 transition-all hover:bg-gray-100 active:scale-90"
-            >
-              <Icon
-                name="material-symbols:close-rounded"
-                class="group-hover:text-foreground text-3xl text-gray-400"
-              />
-            </AppButton>
-
             <AppModalRecord
               v-if="selectedRecord"
               :record="selectedRecord"
               role="doctor"
+              @close="isOpen = false"
             />
           </div>
         </div>

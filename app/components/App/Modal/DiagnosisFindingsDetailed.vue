@@ -1656,11 +1656,167 @@
         <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
-            <h3 class="text-xl font-bold tracking-tight">Clinical Understanding</h3>
+            <h3 class="text-xl font-bold tracking-tight">About This Condition</h3>
           </div>
           <p class="text-base leading-relaxed font-medium text-gray-700">
             {{ description || currentDisease.description }}
           </p>
+        </section>
+
+        <!-- Dynamic Clinical Characteristics (Patient Side Only) -->
+        <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-3">
+                <div class="h-3 w-1.5 rounded-full bg-indigo-600"></div>
+                <h3 class="text-xl font-bold tracking-tight">Everyday Skin Guide</h3>
+              </div>
+              <p class="mt-0.5 text-xs text-gray-500">More about {{ activeDisease }}.</p>
+            </div>
+          </div>
+
+          <!-- Main 3 conditions: Acne, Eczema, Herpes -->
+          <div
+            v-if="
+              ['Acne', 'Eczema', 'Herpes'].includes(activeDisease) &&
+              currentDisease?.characteristics
+            "
+            class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            <!-- What It Looks Like -->
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition-colors hover:bg-gray-50"
+            >
+              <div class="mb-1.5 flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+                >
+                  <Icon
+                    name="lucide:shapes"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  What It Looks Like
+                </h4>
+              </div>
+              <p class="text-xs leading-relaxed font-medium text-gray-800">
+                {{ currentDisease.characteristics.lesionType }}
+              </p>
+            </div>
+
+            <!-- Where It Shows Up -->
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition-colors hover:bg-gray-50"
+            >
+              <div class="mb-1.5 flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"
+                >
+                  <Icon
+                    name="lucide:map-pin"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  Where It Shows Up
+                </h4>
+              </div>
+              <p class="text-xs leading-relaxed font-medium text-gray-800">
+                {{ currentDisease.characteristics.distribution }}
+              </p>
+            </div>
+
+            <!-- How It Feels to Touch -->
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition-colors hover:bg-gray-50"
+            >
+              <div class="mb-1.5 flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-50 text-amber-600"
+                >
+                  <Icon
+                    name="lucide:fingerprint"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  How It Feels to Touch
+                </h4>
+              </div>
+              <p class="text-xs leading-relaxed font-medium text-gray-800">
+                {{ currentDisease.characteristics.texture }}
+              </p>
+            </div>
+
+            <!-- What You Might Feel -->
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition-colors hover:bg-gray-50"
+            >
+              <div class="mb-1.5 flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-rose-600"
+                >
+                  <Icon
+                    name="lucide:flame"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  What You Might Feel
+                </h4>
+              </div>
+              <p class="text-xs leading-relaxed font-medium text-gray-800">
+                {{ currentDisease.characteristics.sensation }}
+              </p>
+            </div>
+
+            <!-- How It Starts & Heals -->
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 transition-colors hover:bg-gray-50 sm:col-span-2"
+            >
+              <div class="mb-1.5 flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-50 text-purple-600"
+                >
+                  <Icon
+                    name="lucide:activity"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  How It Starts & Heals
+                </h4>
+              </div>
+              <p class="text-xs leading-relaxed font-medium text-gray-800">
+                {{ currentDisease.characteristics.progression }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Outside Main 3: Inconclusive / OutOfScope / Other message -->
+          <div
+            v-else
+            class="flex items-start gap-3.5 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 text-amber-900 sm:p-5"
+          >
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+            >
+              <Icon
+                name="solar:info-circle-bold"
+                class="text-xl"
+              />
+            </div>
+            <div class="space-y-1">
+              <h4 class="text-sm font-bold text-amber-900">Outside Our 3 Main Focus Conditions</h4>
+              <p class="text-xs leading-relaxed text-amber-800/90">
+                This presentation is not part of our 3 primary focus conditions (Acne, Eczema,
+                Herpes). Detailed everyday characteristics are only available for our 3 main
+                conditions. For an accurate assessment, we recommend consulting a licensed
+                dermatologist or doctor.
+              </p>
+            </div>
+          </div>
         </section>
 
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-8">
