@@ -27,7 +27,7 @@
   const userName = useCookie('user_name')
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
-  const { appointments, pendingAppointments } = useAppointments()
+  const { appointments, pendingAppointments, declinedAppointments } = useAppointments()
   const { patientUuid, pendingPatientRegistration, currentDiagnosis, saveActiveDiagnosisState } =
     useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
@@ -80,13 +80,30 @@
     const active = [...appointments.value, ...pendingAppointments.value].filter(a =>
       ['scheduled', 'pending'].includes(a.status)
     )
-    return active.some(a => a.doctor_id === nearestDoctor.value.id)
+    return active.some(
+      a =>
+        a.doctor_id === nearestDoctor.value.id ||
+        (nearestDoctor.value.uuid && a.doctor_uuid === nearestDoctor.value.uuid)
+    )
+  })
+
+  const hasDeclinedAppointment = computed(() => {
+    if (!nearestDoctor.value) return false
+    return declinedAppointments.value.some(
+      a =>
+        a.doctor_id === nearestDoctor.value.id ||
+        (nearestDoctor.value.uuid && a.doctor_uuid === nearestDoctor.value.uuid)
+    )
   })
 
   const messageText = computed(() => {
-    return hasActiveAppointment.value
-      ? 'I would like to share additional findings from my recent skin scan.'
-      : 'I would like to schedule an appointment regarding my recent skin scan.'
+    if (hasActiveAppointment.value) {
+      return 'I would like to share additional findings from my recent skin scan.'
+    }
+    if (hasDeclinedAppointment.value) {
+      return 'I would like to re-request an appointment regarding my recent skin scan.'
+    }
+    return 'I would like to schedule an appointment regarding my recent skin scan.'
   })
 
   const props = defineProps<{
@@ -1022,9 +1039,18 @@
   }
 
   const isSending = ref(false)
+  const lastSendTimestamp = ref<number>(0)
 
   const sendDiagnosis = async () => {
-    if (!nearestDoctor.value || !props.diagnosisUuid) return
+    if (!nearestDoctor.value || !props.diagnosisUuid || isSending.value) return
+
+    const now = Date.now()
+    if (now - lastSendTimestamp.value < 5000) {
+      toast.warning('Please wait a moment before sending another request.')
+      return
+    }
+
+    lastSendTimestamp.value = now
     isSending.value = true
 
     try {
@@ -1038,8 +1064,9 @@
         await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
         emit('close')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to send diagnosis:', e)
+      toast.error(e?.data?.message || 'Failed to send diagnosis. Please try again.')
     } finally {
       isSending.value = false
     }
@@ -2171,7 +2198,9 @@
                 ? 'Your Attending Doctor'
                 : hasActiveAppointment
                   ? 'Your Referred Doctor'
-                  : 'Nearest Specialist'
+                  : hasDeclinedAppointment
+                    ? 'Attending Doctor'
+                    : 'Nearest Specialist'
             }}
           </h3>
         </div>
@@ -2446,9 +2475,11 @@
                     ? 'Sending...'
                     : hasActiveAppointment
                       ? 'Send Findings'
-                      : isDoctorRegistered
-                        ? 'Proceed'
-                        : 'Select Doctor'
+                      : hasDeclinedAppointment
+                        ? 'Rebook Appointment'
+                        : isDoctorRegistered
+                          ? 'Proceed'
+                          : 'Select Doctor'
                 }}
               </span>
             </AppButton>
@@ -2474,6 +2505,28 @@
                 >Messages</NuxtLink
               >
               to check the status or send additional findings.
+            </div>
+          </div>
+
+          <!-- Declined appointment notice (full-width, below the buttons) -->
+          <div
+            v-if="!hasActiveAppointment && hasDeclinedAppointment"
+            class="mt-3 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 shadow-2xs dark:border-red-900/40 dark:bg-red-950/20"
+          >
+            <Icon
+              name="material-symbols:cancel-rounded"
+              class="mt-0.5 shrink-0 text-base text-red-500"
+            />
+            <div class="flex-1 text-xs leading-relaxed text-red-700 dark:text-red-400">
+              <span class="font-black">Previous appointment was declined.</span>
+              You can rebook an appointment with this scan by clicking Rebook Appointment, or check
+              your
+              <NuxtLink
+                :to="`/Patient/Messages`"
+                @click="emit('close')"
+                class="font-bold underline hover:text-red-800 dark:hover:text-red-300"
+                >Messages</NuxtLink
+              >.
             </div>
           </div>
         </div>
