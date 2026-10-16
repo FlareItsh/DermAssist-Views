@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
+  import { appointmentService } from '~/api/appointment/AppointmentService'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
@@ -25,7 +26,12 @@
     (e: 'saved', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
     (e: 'require-patient-account'): void
   }>()
-  const { patientUuid, pendingPatientRegistration, saveActiveDiagnosisState } = useDiagnosis()
+  const {
+    patientUuid,
+    appointmentUuid: diagnosisAppointmentUuid,
+    pendingPatientRegistration,
+    saveActiveDiagnosisState
+  } = useDiagnosis()
   const userName = useCookie('user_name')
 
   const storageKey = computed(() => {
@@ -257,7 +263,8 @@
     getDutyRangesLabel,
     findEarliestAvailableSlot
   } = useBlockedDates()
-  const { appointments, fetchAppointments, isApptTimeConflicting } = useAppointments()
+  const { appointments, pendingAppointments, fetchAppointments, isApptTimeConflicting } =
+    useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
   // Smart autofill clinic location from duty preset when date & time change
@@ -608,8 +615,24 @@
         ;(note.value as any).diagnosis_uuid = props.diagnosisUuid
       }
 
-      if (props.appointmentUuid) {
-        const saved = await clinicalNoteService.save(props.appointmentUuid, note.value)
+      // Determine target active appointment
+      const allActiveAppointments = [...appointments.value, ...(pendingAppointments?.value || [])]
+      const targetAppointmentUuid =
+        props.appointmentUuid ||
+        diagnosisAppointmentUuid.value ||
+        (patientUuid.value
+          ? allActiveAppointments.find(
+              a =>
+                (a.patient_uuid === patientUuid.value ||
+                  (a as any).patient?.uuid === patientUuid.value) &&
+                ['scheduled', 'pending', 'reschedule_proposed', 'reschedule_requested'].includes(
+                  a.status
+                )
+            )?.id
+          : null)
+
+      if (targetAppointmentUuid) {
+        const saved = await clinicalNoteService.save(targetAppointmentUuid, note.value)
         note.value = { ...note.value, ...saved }
       } else if (props.diagnosisUuid) {
         const saved = await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
@@ -618,6 +641,15 @@
         throw new Error(
           'Neither appointmentUuid nor diagnosisUuid provided for saving clinical note.'
         )
+      }
+
+      // Mark active appointment as completed when in finish mode
+      if (props.isFinishMode && targetAppointmentUuid) {
+        try {
+          await appointmentService.update(targetAppointmentUuid, { status: 'completed' })
+        } catch (statusErr) {
+          console.error('Failed to mark appointment as completed:', statusErr)
+        }
       }
 
       // Schedule follow-up appointment if patient account exists
@@ -692,6 +724,30 @@
         localStorage.removeItem(storageKey.value)
       } catch (e) {
         // silent fail
+      }
+
+      // Refresh appointments in memory so local state immediately reflects completion and new follow-up
+      try {
+        await fetchAppointments()
+      } catch (fetchErr) {
+        console.error('Failed to refresh appointments list:', fetchErr)
+      }
+
+      // Dispatch appropriate toast for feedback
+      if (props.isFinishMode) {
+        if (didScheduleFollowUp) {
+          toast.success('Appointment completed and follow-up scheduled successfully!')
+        } else if (targetAppointmentUuid) {
+          toast.success('Appointment marked as completed and clinical note saved successfully!')
+        } else {
+          toast.success('Clinical assessment and consultation note saved successfully!')
+        }
+      } else {
+        if (didScheduleFollowUp) {
+          toast.success('Clinical note saved and follow-up scheduled successfully!')
+        } else {
+          toast.success('Clinical note saved successfully.')
+        }
       }
 
       followUpError.value = null

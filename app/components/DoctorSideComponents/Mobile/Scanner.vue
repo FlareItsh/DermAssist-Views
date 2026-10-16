@@ -19,6 +19,7 @@
     previewImage,
     selectedFile,
     patientUuid,
+    appointmentUuid,
     pendingPatientRegistration,
     isHealthyState,
     isNoneState,
@@ -655,6 +656,7 @@
   const selectAppointment = (appt: any) => {
     pendingPatientRegistration.value = null
     patientUuid.value = appt.patient_uuid
+    appointmentUuid.value = appt.id || appt.uuid || null
     assignedName.value = appt.patientName
     userName.value = appt.patientName
     assignedAppointment.value = appt
@@ -668,6 +670,7 @@
   const selectRegisteredPatient = (patient: any) => {
     pendingPatientRegistration.value = null
     patientUuid.value = patient.uuid
+    appointmentUuid.value = null
     assignedName.value = `${patient.first_name} ${patient.last_name}`
     userName.value = assignedName.value
     assignedAppointment.value = null
@@ -679,6 +682,7 @@
   const clearAssignedPatient = () => {
     pendingPatientRegistration.value = null
     patientUuid.value = null
+    appointmentUuid.value = null
     assignedName.value = ''
     assignedAppointment.value = null
     saveActiveDiagnosisState()
