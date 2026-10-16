@@ -573,9 +573,7 @@
     age: '',
     gender: 'Female',
     street: '',
-    barangay: '',
-    city: '',
-    province: ''
+    barangay: ''
   })
 
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
@@ -592,8 +590,6 @@
     registerForm.gender = 'Female'
     registerForm.street = ''
     registerForm.barangay = ''
-    registerForm.city = ''
-    registerForm.province = ''
     registerFormError.value = null
   }
 
@@ -632,9 +628,7 @@
         age: registerForm.age ? parseInt(String(registerForm.age)) : undefined,
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
-        barangay: registerForm.barangay?.trim() || undefined,
-        city: registerForm.city?.trim() || undefined,
-        province: registerForm.province?.trim() || undefined
+        barangay: registerForm.barangay?.trim() || undefined
       })
 
       toast.success('Patient registered successfully.')
@@ -1597,44 +1591,24 @@
         <!-- Staged Pending Patient Banner Notice -->
         <div
           v-if="selectedPatientForDetail.isPendingCreation"
-          class="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4 sm:flex-row sm:items-center sm:justify-between"
+          class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-4"
         >
-          <div class="flex items-start gap-3">
-            <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
-            >
-              <Icon
-                name="lucide:alert-triangle"
-                class="h-5 w-5"
-              />
-            </div>
-            <div>
-              <h4 class="text-xs font-bold text-amber-900">Unsaved Scan Staged Patient</h4>
-              <p class="mt-0.5 text-xs text-amber-700">
-                This patient account was staged during an active clinical scan session and is not
-                yet saved to the database. You can officially create it now, or it will be created
-                when you finish the diagnosis in the Results page.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            @click="officiallyCreatePendingPatient(selectedPatientForDetail)"
-            :disabled="isCreatingPendingAccount"
-            class="inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 active:scale-95 disabled:opacity-50"
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
           >
             <Icon
-              v-if="isCreatingPendingAccount"
-              name="lucide:loader-2"
-              class="h-4 w-4 animate-spin"
+              name="lucide:alert-triangle"
+              class="h-5 w-5"
             />
-            <Icon
-              v-else
-              name="lucide:user-check"
-              class="text-sm"
-            />
-            Officially Create Now
-          </button>
+          </div>
+          <div>
+            <h4 class="text-xs font-bold text-amber-900">Unsaved Scan Staged Patient</h4>
+            <p class="mt-0.5 text-xs text-amber-700">
+              This patient account was staged during an active clinical scan session and is not yet
+              saved to the database. You can officially create it now, or it will be created when
+              you finish the diagnosis in the Results page.
+            </p>
+          </div>
         </div>
 
         <!-- Clinical Stats Grid -->
@@ -1781,7 +1755,7 @@
           v-if="
             selectedPatientForDetail.isRegistered && !selectedPatientForDetail.isPendingCreation
           "
-          class="space-y-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4"
+          class="flex justify-between space-y-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4"
         >
           <div class="flex items-center justify-between">
             <div>
@@ -1844,56 +1818,44 @@
           </div>
         </div>
 
-        <!-- Account Controls: For Staged Unsaved Patients -->
         <div
           v-else-if="selectedPatientForDetail.isPendingCreation"
-          class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"
+          class="flex flex-wrap items-center gap-2 border-t border-gray-100 pt-4"
         >
-          <div class="flex items-center justify-between">
-            <div>
-              <h4 class="text-xs font-bold text-amber-900 uppercase">Unsaved Account Staging</h4>
-              <p class="text-[11px] text-amber-700">
-                This account was staged during an active scan session and is not yet created in the
-                database. Deactivate and Delete actions are not available because no database
-                account exists yet.
-              </p>
-            </div>
-          </div>
+          
 
-          <div class="flex flex-wrap items-center gap-2 pt-1">
-            <AppButton
-              size="sm"
-              variant="solid"
-              class="rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700"
-              :disabled="isCreatingPendingAccount"
-              @click="officiallyCreatePendingPatient(selectedPatientForDetail)"
-            >
-              <Icon
-                v-if="isCreatingPendingAccount"
-                name="lucide:loader-2"
-                class="mr-1.5 h-3.5 w-3.5 animate-spin"
-              />
-              <Icon
-                v-else
-                name="lucide:user-check"
-                class="mr-1.5 text-sm"
-              />
-              Officially Create Account Now
-            </AppButton>
+          <AppButton
+            size="sm"
+            variant="outline"
+            class="ml-auto rounded-xl border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50"
+            @click="promptDiscardPending(selectedPatientForDetail)"
+          >
+            <Icon
+              name="lucide:trash-2"
+              class="mr-1 text-sm"
+            />
+            Discard Staged Record
+          </AppButton>
 
-            <AppButton
-              size="sm"
-              variant="outline"
-              class="ml-auto rounded-xl border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50"
-              @click="promptDiscardPending(selectedPatientForDetail)"
-            >
-              <Icon
-                name="lucide:trash-2"
-                class="mr-1 text-sm"
-              />
-              Discard Staged Record
-            </AppButton>
-          </div>
+          <AppButton
+            size="sm"
+            variant="solid"
+            class="rounded-xl bg-amber-600 text-xs font-bold text-white hover:bg-amber-700"
+            :disabled="isCreatingPendingAccount"
+            @click="officiallyCreatePendingPatient(selectedPatientForDetail)"
+          >
+            <Icon
+              v-if="isCreatingPendingAccount"
+              name="lucide:loader-2"
+              class="mr-1.5 h-3.5 w-3.5 animate-spin"
+            />
+            <Icon
+              v-else
+              name="lucide:user-check"
+              class="mr-1.5 text-sm"
+            />
+            Officially Create Account Now
+          </AppButton>
         </div>
       </div>
     </AppModal>
@@ -2055,28 +2017,6 @@
             label="Contact Number"
             placeholder="917 123 4567"
           />
-        </div>
-
-        <!-- Address fields -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label class="block text-xs font-bold text-gray-700">City / Municipality</label>
-            <input
-              type="text"
-              v-model="registerForm.city"
-              placeholder="e.g. Quezon City"
-              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-700">Province</label>
-            <input
-              type="text"
-              v-model="registerForm.province"
-              placeholder="e.g. Metro Manila"
-              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-            />
-          </div>
         </div>
 
         <!-- Actions -->

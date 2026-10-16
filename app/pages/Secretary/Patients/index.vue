@@ -531,9 +531,7 @@
     age: '',
     gender: 'Female',
     street: '',
-    barangay: '',
-    city: '',
-    province: ''
+    barangay: ''
   })
 
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
@@ -550,8 +548,6 @@
     registerForm.gender = 'Female'
     registerForm.street = ''
     registerForm.barangay = ''
-    registerForm.city = ''
-    registerForm.province = ''
     registerFormError.value = null
   }
 
@@ -592,9 +588,7 @@
           (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
-        barangay: registerForm.barangay?.trim() || undefined,
-        city: registerForm.city?.trim() || undefined,
-        province: registerForm.province?.trim() || undefined
+        barangay: registerForm.barangay?.trim() || undefined
       })
 
       toast.success('Patient registered successfully.')
@@ -1696,28 +1690,6 @@
             label="Contact Number"
             placeholder="917 123 4567"
           />
-        </div>
-
-        <!-- Address fields -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label class="block text-xs font-bold text-gray-700">City / Municipality</label>
-            <input
-              type="text"
-              v-model="registerForm.city"
-              placeholder="e.g. Quezon City"
-              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-            />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-700">Province</label>
-            <input
-              type="text"
-              v-model="registerForm.province"
-              placeholder="e.g. Metro Manila"
-              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
-            />
-          </div>
         </div>
 
         <!-- Actions -->

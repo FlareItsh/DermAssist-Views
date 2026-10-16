@@ -30,6 +30,7 @@
     resetScanner,
     patientUuid,
     pendingPatientRegistration,
+    pendingPatientName,
     isProceededToResults,
     saveActiveDiagnosisState
   } = useDiagnosis()
@@ -57,7 +58,11 @@
   }
 
   const hasPatient = computed(
-    () => props.role === 'patient' || !!patientUuid.value || !!assignedName.value
+    () =>
+      props.role === 'patient' ||
+      !!patientUuid.value ||
+      !!assignedName.value ||
+      !!pendingPatientRegistration.value
   )
 
   const errorMessage = computed(() => {
@@ -327,9 +332,30 @@
     return list
   })
 
+  // Registered Patients (including Active Staged Patient if present)
+  const allRegisteredPatients = computed(() => {
+    const list = [...doctorRegisteredPatients.value]
+    if (pendingPatientRegistration.value) {
+      const p = pendingPatientRegistration.value
+      list.unshift({
+        uuid: 'pending_new_patient',
+        first_name: p.firstName,
+        last_name: p.lastName,
+        email: p.email,
+        contact_number: p.contact_number,
+        date_of_birth: p.date_of_birth,
+        age: p.age,
+        gender: p.gender,
+        isPendingCreation: true,
+        account_status: 'Staged (Unsaved)'
+      })
+    }
+    return list
+  })
+
   // Filtered Registered Patients (for Walk-Ins)
   const filteredRegisteredPatients = computed(() => {
-    let list = doctorRegisteredPatients.value
+    let list = allRegisteredPatients.value
     const q = patientSearchQuery.value.trim().toLowerCase()
     if (q) {
       list = list.filter((p: any) => {
@@ -343,6 +369,10 @@
 
   const selectedPatientName = computed(() => {
     if (assignedName.value) return assignedName.value
+    if (pendingPatientName.value) return pendingPatientName.value
+    if (pendingPatientRegistration.value) {
+      return `${pendingPatientRegistration.value.firstName} ${pendingPatientRegistration.value.lastName}`
+    }
     if (patientUuid.value) {
       const reg = doctorRegisteredPatients.value.find(p => p.uuid === patientUuid.value)
       if (reg) return `${reg.first_name} ${reg.last_name}`
@@ -351,6 +381,38 @@
     }
     return ''
   })
+
+  // Watch pendingPatientRegistration to restore assignedName when navigating across pages
+  watch(
+    () => pendingPatientRegistration.value,
+    val => {
+      if (val) {
+        assignedName.value = `${val.firstName} ${val.lastName}`
+        if (!userName.value) userName.value = assignedName.value
+      }
+    },
+    { immediate: true }
+  )
+
+  // Watch patientUuid and loaded lists to re-hydrate assignedName & appointment after navigation
+  watch(
+    [patientUuid, doctorRegisteredPatients, availableAppointments],
+    ([uuid, patients, appts]) => {
+      if (uuid && !assignedName.value && !pendingPatientRegistration.value) {
+        const reg = patients.find((p: any) => p.uuid === uuid)
+        if (reg) {
+          assignedName.value = `${reg.first_name} ${reg.last_name}`
+          return
+        }
+        const appt = appts.find((a: any) => a.patient_uuid === uuid)
+        if (appt) {
+          assignedName.value = appt.patientName
+          assignedAppointment.value = appt
+        }
+      }
+    },
+    { immediate: true }
+  )
 
   const selectAppointment = (appt: any) => {
     patientUuid.value = appt.patient_uuid
@@ -366,6 +428,16 @@
   }
 
   const selectRegisteredPatient = (patient: any) => {
+    if (patient.isPendingCreation) {
+      patientUuid.value = 'pending_new_patient'
+      assignedName.value = `${patient.first_name} ${patient.last_name}`
+      userName.value = assignedName.value
+      assignedAppointment.value = null
+      saveActiveDiagnosisState()
+      isPatientModalOpen.value = false
+      toast.success(`Assigned to ${assignedName.value} (Staged Patient)`)
+      return
+    }
     patientUuid.value = patient.uuid
     pendingPatientRegistration.value = null
     assignedName.value = `${patient.first_name} ${patient.last_name}`
@@ -397,9 +469,7 @@
     age: '',
     gender: 'Female',
     street: '',
-    barangay: '',
-    city: '',
-    province: ''
+    barangay: ''
   })
   const isSubmittingRegistration = ref(false)
   const registrationError = ref<string | null>(null)
@@ -422,8 +492,6 @@
     registerForm.gender = 'Female'
     registerForm.street = ''
     registerForm.barangay = ''
-    registerForm.city = ''
-    registerForm.province = ''
     registrationError.value = null
   }
 
@@ -464,9 +532,7 @@
           (registerForm.age ? parseInt(String(registerForm.age)) : undefined),
         gender: registerForm.gender || undefined,
         street: registerForm.street?.trim() || undefined,
-        barangay: registerForm.barangay?.trim() || undefined,
-        city: registerForm.city?.trim() || undefined,
-        province: registerForm.province?.trim() || undefined
+        barangay: registerForm.barangay?.trim() || undefined
       }
 
       pendingPatientRegistration.value = payload
@@ -1055,7 +1121,11 @@
                       type="button"
                       class="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border p-3.5 text-left transition-all"
                       :class="
-                        patientUuid === patient.uuid && !assignedAppointment
+                        (patientUuid === patient.uuid ||
+                          (patient.isPendingCreation &&
+                            (patientUuid === 'pending_new_patient' ||
+                              !!pendingPatientRegistration))) &&
+                        !assignedAppointment
                           ? 'border-primary bg-primary/5 ring-primary/30 shadow-sm ring-1'
                           : 'hover:border-primary/40 border-gray-100 hover:bg-gray-50/80'
                       "
@@ -1078,6 +1148,13 @@
                             {{ patient.first_name }} {{ patient.last_name }}
                           </p>
                           <span
+                            v-if="patient.isPendingCreation"
+                            class="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black tracking-wider text-amber-800 uppercase"
+                          >
+                            Staged Scan Patient
+                          </span>
+                          <span
+                            v-else
                             class="bg-primary/10 text-primary border-primary/20 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black tracking-wider uppercase"
                           >
                             Registered ({{ patient.account_status || 'Active' }})
@@ -1286,27 +1363,6 @@
                       label="Contact Number"
                       placeholder="917 123 4567"
                     />
-                  </div>
-
-                  <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <div>
-                      <label class="mb-1 block text-xs font-bold text-gray-700">City</label>
-                      <input
-                        v-model="registerForm.city"
-                        type="text"
-                        placeholder="City"
-                        class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
-                      />
-                    </div>
-                    <div>
-                      <label class="mb-1 block text-xs font-bold text-gray-700">Province</label>
-                      <input
-                        v-model="registerForm.province"
-                        type="text"
-                        placeholder="Province"
-                        class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
-                      />
-                    </div>
                   </div>
                 </div>
 
