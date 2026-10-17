@@ -31,7 +31,7 @@
   const { patientUuid, pendingPatientRegistration, currentDiagnosis, saveActiveDiagnosisState } =
     useDiagnosis()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
-  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const showNewAccountPassword = ref(false)
 
   const isPatientModalOpen = ref(false)
@@ -460,12 +460,17 @@
     barangay: ''
   })
 
+  const newAccountPasswordPin = ref<number>(generatePin())
+  const isNewAccountPasswordManuallyEdited = ref(false)
   const newAccountForm = reactive({
     firstName: '',
     lastName: '',
     email: '',
     contact_number: '',
-    password: generateTemporaryPassword('Patient'),
+    password: generateTemporaryPassword(
+      { firstName: '', lastName: '' },
+      newAccountPasswordPin.value
+    ),
     date_of_birth: '',
     age: '',
     gender: '',
@@ -475,6 +480,28 @@
     province: '',
     country: 'Philippines'
   })
+
+  // Synchronize generated temporary password with typed patient name (until manually customized)
+  watch(
+    () => [newAccountForm.firstName, newAccountForm.lastName],
+    ([first, last]) => {
+      if (!isNewAccountPasswordManuallyEdited.value) {
+        newAccountForm.password = generateTemporaryPassword(
+          { firstName: first, lastName: last },
+          newAccountPasswordPin.value
+        )
+      }
+    }
+  )
+
+  const handleRegenerateNewAccountPassword = () => {
+    newAccountPasswordPin.value = generatePin()
+    isNewAccountPasswordManuallyEdited.value = false
+    newAccountForm.password = generateTemporaryPassword(
+      { firstName: newAccountForm.firstName, lastName: newAccountForm.lastName },
+      newAccountPasswordPin.value
+    )
+  }
 
   const calculatedNewAccountAge = computed(() => calculateAge(newAccountForm.date_of_birth))
 
@@ -554,7 +581,12 @@
         ? String(effectivePatientAge.value)
         : editablePatientAge.value || (patientAge.value ? String(patientAge.value) : '')
     newAccountForm.email = ''
-    newAccountForm.password = generateTemporaryPassword('Patient')
+    newAccountPasswordPin.value = generatePin()
+    isNewAccountPasswordManuallyEdited.value = false
+    newAccountForm.password = generateTemporaryPassword(
+      { firstName: newAccountForm.firstName, lastName: newAccountForm.lastName },
+      newAccountPasswordPin.value
+    )
     newAccountForm.gender = ''
     newAccountForm.street = ''
     newAccountForm.barangay = ''
@@ -2731,7 +2763,7 @@
                       <span class="text-gray-300">|</span>
                       <button
                         type="button"
-                        @click="newAccountForm.password = generateTemporaryPassword('Patient')"
+                        @click="handleRegenerateNewAccountPassword"
                         class="text-primary flex items-center gap-1 text-[11px] font-semibold transition-colors hover:underline"
                         title="Generate new random password"
                       >
@@ -2746,6 +2778,7 @@
                   <div class="relative">
                     <input
                       v-model="newAccountForm.password"
+                      @input="isNewAccountPasswordManuallyEdited = true"
                       :type="showNewAccountPassword ? 'text' : 'password'"
                       class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 pr-10 font-mono text-sm transition-all outline-none"
                       placeholder="Temporary password"

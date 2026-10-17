@@ -207,7 +207,7 @@
 
   const isPatientModalOpen = ref(false)
   const { getStorageUrl } = useStorage()
-  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
 
   // ─── Modal State: Mode & Date Filters ─────────────────────────────────────
   const activeModalTab = ref<'appointments' | 'registered' | 'register'>('appointments')
@@ -516,13 +516,15 @@
   }
 
   // Register Patient Form State
+  const registerPasswordPin = ref<number>(generatePin())
+  const isRegisterPasswordManuallyEdited = ref(false)
   const registerForm = reactive({
     firstName: '',
     middleName: '',
     lastName: '',
     email: '',
     contact_number: '',
-    password: generateTemporaryPassword('Patient'),
+    password: generateTemporaryPassword({ firstName: '', lastName: '' }, registerPasswordPin.value),
     date_of_birth: '',
     age: '',
     gender: 'Female',
@@ -532,6 +534,28 @@
   const isSubmittingRegistration = ref(false)
   const registrationError = ref<string | null>(null)
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
+
+  // Synchronize generated temporary password with typed patient name (until manually customized)
+  watch(
+    () => [registerForm.firstName, registerForm.lastName],
+    ([first, last]) => {
+      if (!isRegisterPasswordManuallyEdited.value) {
+        registerForm.password = generateTemporaryPassword(
+          { firstName: first, lastName: last },
+          registerPasswordPin.value
+        )
+      }
+    }
+  )
+
+  const handleRegenerateRegisterPassword = () => {
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: registerForm.firstName, lastName: registerForm.lastName },
+      registerPasswordPin.value
+    )
+  }
 
   const openRegistrationForm = () => {
     activeModalTab.value = 'register'
@@ -543,7 +567,12 @@
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.contact_number = ''
-    registerForm.password = generateTemporaryPassword('Patient')
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: '', lastName: '' },
+      registerPasswordPin.value
+    )
     registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
@@ -1506,6 +1535,7 @@
                     <div class="flex items-center gap-2">
                       <input
                         v-model="registerForm.password"
+                        @input="isRegisterPasswordManuallyEdited = true"
                         type="text"
                         :required="shouldCreateAccount"
                         placeholder="Temporary password"
@@ -1525,7 +1555,7 @@
                       </button>
                       <button
                         type="button"
-                        @click="registerForm.password = generateTemporaryPassword('Patient')"
+                        @click="handleRegenerateRegisterPassword"
                         title="Generate New Password"
                         class="hover:text-primary flex h-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 active:scale-95"
                       >

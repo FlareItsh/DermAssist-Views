@@ -13,7 +13,7 @@
   const { priorityIds, addToPriority, removeFromPriority, isInPriority } = usePriorityList()
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
-  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
     useFormSanitizer()
   const showPassword = ref(false)
@@ -615,19 +615,43 @@
   // ─── Register Patient Form State ──────────────────────────────────────────────
   const isRegistering = ref(false)
   const registerFormError = ref<string | null>(null)
+  const registerPasswordPin = ref<number>(generatePin())
+  const isRegisterPasswordManuallyEdited = ref(false)
   const registerForm = reactive({
     firstName: '',
     middleName: '',
     lastName: '',
     email: '',
     contact_number: '',
-    password: generateTemporaryPassword('Patient'),
+    password: generateTemporaryPassword({ firstName: '', lastName: '' }, registerPasswordPin.value),
     date_of_birth: '',
     age: '',
     gender: 'Female',
     street: '',
     barangay: ''
   })
+
+  // Synchronize generated temporary password with typed patient name (until manually customized)
+  watch(
+    () => [registerForm.firstName, registerForm.lastName],
+    ([first, last]) => {
+      if (!isRegisterPasswordManuallyEdited.value) {
+        registerForm.password = generateTemporaryPassword(
+          { firstName: first, lastName: last },
+          registerPasswordPin.value
+        )
+      }
+    }
+  )
+
+  const handleRegenerateRegisterPassword = () => {
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: registerForm.firstName, lastName: registerForm.lastName },
+      registerPasswordPin.value
+    )
+  }
 
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
 
@@ -637,7 +661,12 @@
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.contact_number = ''
-    registerForm.password = generateTemporaryPassword('Patient')
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: '', lastName: '' },
+      registerPasswordPin.value
+    )
     registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
@@ -808,8 +837,18 @@
     resetPasswordTab.value = patient.isWalkIn ? 'temporary' : 'link'
     resetPasswordError.value = null
     tempPasswordIssued.value = false
-    generatedTempPassword.value = generateTemporaryPassword('Patient')
+    generatedTempPassword.value = generateTemporaryPassword({
+      firstName: patient?.firstName || patient?.first_name,
+      lastName: patient?.lastName || patient?.last_name
+    })
     showResetPasswordModal.value = true
+  }
+
+  const handleRegenerateResetModalPassword = () => {
+    generatedTempPassword.value = generateTemporaryPassword({
+      firstName: resetPasswordPatient.value?.firstName || resetPasswordPatient.value?.first_name,
+      lastName: resetPasswordPatient.value?.lastName || resetPasswordPatient.value?.last_name
+    })
   }
 
   const handleSendResetLink = async () => {
@@ -2057,7 +2096,7 @@
                 <span class="text-gray-300">|</span>
                 <button
                   type="button"
-                  @click="registerForm.password = generateTemporaryPassword('Patient')"
+                  @click="handleRegenerateRegisterPassword"
                   class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
                   title="Generate new random password"
                 >
@@ -2073,6 +2112,7 @@
               <input
                 :type="showPassword ? 'text' : 'password'"
                 v-model="registerForm.password"
+                @input="isRegisterPasswordManuallyEdited = true"
                 required
                 placeholder="Min. 8 characters"
                 class="h-10 w-full rounded-xl border border-gray-200 bg-white pr-10 pl-3 font-mono text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
@@ -2668,7 +2708,7 @@
                   <span class="text-gray-300">|</span>
                   <button
                     type="button"
-                    @click="generatedTempPassword = generateTemporaryPassword('Patient')"
+                    @click="handleRegenerateResetModalPassword"
                     class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
                   >
                     <Icon
