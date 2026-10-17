@@ -148,6 +148,11 @@
     return isDoc ? convData.value.patient?.id : convData.value.doctor?.id
   })
 
+  const otherPersonPatientId = computed(() => {
+    if (!convData.value) return null
+    return convData.value.patient?.user_id || convData.value.patient?.id || otherPersonUuid.value
+  })
+
   const openScheduleFromSidebar = () => {
     if (pendingAppointmentForConversation.value) {
       openScheduleModalFromPending(pendingAppointmentForConversation.value)
@@ -1332,9 +1337,10 @@
           :appointment-uuid="schedulingAppointmentUuid"
           :mode="scheduleMode"
           :inline="true"
+          :patient="convData?.patient"
           :patient-name="otherPersonName"
           :patient-avatar="otherPersonAvatar"
-          :patient-id="otherPersonUuid"
+          :patient-id="otherPersonPatientId"
           @close="handleScheduleModalClose"
           @scheduled="handleAppointmentScheduled"
         />
@@ -3226,9 +3232,10 @@
         :appointment-uuid="schedulingAppointmentUuid"
         :mode="scheduleMode"
         :inline="false"
+        :patient="convData?.patient"
         :patient-name="otherPersonName"
         :patient-avatar="otherPersonAvatar"
-        :patient-id="otherPersonUuid"
+        :patient-id="otherPersonPatientId"
         @close="handleScheduleModalClose"
         @scheduled="handleAppointmentScheduled"
       />

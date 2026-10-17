@@ -408,7 +408,8 @@
     }
 
     const targetPatient = internalSelectedPatient.value || props.patient
-    const targetPatientId = props.patientId || targetPatient?.patient_id || targetPatient?.id
+    const targetPatientId =
+      props.patientId || targetPatient?.patient_id || targetPatient?.user_id || targetPatient?.id
 
     if (!props.appointmentUuid && !targetPatientId) {
       errorMessage.value = 'Please select a patient for this appointment.'
@@ -434,7 +435,15 @@
           location: effectiveLocation.value
         })
       } else {
-        const targetPatientUuid = targetPatient?.uuid
+        const targetPatientUuid =
+          targetPatient?.uuid ||
+          (typeof targetPatientId === 'string' && targetPatientId.includes('-')
+            ? targetPatientId
+            : undefined) ||
+          (typeof targetPatient?.id === 'string' && targetPatient?.id.includes('-')
+            ? targetPatient?.id
+            : undefined)
+
         const purpose =
           targetPatient?.latestCondition ||
           targetPatient?.info ||
