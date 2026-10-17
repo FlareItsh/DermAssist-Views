@@ -147,6 +147,17 @@
   const togglePasswordVisibility = () => {
     showPassword.value = !showPassword.value
   }
+
+  const handleGoToForgotPassword = () => {
+    router.push('/auth/forgot-password')
+  }
+
+  onMounted(() => {
+    if (!token.value || !email.value) {
+      errorMessage.value =
+        'Password reset link is missing a valid security token or email. Please request a new link.'
+    }
+  })
 </script>
 
 <template>
@@ -254,6 +265,7 @@
         </div>
 
         <form
+          v-if="token && email"
           @submit.prevent="handleResetPassword"
           class="mt-6 w-full space-y-4"
         >
@@ -424,6 +436,24 @@
             </AppButton>
           </div>
         </form>
+
+        <div
+          v-else
+          class="mt-6 w-full"
+        >
+          <AppButton
+            variant="solid"
+            size="lg"
+            class="w-full justify-center rounded-2xl bg-indigo-600 font-bold text-white shadow-md hover:bg-indigo-700"
+            @click="handleGoToForgotPassword"
+          >
+            <span>Request New Reset Link</span>
+            <Icon
+              name="lucide:arrow-right"
+              class="ml-1 text-base"
+            />
+          </AppButton>
+        </div>
 
         <div class="mt-6 text-center">
           <NuxtLink
