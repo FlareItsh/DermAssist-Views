@@ -20,8 +20,8 @@
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
-  const isLoadingPatients = ref(true)
-  const localSearch = ref('')
+  const route = useRoute()
+  const localSearch = ref((route.query.search as string) || '')
   const activeTab = ref<'all' | 'priority' | 'registered' | 'recent'>('all')
 
   // Modals

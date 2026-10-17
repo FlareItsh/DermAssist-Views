@@ -123,8 +123,77 @@
   const isFetchingOlder = ref(false)
   const pending = ref(false)
 
-  // Deduplicated displayed messages to filter out duplicate system cards (e.g. repeated decline tags)
-  const displayedMessages = computed(() => {
+  // Search and details state
+  const isSearchingInConversation = ref(false)
+  const conversationSearchQuery = ref('')
+  const searchInputRef = ref<HTMLInputElement | null>(null)
+  const currentMatchIndex = ref(0)
+
+  const showUserDetails = ref(false)
+  const toggleUserDetails = () => {
+    showUserDetails.value = !showUserDetails.value
+  }
+
+  const isApptBarCollapsed = ref(false)
+
+  const otherPersonUuid = computed(() => {
+    if (!convData.value) return null
+    const isDoc =
+      userRole.value === 'doctor' ||
+      userRole.value === 'secretary' ||
+      route.path.toLowerCase().startsWith('/doctor') ||
+      route.path.toLowerCase().startsWith('/secretary')
+    return isDoc ? convData.value.patient?.id : convData.value.doctor?.id
+  })
+
+  const openScheduleFromSidebar = () => {
+    if (pendingAppointmentForConversation.value) {
+      openScheduleModalFromPending(pendingAppointmentForConversation.value)
+    } else {
+      const isDoc =
+        userRole.value === 'doctor' ||
+        userRole.value === 'secretary' ||
+        route.path.toLowerCase().startsWith('/doctor') ||
+        route.path.toLowerCase().startsWith('/secretary')
+      if (isDoc) {
+        schedulingAppointmentUuid.value = ''
+        scheduleMode.value = 'schedule'
+        showScheduleModal.value = true
+        showUserDetails.value = false
+      } else {
+        navigateTo('/Patient/Scan/SelectDoctor')
+      }
+    }
+  }
+
+  const openRescheduleFromSidebar = (appt: any) => {
+    openRescheduleModal(appt?.id)
+  }
+
+  const handleViewRecord = (patientUuid?: string) => {
+    const isDoc =
+      userRole.value === 'doctor' ||
+      userRole.value === 'secretary' ||
+      route.path.toLowerCase().startsWith('/doctor') ||
+      route.path.toLowerCase().startsWith('/secretary')
+    if (isDoc) {
+      if (otherPersonName.value) {
+        navigateTo(`/Doctor/Patients?search=${encodeURIComponent(otherPersonName.value)}`)
+      } else {
+        navigateTo('/Doctor/Patients')
+      }
+    } else {
+      navigateTo('/Patient/Records')
+    }
+  }
+
+  const previewImageUrl = ref<string | null>(null)
+  const handlePreviewImage = (url: string) => {
+    previewImageUrl.value = url
+  }
+
+  // Deduplicated displayed messages to filter out duplicate system cards
+  const deduplicatedMessages = computed(() => {
     const valid = allMessages.value.filter(m => m && m.id)
     const seenDeclinedUuids = new Set<string>()
 
@@ -142,6 +211,135 @@
       return true
     })
   })
+
+  // Full conversation is retained during search so user reads messages in context (Messenger style)
+  const displayedMessages = computed(() => {
+    return deduplicatedMessages.value
+  })
+
+  // Messenger-style search matches
+  const matchingMessageIds = computed(() => {
+    const q = conversationSearchQuery.value.trim().toLowerCase()
+    if (!isSearchingInConversation.value || !q) return []
+    return deduplicatedMessages.value
+      .filter(m => {
+        if (m.message && m.message.toLowerCase().includes(q)) return true
+        if (m.attachments?.some((a: any) => a.name?.toLowerCase().includes(q))) return true
+        if (m.appointment_data?.diagnosis?.label?.toLowerCase().includes(q)) return true
+        return false
+      })
+      .map(m => m.id)
+  })
+
+  const currentSearchMatchMessageId = computed(() => {
+    if (matchingMessageIds.value.length === 0) return null
+    return matchingMessageIds.value[currentMatchIndex.value] || null
+  })
+
+  const scrollToCurrentMatch = () => {
+    const id = currentSearchMatchMessageId.value
+    if (!id) return
+    nextTick(() => {
+      const el = document.getElementById(`msg-${id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+  }
+
+  const nextSearchMatch = () => {
+    if (matchingMessageIds.value.length === 0) return
+    currentMatchIndex.value = (currentMatchIndex.value + 1) % matchingMessageIds.value.length
+    scrollToCurrentMatch()
+  }
+
+  const prevSearchMatch = () => {
+    if (matchingMessageIds.value.length === 0) return
+    currentMatchIndex.value =
+      (currentMatchIndex.value - 1 + matchingMessageIds.value.length) %
+      matchingMessageIds.value.length
+    scrollToCurrentMatch()
+  }
+
+  watch(conversationSearchQuery, () => {
+    currentMatchIndex.value = 0
+    if (matchingMessageIds.value.length > 0) {
+      scrollToCurrentMatch()
+    }
+  })
+
+  const toggleSearchInConversation = () => {
+    isSearchingInConversation.value = !isSearchingInConversation.value
+    if (isSearchingInConversation.value) {
+      showUserDetails.value = false
+      nextTick(() => {
+        searchInputRef.value?.focus()
+        if (conversationSearchQuery.value && matchingMessageIds.value.length > 0) {
+          scrollToCurrentMatch()
+        }
+      })
+    } else {
+      conversationSearchQuery.value = ''
+      currentMatchIndex.value = 0
+    }
+  }
+
+  const openSearchFromSidebar = () => {
+    isSearchingInConversation.value = true
+    showUserDetails.value = false
+    nextTick(() => {
+      searchInputRef.value?.focus()
+      if (conversationSearchQuery.value && matchingMessageIds.value.length > 0) {
+        scrollToCurrentMatch()
+      }
+    })
+  }
+
+  const escapeHtml = (text: string): string => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+
+  const escapeRegex = (string: string): string => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  // Highlights matching keywords. If this message is the focused match, applies intense Messenger active styling
+  const formatHighlightedText = (text: string | null | undefined, messageId?: string): string => {
+    if (!text) return ''
+    const escaped = escapeHtml(text)
+    const q = conversationSearchQuery.value.trim()
+    if (!isSearchingInConversation.value || !q) {
+      return escaped
+    }
+    const isCurrentMatch = currentSearchMatchMessageId.value === messageId
+    const markClass = isCurrentMatch
+      ? 'bg-amber-400 dark:bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded shadow-xs ring-2 ring-amber-500 animate-pulse'
+      : 'bg-amber-200/90 dark:bg-amber-400/40 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded'
+
+    try {
+      const regex = new RegExp(`(${escapeRegex(q)})`, 'gi')
+      return escaped.replace(regex, `<mark class="${markClass}">$1</mark>`)
+    } catch {
+      return escaped
+    }
+  }
+
+  const cleanClinicalFindings = (message: string): string => {
+    return (
+      message
+        .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
+        .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
+        .trim() ||
+      (message.includes('[APPOINTMENT_REQUEST:')
+        ? 'A diagnosis was shared.'
+        : 'Additional findings shared.')
+    )
+  }
 
   const { getEcho } = useEcho()
   const partnerIsTyping = ref(false)
@@ -1118,6 +1316,7 @@
           :inline="true"
           :patient-name="otherPersonName"
           :patient-avatar="otherPersonAvatar"
+          :patient-id="otherPersonUuid"
           @close="handleScheduleModalClose"
           @scheduled="handleAppointmentScheduled"
         />
@@ -1148,1126 +1347,31 @@
 
     <!-- Header -->
     <div
-      class="bg-card border-border flex items-center justify-between border-b px-3 py-3 md:px-8 md:py-6"
+      class="bg-card border-border z-20 flex shrink-0 items-center justify-between border-b px-3 py-2.5 sm:px-6 sm:py-4"
     >
-      <div class="flex items-center gap-4">
+      <div class="flex min-w-0 items-center gap-2 sm:gap-3">
+        <!-- Native mobile back button -->
         <NuxtLink
           :to="$route.path.replace(/\/[^/]+$/, '')"
-          class="text-foreground/40 hover:text-foreground mr-1 flex items-center transition-colors md:hidden"
+          class="text-foreground/60 hover:text-foreground hover:bg-foreground/5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors md:hidden"
+          title="Back to conversations"
         >
           <Icon
-            name="heroicons:arrow-left-20-solid"
+            name="solar:arrow-left-linear"
             class="text-2xl"
           />
         </NuxtLink>
-        <div class="bg-muted h-12 w-12 shrink-0 overflow-hidden rounded-full">
-          <img
-            v-if="otherPersonAvatar && !headerAvatarFailed"
-            :src="getStorageUrl(otherPersonAvatar)"
-            :alt="otherPersonName"
-            class="h-full w-full object-cover"
-            @error="headerAvatarFailed = true"
-          />
-          <div
-            v-else
-            class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-lg font-bold uppercase"
-          >
-            {{ otherPersonName.charAt(0) }}
-          </div>
-        </div>
-        <h2
-          class="text-foreground max-w-[150px] truncate text-lg font-bold md:max-w-none md:text-2xl"
-        >
-          {{ otherPersonName }}
-        </h2>
-      </div>
 
-      <!-- Header actions menu -->
-      <AppButton
-        variant="unstyled"
-        size="unstyled"
-        rounded="unstyled"
-        @click="showDeleteConversationModal = true"
-        class="text-foreground/30 hover:text-destructive cursor-pointer rounded-full p-2 transition-colors hover:bg-red-50"
-      >
-        <Icon
-          name="solar:trash-bin-trash-linear"
-          class="text-2xl"
-        />
-      </AppButton>
-    </div>
-
-    <!-- Chat Body Container (relative container holding chat messages and inputs) -->
-    <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-      <!-- Pending Appointment Request Banner (Doctor-only, shown when patient has a pending request for this conversation) -->
-      <Transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="transform -translate-y-full opacity-0"
-        enter-to-class="transform translate-y-0 opacity-100"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="transform translate-y-0 opacity-100"
-        leave-to-class="transform -translate-y-full opacity-0"
-      >
-        <div
-          v-if="userRole?.toLowerCase() === 'doctor' && pendingAppointmentForConversation"
-          class="border-b border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 sm:px-6"
+        <!-- Interactive Contact Profile Trigger (Tap to open details) -->
+        <button
+          type="button"
+          @click="toggleUserDetails"
+          class="group flex min-w-0 cursor-pointer items-center gap-2.5 text-left transition-transform active:scale-[0.99] sm:gap-3.5"
+          title="Click to view contact information"
         >
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div class="flex items-start gap-3 sm:items-center">
-              <div
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100"
-              >
-                <Icon
-                  name="material-symbols:calendar-add-on-rounded"
-                  class="text-lg text-indigo-600"
-                />
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="text-sm font-black text-indigo-900">New Appointment Request</p>
-                <p class="text-xs font-medium text-indigo-600">
-                  {{ pendingAppointmentForConversation.doctor }} is requesting an appointment
-                  <span
-                    v-if="
-                      pendingAppointmentForConversation.info &&
-                      pendingAppointmentForConversation.info !== 'General Appointment'
-                    "
-                  >
-                    for <span class="font-bold">{{ pendingAppointmentForConversation.info }}</span>
-                  </span>
-                  — review the chat for details.
-                </p>
-              </div>
-            </div>
-            <div class="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-              <button
-                @click="openScheduleModalFromPending(pendingAppointmentForConversation)"
-                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:flex-initial"
-              >
-                <Icon
-                  name="material-symbols:check-circle-outline-rounded"
-                  class="text-sm"
-                />
-                Accept &amp; Schedule
-              </button>
-              <button
-                @click="declineAppointmentFromPending(pendingAppointmentForConversation)"
-                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95 sm:flex-initial"
-              >
-                <Icon
-                  name="material-symbols:cancel-outline-rounded"
-                  class="text-sm"
-                />
-                Decline
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-
-      <!-- Active Appointment Bar (scheduled appointment or reschedule in progress) -->
-      <div
-        v-if="activeAppointment"
-        class="flex flex-col border-b p-4 transition-all"
-        :class="[
-          activeAppointment.status === 'reschedule_requested' ||
-          activeAppointment.status === 'reschedule_proposed'
-            ? 'border-amber-200 bg-amber-50'
-            : isOverdue
-              ? 'border-red-200 bg-red-50'
-              : isToday(activeAppointment.date)
-                ? 'border-amber-100 bg-amber-50'
-                : 'border-indigo-100 bg-indigo-50'
-        ]"
-      >
-        <!-- Row 1: Active Scheduled Appointment Details (HIDDEN when reschedule is requested or proposed) -->
-        <div
-          v-if="activeAppointment.status === 'scheduled'"
-          class="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        >
-          <div class="flex items-start gap-3 sm:items-center">
+          <div class="relative shrink-0">
             <div
-              class="rounded-full p-2"
-              :class="[
-                isOverdue
-                  ? 'bg-red-100'
-                  : isToday(activeAppointment.date)
-                    ? 'bg-amber-100'
-                    : 'bg-indigo-100'
-              ]"
-            >
-              <Icon
-                :name="
-                  isOverdue
-                    ? 'material-symbols:warning-rounded'
-                    : isToday(activeAppointment.date)
-                      ? 'material-symbols:alarm-on-outline-rounded'
-                      : 'material-symbols:calendar-clock-outline-rounded'
-                "
-                class="text-xl"
-                :class="
-                  isOverdue
-                    ? 'text-red-600'
-                    : isToday(activeAppointment.date)
-                      ? 'text-amber-600'
-                      : 'text-indigo-600'
-                "
-              />
-            </div>
-            <div>
-              <p
-                class="text-sm font-bold"
-                :class="[
-                  isOverdue
-                    ? 'text-red-900'
-                    : isToday(activeAppointment.date)
-                      ? 'text-amber-900'
-                      : 'text-indigo-900'
-                ]"
-              >
-                {{
-                  isOverdue
-                    ? 'Overdue Appointment — Action Needed'
-                    : isToday(activeAppointment.date)
-                      ? 'Appointment Today!'
-                      : 'Upcoming Appointment'
-                }}
-              </p>
-              <p
-                class="text-xs font-medium"
-                :class="[
-                  isOverdue
-                    ? 'text-red-700'
-                    : isToday(activeAppointment.date)
-                      ? 'text-amber-700'
-                      : 'text-indigo-700'
-                ]"
-              >
-                {{
-                  isOverdue
-                    ? `Was scheduled for ${activeAppointment.date} at ${activeAppointment.time}. Please mark as Accomplished or Cancelled.`
-                    : isToday(activeAppointment.date)
-                      ? 'Your appointment is scheduled for today'
-                      : activeAppointment.date + ' at ' + activeAppointment.time
-                }}
-              </p>
-            </div>
-          </div>
-
-          <div
-            v-if="userRole?.toLowerCase() === 'doctor'"
-            class="flex w-full flex-wrap justify-end gap-2 sm:w-auto"
-          >
-            <button
-              type="button"
-              @click="showCompleteConfirm = true"
-              class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
-            >
-              <Icon
-                name="material-symbols:check-circle-rounded"
-                class="text-sm"
-              />
-              Mark as Accomplished
-            </button>
-            <button
-              type="button"
-              @click="showCancelConfirm = true"
-              class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95"
-            >
-              <Icon
-                name="material-symbols:cancel-rounded"
-                class="text-sm"
-              />
-              Cancel
-            </button>
-            <button
-              type="button"
-              @click="openRescheduleModal"
-              class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
-            >
-              <Icon
-                name="material-symbols:edit-calendar-rounded"
-                class="text-sm"
-              />
-              Reschedule
-            </button>
-          </div>
-          <div
-            v-else-if="
-              userRole?.toLowerCase() === 'patient' && activeAppointment.status === 'scheduled'
-            "
-            class="flex items-center gap-2"
-          >
-            <button
-              type="button"
-              @click="requestReschedule(activeAppointment.id)"
-              class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
-            >
-              <Icon
-                name="material-symbols:edit-calendar-rounded"
-                class="text-sm"
-              />
-              Request Reschedule
-            </button>
-          </div>
-        </div>
-
-        <!-- Action Bar when status is reschedule_proposed or reschedule_requested -->
-        <div
-          v-if="
-            activeAppointment.status === 'reschedule_proposed' ||
-            activeAppointment.status === 'reschedule_requested'
-          "
-          class="flex flex-col items-start justify-between gap-3 p-1 md:flex-row md:items-center"
-        >
-          <!-- Case 1: Status is reschedule_proposed -->
-          <template v-if="activeAppointment.status === 'reschedule_proposed'">
-            <template v-if="!isRescheduleProposedByMe(activeAppointment.id)">
-              <div class="flex shrink-0 items-center gap-2 text-sm font-bold text-amber-800">
-                <Icon
-                  name="material-symbols:info"
-                  class="shrink-0 text-lg"
-                />
-                New schedule proposed by
-                {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }}
-              </div>
-              <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-                <button
-                  type="button"
-                  :disabled="isAcceptingReschedule"
-                  @click="acceptReschedule(activeAppointment.id)"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
-                >
-                  <Icon
-                    v-if="isAcceptingReschedule"
-                    name="svg-spinners:ring-resize"
-                    class="text-sm"
-                  />
-                  <Icon
-                    v-else
-                    name="material-symbols:check-circle-rounded"
-                    class="text-sm"
-                  />
-                  Accept
-                </button>
-                <button
-                  v-if="userRole?.toLowerCase() === 'patient'"
-                  type="button"
-                  @click="requestReschedule(activeAppointment.id)"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
-                >
-                  <Icon
-                    name="material-symbols:edit-calendar-rounded"
-                    class="text-sm"
-                  />
-                  Request Reschedule
-                </button>
-                <button
-                  v-else
-                  type="button"
-                  @click="openRescheduleModal"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
-                >
-                  <Icon
-                    name="material-symbols:edit-calendar-rounded"
-                    class="text-sm"
-                  />
-                  Propose Another Date
-                </button>
-                <button
-                  type="button"
-                  @click="cancelAppointment(activeAppointment.id)"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
-                >
-                  <Icon
-                    name="material-symbols:cancel-rounded"
-                    class="text-sm"
-                  />
-                  Cancel Appointment
-                </button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
-                <Icon
-                  name="material-symbols:hourglass-top-rounded"
-                  class="shrink-0 animate-pulse text-lg"
-                />
-                Waiting for {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
-                confirm your proposed schedule...
-              </div>
-            </template>
-          </template>
-
-          <!-- Case 2: Status is reschedule_requested -->
-          <template v-else-if="activeAppointment.status === 'reschedule_requested'">
-            <template v-if="userRole?.toLowerCase() === 'doctor'">
-              <div class="flex items-start gap-2.5">
-                <Icon
-                  name="material-symbols:calendar-month-rounded"
-                  class="mt-0.5 shrink-0 text-lg text-amber-700"
-                />
-                <div class="flex flex-col">
-                  <span class="text-sm font-bold text-amber-900"
-                    >Patient requested a reschedule</span
-                  >
-                  <span
-                    v-if="activeAppointment.requested_reschedule_date"
-                    class="text-xs font-medium text-amber-800"
-                  >
-                    Preferred: {{ formatRequestedRescheduleLabel(activeAppointment) }}
-                  </span>
-                </div>
-              </div>
-              <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
-                <button
-                  type="button"
-                  :disabled="isAcceptingReschedule"
-                  @click="acceptReschedule(activeAppointment.id)"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
-                >
-                  <Icon
-                    v-if="isAcceptingReschedule"
-                    name="svg-spinners:ring-resize"
-                    class="text-sm"
-                  />
-                  <Icon
-                    v-else
-                    name="material-symbols:check-circle-rounded"
-                    class="text-sm"
-                  />
-                  Accept Request
-                </button>
-                <button
-                  type="button"
-                  @click="openRescheduleModal"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
-                >
-                  <Icon
-                    name="material-symbols:edit-calendar-rounded"
-                    class="text-sm"
-                  />
-                  Propose Another Date
-                </button>
-                <button
-                  type="button"
-                  @click="cancelAppointment(activeAppointment.id)"
-                  class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
-                >
-                  <Icon
-                    name="material-symbols:cancel-rounded"
-                    class="text-sm"
-                  />
-                  Cancel Appointment
-                </button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
-                <Icon
-                  name="material-symbols:hourglass-top-rounded"
-                  class="shrink-0 animate-pulse text-lg"
-                />
-                Waiting for doctor to propose a new schedule...
-              </div>
-            </template>
-          </template>
-        </div>
-      </div>
-
-      <!-- Messages Area -->
-
-      <div
-        ref="messagesContainer"
-        @scroll="handleScroll"
-        class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 md:p-8"
-      >
-        <!-- Loading older messages indicator -->
-        <div
-          v-if="isFetchingOlder"
-          class="flex justify-center py-2"
-        >
-          <Icon
-            name="svg-spinners:ring-resize"
-            class="text-primary text-2xl"
-          />
-        </div>
-
-        <!-- Loading skeleton (Initial) -->
-        <div
-          v-if="pending && displayedMessages.length === 0"
-          class="flex flex-1 items-center justify-center"
-        >
-          <div class="text-foreground/20 text-center">
-            <Icon
-              name="svg-spinners:ring-resize"
-              class="mx-auto mb-4 text-5xl"
-            />
-            <p class="text-lg font-medium">Loading messages...</p>
-          </div>
-        </div>
-
-        <!-- Empty state -->
-        <div
-          v-else-if="displayedMessages.length === 0"
-          class="flex flex-1 items-center justify-center"
-        >
-          <div class="text-foreground/20 text-center">
-            <Icon
-              name="solar:chat-round-line-linear"
-              class="mb-4 text-8xl"
-            />
-            <p class="text-xl font-bold">No messages yet</p>
-            <p class="mt-1 text-sm">Send a message to start the conversation</p>
-          </div>
-        </div>
-
-        <!-- Message bubbles -->
-        <div class="flex flex-col gap-4">
-          <div
-            v-for="msg in displayedMessages"
-            :key="msg.id"
-            class="group flex items-end gap-3"
-            :class="msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row'"
-            @contextmenu="openContextMenu($event, msg)"
-          >
-            <div class="border-border/50 h-10 w-10 shrink-0 overflow-hidden rounded-full border">
-              <img
-                v-if="msg.sender?.avatar && !hasMessageAvatarError(msg.id)"
-                :src="getStorageUrl(msg.sender.avatar)"
-                :alt="msg.sender?.name"
-                class="h-full w-full object-cover"
-                @error="handleMessageAvatarError(msg.id)"
-              />
-              <div
-                v-else
-                class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-sm font-bold uppercase"
-              >
-                {{ (msg.sender?.name || '?').charAt(0) }}
-              </div>
-            </div>
-
-            <div class="flex max-w-[70%] flex-col gap-1">
-              <!-- Editing mode -->
-              <div
-                v-if="editingMessageId === msg.id"
-                class="flex flex-col gap-2"
-              >
-                <textarea
-                  v-model="editingMessageText"
-                  @keydown="handleEditKeydown"
-                  class="bg-foreground/5 border-primary/30 min-h-12 w-full resize-none rounded-2xl border px-4 py-3 text-base outline-none focus:ring-2 focus:ring-indigo-200"
-                  rows="2"
-                ></textarea>
-                <div class="flex items-center gap-2">
-                  <button
-                    @click="saveEdit"
-                    class="bg-primary hover:bg-primary/90 rounded-lg px-3 py-1 text-xs font-semibold text-white transition-colors"
-                  >
-                    Save
-                  </button>
-                  <button
-                    @click="cancelEditing"
-                    class="text-foreground/50 hover:text-foreground rounded-lg px-3 py-1 text-xs font-semibold transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-
-              <!-- Normal bubble -->
-              <div
-                v-else
-                class="relative px-5 py-3 transition-all"
-                :class="[
-                  msg.sender?.id === effectiveUserUuid
-                    ? 'bg-primary shadow-primary/10 rounded-t-2xl rounded-bl-2xl text-white shadow-lg'
-                    : 'bg-foreground/5 text-foreground rounded-t-2xl rounded-br-2xl'
-                ]"
-              >
-                <div
-                  v-if="
-                    msg.message.includes('[APPOINTMENT_REQUEST:') ||
-                    msg.message.includes('[DIAGNOSIS_ONLY:') ||
-                    msg.message.includes('[SCAN_RESULT:')
-                  "
-                >
-                  <div class="mb-2">
-                    <Icon
-                      :name="
-                        msg.message.includes('[APPOINTMENT_REQUEST:')
-                          ? 'material-symbols:calendar-month-rounded'
-                          : 'material-symbols:diagnosis-outline-rounded'
-                      "
-                      class="mb-2 text-3xl"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'"
-                    />
-                    <p class="text-lg font-bold">
-                      {{
-                        msg.message.includes('[APPOINTMENT_REQUEST:')
-                          ? 'Appointment Request'
-                          : 'Clinical Findings'
-                      }}
-                    </p>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/90' : 'opacity-80'"
-                    >
-                      {{
-                        msg.message
-                          .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
-                          .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
-                          .trim() ||
-                        (msg.message.includes('[APPOINTMENT_REQUEST:')
-                          ? 'A diagnosis was shared.'
-                          : 'Additional findings shared.')
-                      }}
-                    </p>
-                  </div>
-
-                  <!-- Diagnosis Details -->
-                  <div
-                    v-if="msg.appointment_data"
-                    class="mt-3 rounded-2xl border p-4 shadow-sm"
-                    :class="[
-                      msg.sender?.id === effectiveUserUuid
-                        ? 'border-white/20 bg-white text-gray-900 shadow-md'
-                        : 'bg-card/50 border-border/50 text-foreground backdrop-blur-sm'
-                    ]"
-                  >
-                    <div class="flex gap-4">
-                      <img
-                        :src="getStorageUrl(msg.appointment_data.diagnosis.image_path)"
-                        class="border-border h-24 w-24 shrink-0 rounded-xl border object-cover shadow-sm"
-                        alt="Diagnosis scan"
-                      />
-                      <div class="flex min-w-0 flex-col justify-center gap-0.5">
-                        <p
-                          class="text-[10px] font-black tracking-widest uppercase"
-                          :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-primary' : 'text-primary'
-                          "
-                        >
-                          Clinical Findings
-                        </p>
-                        <h4
-                          class="truncate text-lg leading-tight font-black"
-                          :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-gray-900'
-                              : 'text-foreground'
-                          "
-                        >
-                          {{ msg.appointment_data.diagnosis.label }}
-                        </h4>
-                        <div class="mt-1 flex flex-col gap-0.5">
-                          <p
-                            class="truncate text-xs font-bold"
-                            :class="
-                              msg.sender?.id === effectiveUserUuid
-                                ? 'text-gray-700'
-                                : 'text-foreground/70'
-                            "
-                          >
-                            {{ msg.appointment_data.diagnosis.patient_name }}
-                          </p>
-                          <p
-                            class="text-[11px] font-medium"
-                            :class="
-                              msg.sender?.id === effectiveUserUuid
-                                ? 'text-gray-500'
-                                : 'text-foreground/50'
-                            "
-                          >
-                            {{
-                              msg.appointment_data.diagnosis.patient_age != null &&
-                              msg.appointment_data.diagnosis.patient_age !== ''
-                                ? `${msg.appointment_data.diagnosis.patient_age} years old • `
-                                : ''
-                            }}{{ msg.appointment_data.diagnosis.date }}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
-                  <div
-                    v-if="
-                      userRole?.toLowerCase() === 'doctor' &&
-                      msg.message.includes('[APPOINTMENT_REQUEST:') &&
-                      !isAppointmentHandled(msg.message)
-                    "
-                    class="mt-4 flex gap-2"
-                  >
-                    <button
-                      @click.prevent="openScheduleModal(msg.message)"
-                      class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
-                    >
-                      Accept & Schedule
-                    </button>
-                    <button
-                      @click.prevent="declineAppointment(msg.message)"
-                      class="bg-foreground/10 hover:bg-foreground/20 rounded-xl px-5 py-2 text-sm font-bold transition-all active:scale-95"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-green-600 shadow-sm'
-                            : 'bg-green-100 text-green-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:check-circle-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
-                        "
-                        >Appointment Confirmed</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                      v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"
-                    ></p>
-                    <button
-                      v-if="canPatientRequestReschedule(msg.message)"
-                      type="button"
-                      @click.prevent="
-                        requestReschedule(extractScheduledAppointmentUuid(msg.message))
-                      "
-                      class="text-primary ring-primary/20 mt-3 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95"
-                    >
-                      <Icon
-                        name="material-symbols:edit-calendar-rounded"
-                        class="text-sm"
-                      />
-                      Request Reschedule
-                    </button>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-red-500 shadow-sm'
-                            : 'bg-red-100 text-red-500'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:cancel-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-red-600'
-                        "
-                        >Appointment Request Declined</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                    >
-                      {{ msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim() }}
-                    </p>
-
-                    <!-- Diagnosis Details Preview (if available) -->
-                    <div
-                      v-if="getDeclinedDiagnosisData(msg)"
-                      class="mt-3 rounded-2xl border p-4 shadow-sm"
-                      :class="[
-                        msg.sender?.id === effectiveUserUuid
-                          ? 'border-white/20 bg-white text-gray-900 shadow-md'
-                          : 'border-border/50 bg-card/50 text-foreground backdrop-blur-sm'
-                      ]"
-                    >
-                      <div class="flex gap-4">
-                        <img
-                          v-if="getDeclinedDiagnosisData(msg)?.image_path"
-                          :src="getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path)"
-                          class="border-border h-20 w-20 shrink-0 rounded-xl border object-cover shadow-sm"
-                          alt="Diagnosis scan"
-                        />
-                        <div class="flex min-w-0 flex-col justify-center gap-0.5">
-                          <p class="text-primary text-[10px] font-black tracking-widest uppercase">
-                            Clinical Findings
-                          </p>
-                          <h4
-                            class="truncate text-base leading-tight font-black"
-                            :class="
-                              msg.sender?.id === effectiveUserUuid
-                                ? 'text-gray-900'
-                                : 'text-foreground'
-                            "
-                          >
-                            {{ getDeclinedDiagnosisData(msg)?.label }}
-                          </h4>
-                          <div class="mt-0.5 flex flex-col gap-0.5">
-                            <p
-                              class="truncate text-xs font-bold"
-                              :class="
-                                msg.sender?.id === effectiveUserUuid
-                                  ? 'text-gray-700'
-                                  : 'text-foreground/70'
-                              "
-                            >
-                              {{ getDeclinedDiagnosisData(msg)?.patient_name }}
-                            </p>
-                            <p
-                              v-if="getDeclinedDiagnosisData(msg)?.date"
-                              class="text-[11px] font-medium"
-                              :class="
-                                msg.sender?.id === effectiveUserUuid
-                                  ? 'text-gray-500'
-                                  : 'text-foreground/50'
-                              "
-                            >
-                              {{ getDeclinedDiagnosisData(msg)?.date }}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Rebook Appointment Button for Patients -->
-                    <div
-                      v-if="canRebookAppointment(msg)"
-                      class="mt-3.5 flex items-center gap-2"
-                    >
-                      <button
-                        type="button"
-                        :disabled="isRebookingAppt"
-                        @click.prevent="handleRebookAppointment(msg)"
-                        class="bg-primary hover:bg-primary/90 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
-                      >
-                        <Icon
-                          v-if="isRebookingAppt"
-                          name="svg-spinners:ring-resize"
-                          class="text-sm"
-                        />
-                        <Icon
-                          v-else
-                          name="material-symbols:replay-rounded"
-                          class="text-sm"
-                        />
-                        <span>{{ isRebookingAppt ? 'Rebooking...' : 'Rebook Appointment' }}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-amber-600 shadow-sm'
-                            : 'bg-amber-100 text-amber-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:event-busy-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-800'
-                        "
-                        >Appointment Cancelled</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                    >
-                      {{ msg.message.replace(/\[APPOINTMENT_CANCELLED:.*?\]/g, '').trim() }}
-                    </p>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-green-600 shadow-sm'
-                            : 'bg-green-100 text-green-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:check-circle-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
-                        "
-                        >Appointment Completed</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                    >
-                      {{ msg.message.replace(/\[APPOINTMENT_COMPLETED:.*?\]/g, '').trim() }}
-                    </p>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_PROPOSED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-amber-600 shadow-sm'
-                            : 'bg-amber-100 text-amber-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:edit-calendar-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'
-                        "
-                        >Reschedule Proposed</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm leading-relaxed"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                      v-html="
-                        msg.message.replace(/\[APPOINTMENT_RESCHEDULE_PROPOSED:.*?\]/g, '').trim()
-                      "
-                    ></p>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-amber-600 shadow-sm'
-                            : 'bg-amber-100 text-amber-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:event-repeat-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'
-                        "
-                        >Reschedule Requested</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm leading-relaxed"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                      v-html="
-                        msg.message.replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '').trim()
-                      "
-                    ></p>
-                  </div>
-                </div>
-                <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_ACCEPTED:')">
-                  <div class="flex flex-col">
-                    <div class="mb-2 flex items-center gap-2">
-                      <div
-                        class="rounded-full p-2"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid
-                            ? 'bg-white text-green-600 shadow-sm'
-                            : 'bg-green-100 text-green-600'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:check-circle-rounded"
-                          class="text-xl"
-                        />
-                      </div>
-                      <span
-                        class="font-bold"
-                        :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
-                        "
-                        >Reschedule Accepted</span
-                      >
-                    </div>
-                    <p
-                      class="text-sm"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'"
-                      v-html="
-                        msg.message.replace(/\[APPOINTMENT_RESCHEDULE_ACCEPTED:.*?\]/g, '').trim()
-                      "
-                    ></p>
-                  </div>
-                </div>
-                <p
-                  v-else-if="msg.message"
-                  class="text-base leading-relaxed whitespace-pre-wrap"
-                >
-                  {{ msg.message }}
-                </p>
-
-                <!-- Attachments Display -->
-                <div
-                  v-if="msg.attachments && msg.attachments.length > 0"
-                  class="mt-3 flex flex-col gap-2"
-                >
-                  <div
-                    v-for="attachment in msg.attachments"
-                    :key="attachment.id"
-                    class="group/attachment relative overflow-hidden rounded-xl border border-white/10"
-                    :class="msg.sender?.id === effectiveUserUuid ? 'bg-white/10' : 'bg-black/5'"
-                  >
-                    <!-- Image Preview -->
-                    <div
-                      v-if="isImage(attachment.type)"
-                      class="max-w-xs"
-                    >
-                      <a
-                        :href="attachment.url"
-                        target="_blank"
-                      >
-                        <img
-                          :src="attachment.url"
-                          :alt="attachment.name"
-                          class="h-auto w-full object-cover transition-transform group-hover/attachment:scale-105"
-                        />
-                      </a>
-                    </div>
-
-                    <!-- File Link -->
-                    <a
-                      v-else
-                      :href="attachment.url"
-                      target="_blank"
-                      class="flex items-center gap-3 p-3 transition-colors hover:bg-white/5"
-                    >
-                      <div
-                        class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-lg"
-                      >
-                        <Icon
-                          :name="
-                            isPdf(attachment.type) ? 'solar:file-text-bold' : 'solar:document-bold'
-                          "
-                          class="text-xl"
-                          :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
-                          "
-                        />
-                      </div>
-                      <div class="flex-1 overflow-hidden">
-                        <p
-                          class="truncate text-xs font-bold"
-                          :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-foreground'
-                          "
-                        >
-                          {{ attachment.name }}
-                        </p>
-                        <p
-                          class="text-[10px] opacity-60"
-                          :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-foreground'
-                          "
-                        >
-                          {{ formatFileSize(attachment.size) }}
-                        </p>
-                      </div>
-                      <Icon
-                        name="solar:download-minimalistic-linear"
-                        class="text-lg opacity-40"
-                      />
-                    </a>
-                  </div>
-                </div>
-
-                <!-- Own message action dots (visible on hover) -->
-                <button
-                  v-if="msg.sender?.id === effectiveUserUuid"
-                  @click.stop="openContextMenu($event, msg)"
-                  class="absolute top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-                  :class="msg.sender?.id === effectiveUserUuid ? '-left-9' : '-right-9'"
-                >
-                  <Icon
-                    name="solar:menu-dots-vertical-bold"
-                    class="text-foreground/30 hover:text-foreground/60 text-lg"
-                  />
-                </button>
-              </div>
-
-              <span
-                class="text-foreground/70 text-[11px] font-medium"
-                :class="msg.sender?.id === effectiveUserUuid ? 'text-right' : 'text-left'"
-              >
-                {{ formatTime(msg.created_at) }}
-                <span
-                  v-if="isEdited(msg)"
-                  class="italic"
-                >
-                  · edited</span
-                >
-                <span
-                  v-if="msg.sender?.id === effectiveUserUuid && msg.is_read"
-                  class="ml-1"
-                  >✓✓</span
-                >
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Live Messenger-Style Typing Bubble -->
-        <Transition
-          enter-active-class="transition duration-200 ease-out"
-          enter-from-class="opacity-0 translate-y-1"
-          enter-to-class="opacity-100 translate-y-0"
-          leave-active-class="transition duration-150 ease-in"
-          leave-from-class="opacity-100 translate-y-0"
-          leave-to-class="opacity-0 translate-y-1"
-        >
-          <div
-            v-if="partnerIsTyping"
-            class="flex items-end gap-2 pt-1 pb-1.5"
-          >
-            <!-- Partner Avatar (Identical to message avatar, proportionally compact) -->
-            <div
-              class="border-border/50 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
+              class="bg-muted ring-border/50 flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-xs ring-2 sm:h-12 sm:w-12"
             >
               <img
                 v-if="otherPersonAvatar && !headerAvatarFailed"
@@ -2278,117 +1382,1491 @@
               />
               <div
                 v-else
-                class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-[11px] font-bold uppercase"
+                class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-base font-black uppercase sm:text-lg"
               >
-                {{ (otherPersonName || '?').charAt(0) }}
+                {{ otherPersonName ? otherPersonName.charAt(0) : '?' }}
               </div>
             </div>
-
-            <!-- 3 Bouncing Dots Bubble (Same style as incoming chat, smaller size) -->
-            <div
-              class="bg-foreground/5 text-foreground flex items-center gap-1.5 rounded-t-2xl rounded-br-2xl px-3.5 py-2.5"
-            >
-              <span
-                class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
-              ></span>
-              <span
-                class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
-              ></span>
-              <span
-                class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
-              ></span>
-            </div>
           </div>
-        </Transition>
-      </div>
 
-      <!-- Input Area -->
-      <div
-        class="bg-card border-border border-t px-3 py-2 md:border-0 md:bg-transparent md:p-8 md:pt-0"
-      >
-        <!-- File Preview Area -->
-        <div
-          v-if="selectedFiles.length > 0"
-          class="mb-4 flex flex-wrap gap-3"
-        >
-          <div
-            v-for="(file, index) in selectedFiles"
-            :key="index"
-            class="bg-card border-border/50 relative flex items-center gap-3 rounded-2xl border p-3 pr-10 shadow-sm"
-          >
-            <div class="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-xl">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <h2
+                class="text-foreground group-hover:text-primary max-w-[150px] truncate text-base font-bold transition-colors sm:max-w-xs sm:text-lg md:max-w-none md:text-xl"
+              >
+                {{ otherPersonName }}
+              </h2>
               <Icon
-                :name="isImage(file.type) ? 'solar:gallery-bold' : 'solar:document-bold'"
-                class="text-primary text-xl"
+                name="solar:alt-arrow-right-linear"
+                class="text-foreground/40 group-hover:text-primary shrink-0 text-xs transition-transform group-hover:translate-x-0.5"
               />
             </div>
-            <div class="max-w-[150px] overflow-hidden">
-              <p class="text-foreground truncate text-xs font-bold">{{ file.name }}</p>
-              <p class="text-foreground/50 text-[10px]">{{ formatFileSize(file.size) }}</p>
-            </div>
+          </div>
+        </button>
+      </div>
+
+      <!-- Header actions menu -->
+      <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <!-- Search in chat button -->
+        <button
+          type="button"
+          @click="toggleSearchInConversation"
+          class="border-border/40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border shadow-2xs transition-all duration-200 active:scale-95 sm:h-10 sm:w-10 sm:rounded-2xl"
+          :class="
+            isSearchingInConversation
+              ? 'bg-primary/10 text-primary border-primary/30 ring-primary/20 shadow-xs ring-2'
+              : 'bg-foreground/5 text-foreground/60 hover:text-primary hover:bg-primary/5 hover:border-primary/25'
+          "
+          title="Search in conversation"
+        >
+          <Icon
+            name="solar:minimalistic-magnifer-linear"
+            class="text-lg sm:text-xl"
+          />
+        </button>
+
+        <!-- Messenger-style Info toggle button (i) -->
+        <button
+          type="button"
+          @click="toggleUserDetails"
+          class="border-border/40 flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border shadow-2xs transition-all duration-200 active:scale-95 sm:h-10 sm:w-10 sm:rounded-2xl"
+          :class="
+            showUserDetails
+              ? 'bg-primary/10 text-primary border-primary/30 ring-primary/20 shadow-xs ring-2'
+              : 'bg-foreground/5 text-foreground/60 hover:text-primary hover:bg-primary/5 hover:border-primary/25'
+          "
+          title="Conversation details"
+        >
+          <Icon
+            name="solar:info-circle-linear"
+            class="text-lg sm:text-xl"
+          />
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Bar in Conversation -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="transform -translate-y-2 opacity-0"
+      enter-to-class="transform translate-y-0 opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="transform translate-y-0 opacity-100"
+      leave-to-class="transform -translate-y-2 opacity-0"
+    >
+      <div
+        v-if="isSearchingInConversation"
+        class="border-border/60 bg-card z-10 flex shrink-0 items-center gap-2 border-b px-3 py-2 shadow-xs sm:px-6 sm:py-2.5"
+      >
+        <Icon
+          name="solar:magnifer-linear"
+          class="text-primary shrink-0 text-lg"
+        />
+        <input
+          ref="searchInputRef"
+          v-model="conversationSearchQuery"
+          type="text"
+          placeholder="Search in conversation..."
+          class="text-foreground placeholder:text-foreground/40 w-full min-w-0 bg-transparent text-xs outline-none sm:text-sm"
+          @keydown.enter.prevent="nextSearchMatch"
+          @keydown.shift.enter.prevent="prevSearchMatch"
+          @keydown.esc="toggleSearchInConversation"
+        />
+
+        <!-- Match Counter & Navigation (Messenger Style) -->
+        <template v-if="conversationSearchQuery.trim()">
+          <span
+            v-if="matchingMessageIds.length > 0"
+            class="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300"
+          >
+            {{ currentMatchIndex + 1 }} of {{ matchingMessageIds.length }}
+          </span>
+          <span
+            v-else
+            class="shrink-0 rounded-full bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400"
+          >
+            No matches
+          </span>
+
+          <!-- Match Navigation Arrows (Up / Down) -->
+          <div class="border-border/60 flex items-center gap-0.5 border-l pl-1">
             <button
-              @click="removeFile(index)"
-              class="text-foreground/30 hover:text-destructive absolute top-2 right-2 transition-colors"
+              type="button"
+              :disabled="matchingMessageIds.length <= 1"
+              @click="prevSearchMatch"
+              class="text-foreground/70 hover:bg-foreground/10 hover:text-foreground flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30"
+              title="Previous match (Shift+Enter)"
             >
               <Icon
-                name="solar:close-circle-bold"
-                class="text-lg"
+                name="solar:alt-arrow-up-linear"
+                class="text-base"
+              />
+            </button>
+            <button
+              type="button"
+              :disabled="matchingMessageIds.length <= 1"
+              @click="nextSearchMatch"
+              class="text-foreground/70 hover:bg-foreground/10 hover:text-foreground flex h-7 w-7 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30"
+              title="Next match (Enter)"
+            >
+              <Icon
+                name="solar:alt-arrow-down-linear"
+                class="text-base"
               />
             </button>
           </div>
-        </div>
 
-        <div class="group relative flex items-end gap-3">
-          <!-- Hidden File Input -->
-          <input
-            type="file"
-            ref="fileInput"
-            multiple
-            class="hidden"
-            @change="handleFileChange"
-          />
+          <!-- Clear Text Button -->
+          <button
+            type="button"
+            @click="conversationSearchQuery = ''"
+            class="text-foreground/40 hover:text-foreground p-1"
+            title="Clear text"
+          >
+            <Icon
+              name="material-symbols:close-rounded"
+              class="text-base"
+            />
+          </button>
+        </template>
 
-          <div class="relative flex flex-1 items-end">
-            <textarea
-              v-model="messageTerm"
-              placeholder="Type a message..."
-              @input="broadcastTyping"
-              @keydown="handleKeydown"
-              class="bg-foreground/5 text-foreground placeholder:text-foreground/50 focus:border-primary/30 focus:ring-primary/20 custom-scrollbar border-border/50 mb-3 h-11 w-full resize-none rounded-2xl border py-2.5 pr-24 pl-4 text-sm transition-all outline-none focus:ring-4 md:h-14 md:py-4 md:text-base"
-            ></textarea>
+        <button
+          type="button"
+          @click="toggleSearchInConversation"
+          class="text-primary hover:bg-primary/10 shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold transition-colors"
+        >
+          Done
+        </button>
+      </div>
+    </Transition>
 
-            <div class="absolute right-4 -mb-1 flex -translate-y-1/2 items-center gap-2">
-              <!-- Attachment Button -->
+    <!-- Main Chat Workspace: Messages (flex-1) + Inline Details Sidebar (desktop) -->
+    <div class="relative flex min-h-0 flex-1 flex-row overflow-hidden">
+      <!-- Chat Body Container (relative container holding chat messages and inputs) -->
+      <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <!-- Pending Appointment Request Banner (Doctor-only, shown when patient has a pending request for this conversation) -->
+        <Transition
+          enter-active-class="transition duration-300 ease-out"
+          enter-from-class="transform -translate-y-full opacity-0"
+          enter-to-class="transform translate-y-0 opacity-100"
+          leave-active-class="transition duration-200 ease-in"
+          leave-from-class="transform translate-y-0 opacity-100"
+          leave-to-class="transform -translate-y-full opacity-0"
+        >
+          <div
+            v-if="userRole?.toLowerCase() === 'doctor' && pendingAppointmentForConversation"
+            class="border-b border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 sm:px-6"
+          >
+            <div
+              class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
+              <div class="flex items-start gap-3 sm:items-center">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100"
+                >
+                  <Icon
+                    name="material-symbols:calendar-add-on-rounded"
+                    class="text-lg text-indigo-600"
+                  />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-black text-indigo-900">New Appointment Request</p>
+                  <p class="text-xs font-medium text-indigo-600">
+                    {{ pendingAppointmentForConversation.doctor }} is requesting an appointment
+                    <span
+                      v-if="
+                        pendingAppointmentForConversation.info &&
+                        pendingAppointmentForConversation.info !== 'General Appointment'
+                      "
+                    >
+                      for
+                      <span class="font-bold">{{ pendingAppointmentForConversation.info }}</span>
+                    </span>
+                    — review the chat for details.
+                  </p>
+                </div>
+              </div>
+              <div class="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
+                <button
+                  @click="openScheduleModalFromPending(pendingAppointmentForConversation)"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:flex-initial"
+                >
+                  <Icon
+                    name="material-symbols:check-circle-outline-rounded"
+                    class="text-sm"
+                  />
+                  Accept &amp; Schedule
+                </button>
+                <button
+                  @click="declineAppointmentFromPending(pendingAppointmentForConversation)"
+                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95 sm:flex-initial"
+                >
+                  <Icon
+                    name="material-symbols:cancel-outline-rounded"
+                    class="text-sm"
+                  />
+                  Decline
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
+        <!-- Active Appointment Bar (scheduled appointment or reschedule in progress) -->
+        <div
+          v-if="activeAppointment"
+          class="flex flex-col border-b px-3.5 py-2.5 transition-all sm:p-4"
+          :class="[
+            activeAppointment.status === 'reschedule_requested' ||
+            activeAppointment.status === 'reschedule_proposed'
+              ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/20'
+              : isOverdue
+                ? 'border-red-200 bg-red-50 dark:bg-red-950/20'
+                : isToday(activeAppointment.date)
+                  ? 'border-amber-100 bg-amber-50 dark:bg-amber-950/20'
+                  : 'border-indigo-100 bg-indigo-50/70 dark:bg-indigo-950/20'
+          ]"
+        >
+          <!-- Row 1: Active Scheduled Appointment Details (HIDDEN when reschedule is requested or proposed) -->
+          <div
+            v-if="activeAppointment.status === 'scheduled'"
+            class="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <div
+                  class="shrink-0 rounded-full p-2"
+                  :class="[
+                    isOverdue
+                      ? 'bg-red-100'
+                      : isToday(activeAppointment.date)
+                        ? 'bg-amber-100'
+                        : 'bg-indigo-100'
+                  ]"
+                >
+                  <Icon
+                    :name="
+                      isOverdue
+                        ? 'material-symbols:warning-rounded'
+                        : isToday(activeAppointment.date)
+                          ? 'material-symbols:alarm-on-outline-rounded'
+                          : 'material-symbols:calendar-clock-outline-rounded'
+                    "
+                    class="text-lg sm:text-xl"
+                    :class="
+                      isOverdue
+                        ? 'text-red-600'
+                        : isToday(activeAppointment.date)
+                          ? 'text-amber-600'
+                          : 'text-indigo-600'
+                    "
+                  />
+                </div>
+                <div class="min-w-0">
+                  <p
+                    class="truncate text-xs font-bold sm:text-sm"
+                    :class="[
+                      isOverdue
+                        ? 'text-red-900'
+                        : isToday(activeAppointment.date)
+                          ? 'text-amber-900'
+                          : 'text-indigo-900'
+                    ]"
+                  >
+                    {{
+                      isOverdue
+                        ? 'Overdue Appointment — Action Needed'
+                        : isToday(activeAppointment.date)
+                          ? 'Appointment Today!'
+                          : 'Upcoming Appointment'
+                    }}
+                  </p>
+                  <p
+                    class="truncate text-[11px] font-medium sm:text-xs"
+                    :class="[
+                      isOverdue
+                        ? 'text-red-700'
+                        : isToday(activeAppointment.date)
+                          ? 'text-amber-700'
+                          : 'text-indigo-700'
+                    ]"
+                  >
+                    {{
+                      isOverdue
+                        ? `Was scheduled for ${activeAppointment.date} at ${activeAppointment.time}`
+                        : isToday(activeAppointment.date)
+                          ? 'Scheduled for today at ' + activeAppointment.time
+                          : activeAppointment.date + ' at ' + activeAppointment.time
+                    }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Mobile action toggle button -->
               <button
-                @click="triggerFileInput"
-                class="text-foreground/30 hover:text-primary flex cursor-pointer items-center justify-center p-2 transition-colors"
-                title="Attach files (max 15MB)"
+                type="button"
+                @click="isApptBarCollapsed = !isApptBarCollapsed"
+                class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-700 shadow-xs transition-all active:scale-95 sm:hidden"
               >
+                <span>{{ isApptBarCollapsed ? 'Show Actions' : 'Hide' }}</span>
                 <Icon
-                  name="solar:paperclip-linear"
-                  class="text-2xl"
+                  :name="
+                    isApptBarCollapsed ? 'solar:alt-arrow-down-linear' : 'solar:alt-arrow-up-linear'
+                  "
+                  class="text-xs"
                 />
               </button>
+            </div>
 
-              <!-- Send Button -->
-              <AppButton
-                variant="unstyled"
-                size="unstyled"
-                rounded="unstyled"
-                @click="sendMessage"
-                class="text-primary hover:text-primary-hover flex cursor-pointer items-center justify-center p-2 transition-colors"
+            <div
+              v-if="userRole?.toLowerCase() === 'doctor'"
+              class="w-full flex-wrap justify-end gap-2 sm:w-auto"
+              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
+            >
+              <button
+                type="button"
+                @click="showCompleteConfirm = true"
+                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
               >
                 <Icon
-                  name="material-symbols:send-rounded"
-                  class="text-2xl"
+                  name="material-symbols:check-circle-rounded"
+                  class="text-sm"
                 />
-              </AppButton>
+                Mark as Accomplished
+              </button>
+              <button
+                type="button"
+                @click="showCancelConfirm = true"
+                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95"
+              >
+                <Icon
+                  name="material-symbols:cancel-rounded"
+                  class="text-sm"
+                />
+                Cancel
+              </button>
+              <button
+                type="button"
+                @click="openRescheduleModal"
+                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+              >
+                <Icon
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-sm"
+                />
+                Reschedule
+              </button>
+            </div>
+            <div
+              v-else-if="
+                userRole?.toLowerCase() === 'patient' && activeAppointment.status === 'scheduled'
+              "
+              class="items-center gap-2"
+              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
+            >
+              <button
+                type="button"
+                @click="requestReschedule(activeAppointment.id)"
+                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+              >
+                <Icon
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-sm"
+                />
+                Request Reschedule
+              </button>
+            </div>
+          </div>
+
+          <!-- Action Bar when status is reschedule_proposed or reschedule_requested -->
+          <div
+            v-if="
+              activeAppointment.status === 'reschedule_proposed' ||
+              activeAppointment.status === 'reschedule_requested'
+            "
+            class="flex flex-col items-start justify-between gap-3 p-1 md:flex-row md:items-center"
+          >
+            <!-- Case 1: Status is reschedule_proposed -->
+            <template v-if="activeAppointment.status === 'reschedule_proposed'">
+              <template v-if="!isRescheduleProposedByMe(activeAppointment.id)">
+                <div class="flex shrink-0 items-center gap-2 text-sm font-bold text-amber-800">
+                  <Icon
+                    name="material-symbols:info"
+                    class="shrink-0 text-lg"
+                  />
+                  New schedule proposed by
+                  {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }}
+                </div>
+                <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                  <button
+                    type="button"
+                    :disabled="isAcceptingReschedule"
+                    @click="acceptReschedule(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                  >
+                    <Icon
+                      v-if="isAcceptingReschedule"
+                      name="svg-spinners:ring-resize"
+                      class="text-sm"
+                    />
+                    <Icon
+                      v-else
+                      name="material-symbols:check-circle-rounded"
+                      class="text-sm"
+                    />
+                    Accept
+                  </button>
+                  <button
+                    v-if="userRole?.toLowerCase() === 'patient'"
+                    type="button"
+                    @click="requestReschedule(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-sm"
+                    />
+                    Request Reschedule
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    @click="openRescheduleModal"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-sm"
+                    />
+                    Propose Another Date
+                  </button>
+                  <button
+                    type="button"
+                    @click="cancelAppointment(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:cancel-rounded"
+                      class="text-sm"
+                    />
+                    Cancel Appointment
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
+                  <Icon
+                    name="material-symbols:hourglass-top-rounded"
+                    class="shrink-0 animate-pulse text-lg"
+                  />
+                  Waiting for {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
+                  confirm your proposed schedule...
+                </div>
+              </template>
+            </template>
+
+            <!-- Case 2: Status is reschedule_requested -->
+            <template v-else-if="activeAppointment.status === 'reschedule_requested'">
+              <template v-if="userRole?.toLowerCase() === 'doctor'">
+                <div class="flex items-start gap-2.5">
+                  <Icon
+                    name="material-symbols:calendar-month-rounded"
+                    class="mt-0.5 shrink-0 text-lg text-amber-700"
+                  />
+                  <div class="flex flex-col">
+                    <span class="text-sm font-bold text-amber-900"
+                      >Patient requested a reschedule</span
+                    >
+                    <span
+                      v-if="activeAppointment.requested_reschedule_date"
+                      class="text-xs font-medium text-amber-800"
+                    >
+                      Preferred: {{ formatRequestedRescheduleLabel(activeAppointment) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                  <button
+                    type="button"
+                    :disabled="isAcceptingReschedule"
+                    @click="acceptReschedule(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                  >
+                    <Icon
+                      v-if="isAcceptingReschedule"
+                      name="svg-spinners:ring-resize"
+                      class="text-sm"
+                    />
+                    <Icon
+                      v-else
+                      name="material-symbols:check-circle-rounded"
+                      class="text-sm"
+                    />
+                    Accept Request
+                  </button>
+                  <button
+                    type="button"
+                    @click="openRescheduleModal"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-sm"
+                    />
+                    Propose Another Date
+                  </button>
+                  <button
+                    type="button"
+                    @click="cancelAppointment(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:cancel-rounded"
+                      class="text-sm"
+                    />
+                    Cancel Appointment
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
+                  <Icon
+                    name="material-symbols:hourglass-top-rounded"
+                    class="shrink-0 animate-pulse text-lg"
+                  />
+                  Waiting for doctor to propose a new schedule...
+                </div>
+              </template>
+            </template>
+          </div>
+        </div>
+
+        <!-- Messages Area -->
+
+        <div
+          ref="messagesContainer"
+          @scroll="handleScroll"
+          class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 md:p-8"
+        >
+          <!-- Loading older messages indicator -->
+          <div
+            v-if="isFetchingOlder"
+            class="flex justify-center py-2"
+          >
+            <Icon
+              name="svg-spinners:ring-resize"
+              class="text-primary text-2xl"
+            />
+          </div>
+
+          <!-- Loading skeleton (Initial) -->
+          <div
+            v-if="pending && displayedMessages.length === 0"
+            class="flex flex-1 items-center justify-center"
+          >
+            <div class="text-foreground/20 text-center">
+              <Icon
+                name="svg-spinners:ring-resize"
+                class="mx-auto mb-4 text-5xl"
+              />
+              <p class="text-lg font-medium">Loading messages...</p>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div
+            v-else-if="displayedMessages.length === 0"
+            class="flex flex-1 items-center justify-center"
+          >
+            <div class="text-foreground/20 text-center">
+              <Icon
+                name="solar:chat-round-line-linear"
+                class="mb-4 text-8xl"
+              />
+              <p class="text-xl font-bold">No messages yet</p>
+              <p class="mt-1 text-sm">Send a message to start the conversation</p>
+            </div>
+          </div>
+
+          <!-- Message bubbles -->
+          <div class="flex flex-col gap-4">
+            <div
+              v-for="msg in displayedMessages"
+              :key="msg.id"
+              :id="'msg-' + msg.id"
+              class="group flex items-end gap-3 rounded-2xl transition-all duration-300"
+              :class="[
+                msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row',
+                currentSearchMatchMessageId === msg.id
+                  ? '-m-1 bg-amber-500/10 p-1 shadow-sm ring-2 ring-amber-400 dark:bg-amber-400/10'
+                  : ''
+              ]"
+              @contextmenu="openContextMenu($event, msg)"
+            >
+              <div class="border-border/50 h-10 w-10 shrink-0 overflow-hidden rounded-full border">
+                <img
+                  v-if="msg.sender?.avatar && !hasMessageAvatarError(msg.id)"
+                  :src="getStorageUrl(msg.sender.avatar)"
+                  :alt="msg.sender?.name"
+                  class="h-full w-full object-cover"
+                  @error="handleMessageAvatarError(msg.id)"
+                />
+                <div
+                  v-else
+                  class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-sm font-bold uppercase"
+                >
+                  {{ (msg.sender?.name || '?').charAt(0) }}
+                </div>
+              </div>
+
+              <div class="flex max-w-[70%] flex-col gap-1">
+                <!-- Editing mode -->
+                <div
+                  v-if="editingMessageId === msg.id"
+                  class="flex flex-col gap-2"
+                >
+                  <textarea
+                    v-model="editingMessageText"
+                    @keydown="handleEditKeydown"
+                    class="bg-foreground/5 border-primary/30 min-h-12 w-full resize-none rounded-2xl border px-4 py-3 text-base outline-none focus:ring-2 focus:ring-indigo-200"
+                    rows="2"
+                  ></textarea>
+                  <div class="flex items-center gap-2">
+                    <button
+                      @click="saveEdit"
+                      class="bg-primary hover:bg-primary/90 rounded-lg px-3 py-1 text-xs font-semibold text-white transition-colors"
+                    >
+                      Save
+                    </button>
+                    <button
+                      @click="cancelEditing"
+                      class="text-foreground/50 hover:text-foreground rounded-lg px-3 py-1 text-xs font-semibold transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Normal bubble -->
+                <div
+                  v-else
+                  class="relative px-5 py-3 transition-all"
+                  :class="[
+                    msg.sender?.id === effectiveUserUuid
+                      ? 'bg-primary shadow-primary/10 rounded-t-2xl rounded-bl-2xl text-white shadow-lg'
+                      : 'bg-foreground/5 text-foreground rounded-t-2xl rounded-br-2xl'
+                  ]"
+                >
+                  <div
+                    v-if="
+                      msg.message.includes('[APPOINTMENT_REQUEST:') ||
+                      msg.message.includes('[DIAGNOSIS_ONLY:') ||
+                      msg.message.includes('[SCAN_RESULT:')
+                    "
+                  >
+                    <div class="mb-2">
+                      <Icon
+                        :name="
+                          msg.message.includes('[APPOINTMENT_REQUEST:')
+                            ? 'material-symbols:calendar-month-rounded'
+                            : 'material-symbols:diagnosis-outline-rounded'
+                        "
+                        class="mb-2 text-3xl"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
+                        "
+                      />
+                      <p class="text-lg font-bold">
+                        {{
+                          msg.message.includes('[APPOINTMENT_REQUEST:')
+                            ? 'Appointment Request'
+                            : 'Clinical Findings'
+                        }}
+                      </p>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/90' : 'opacity-80'
+                        "
+                        v-html="formatHighlightedText(cleanClinicalFindings(msg.message), msg.id)"
+                      ></p>
+                    </div>
+
+                    <!-- Diagnosis Details -->
+                    <div
+                      v-if="msg.appointment_data"
+                      class="mt-3 rounded-2xl border p-4 shadow-sm"
+                      :class="[
+                        msg.sender?.id === effectiveUserUuid
+                          ? 'border-white/20 bg-white text-gray-900 shadow-md'
+                          : 'bg-card/50 border-border/50 text-foreground backdrop-blur-sm'
+                      ]"
+                    >
+                      <div class="flex gap-4">
+                        <img
+                          :src="getStorageUrl(msg.appointment_data.diagnosis.image_path)"
+                          class="border-border h-24 w-24 shrink-0 rounded-xl border object-cover shadow-sm"
+                          alt="Diagnosis scan"
+                        />
+                        <div class="flex min-w-0 flex-col justify-center gap-0.5">
+                          <p
+                            class="text-[10px] font-black tracking-widest uppercase"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid ? 'text-primary' : 'text-primary'
+                            "
+                          >
+                            Clinical Findings
+                          </p>
+                          <h4
+                            class="truncate text-lg leading-tight font-black"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-900'
+                                : 'text-foreground'
+                            "
+                            v-html="
+                              formatHighlightedText(msg.appointment_data.diagnosis.label, msg.id)
+                            "
+                          ></h4>
+                          <div class="mt-1 flex flex-col gap-0.5">
+                            <p
+                              class="truncate text-xs font-bold"
+                              :class="
+                                msg.sender?.id === effectiveUserUuid
+                                  ? 'text-gray-700'
+                                  : 'text-foreground/70'
+                              "
+                            >
+                              {{ msg.appointment_data.diagnosis.patient_name }}
+                            </p>
+                            <p
+                              class="text-[11px] font-medium"
+                              :class="
+                                msg.sender?.id === effectiveUserUuid
+                                  ? 'text-gray-500'
+                                  : 'text-foreground/50'
+                              "
+                            >
+                              {{
+                                msg.appointment_data.diagnosis.patient_age != null &&
+                                msg.appointment_data.diagnosis.patient_age !== ''
+                                  ? `${msg.appointment_data.diagnosis.patient_age} years old • `
+                                  : ''
+                              }}{{ msg.appointment_data.diagnosis.date }}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
+                    <div
+                      v-if="
+                        userRole?.toLowerCase() === 'doctor' &&
+                        msg.message.includes('[APPOINTMENT_REQUEST:') &&
+                        !isAppointmentHandled(msg.message)
+                      "
+                      class="mt-4 flex gap-2"
+                    >
+                      <button
+                        @click.prevent="openScheduleModal(msg.message)"
+                        class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
+                      >
+                        Accept & Schedule
+                      </button>
+                      <button
+                        @click.prevent="declineAppointment(msg.message)"
+                        class="bg-foreground/10 hover:bg-foreground/20 rounded-xl px-5 py-2 text-sm font-bold transition-all active:scale-95"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-green-600 shadow-sm'
+                              : 'bg-green-100 text-green-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:check-circle-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
+                          "
+                          >Appointment Confirmed</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"
+                      ></p>
+                      <button
+                        v-if="canPatientRequestReschedule(msg.message)"
+                        type="button"
+                        @click.prevent="
+                          requestReschedule(extractScheduledAppointmentUuid(msg.message))
+                        "
+                        class="text-primary ring-primary/20 mt-3 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95"
+                      >
+                        <Icon
+                          name="material-symbols:edit-calendar-rounded"
+                          class="text-sm"
+                        />
+                        Request Reschedule
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-red-500 shadow-sm'
+                              : 'bg-red-100 text-red-500'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:cancel-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-red-600'
+                          "
+                          >Appointment Request Declined</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message.replace(/\[APPOINTMENT_DECLINED:.*?\]/g, '').trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+
+                      <!-- Diagnosis Details Preview (if available) -->
+                      <div
+                        v-if="getDeclinedDiagnosisData(msg)"
+                        class="mt-3 rounded-2xl border p-4 shadow-sm"
+                        :class="[
+                          msg.sender?.id === effectiveUserUuid
+                            ? 'border-white/20 bg-white text-gray-900 shadow-md'
+                            : 'border-border/50 bg-card/50 text-foreground backdrop-blur-sm'
+                        ]"
+                      >
+                        <div class="flex gap-4">
+                          <img
+                            v-if="getDeclinedDiagnosisData(msg)?.image_path"
+                            :src="getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path)"
+                            class="border-border h-20 w-20 shrink-0 rounded-xl border object-cover shadow-sm"
+                            alt="Diagnosis scan"
+                          />
+                          <div class="flex min-w-0 flex-col justify-center gap-0.5">
+                            <p
+                              class="text-primary text-[10px] font-black tracking-widest uppercase"
+                            >
+                              Clinical Findings
+                            </p>
+                            <h4
+                              class="truncate text-base leading-tight font-black"
+                              :class="
+                                msg.sender?.id === effectiveUserUuid
+                                  ? 'text-gray-900'
+                                  : 'text-foreground'
+                              "
+                              v-html="
+                                formatHighlightedText(getDeclinedDiagnosisData(msg)?.label, msg.id)
+                              "
+                            ></h4>
+                            <div class="mt-0.5 flex flex-col gap-0.5">
+                              <p
+                                class="truncate text-xs font-bold"
+                                :class="
+                                  msg.sender?.id === effectiveUserUuid
+                                    ? 'text-gray-700'
+                                    : 'text-foreground/70'
+                                "
+                              >
+                                {{ getDeclinedDiagnosisData(msg)?.patient_name }}
+                              </p>
+                              <p
+                                v-if="getDeclinedDiagnosisData(msg)?.date"
+                                class="text-[11px] font-medium"
+                                :class="
+                                  msg.sender?.id === effectiveUserUuid
+                                    ? 'text-gray-500'
+                                    : 'text-foreground/50'
+                                "
+                              >
+                                {{ getDeclinedDiagnosisData(msg)?.date }}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Rebook Appointment Button for Patients -->
+                      <div
+                        v-if="canRebookAppointment(msg)"
+                        class="mt-3.5 flex items-center gap-2"
+                      >
+                        <button
+                          type="button"
+                          :disabled="isRebookingAppt"
+                          @click.prevent="handleRebookAppointment(msg)"
+                          class="bg-primary hover:bg-primary/90 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+                        >
+                          <Icon
+                            v-if="isRebookingAppt"
+                            name="svg-spinners:ring-resize"
+                            class="text-sm"
+                          />
+                          <Icon
+                            v-else
+                            name="material-symbols:replay-rounded"
+                            class="text-sm"
+                          />
+                          <span>{{ isRebookingAppt ? 'Rebooking...' : 'Rebook Appointment' }}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-amber-600 shadow-sm'
+                              : 'bg-amber-100 text-amber-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:event-busy-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-800'
+                          "
+                          >Appointment Cancelled</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message.replace(/\[APPOINTMENT_CANCELLED:.*?\]/g, '').trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-green-600 shadow-sm'
+                              : 'bg-green-100 text-green-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:check-circle-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
+                          "
+                          >Appointment Completed</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message.replace(/\[APPOINTMENT_COMPLETED:.*?\]/g, '').trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_PROPOSED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-amber-600 shadow-sm'
+                              : 'bg-amber-100 text-amber-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'
+                          "
+                          >Reschedule Proposed</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm leading-relaxed"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message
+                              .replace(/\[APPOINTMENT_RESCHEDULE_PROPOSED:.*?\]/g, '')
+                              .trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-amber-600 shadow-sm'
+                              : 'bg-amber-100 text-amber-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:event-repeat-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700'
+                          "
+                          >Reschedule Requested</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm leading-relaxed"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message
+                              .replace(/\[APPOINTMENT_RESCHEDULE_REQUESTED:.*?\]/g, '')
+                              .trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+                    </div>
+                  </div>
+                  <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_ACCEPTED:')">
+                    <div class="flex flex-col">
+                      <div class="mb-2 flex items-center gap-2">
+                        <div
+                          class="rounded-full p-2"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'bg-white text-green-600 shadow-sm'
+                              : 'bg-green-100 text-green-600'
+                          "
+                        >
+                          <Icon
+                            name="material-symbols:check-circle-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <span
+                          class="font-bold"
+                          :class="
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700'
+                          "
+                          >Reschedule Accepted</span
+                        >
+                      </div>
+                      <p
+                        class="text-sm"
+                        :class="
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                        "
+                        v-html="
+                          formatHighlightedText(
+                            msg.message
+                              .replace(/\[APPOINTMENT_RESCHEDULE_ACCEPTED:.*?\]/g, '')
+                              .trim(),
+                            msg.id
+                          )
+                        "
+                      ></p>
+                    </div>
+                  </div>
+                  <p
+                    v-else-if="msg.message"
+                    class="text-base leading-relaxed whitespace-pre-wrap"
+                    v-html="formatHighlightedText(msg.message, msg.id)"
+                  ></p>
+
+                  <!-- Attachments Display -->
+                  <div
+                    v-if="msg.attachments && msg.attachments.length > 0"
+                    class="mt-3 flex flex-col gap-2"
+                  >
+                    <div
+                      v-for="attachment in msg.attachments"
+                      :key="attachment.id"
+                      class="group/attachment relative overflow-hidden rounded-xl border border-white/10"
+                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white/10' : 'bg-black/5'"
+                    >
+                      <!-- Image Preview -->
+                      <div
+                        v-if="isImage(attachment.type)"
+                        class="max-w-xs cursor-pointer"
+                        @click="handlePreviewImage(attachment.url)"
+                      >
+                        <img
+                          :src="attachment.url"
+                          :alt="attachment.name"
+                          class="h-auto w-full object-cover transition-transform group-hover/attachment:scale-105"
+                        />
+                      </div>
+
+                      <!-- File Link -->
+                      <a
+                        v-else
+                        :href="attachment.url"
+                        target="_blank"
+                        class="flex items-center gap-3 p-3 transition-colors hover:bg-white/5"
+                      >
+                        <div
+                          class="bg-primary/20 flex h-10 w-10 items-center justify-center rounded-lg"
+                        >
+                          <Icon
+                            :name="
+                              isPdf(attachment.type)
+                                ? 'solar:file-text-bold'
+                                : 'solar:document-bold'
+                            "
+                            class="text-xl"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
+                            "
+                          />
+                        </div>
+                        <div class="flex-1 overflow-hidden">
+                          <p
+                            class="truncate text-xs font-bold"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-white'
+                                : 'text-foreground'
+                            "
+                            v-html="formatHighlightedText(attachment.name, msg.id)"
+                          ></p>
+                          <p
+                            class="text-[10px] opacity-60"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-white'
+                                : 'text-foreground'
+                            "
+                          >
+                            {{ formatFileSize(attachment.size) }}
+                          </p>
+                        </div>
+                        <Icon
+                          name="solar:download-minimalistic-linear"
+                          class="text-lg opacity-40"
+                        />
+                      </a>
+                    </div>
+                  </div>
+
+                  <!-- Own message action dots (visible on hover) -->
+                  <button
+                    v-if="msg.sender?.id === effectiveUserUuid"
+                    @click.stop="openContextMenu($event, msg)"
+                    class="absolute top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
+                    :class="msg.sender?.id === effectiveUserUuid ? '-left-9' : '-right-9'"
+                  >
+                    <Icon
+                      name="solar:menu-dots-vertical-bold"
+                      class="text-foreground/30 hover:text-foreground/60 text-lg"
+                    />
+                  </button>
+                </div>
+
+                <span
+                  class="text-foreground/70 text-[11px] font-medium"
+                  :class="msg.sender?.id === effectiveUserUuid ? 'text-right' : 'text-left'"
+                >
+                  {{ formatTime(msg.created_at) }}
+                  <span
+                    v-if="isEdited(msg)"
+                    class="italic"
+                  >
+                    · edited</span
+                  >
+                  <span
+                    v-if="msg.sender?.id === effectiveUserUuid && msg.is_read"
+                    class="ml-1"
+                    >✓✓</span
+                  >
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Messenger-Style Typing Bubble -->
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 translate-y-1"
+          >
+            <div
+              v-if="partnerIsTyping"
+              class="flex items-end gap-2 pt-1 pb-1.5"
+            >
+              <!-- Partner Avatar (Identical to message avatar, proportionally compact) -->
+              <div
+                class="border-border/50 relative h-7 w-7 shrink-0 overflow-hidden rounded-full border"
+              >
+                <img
+                  v-if="otherPersonAvatar && !headerAvatarFailed"
+                  :src="getStorageUrl(otherPersonAvatar)"
+                  :alt="otherPersonName"
+                  class="h-full w-full object-cover"
+                  @error="headerAvatarFailed = true"
+                />
+                <div
+                  v-else
+                  class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-[11px] font-bold uppercase"
+                >
+                  {{ (otherPersonName || '?').charAt(0) }}
+                </div>
+              </div>
+
+              <!-- 3 Bouncing Dots Bubble (Same style as incoming chat, smaller size) -->
+              <div
+                class="bg-foreground/5 text-foreground flex items-center gap-1.5 rounded-t-2xl rounded-br-2xl px-3.5 py-2.5"
+              >
+                <span
+                  class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
+                ></span>
+                <span
+                  class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
+                ></span>
+                <span
+                  class="typing-dot bg-foreground/40 inline-block h-1.5 w-1.5 rounded-full"
+                ></span>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Input Area -->
+        <div
+          class="bg-card border-border/60 shrink-0 border-t px-3 py-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:border-0 md:bg-transparent md:p-6 md:pt-0"
+        >
+          <!-- File Preview Area -->
+          <div
+            v-if="selectedFiles.length > 0"
+            class="mb-3 flex flex-wrap gap-2 sm:gap-3"
+          >
+            <div
+              v-for="(file, index) in selectedFiles"
+              :key="index"
+              class="bg-card border-border/50 relative flex items-center gap-2.5 rounded-2xl border p-2.5 pr-8 shadow-xs sm:p-3 sm:pr-10"
+            >
+              <div
+                class="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-xl sm:h-10 sm:w-10"
+              >
+                <Icon
+                  :name="isImage(file.type) ? 'solar:gallery-bold' : 'solar:document-bold'"
+                  class="text-primary text-lg sm:text-xl"
+                />
+              </div>
+              <div class="max-w-[120px] overflow-hidden sm:max-w-[150px]">
+                <p class="text-foreground truncate text-xs font-bold">{{ file.name }}</p>
+                <p class="text-foreground/50 text-[10px]">{{ formatFileSize(file.size) }}</p>
+              </div>
+              <button
+                @click="removeFile(index)"
+                class="text-foreground/40 hover:text-destructive absolute top-2 right-2 transition-colors"
+              >
+                <Icon
+                  name="solar:close-circle-bold"
+                  class="text-base sm:text-lg"
+                />
+              </button>
+            </div>
+          </div>
+
+          <div class="group relative flex items-end gap-2 sm:gap-3">
+            <!-- Hidden File Input -->
+            <input
+              type="file"
+              ref="fileInput"
+              multiple
+              class="hidden"
+              @change="handleFileChange"
+            />
+
+            <div class="relative flex flex-1 items-end">
+              <textarea
+                v-model="messageTerm"
+                placeholder="Type a message..."
+                @input="broadcastTyping"
+                @keydown="handleKeydown"
+                class="bg-foreground/5 text-foreground placeholder:text-foreground/40 focus:border-primary/40 focus:ring-primary/20 custom-scrollbar border-border/50 mb-1 h-11 w-full resize-none rounded-3xl border py-2.5 pr-22 pl-4 text-xs transition-all outline-none focus:ring-3 sm:mb-2 sm:h-12 sm:text-sm md:h-13 md:py-3 md:text-base"
+              ></textarea>
+
+              <div
+                class="absolute right-3 -mb-0.5 flex -translate-y-1/2 items-center gap-1 sm:right-4 sm:-mb-1 sm:gap-2"
+              >
+                <!-- Attachment Button -->
+                <button
+                  type="button"
+                  @click="triggerFileInput"
+                  class="text-foreground/40 hover:text-primary hover:bg-foreground/5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full transition-colors sm:h-9 sm:w-9"
+                  title="Attach files (max 15MB)"
+                >
+                  <Icon
+                    name="solar:paperclip-linear"
+                    class="text-xl sm:text-2xl"
+                  />
+                </button>
+
+                <!-- Send Button -->
+                <button
+                  type="button"
+                  @click="sendMessage"
+                  class="bg-primary hover:bg-primary/90 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full text-white shadow-sm transition-all active:scale-90 sm:h-9 sm:w-9"
+                  title="Send message"
+                >
+                  <Icon
+                    name="material-symbols:send-rounded"
+                    class="text-lg sm:text-xl"
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
+        <!-- End Chat Body Container -->
       </div>
-      <!-- End Chat Body Container -->
+
+      <!-- Desktop Inline User Details Sidebar (xl:flex) -->
+      <div
+        v-if="showUserDetails"
+        class="hidden h-full shrink-0 xl:flex"
+      >
+        <AppChatUserDetailsSidebar
+          :user-uuid="otherPersonUuid"
+          :conversation-uuid="conversationUuid"
+          :other-person-name="otherPersonName"
+          :other-person-avatar="otherPersonAvatar"
+          :messages="allMessages"
+          :active-appointment="activeAppointment"
+          :pending-appointment="pendingAppointmentForConversation"
+          :inline="true"
+          @close="showUserDetails = false"
+          @schedule-appointment="openScheduleFromSidebar"
+          @reschedule-appointment="openRescheduleFromSidebar"
+          @view-record="handleViewRecord"
+          @search="openSearchFromSidebar"
+          @delete-conversation="showDeleteConversationModal = true"
+          @preview-image="handlePreviewImage"
+        />
+      </div>
     </div>
+
+    <!-- Mobile & Tablet Slide-Over Sheet (when < xl) -->
+    <Transition
+      enter-active-class="transition duration-300 ease-out"
+      enter-from-class="transform translate-x-full opacity-0"
+      enter-to-class="transform translate-x-0 opacity-100"
+      leave-active-class="transition duration-200 ease-in"
+      leave-from-class="transform translate-x-0 opacity-100"
+      leave-to-class="transform translate-x-full opacity-0"
+    >
+      <div
+        v-if="showUserDetails"
+        class="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs xl:hidden"
+        @click.self="showUserDetails = false"
+      >
+        <div class="bg-card flex h-full w-full flex-col overflow-hidden shadow-2xl sm:max-w-md">
+          <AppChatUserDetailsSidebar
+            :user-uuid="otherPersonUuid"
+            :conversation-uuid="conversationUuid"
+            :other-person-name="otherPersonName"
+            :other-person-avatar="otherPersonAvatar"
+            :messages="allMessages"
+            :active-appointment="activeAppointment"
+            :pending-appointment="pendingAppointmentForConversation"
+            :inline="false"
+            @close="showUserDetails = false"
+            @schedule-appointment="openScheduleFromSidebar"
+            @reschedule-appointment="openRescheduleFromSidebar"
+            @view-record="handleViewRecord"
+            @search="openSearchFromSidebar"
+            @delete-conversation="showDeleteConversationModal = true"
+            @preview-image="handlePreviewImage"
+          />
+        </div>
+      </div>
+    </Transition>
 
     <!-- Context Menu & Modals (ClientOnly to prevent SSR Teleport hydration mismatch) -->
     <ClientOnly>
@@ -2674,12 +3152,52 @@
         </Transition>
       </Teleport>
 
+      <!-- In-App Image Lightbox Modal -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-200 ease-out"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition duration-150 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="previewImageUrl"
+            class="fixed inset-0 z-100 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+            @click.self="previewImageUrl = null"
+          >
+            <div class="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl shadow-2xl">
+              <button
+                type="button"
+                @click="previewImageUrl = null"
+                class="absolute top-3 right-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:bg-black/90 active:scale-95"
+                title="Close preview"
+              >
+                <Icon
+                  name="material-symbols:close-rounded"
+                  class="text-xl"
+                />
+              </button>
+              <img
+                :src="previewImageUrl"
+                alt="Shared preview"
+                class="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl"
+              />
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
       <!-- Schedule Modal (Desktop centered modal only, never mounted on mobile) -->
       <AppModalAppointmentSchedule
         v-if="showScheduleModal && !isMobile"
         :appointment-uuid="schedulingAppointmentUuid"
         :mode="scheduleMode"
         :inline="false"
+        :patient-name="otherPersonName"
+        :patient-avatar="otherPersonAvatar"
+        :patient-id="otherPersonUuid"
         @close="handleScheduleModalClose"
         @scheduled="handleAppointmentScheduled"
       />
