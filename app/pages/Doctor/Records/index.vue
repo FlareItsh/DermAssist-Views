@@ -25,7 +25,12 @@
     }
   }
 
+  const route = useRoute()
+
   onMounted(() => {
+    if (route.query.search) {
+      searchQuery.value = String(route.query.search)
+    }
     fetchRecords()
   })
 
