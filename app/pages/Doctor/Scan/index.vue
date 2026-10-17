@@ -177,9 +177,14 @@
         </div>
 
         <!-- Normal Scanner Component -->
-        <ClientOnly v-else>
-          <AppScanner />
-        </ClientOnly>
+        <div
+          v-else
+          class="flex h-full min-h-0 w-full flex-1 flex-col"
+        >
+          <ClientOnly>
+            <AppScanner />
+          </ClientOnly>
+        </div>
       </div>
 
       <div class="flex h-full min-h-0 w-[380px] shrink-0 flex-col xl:w-[440px]">
@@ -328,9 +333,14 @@
       </div>
 
       <!-- Normal Mobile Scanner Component -->
-      <ClientOnly v-else>
-        <DoctorSideComponentsMobileScanner />
-      </ClientOnly>
+      <div
+        v-else
+        class="h-full w-full"
+      >
+        <ClientOnly>
+          <DoctorSideComponentsMobileScanner />
+        </ClientOnly>
+      </div>
     </div>
 
     <!-- Confirm Discard Modal (Root level for Desktop and Mobile) -->

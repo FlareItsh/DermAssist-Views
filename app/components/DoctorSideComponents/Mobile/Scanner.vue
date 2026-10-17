@@ -770,6 +770,8 @@
   }
 
   // Registration Form State
+  const registerPasswordPin = ref<number>(generatePin())
+  const isRegisterPasswordManuallyEdited = ref(false)
   const registerForm = reactive({
     firstName: '',
     middleName: '',
