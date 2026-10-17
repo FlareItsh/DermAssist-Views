@@ -147,9 +147,9 @@ export const normalizeGender = (val: string | null | undefined): string => {
  */
 export const calculateAge = (dob: string | Date | null | undefined): number | null => {
   if (!dob) return null
-  // If it's a date string like 'YYYY-MM-DD', parse parts to avoid timezone shift
-  if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob.trim())) {
-    const [year, month, day] = dob.trim().split('-').map(Number)
+  // If it's a date string starting with 'YYYY-MM-DD', parse parts to avoid timezone shift
+  if (typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dob.trim())) {
+    const [year, month, day] = dob.trim().slice(0, 10).split('-').map(Number)
     const birthDate = new Date(year, month - 1, day)
     const today = new Date()
     let age = today.getFullYear() - birthDate.getFullYear()
@@ -208,8 +208,12 @@ export const validateDateOfBirth = (
   }
 
   const birthDate =
-    typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dob.trim())
-      ? new Date(Number(dob.slice(0, 4)), Number(dob.slice(5, 7)) - 1, Number(dob.slice(8, 10)))
+    typeof dob === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dob.trim())
+      ? new Date(
+          Number(dob.trim().slice(0, 4)),
+          Number(dob.trim().slice(5, 7)) - 1,
+          Number(dob.trim().slice(8, 10))
+        )
       : new Date(dob)
 
   if (isNaN(birthDate.getTime())) {
