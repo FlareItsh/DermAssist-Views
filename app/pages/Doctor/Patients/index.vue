@@ -13,7 +13,7 @@
   const { priorityIds, addToPriority, removeFromPriority, isInPriority } = usePriorityList()
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
-  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
     useFormSanitizer()
   const showPassword = ref(false)
@@ -43,6 +43,37 @@
   const scheduleActionDate = ref('')
   const scheduleActionTime = ref('09:00')
   const scheduleActionError = ref<string | null>(null)
+
+  // ─── Edit Patient Details Modal State ─────────────────────────────────────────
+  const showEditPatientModal = ref(false)
+  const isUpdatingPatient = ref(false)
+  const editFormError = ref<string | null>(null)
+  const editForm = reactive({
+    uuid: '',
+    id: 0,
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    email: '',
+    contact_number: '',
+    date_of_birth: '',
+    age: null as number | null,
+    gender: 'Female',
+    street: '',
+    barangay: '',
+    city: '',
+    province: '',
+    isWalkIn: false
+  })
+
+  // ─── Reset Password Modal State ──────────────────────────────────────────────
+  const showResetPasswordModal = ref(false)
+  const resetPasswordPatient = ref<any | null>(null)
+  const resetPasswordTab = ref<'link' | 'temporary'>('link')
+  const isResettingPassword = ref(false)
+  const resetPasswordError = ref<string | null>(null)
+  const generatedTempPassword = ref('')
+  const tempPasswordIssued = ref(false)
 
   // ─── Fetch Doctor-Registered Patients ─────────────────────────────────────────
   const fetchRegisteredPatients = async () => {
@@ -97,11 +128,17 @@
     id?: number
     name: string
     firstName: string
+    middleName?: string
     lastName: string
     email: string
     contact_number?: string | null
+    date_of_birth?: string | null
     age?: number | string
     gender?: string
+    street?: string
+    barangay?: string
+    city?: string
+    province?: string
     location: string
     avatar: string | null
     isRegistered: boolean
@@ -141,12 +178,17 @@
         id: p.id,
         name: fullName,
         firstName: p.first_name || '',
+        middleName: p.middle_name || '',
         lastName: p.last_name || '',
         email: p.email || '',
         contact_number: p.contact_number || p.phone || null,
         date_of_birth: p.date_of_birth || null,
         age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
         gender: p.gender || 'N/A',
+        street: p.street || '',
+        barangay: p.barangay || '',
+        city: p.city || '',
+        province: p.province || '',
         location: address,
         avatar: p.avatar_path ? getStorageUrl(p.avatar_path) : null,
         isRegistered: true,
@@ -214,11 +256,21 @@
           id: patientId,
           name: patientName,
           firstName: patientObj?.first_name || patientName.split(' ')[0] || '',
+          middleName: patientObj?.middle_name || '',
           lastName: patientObj?.last_name || patientName.split(' ').slice(1).join(' ') || '',
           email: patientObj?.email || '',
           contact_number: patientObj?.contact_number || patientObj?.phone || null,
-          age: patientObj?.age || (appt as any).patient_age || 'N/A',
+          date_of_birth: patientObj?.date_of_birth || null,
+          age:
+            calculateAge(patientObj?.date_of_birth) ??
+            patientObj?.age ??
+            (appt as any).patient_age ??
+            'N/A',
           gender: patientObj?.gender || (appt as any).patient_gender || 'N/A',
+          street: patientObj?.street || '',
+          barangay: patientObj?.barangay || '',
+          city: patientObj?.city || '',
+          province: patientObj?.province || '',
           location: address || 'Cruz Skin Clinic',
           avatar: patientObj?.avatar_path
             ? getStorageUrl(patientObj.avatar_path)
@@ -563,19 +615,43 @@
   // ─── Register Patient Form State ──────────────────────────────────────────────
   const isRegistering = ref(false)
   const registerFormError = ref<string | null>(null)
+  const registerPasswordPin = ref<number>(generatePin())
+  const isRegisterPasswordManuallyEdited = ref(false)
   const registerForm = reactive({
     firstName: '',
     middleName: '',
     lastName: '',
     email: '',
     contact_number: '',
-    password: generateTemporaryPassword('Patient'),
+    password: generateTemporaryPassword({ firstName: '', lastName: '' }, registerPasswordPin.value),
     date_of_birth: '',
     age: '',
     gender: 'Female',
     street: '',
     barangay: ''
   })
+
+  // Synchronize generated temporary password with typed patient name (until manually customized)
+  watch(
+    () => [registerForm.firstName, registerForm.lastName],
+    ([first, last]) => {
+      if (!isRegisterPasswordManuallyEdited.value) {
+        registerForm.password = generateTemporaryPassword(
+          { firstName: first, lastName: last },
+          registerPasswordPin.value
+        )
+      }
+    }
+  )
+
+  const handleRegenerateRegisterPassword = () => {
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: registerForm.firstName, lastName: registerForm.lastName },
+      registerPasswordPin.value
+    )
+  }
 
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
 
@@ -585,7 +661,12 @@
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.contact_number = ''
-    registerForm.password = generateTemporaryPassword('Patient')
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: '', lastName: '' },
+      registerPasswordPin.value
+    )
     registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
@@ -643,6 +724,171 @@
       toast.error(err)
     } finally {
       isRegistering.value = false
+    }
+  }
+
+  // ─── Edit Patient & Reset Password Actions ─────────────────────────────────────
+  const calculatedEditAge = computed(() => {
+    if (!editForm.date_of_birth) return null
+    return calculateAge(editForm.date_of_birth)
+  })
+
+  const promptEditPatient = (patient: any) => {
+    if (!patient) return
+    editFormError.value = null
+    editForm.uuid = patient.uuid || ''
+    editForm.id = patient.id || 0
+    editForm.firstName = patient.firstName || patient.first_name || ''
+    editForm.middleName = patient.middleName || patient.middle_name || ''
+    editForm.lastName = patient.lastName || patient.last_name || ''
+    editForm.email = patient.isWalkIn ? '' : patient.email || ''
+    editForm.contact_number = patient.contact_number || patient.phone || ''
+    editForm.date_of_birth = patient.date_of_birth || ''
+    editForm.age = typeof patient.age === 'number' ? patient.age : null
+    editForm.gender = patient.gender && patient.gender !== 'N/A' ? patient.gender : 'Female'
+    editForm.street = patient.street || ''
+    editForm.barangay = patient.barangay || ''
+    editForm.city = patient.city || ''
+    editForm.province = patient.province || ''
+    editForm.isWalkIn = Boolean(patient.isWalkIn)
+    showEditPatientModal.value = true
+  }
+
+  const handleUpdatePatient = async () => {
+    if (!editForm.firstName.trim() || !editForm.lastName.trim()) {
+      editFormError.value = 'First Name and Last Name are required.'
+      return
+    }
+
+    if (!editForm.email.trim()) {
+      editFormError.value = 'Email address is required.'
+      return
+    }
+
+    if (editForm.contact_number) {
+      const parts = splitFullPhoneNumber(editForm.contact_number)
+      const res = validatePhoneNumber(parts.national, parts.dialCode)
+      if (!res.valid) {
+        editFormError.value = res.error
+        return
+      }
+    }
+
+    isUpdatingPatient.value = true
+    editFormError.value = null
+
+    try {
+      const res = await userService.updateDoctorPatient(editForm.uuid, {
+        first_name: editForm.firstName.trim(),
+        middle_name: editForm.middleName?.trim() || null,
+        last_name: editForm.lastName.trim(),
+        email: editForm.email.trim(),
+        contact_number: editForm.contact_number?.trim() || null,
+        date_of_birth: editForm.date_of_birth || null,
+        gender: editForm.gender,
+        street: editForm.street?.trim() || null,
+        barangay: editForm.barangay?.trim() || null,
+        city: editForm.city?.trim() || null,
+        province: editForm.province?.trim() || null
+      })
+
+      const updated = res.data || res
+
+      if (selectedPatientForDetail.value && selectedPatientForDetail.value.uuid === editForm.uuid) {
+        selectedPatientForDetail.value.name = [updated.first_name, updated.last_name]
+          .filter(Boolean)
+          .join(' ')
+        selectedPatientForDetail.value.firstName = updated.first_name
+        selectedPatientForDetail.value.middleName = updated.middle_name
+        selectedPatientForDetail.value.lastName = updated.last_name
+        selectedPatientForDetail.value.email = updated.email
+        selectedPatientForDetail.value.contact_number = updated.contact_number
+        selectedPatientForDetail.value.date_of_birth = updated.date_of_birth
+        selectedPatientForDetail.value.age =
+          calculateAge(updated.date_of_birth) ?? updated.age ?? 'N/A'
+        selectedPatientForDetail.value.gender = updated.gender
+        selectedPatientForDetail.value.street = updated.street
+        selectedPatientForDetail.value.barangay = updated.barangay
+        selectedPatientForDetail.value.city = updated.city
+        selectedPatientForDetail.value.province = updated.province
+        selectedPatientForDetail.value.isWalkIn = updated.is_walk_in
+        selectedPatientForDetail.value.location =
+          [updated.barangay, updated.city, updated.province].filter(Boolean).join(', ') ||
+          updated.location ||
+          'Cruz Skin Clinic'
+      }
+
+      toast.success('Patient details updated successfully.')
+      showEditPatientModal.value = false
+      await fetchRegisteredPatients()
+    } catch (e: any) {
+      console.error('Update failed:', e)
+      const err =
+        e?.data?.message || e?.response?._data?.message || 'Failed to update patient details.'
+      editFormError.value = err
+      toast.error(err)
+    } finally {
+      isUpdatingPatient.value = false
+    }
+  }
+
+  const promptResetPassword = (patient: any) => {
+    resetPasswordPatient.value = patient
+    resetPasswordTab.value = patient.isWalkIn ? 'temporary' : 'link'
+    resetPasswordError.value = null
+    tempPasswordIssued.value = false
+    generatedTempPassword.value = generateTemporaryPassword({
+      firstName: patient?.firstName || patient?.first_name,
+      lastName: patient?.lastName || patient?.last_name
+    })
+    showResetPasswordModal.value = true
+  }
+
+  const handleRegenerateResetModalPassword = () => {
+    generatedTempPassword.value = generateTemporaryPassword({
+      firstName: resetPasswordPatient.value?.firstName || resetPasswordPatient.value?.first_name,
+      lastName: resetPasswordPatient.value?.lastName || resetPasswordPatient.value?.last_name
+    })
+  }
+
+  const handleSendResetLink = async () => {
+    if (!resetPasswordPatient.value?.uuid) return
+    isResettingPassword.value = true
+    resetPasswordError.value = null
+
+    try {
+      const res = await userService.sendPatientPasswordResetLink(resetPasswordPatient.value.uuid)
+      toast.success(res.message || 'Password reset link sent to patient email.')
+      showResetPasswordModal.value = false
+    } catch (e: any) {
+      const err =
+        e?.data?.message || e?.response?._data?.message || 'Failed to dispatch reset link.'
+      resetPasswordError.value = err
+      toast.error(err)
+    } finally {
+      isResettingPassword.value = false
+    }
+  }
+
+  const handleIssueTemporaryPassword = async () => {
+    if (!resetPasswordPatient.value?.uuid) return
+    isResettingPassword.value = true
+    resetPasswordError.value = null
+
+    try {
+      const res = await userService.issuePatientTemporaryPassword(resetPasswordPatient.value.uuid, {
+        temporary_password: generatedTempPassword.value
+      })
+      tempPasswordIssued.value = true
+      generatedTempPassword.value = res.temporary_password || generatedTempPassword.value
+      toast.success('Temporary password issued. Mandatory reset scheduled for next login.')
+    } catch (e: any) {
+      const err =
+        e?.data?.message || e?.response?._data?.message || 'Failed to issue temporary password.'
+      resetPasswordError.value = err
+      toast.error(err)
+    } finally {
+      isResettingPassword.value = false
     }
   }
 
@@ -1296,6 +1542,20 @@
                     />
                   </button>
 
+                  <!-- Edit Patient Details Button -->
+                  <button
+                    v-if="patient.isRegistered"
+                    type="button"
+                    @click="promptEditPatient(patient)"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-indigo-600 active:scale-95"
+                    title="Edit Patient Details"
+                  >
+                    <Icon
+                      name="lucide:user-pen"
+                      class="text-sm"
+                    />
+                  </button>
+
                   <!-- Registered Account Options Menu Button -->
                   <button
                     v-if="patient.isRegistered"
@@ -1343,12 +1603,12 @@
       >
         <!-- Patient Banner -->
         <div
-          class="flex flex-col gap-4 border-b border-gray-100 pr-8 pb-5 sm:flex-row sm:items-center sm:justify-between sm:pr-0"
+          class="flex flex-col gap-4 border-b border-gray-100 pr-8 pb-5 sm:flex-row sm:items-center sm:justify-between sm:pr-12"
         >
-          <div class="flex items-center gap-4">
+          <div class="flex min-w-0 items-center gap-4">
             <div
               v-if="selectedPatientForDetail.avatar"
-              class="h-16 w-16 overflow-hidden rounded-2xl border-2 border-indigo-100 bg-gray-50 shadow-sm"
+              class="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-indigo-100 bg-gray-50 shadow-sm"
             >
               <NuxtImg
                 :src="selectedPatientForDetail.avatar"
@@ -1359,23 +1619,23 @@
             </div>
             <div
               v-else-if="selectedPatientForDetail.isWalkIn"
-              class="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50 text-xl font-black text-amber-800 shadow-sm"
+              class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50 text-xl font-black text-amber-800 shadow-sm"
             >
               {{ getInitials(selectedPatientForDetail.name) }}
             </div>
             <div
               v-else
-              class="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-50 text-xl font-black text-indigo-700 shadow-sm"
+              class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-50 text-xl font-black text-indigo-700 shadow-sm"
             >
               {{ getInitials(selectedPatientForDetail.name) }}
             </div>
 
             <div class="min-w-0 flex-1">
-              <div class="flex items-start gap-1.5 sm:items-center">
+              <div class="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   @click="togglePriority(selectedPatientForDetail)"
-                  class="mt-0.5 shrink-0 cursor-pointer rounded-lg p-1 transition hover:bg-gray-100 active:scale-95 sm:mt-0"
+                  class="shrink-0 cursor-pointer rounded-lg p-1 transition hover:bg-gray-100 active:scale-95"
                   :title="selectedPatientForDetail.isPriority ? 'Remove Priority' : 'Mark Priority'"
                 >
                   <Icon
@@ -1391,8 +1651,20 @@
                 <h2 class="text-xl leading-tight font-black text-gray-900">
                   {{ selectedPatientForDetail.name }}
                 </h2>
+                <button
+                  type="button"
+                  @click="promptEditPatient(selectedPatientForDetail)"
+                  class="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-0.5 text-xs font-bold text-gray-700 shadow-2xs transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                  title="Edit Patient Details"
+                >
+                  <Icon
+                    name="lucide:user-pen"
+                    class="size-3.5 text-indigo-600"
+                  />
+                  <span>Edit Details</span>
+                </button>
               </div>
-              <p class="text-xs font-semibold text-gray-500">
+              <p class="mt-1 text-xs font-semibold text-gray-500">
                 {{
                   selectedPatientForDetail.age !== 'N/A'
                     ? `${selectedPatientForDetail.age} years old`
@@ -1428,14 +1700,14 @@
           </div>
 
           <!-- Quick Action Buttons (Existing Patients Only) -->
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex shrink-0 items-center gap-2">
             <AppButton
               v-if="!selectedPatientForDetail.isWalkIn"
               variant="solid"
               size="sm"
               :loading="isOpeningChat"
               @click="openPatientChat(selectedPatientForDetail)"
-              class="inline-flex items-center gap-1.5 bg-indigo-600 text-white hover:bg-indigo-700"
+              class="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-2xs hover:bg-indigo-700"
             >
               <Icon
                 name="lucide:message-square"
@@ -1448,11 +1720,11 @@
               variant="outline"
               size="sm"
               @click="openBookAppointmentModal(selectedPatientForDetail)"
-              class="inline-flex items-center gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50"
+              class="inline-flex items-center gap-1.5 rounded-xl border-gray-200 text-xs font-bold text-gray-700 shadow-2xs hover:bg-gray-50"
             >
               <Icon
                 name="lucide:calendar-plus"
-                class="text-sm"
+                class="text-sm text-indigo-600"
               />
               Book Appointment
             </AppButton>
@@ -1601,59 +1873,125 @@
         <!-- Account Controls (Clinic-Registered Patients & Walk-Ins) -->
         <div
           v-if="selectedPatientForDetail.isRegistered"
-          class="flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-4 sm:flex-row sm:items-center sm:justify-between"
+          class="rounded-2xl border border-gray-200/80 bg-gray-50/60 p-4 sm:p-5"
         >
-          <div class="min-w-0 pr-2">
-            <h4 class="text-xs font-bold text-gray-900 uppercase">
-              {{
-                selectedPatientForDetail.isWalkIn
-                  ? 'Walk-In Record Controls'
-                  : 'Clinic Account Controls'
-              }}
-            </h4>
-            <p class="text-[11px] text-gray-500">
-              {{
-                selectedPatientForDetail.isWalkIn
-                  ? 'Manage scheduled auto-deletion or permanently remove this offline patient record.'
-                  : 'Manage login privileges, schedule auto-deletion, or delete this patient record.'
-              }}
-            </p>
+          <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div class="flex items-center gap-2">
+                <Icon
+                  :name="
+                    selectedPatientForDetail.isWalkIn
+                      ? 'lucide:clipboard-list'
+                      : 'lucide:shield-check'
+                  "
+                  class="size-4"
+                  :class="selectedPatientForDetail.isWalkIn ? 'text-amber-600' : 'text-indigo-600'"
+                />
+                <h4 class="text-xs font-bold tracking-wider text-gray-900 uppercase">
+                  {{
+                    selectedPatientForDetail.isWalkIn
+                      ? 'Walk-In Record Controls'
+                      : 'Clinic Account & Security Controls'
+                  }}
+                </h4>
+                <span
+                  class="rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+                  :class="
+                    selectedPatientForDetail.isWalkIn
+                      ? 'bg-amber-100 text-amber-800'
+                      : selectedPatientForDetail.accountStatus === 'disabled'
+                        ? 'bg-rose-100 text-rose-700'
+                        : 'bg-emerald-100 text-emerald-800'
+                  "
+                >
+                  {{
+                    selectedPatientForDetail.isWalkIn
+                      ? 'Offline Record'
+                      : selectedPatientForDetail.accountStatus === 'disabled'
+                        ? 'Suspended'
+                        : 'Active Account'
+                  }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-gray-500">
+                {{
+                  selectedPatientForDetail.isWalkIn
+                    ? 'Manage scheduled auto-deletion or permanently remove this offline patient record.'
+                    : 'Manage patient portal login privileges, reset passwords, schedule auto-deletion, or delete record.'
+                }}
+              </p>
+            </div>
           </div>
 
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="mt-3.5 flex flex-wrap items-center gap-2 border-t border-gray-200/60 pt-3">
+            <AppButton
+              size="sm"
+              variant="outline"
+              class="rounded-xl border-gray-200 bg-white text-xs font-bold text-gray-700 shadow-2xs hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+              @click="promptEditPatient(selectedPatientForDetail)"
+            >
+              <Icon
+                name="lucide:user-pen"
+                class="mr-1 text-sm text-indigo-600"
+              />
+              Edit Details
+            </AppButton>
+
             <template v-if="!selectedPatientForDetail.isWalkIn">
               <AppButton
                 v-if="selectedPatientForDetail.accountStatus === 'disabled'"
                 size="sm"
                 variant="solid"
-                class="rounded-xl bg-emerald-600 text-xs font-bold whitespace-nowrap text-white hover:bg-emerald-700"
+                class="rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-2xs hover:bg-emerald-700"
                 :disabled="isActionLoading"
                 @click="handleEnable(selectedPatientForDetail)"
               >
+                <Icon
+                  name="lucide:check-circle-2"
+                  class="mr-1 text-sm"
+                />
                 Activate Account
               </AppButton>
               <AppButton
                 v-else
                 size="sm"
                 variant="outline"
-                class="rounded-xl border-gray-300 text-xs font-bold whitespace-nowrap text-gray-700 hover:bg-gray-100"
+                class="rounded-xl border-gray-300 bg-white text-xs font-bold text-gray-700 shadow-2xs hover:bg-gray-100"
                 :disabled="isActionLoading"
                 @click="promptDisable(selectedPatientForDetail)"
               >
+                <Icon
+                  name="lucide:ban"
+                  class="mr-1 text-sm text-gray-500"
+                />
                 Deactivate Account
+              </AppButton>
+
+              <AppButton
+                size="sm"
+                variant="outline"
+                class="rounded-xl border-indigo-200 bg-white text-xs font-bold text-indigo-700 shadow-2xs hover:border-indigo-300 hover:bg-indigo-50"
+                :disabled="isActionLoading"
+                @click="promptResetPassword(selectedPatientForDetail)"
+              >
+                <Icon
+                  name="lucide:key"
+                  class="mr-1 text-sm text-indigo-600"
+                />
+                Reset Password
               </AppButton>
             </template>
 
             <AppButton
               size="sm"
               variant="outline"
-              class="rounded-xl border-orange-200 text-xs font-bold whitespace-nowrap text-orange-700 hover:bg-orange-50"
+              class="rounded-xl border-orange-200 bg-white text-xs font-bold text-orange-700 shadow-2xs hover:border-orange-300 hover:bg-orange-50"
               :disabled="isActionLoading"
               @click="promptScheduleAction(selectedPatientForDetail)"
             >
               <Icon
                 name="lucide:calendar-clock"
-                class="mr-1 text-sm"
+                class="mr-1 text-sm text-orange-600"
               />
               Schedule Auto-Deletion
             </AppButton>
@@ -1661,13 +1999,13 @@
             <AppButton
               size="sm"
               variant="outline"
-              class="rounded-xl border-rose-200 text-xs font-bold whitespace-nowrap text-rose-600 hover:bg-rose-50"
+              class="rounded-xl border-rose-200 bg-white text-xs font-bold text-rose-600 shadow-2xs hover:border-rose-300 hover:bg-rose-50"
               :disabled="isActionLoading"
               @click="promptDelete(selectedPatientForDetail)"
             >
               <Icon
                 name="lucide:trash-2"
-                class="mr-1 text-sm"
+                class="mr-1 text-sm text-rose-600"
               />
               {{ selectedPatientForDetail.isWalkIn ? 'Delete Record' : 'Delete Account' }}
             </AppButton>
@@ -1708,7 +2046,7 @@
             />
           </div>
           <div>
-            <label class="block text-xs font-bold text-gray-700">Middle Name</label>
+            <label class="block text-xs font-bold text-gray-700">Middle Name (Optional)</label>
             <input
               type="text"
               v-model="registerForm.middleName"
@@ -1758,7 +2096,7 @@
                 <span class="text-gray-300">|</span>
                 <button
                   type="button"
-                  @click="registerForm.password = generateTemporaryPassword('Patient')"
+                  @click="handleRegenerateRegisterPassword"
                   class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
                   title="Generate new random password"
                 >
@@ -1774,6 +2112,7 @@
               <input
                 :type="showPassword ? 'text' : 'password'"
                 v-model="registerForm.password"
+                @input="isRegisterPasswordManuallyEdited = true"
                 required
                 placeholder="Min. 8 characters"
                 class="h-10 w-full rounded-xl border border-gray-200 bg-white pr-10 pl-3 font-mono text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
@@ -1976,6 +2315,460 @@
       @close="closeScheduleModal"
       @scheduled="handleScheduledModal"
     />
+
+    <!-- 8. Edit Patient Details Modal -->
+    <AppModal
+      v-model="showEditPatientModal"
+      title="Edit Patient Details"
+      description="Update demographic details, contact number, address, or assign a valid portal email."
+      size="xl"
+    >
+      <form
+        @submit.prevent="handleUpdatePatient"
+        class="space-y-4"
+      >
+        <div
+          v-if="editFormError"
+          class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800"
+        >
+          {{ editFormError }}
+        </div>
+
+        <div
+          v-if="editForm.isWalkIn"
+          class="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs font-medium text-amber-900"
+        >
+          <Icon
+            name="lucide:info"
+            class="size-4 shrink-0 text-amber-600"
+          />
+          <span
+            >This record is currently a <strong>Walk-In</strong>. Providing a real email address
+            will automatically convert them into a registered portal patient.</span
+          >
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">First Name *</label>
+            <input
+              type="text"
+              v-model="editForm.firstName"
+              required
+              placeholder="e.g. Maria"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Middle Name (Optional)</label>
+            <input
+              type="text"
+              v-model="editForm.middleName"
+              placeholder="e.g. Santos"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Last Name *</label>
+            <input
+              type="text"
+              v-model="editForm.lastName"
+              required
+              placeholder="e.g. Dela Cruz"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Email Address *</label>
+            <input
+              type="email"
+              v-model="editForm.email"
+              required
+              placeholder="patient@example.com"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <AppPhoneInput
+              v-model="editForm.contact_number"
+              label="Contact Number"
+              placeholder="917 123 4567"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
+              <span
+                v-if="calculatedEditAge !== null"
+                class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+              >
+                <Icon
+                  name="heroicons:cake-20-solid"
+                  size="10"
+                />
+                {{ calculatedEditAge }} yrs old
+              </span>
+            </div>
+            <input
+              type="date"
+              v-model="editForm.date_of_birth"
+              :max="todayIsoDate"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Gender</label>
+            <select
+              v-model="editForm.gender"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value="Female">Female</option>
+              <option value="Male">Male</option>
+              <option value="Other">Other / Prefer not to say</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Street Address</label>
+            <input
+              type="text"
+              v-model="editForm.street"
+              placeholder="e.g. 123 Mabini St"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Barangay</label>
+            <input
+              type="text"
+              v-model="editForm.barangay"
+              placeholder="e.g. Brgy. Central"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">City / Municipality</label>
+            <input
+              type="text"
+              v-model="editForm.city"
+              placeholder="e.g. Davao City"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Province</label>
+            <input
+              type="text"
+              v-model="editForm.province"
+              placeholder="e.g. Davao del Sur"
+              class="mt-1 h-10 w-full rounded-xl border border-gray-200 bg-white px-3 text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+          <AppButton
+            type="button"
+            variant="outline"
+            size="sm"
+            class="rounded-xl"
+            @click="showEditPatientModal = false"
+          >
+            Cancel
+          </AppButton>
+          <AppButton
+            type="submit"
+            variant="solid"
+            size="sm"
+            class="rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
+            :loading="isUpdatingPatient"
+          >
+            Save Changes
+          </AppButton>
+        </div>
+      </form>
+    </AppModal>
+
+    <!-- 9. Reset Patient Password Modal -->
+    <AppModal
+      v-model="showResetPasswordModal"
+      title="Reset Patient Password"
+      description="Choose a privacy-preserving reset option to restore or update patient access."
+      size="lg"
+    >
+      <div class="space-y-4">
+        <div
+          v-if="resetPasswordError"
+          class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-800"
+        >
+          {{ resetPasswordError }}
+        </div>
+
+        <!-- Strategy Tabs -->
+        <div class="grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-gray-50/70 p-1">
+          <button
+            type="button"
+            @click="resetPasswordTab = 'link'"
+            class="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all"
+            :class="
+              resetPasswordTab === 'link'
+                ? 'bg-white text-indigo-600 shadow-2xs'
+                : 'text-gray-500 hover:text-gray-900'
+            "
+          >
+            <Icon
+              name="lucide:mail-check"
+              class="text-sm"
+            />
+            <span>1. Send Private Link</span>
+          </button>
+          <button
+            type="button"
+            @click="resetPasswordTab = 'temporary'"
+            class="flex items-center justify-center gap-1.5 rounded-xl py-2 text-xs font-bold transition-all"
+            :class="
+              resetPasswordTab === 'temporary'
+                ? 'bg-white text-indigo-600 shadow-2xs'
+                : 'text-gray-500 hover:text-gray-900'
+            "
+          >
+            <Icon
+              name="lucide:shield-alert"
+              class="text-sm"
+            />
+            <span>2. Temporary Passcode</span>
+          </button>
+        </div>
+
+        <!-- Mode 1: Send Secure Reset Link -->
+        <div
+          v-if="resetPasswordTab === 'link'"
+          class="space-y-4"
+        >
+          <div class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4">
+            <div class="flex items-start gap-3">
+              <div
+                class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600"
+              >
+                <Icon
+                  name="lucide:lock"
+                  class="text-base"
+                />
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-gray-900">Zero-Knowledge Patient Reset</h4>
+                <p class="mt-1 text-xs leading-relaxed text-gray-600">
+                  A cryptographically signed, single-use reset link will be emailed directly to
+                  <strong class="text-indigo-700">{{
+                    resetPasswordPatient?.email || 'the patient'
+                  }}</strong
+                  >. For medical confidentiality, clinic staff will never see or touch the patient's
+                  password.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-if="resetPasswordPatient?.isWalkIn"
+            class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-900"
+          >
+            <div class="flex items-center gap-2">
+              <Icon
+                name="lucide:alert-triangle"
+                class="size-4 shrink-0 text-amber-600"
+              />
+              <span
+                >This walk-in patient does not have a real email address. Please edit their details
+                to add an email address or switch to Tab 2 to issue a temporary passcode.</span
+              >
+            </div>
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+            <AppButton
+              type="button"
+              variant="outline"
+              size="sm"
+              class="rounded-xl"
+              @click="showResetPasswordModal = false"
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              type="button"
+              variant="solid"
+              size="sm"
+              class="rounded-xl bg-indigo-600 text-white hover:bg-indigo-700"
+              :disabled="resetPasswordPatient?.isWalkIn"
+              :loading="isResettingPassword"
+              @click="handleSendResetLink"
+            >
+              <Icon
+                name="lucide:send"
+                class="mr-1.5 text-xs"
+              />
+              Send Secure Reset Link
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Mode 2: Issue Temporary Passcode -->
+        <div
+          v-else
+          class="space-y-4"
+        >
+          <div class="rounded-2xl border border-orange-100 bg-orange-50/50 p-4">
+            <div class="flex items-start gap-3">
+              <div
+                class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-orange-100 text-orange-600"
+              >
+                <Icon
+                  name="lucide:key"
+                  class="text-base"
+                />
+              </div>
+              <div>
+                <h4 class="text-xs font-bold text-gray-900">
+                  In-Clinic Temporary Passcode Handoff
+                </h4>
+                <p class="mt-1 text-xs leading-relaxed text-gray-600">
+                  Generate a temporary one-time passcode for in-clinic handoff. The patient will be
+                  <strong>interrupted and required</strong> to set their own confidential password
+                  the instant they log in. All existing login sessions will be terminated
+                  immediately.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generated Code Display -->
+          <div
+            v-if="tempPasswordIssued"
+            class="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-bold tracking-wider text-emerald-800 uppercase"
+                  >New Temporary Password</span
+                >
+                <div class="mt-1 font-mono text-base font-bold text-emerald-950">
+                  {{ generatedTempPassword }}
+                </div>
+              </div>
+              <AppButton
+                size="sm"
+                variant="solid"
+                class="rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                @click="copyToClipboard(generatedTempPassword, 'Temporary Password')"
+              >
+                <Icon
+                  name="lucide:copy"
+                  class="mr-1 text-xs"
+                />
+                Copy
+              </AppButton>
+            </div>
+            <p class="mt-2 text-[11px] text-emerald-700">
+              Provide this code to {{ resetPasswordPatient?.name }}. They must create a new private
+              password upon logging in.
+            </p>
+          </div>
+
+          <div
+            v-else
+            class="space-y-3"
+          >
+            <div>
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold text-gray-700">Temporary Password</label>
+                <div class="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    @click="copyToClipboard(generatedTempPassword, 'Password')"
+                    class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                  >
+                    <Icon
+                      name="lucide:copy"
+                      class="size-3"
+                    />
+                    Copy
+                  </button>
+                  <span class="text-gray-300">|</span>
+                  <button
+                    type="button"
+                    @click="handleRegenerateResetModalPassword"
+                    class="flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800"
+                  >
+                    <Icon
+                      name="lucide:refresh-cw"
+                      class="size-3"
+                    />
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+              <div class="relative mt-1">
+                <input
+                  :type="showPassword ? 'text' : 'password'"
+                  v-model="generatedTempPassword"
+                  required
+                  class="h-10 w-full rounded-xl border border-gray-200 bg-white pr-10 pl-3 font-mono text-xs font-medium text-gray-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+                <button
+                  type="button"
+                  @click="showPassword = !showPassword"
+                  class="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <Icon
+                    :name="showPassword ? 'lucide:eye-off' : 'lucide:eye'"
+                    class="size-4"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+            <AppButton
+              type="button"
+              variant="outline"
+              size="sm"
+              class="rounded-xl"
+              @click="showResetPasswordModal = false"
+            >
+              {{ tempPasswordIssued ? 'Close' : 'Cancel' }}
+            </AppButton>
+            <AppButton
+              v-if="!tempPasswordIssued"
+              type="button"
+              variant="solid"
+              size="sm"
+              class="rounded-xl bg-orange-600 text-white hover:bg-orange-700"
+              :loading="isResettingPassword"
+              @click="handleIssueTemporaryPassword"
+            >
+              <Icon
+                name="lucide:shield-check"
+                class="mr-1.5 text-xs"
+              />
+              Set Temporary Password
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 

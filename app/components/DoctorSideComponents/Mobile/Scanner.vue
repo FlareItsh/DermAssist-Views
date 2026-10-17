@@ -32,7 +32,7 @@
   const userName = useCookie('user_name')
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
-  const { generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
+  const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
     useFormSanitizer()
 
@@ -770,13 +770,15 @@
   }
 
   // Registration Form State
+  const registerPasswordPin = ref<number>(generatePin())
+  const isRegisterPasswordManuallyEdited = ref(false)
   const registerForm = reactive({
     firstName: '',
     middleName: '',
     lastName: '',
     email: '',
     contact_number: '',
-    password: generateTemporaryPassword('Patient'),
+    password: generateTemporaryPassword({ firstName: '', lastName: '' }, registerPasswordPin.value),
     date_of_birth: '',
     age: '',
     gender: 'Female',
@@ -788,8 +790,26 @@
   const showPassword = ref(false)
   const calculatedRegisterAge = computed(() => calculateAge(registerForm.date_of_birth))
 
+  // Synchronize generated temporary password with typed patient name (until manually customized)
+  watch(
+    () => [registerForm.firstName, registerForm.lastName],
+    ([first, last]) => {
+      if (!isRegisterPasswordManuallyEdited.value) {
+        registerForm.password = generateTemporaryPassword(
+          { firstName: first, lastName: last },
+          registerPasswordPin.value
+        )
+      }
+    }
+  )
+
   const handleRegeneratePassword = () => {
-    registerForm.password = generateTemporaryPassword('Patient')
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: registerForm.firstName, lastName: registerForm.lastName },
+      registerPasswordPin.value
+    )
   }
 
   const handleCopyPassword = () => {
@@ -797,7 +817,6 @@
   }
 
   const openRegistrationForm = () => {
-    resetRegisterForm()
     activeModalTab.value = 'register'
   }
 
@@ -807,7 +826,12 @@
     registerForm.lastName = ''
     registerForm.email = ''
     registerForm.contact_number = ''
-    registerForm.password = generateTemporaryPassword('Patient')
+    registerPasswordPin.value = generatePin()
+    isRegisterPasswordManuallyEdited.value = false
+    registerForm.password = generateTemporaryPassword(
+      { firstName: '', lastName: '' },
+      registerPasswordPin.value
+    )
     registerForm.date_of_birth = ''
     registerForm.age = ''
     registerForm.gender = 'Female'
@@ -817,6 +841,15 @@
   }
 
   const shouldCreateAccount = ref(true)
+
+  // Reset registration form inputs only when the modal is closed
+  watch(isPatientModalOpen, isOpen => {
+    if (!isOpen) {
+      resetRegisterForm()
+      shouldCreateAccount.value = true
+      activeModalTab.value = 'appointments'
+    }
+  })
 
   const handleRegisterPatient = async () => {
     if (!shouldCreateAccount.value) {
@@ -1988,6 +2021,7 @@
               <input
                 :type="showPassword ? 'text' : 'password'"
                 v-model="registerForm.password"
+                @input="isRegisterPasswordManuallyEdited = true"
                 :required="shouldCreateAccount"
                 class="focus:border-primary w-full rounded-xl border border-gray-200 bg-white py-2 pr-10 pl-3 font-mono text-xs outline-none"
               />

@@ -35,6 +35,10 @@ export class AuthService extends BaseService {
   async register(payload: any): Promise<any> {
     return await this.request<any>('/register', 'POST', payload)
   }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return await this.request<{ message: string }>('/forgot-password', 'POST', { email })
+  }
 }
 
 export const authService = new AuthService()

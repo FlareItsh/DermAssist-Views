@@ -265,6 +265,13 @@
     const apiBase = config.public.apiBase || 'http://localhost:8000/api'
     window.location.href = `${apiBase}/auth/google/redirect`
   }
+
+  const handleForgotPassword = () => {
+    navigateTo({
+      path: '/auth/forgot-password',
+      query: form.email?.trim() ? { email: form.email.trim() } : {}
+    })
+  }
 </script>
 
 <template>
@@ -457,7 +464,8 @@
             size="unstyled"
             rounded="unstyled"
             type="button"
-            class="text-primary text-sm font-medium hover:underline"
+            class="text-primary cursor-pointer text-sm font-medium hover:underline"
+            @click="handleForgotPassword"
           >
             Forgot password?
           </AppButton>
