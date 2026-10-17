@@ -125,9 +125,11 @@
 
   // Search and details state
   const isSearchingInConversation = ref(false)
-  const conversationSearchQuery = ref('')
+  const searchInputText = ref('')
+  const committedSearchQuery = ref('')
   const searchInputRef = ref<HTMLInputElement | null>(null)
   const currentMatchIndex = ref(0)
+  const isSearchDirty = computed(() => searchInputText.value.trim() !== committedSearchQuery.value)
 
   const showUserDetails = ref(false)
   const toggleUserDetails = () => {
@@ -217,9 +219,9 @@
     return deduplicatedMessages.value
   })
 
-  // Messenger-style search matches
+  // Messenger-style search matches driven only when search is committed (zero typing overhead)
   const matchingMessageIds = computed(() => {
-    const q = conversationSearchQuery.value.trim().toLowerCase()
+    const q = committedSearchQuery.value.trim().toLowerCase()
     if (!isSearchingInConversation.value || !q) return []
     return deduplicatedMessages.value
       .filter(m => {
@@ -261,12 +263,29 @@
     scrollToCurrentMatch()
   }
 
-  watch(conversationSearchQuery, () => {
+  const commitSearch = () => {
+    const query = searchInputText.value.trim()
+    if (!query) {
+      clearSearch()
+      return
+    }
+    // If query is already committed, subsequent Enter presses act as "Next match"
+    if (query === committedSearchQuery.value) {
+      nextSearchMatch()
+      return
+    }
+    committedSearchQuery.value = query
     currentMatchIndex.value = 0
     if (matchingMessageIds.value.length > 0) {
       scrollToCurrentMatch()
     }
-  })
+  }
+
+  const clearSearch = () => {
+    searchInputText.value = ''
+    committedSearchQuery.value = ''
+    currentMatchIndex.value = 0
+  }
 
   const toggleSearchInConversation = () => {
     isSearchingInConversation.value = !isSearchingInConversation.value
@@ -274,13 +293,12 @@
       showUserDetails.value = false
       nextTick(() => {
         searchInputRef.value?.focus()
-        if (conversationSearchQuery.value && matchingMessageIds.value.length > 0) {
+        if (committedSearchQuery.value && matchingMessageIds.value.length > 0) {
           scrollToCurrentMatch()
         }
       })
     } else {
-      conversationSearchQuery.value = ''
-      currentMatchIndex.value = 0
+      clearSearch()
     }
   }
 
@@ -289,7 +307,7 @@
     showUserDetails.value = false
     nextTick(() => {
       searchInputRef.value?.focus()
-      if (conversationSearchQuery.value && matchingMessageIds.value.length > 0) {
+      if (committedSearchQuery.value && matchingMessageIds.value.length > 0) {
         scrollToCurrentMatch()
       }
     })
@@ -312,7 +330,7 @@
   const formatHighlightedText = (text: string | null | undefined, messageId?: string): string => {
     if (!text) return ''
     const escaped = escapeHtml(text)
-    const q = conversationSearchQuery.value.trim()
+    const q = committedSearchQuery.value.trim()
     if (!isSearchingInConversation.value || !q) {
       return escaped
     }
@@ -1464,17 +1482,29 @@
         />
         <input
           ref="searchInputRef"
-          v-model="conversationSearchQuery"
+          v-model="searchInputText"
           type="text"
-          placeholder="Search in conversation..."
+          placeholder="Search in conversation (press Enter)..."
           class="text-foreground placeholder:text-foreground/40 w-full min-w-0 bg-transparent text-xs outline-none sm:text-sm"
-          @keydown.enter.prevent="nextSearchMatch"
+          @keydown.enter.prevent="commitSearch"
           @keydown.shift.enter.prevent="prevSearchMatch"
           @keydown.esc="toggleSearchInConversation"
         />
 
-        <!-- Match Counter & Navigation (Messenger Style) -->
-        <template v-if="conversationSearchQuery.trim()">
+        <!-- Explicit Search Button (Shown when text is typed/edited but not yet committed) -->
+        <button
+          v-if="isSearchDirty && searchInputText.trim()"
+          type="button"
+          @click="commitSearch"
+          class="bg-primary hover:bg-primary/90 flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold text-white shadow-xs transition-all active:scale-95"
+          title="Search (Enter)"
+        >
+          <span>Search</span>
+          <kbd class="py-0.2 ml-0.5 rounded bg-white/20 px-1 font-mono text-[9px]">↵</kbd>
+        </button>
+
+        <!-- Match Counter & Navigation (Messenger Style, shown when a query is committed) -->
+        <template v-else-if="committedSearchQuery">
           <span
             v-if="matchingMessageIds.length > 0"
             class="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300"
@@ -1483,7 +1513,7 @@
           </span>
           <span
             v-else
-            class="shrink-0 rounded-full bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400"
+            class="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400"
           >
             No matches
           </span>
@@ -1515,20 +1545,21 @@
               />
             </button>
           </div>
-
-          <!-- Clear Text Button -->
-          <button
-            type="button"
-            @click="conversationSearchQuery = ''"
-            class="text-foreground/40 hover:text-foreground p-1"
-            title="Clear text"
-          >
-            <Icon
-              name="material-symbols:close-rounded"
-              class="text-base"
-            />
-          </button>
         </template>
+
+        <!-- Clear Text Button (visible if either input or committed search has content) -->
+        <button
+          v-if="searchInputText || committedSearchQuery"
+          type="button"
+          @click="clearSearch"
+          class="text-foreground/40 hover:text-foreground p-1"
+          title="Clear search"
+        >
+          <Icon
+            name="material-symbols:close-rounded"
+            class="text-base"
+          />
+        </button>
 
         <button
           type="button"
