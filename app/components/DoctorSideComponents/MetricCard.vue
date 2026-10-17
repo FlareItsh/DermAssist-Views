@@ -74,16 +74,16 @@
   const valueToneClass = computed(() => {
     switch (props.valueTone) {
       case 'amber':
-        return 'text-amber-600 dark:text-amber-500'
+        return 'text-amber-600'
       case 'rose':
-        return 'text-rose-600 dark:text-rose-500'
+        return 'text-rose-600'
       case 'emerald':
-        return 'text-emerald-600 dark:text-emerald-500'
+        return 'text-emerald-600'
       case 'primary':
         return 'text-primary'
       case 'default':
       default:
-        return 'text-gray-900 dark:text-foreground'
+        return 'text-gray-900'
     }
   })
 
@@ -104,42 +104,42 @@
 
   const activeContainerClass = computed(() => {
     if (!props.active) {
-      return 'border-gray-200/80 bg-white dark:border-border/60 dark:bg-card shadow-2xs hover:border-gray-300 hover:shadow-xs hover:-translate-y-0.5 dark:hover:border-border'
+      return 'border-gray-200/80 bg-white shadow-2xs hover:border-gray-300 hover:shadow-xs hover:-translate-y-0.5'
     }
 
     switch (props.activeTone) {
       case 'amber':
-        return 'border-amber-500/90 bg-white dark:border-amber-400 dark:bg-card ring-1 ring-amber-500/30 dark:ring-amber-400/40 shadow-xs'
+        return 'border-amber-500/90 bg-white ring-1 ring-amber-500/30 shadow-xs'
       case 'emerald':
-        return 'border-emerald-600/90 bg-white dark:border-emerald-500 dark:bg-card ring-1 ring-emerald-600/30 dark:ring-emerald-500/40 shadow-xs'
+        return 'border-emerald-600/90 bg-white ring-1 ring-emerald-600/30 shadow-xs'
       case 'rose':
-        return 'border-rose-600/90 bg-white dark:border-rose-500 dark:bg-card ring-1 ring-rose-600/30 dark:ring-rose-500/40 shadow-xs'
+        return 'border-rose-600/90 bg-white ring-1 ring-rose-600/30 shadow-xs'
       case 'blue':
       case 'primary':
       default:
-        return 'border-primary/90 bg-white dark:border-primary dark:bg-card ring-1 ring-primary/30 dark:ring-primary/40 shadow-xs'
+        return 'border-primary/90 bg-white ring-1 ring-primary/30 shadow-xs'
     }
   })
 
   const badgeColorClass = computed(() => {
     if (props.active && props.badgeTone === 'neutral') {
-      return 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary ring-1 ring-inset ring-primary/25'
+      return 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/25'
     }
 
     switch (props.badgeTone) {
       case 'primary':
       case 'blue':
       case 'indigo':
-        return 'bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary ring-1 ring-inset ring-primary/25'
+        return 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/25'
       case 'amber':
-        return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 ring-1 ring-inset ring-amber-600/20'
+        return 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20'
       case 'rose':
-        return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 ring-1 ring-inset ring-rose-600/20'
+        return 'bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20'
       case 'emerald':
-        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/20'
+        return 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20'
       case 'neutral':
       default:
-        return 'bg-gray-100 text-gray-600 dark:bg-muted dark:text-muted-foreground ring-1 ring-inset ring-gray-500/10'
+        return 'bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-500/10'
     }
   })
 

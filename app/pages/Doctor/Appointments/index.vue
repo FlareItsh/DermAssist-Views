@@ -309,7 +309,7 @@
           :value="completedAppointments.length"
           detail="Completed consultations"
           badge="Done"
-          :badge-tone="completedAppointments.length > 0 ? 'emerald' : 'neutral'"
+          badge-tone="neutral"
           :active="activeTab === 'history'"
           active-tone="emerald"
           @click="activeTab = 'history'"
