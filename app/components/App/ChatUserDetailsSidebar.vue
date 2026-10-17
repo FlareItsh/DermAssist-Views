@@ -57,6 +57,7 @@
     (e: 'close'): void
     (e: 'scheduleAppointment'): void
     (e: 'rescheduleAppointment', appt: any): void
+    (e: 'openAppointment', appt: any): void
     (e: 'viewRecord', patientUuid: string): void
     (e: 'search'): void
     (e: 'deleteConversation'): void
@@ -246,12 +247,14 @@
     }
   }
 
-  const handleViewRecordClick = () => {
-    if (props.userUuid) {
-      emit('viewRecord', props.userUuid)
-    } else {
-      navigateTo(userRole.value === 'doctor' ? '/Doctor/Patients' : '/Patient/Records')
+  const handleAppointmentClick = () => {
+    if (props.activeAppointment) {
+      emit('openAppointment', props.activeAppointment)
     }
+  }
+
+  const handleViewRecordClick = () => {
+    emit('viewRecord', props.userUuid || '')
   }
 
   const handleSearchClick = () => {
@@ -455,16 +458,26 @@
           <!-- Active appointment pill card -->
           <div
             v-if="activeAppointment"
-            class="border-primary/20 bg-primary/5 rounded-2xl border p-3.5 transition-all"
+            @click="handleAppointmentClick"
+            class="group border-primary/25 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 relative cursor-pointer rounded-2xl border p-3.5 transition-all hover:shadow-xs active:scale-[0.99]"
+            title="Open appointment details"
           >
             <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <span
-                  class="bg-primary/15 text-primary inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5">
+                  <span
+                    class="bg-primary/15 text-primary inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase"
+                  >
+                    {{ activeAppointment.status || 'Scheduled' }}
+                  </span>
+                  <Icon
+                    name="solar:arrow-right-up-linear"
+                    class="text-primary/60 group-hover:text-primary text-xs transition-colors"
+                  />
+                </div>
+                <p
+                  class="text-foreground group-hover:text-primary mt-1 text-sm font-black transition-colors"
                 >
-                  {{ activeAppointment.status || 'Scheduled' }}
-                </span>
-                <p class="text-foreground mt-1 text-sm font-black">
                   {{ activeAppointment.date }}
                 </p>
                 <p class="text-foreground/60 text-xs font-medium">
@@ -476,8 +489,8 @@
               </div>
               <button
                 type="button"
-                @click="handleRescheduleClick"
-                class="text-primary hover:bg-primary/10 rounded-lg p-1.5 text-xs font-bold transition-colors"
+                @click.stop="handleRescheduleClick"
+                class="text-primary hover:bg-primary/20 shrink-0 rounded-lg p-1.5 text-xs font-bold transition-colors"
                 title="Reschedule"
               >
                 <Icon
@@ -655,7 +668,9 @@
           <!-- Total Scans Performed -->
           <div
             v-if="userDetails?.total_scans != null"
-            class="bg-foreground/5 flex items-center justify-between rounded-xl px-3.5 py-2.5"
+            @click="handleViewRecordClick"
+            class="bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 transition-colors"
+            title="View Patient Records"
           >
             <div class="flex items-center gap-2.5">
               <Icon
@@ -664,9 +679,15 @@
               />
               <span class="text-foreground/70 font-semibold">Total Scans Performed</span>
             </div>
-            <span class="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-black">
-              {{ userDetails.total_scans }}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span class="bg-primary/10 text-primary rounded-md px-2 py-0.5 font-black">
+                {{ userDetails.total_scans }}
+              </span>
+              <Icon
+                name="solar:alt-arrow-right-linear"
+                class="text-foreground/40 text-xs"
+              />
+            </div>
           </div>
 
           <!-- Attending Physician (If doctor registered patient) -->

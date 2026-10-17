@@ -3,6 +3,7 @@
   import { conversationService } from '~/api/conversation/ConversationService'
   import { messageService } from '~/api/message/MessageService'
   import { userService } from '~/api/user/UserService'
+  import { recordService } from '~/api/record/RecordService'
   import { toast } from 'vue-sonner'
 
   interface MessageSender {
@@ -177,18 +178,93 @@
     openRescheduleModal(appt?.id)
   }
 
-  const handleViewRecord = (patientUuid?: string) => {
+  const handleOpenAppointment = (appt: any) => {
+    if (!appt) return
     const isDoc =
       userRole.value === 'doctor' ||
       userRole.value === 'secretary' ||
       route.path.toLowerCase().startsWith('/doctor') ||
       route.path.toLowerCase().startsWith('/secretary')
     if (isDoc) {
-      if (otherPersonName.value) {
-        navigateTo(`/Doctor/Patients?search=${encodeURIComponent(otherPersonName.value)}`)
-      } else {
-        navigateTo('/Doctor/Patients')
+      const targetId = appt.id || appt.uuid
+      if (targetId) {
+        navigateTo(`/Doctor/Appointments/${targetId}`)
       }
+    } else {
+      navigateTo('/Patient/Appointments')
+    }
+  }
+
+  const showPatientRecordsModal = ref(false)
+  const patientRecordsList = ref<any[]>([])
+  const isLoadingPatientRecords = ref(false)
+  const selectedPatientRecord = ref<any | null>(null)
+  const showIndividualRecordModal = ref(false)
+
+  const closePatientRecordsModal = () => {
+    showPatientRecordsModal.value = false
+  }
+
+  const closeIndividualRecordModal = () => {
+    showIndividualRecordModal.value = false
+  }
+
+  const formatRecordDate = (dateStr?: string) => {
+    if (!dateStr) return 'Unknown Date'
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  const fetchPatientRecords = async () => {
+    isLoadingPatientRecords.value = true
+    try {
+      const response = await recordService.getRecords()
+      const list = (response as any).data || response || []
+      const targetUuid = otherPersonUuid.value
+      const targetId = otherPersonPatientId.value
+      const targetName = (props.otherPersonName || '').toLowerCase().trim()
+
+      patientRecordsList.value = list.filter((r: any) => {
+        if (!r) return false
+        const pat = r.patient
+        if (!pat) return false
+        if (targetUuid && (pat.uuid === targetUuid || r.patient_uuid === targetUuid)) return true
+        if (targetId && (pat.id === targetId || pat.user_id === targetId)) return true
+        const patName = `${pat.first_name || ''} ${pat.last_name || ''}`.toLowerCase().trim()
+        if (targetName && (patName.includes(targetName) || targetName.includes(patName)))
+          return true
+        return false
+      })
+    } catch (e) {
+      console.error('Failed to load patient records', e)
+      patientRecordsList.value = []
+    } finally {
+      isLoadingPatientRecords.value = false
+    }
+  }
+
+  const handleViewRecord = async (patientUuid?: string) => {
+    showPatientRecordsModal.value = true
+    await fetchPatientRecords()
+  }
+
+  const openFullRecord = (record: any) => {
+    selectedPatientRecord.value = record
+    showIndividualRecordModal.value = true
+  }
+
+  const goToFullRecordsPage = () => {
+    showPatientRecordsModal.value = false
+    const isDoc =
+      userRole.value === 'doctor' ||
+      userRole.value === 'secretary' ||
+      route.path.toLowerCase().startsWith('/doctor') ||
+      route.path.toLowerCase().startsWith('/secretary')
+    const searchParam = encodeURIComponent(props.otherPersonName || '')
+    if (userRole.value === 'secretary' || route.path.toLowerCase().startsWith('/secretary')) {
+      navigateTo(`/Secretary/Records?search=${searchParam}`)
+    } else if (isDoc) {
+      navigateTo(`/Doctor/Records?search=${searchParam}`)
     } else {
       navigateTo('/Patient/Records')
     }
@@ -2861,6 +2937,7 @@
           @close="showUserDetails = false"
           @schedule-appointment="openScheduleFromSidebar"
           @reschedule-appointment="openRescheduleFromSidebar"
+          @open-appointment="handleOpenAppointment"
           @view-record="handleViewRecord"
           @search="openSearchFromSidebar"
           @delete-conversation="showDeleteConversationModal = true"
@@ -2896,6 +2973,7 @@
             @close="showUserDetails = false"
             @schedule-appointment="openScheduleFromSidebar"
             @reschedule-appointment="openRescheduleFromSidebar"
+            @open-appointment="handleOpenAppointment"
             @view-record="handleViewRecord"
             @search="openSearchFromSidebar"
             @delete-conversation="showDeleteConversationModal = true"
@@ -3263,6 +3341,230 @@
         @confirm="confirmAcceptReschedule"
         @cancel="closeAcceptModal"
       />
+
+      <!-- In-Chat Patient Records Modal -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-200 ease-out"
+          enter-from-class="opacity-0 scale-95"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition duration-150 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-95"
+        >
+          <div
+            v-if="showPatientRecordsModal"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+            @click.self="closePatientRecordsModal"
+          >
+            <div
+              class="bg-card text-foreground border-border/80 relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
+            >
+              <!-- Modal Header -->
+              <div
+                class="border-border/60 flex items-center justify-between border-b px-5 py-4 sm:px-6"
+              >
+                <div class="flex items-center gap-3">
+                  <div
+                    class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-xs"
+                  >
+                    <Icon
+                      name="solar:folder-with-files-bold"
+                      class="text-xl"
+                    />
+                  </div>
+                  <div>
+                    <h3 class="text-foreground text-base font-bold tracking-tight sm:text-lg">
+                      {{ otherPersonName ? `${otherPersonName}'s Records` : 'Patient Records' }}
+                    </h3>
+                    <p class="text-foreground/60 text-xs">
+                      Consultation notes, AI diagnoses, and clinical findings
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  @click="closePatientRecordsModal"
+                  class="text-foreground/50 hover:text-foreground hover:bg-foreground/5 flex h-8 w-8 items-center justify-center rounded-full transition-colors"
+                  title="Close"
+                >
+                  <Icon
+                    name="material-symbols:close-rounded"
+                    class="text-xl"
+                  />
+                </button>
+              </div>
+
+              <!-- Modal Body -->
+              <div class="custom-scrollbar flex-1 overflow-y-auto p-5 sm:p-6">
+                <!-- Loading State -->
+                <div
+                  v-if="isLoadingPatientRecords"
+                  class="flex flex-col items-center justify-center py-12 text-center"
+                >
+                  <Icon
+                    name="svg-spinners:ring-resize"
+                    class="text-primary text-3xl"
+                  />
+                  <p class="text-foreground/60 mt-3 text-xs font-semibold">
+                    Loading clinical records...
+                  </p>
+                </div>
+
+                <!-- Empty State -->
+                <div
+                  v-else-if="patientRecordsList.length === 0"
+                  class="bg-foreground/5 flex flex-col items-center justify-center rounded-2xl p-8 text-center"
+                >
+                  <div
+                    class="bg-foreground/10 text-foreground/50 flex h-12 w-12 items-center justify-center rounded-full"
+                  >
+                    <Icon
+                      name="solar:folder-open-linear"
+                      class="text-2xl"
+                    />
+                  </div>
+                  <h4 class="text-foreground mt-3 text-sm font-bold">No Clinical Records Found</h4>
+                  <p class="text-foreground/60 mt-1 max-w-sm text-xs">
+                    No past consultations or completed diagnostic scans recorded for this patient
+                    yet.
+                  </p>
+                  <button
+                    type="button"
+                    @click="goToFullRecordsPage"
+                    class="bg-primary/10 text-primary hover:bg-primary/20 mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-colors"
+                  >
+                    <span>View System Records Directory</span>
+                    <Icon
+                      name="solar:arrow-right-up-linear"
+                      class="text-xs"
+                    />
+                  </button>
+                </div>
+
+                <!-- Records List -->
+                <div
+                  v-else
+                  class="space-y-3"
+                >
+                  <div
+                    v-for="record in patientRecordsList"
+                    :key="record.id || record.uuid"
+                    @click="openFullRecord(record)"
+                    class="group border-border/80 bg-foreground/5 hover:border-primary/50 hover:bg-primary/5 flex cursor-pointer items-start justify-between gap-3 rounded-2xl border p-4 transition-all hover:shadow-sm"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="bg-primary/10 text-primary mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-xs"
+                      >
+                        <Icon
+                          name="solar:document-text-bold"
+                          class="text-lg"
+                        />
+                      </div>
+                      <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <h4
+                            class="text-foreground group-hover:text-primary text-sm font-bold transition-colors"
+                          >
+                            {{ record.label || record.title || 'Clinical Consultation' }}
+                          </h4>
+                          <span
+                            class="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase dark:text-emerald-400"
+                          >
+                            Completed
+                          </span>
+                        </div>
+                        <p class="text-foreground/60 mt-1 text-xs">
+                          {{ formatRecordDate(record.created_at) }}
+                          <template
+                            v-if="record.clinical_note?.doctor?.name || record.doctor?.name"
+                          >
+                            • Attending: Dr.
+                            {{ record.clinical_note?.doctor?.name || record.doctor?.name }}
+                          </template>
+                        </p>
+                        <p
+                          v-if="
+                            record.clinical_note?.final_diagnosis ||
+                            record.clinical_note?.differential_diagnosis
+                          "
+                          class="text-foreground/80 mt-1.5 line-clamp-2 text-xs font-medium"
+                        >
+                          <span class="text-foreground/50">Diagnosis: </span>
+                          {{
+                            record.clinical_note?.final_diagnosis ||
+                            record.clinical_note?.differential_diagnosis
+                          }}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="text-primary group-hover:bg-primary/10 shrink-0 rounded-lg p-2 text-xs font-bold transition-colors"
+                      title="View Clinical Report"
+                    >
+                      <Icon
+                        name="solar:eye-bold"
+                        class="text-lg"
+                      />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Modal Footer -->
+              <div
+                class="border-border/60 bg-foreground/2 flex items-center justify-between border-t px-5 py-3 sm:px-6"
+              >
+                <span class="text-foreground/60 text-xs font-medium">
+                  {{ patientRecordsList.length }} record(s) found
+                </span>
+                <button
+                  type="button"
+                  @click="goToFullRecordsPage"
+                  class="text-primary hover:text-primary/80 inline-flex items-center gap-1 text-xs font-bold transition-colors"
+                >
+                  <span>Open in Records Management</span>
+                  <Icon
+                    name="solar:arrow-right-up-linear"
+                    class="text-xs"
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
+
+      <!-- Individual Clinical Record Modal -->
+      <Teleport to="body">
+        <Transition
+          enter-active-class="transition duration-200 ease-out"
+          enter-from-class="opacity-0"
+          enter-to-class="opacity-100"
+          leave-active-class="transition duration-150 ease-in"
+          leave-from-class="opacity-100"
+          leave-to-class="opacity-0"
+        >
+          <div
+            v-if="showIndividualRecordModal && selectedPatientRecord"
+            class="fixed inset-0 z-999 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-all"
+            @click.self="closeIndividualRecordModal"
+          >
+            <div
+              class="modal-container bg-card relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
+            >
+              <AppModalRecord
+                :record="selectedPatientRecord"
+                :role="userRole === 'patient' ? 'patient' : 'doctor'"
+                @close="closeIndividualRecordModal"
+              />
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
     </ClientOnly>
   </div>
 </template>
