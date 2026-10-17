@@ -272,123 +272,48 @@
     <template v-if="viewMode === 'list'">
       <!-- Clinical Overview / KPI Triage Cards -->
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <!-- Card 1: Today's Appointments -->
-        <button
-          type="button"
+        <DoctorSideComponentsMetricCard
+          label="Today"
+          :value="todayAppointmentsCount"
+          :detail="todayLabel"
+          :badge="todayAppointmentsCount > 0 ? 'Active' : 'Scheduled'"
+          :badge-tone="todayAppointmentsCount > 0 ? 'primary' : 'neutral'"
+          :active="activeTab === 'today'"
           @click="activeTab = 'today'"
-          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-          :class="
-            activeTab === 'today'
-              ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20'
-              : 'border-gray-200/80 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Today</span>
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white"
-            >
-              <Icon
-                name="lucide:calendar-check-2"
-                class="text-lg"
-              />
-            </div>
-          </div>
-          <div class="mt-2 text-2xl font-black text-gray-900">{{ todayAppointmentsCount }}</div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">{{ todayLabel }}</div>
-        </button>
+        />
 
-        <!-- Card 2: Reschedule Requests -->
-        <button
-          type="button"
+        <DoctorSideComponentsMetricCard
+          label="Reschedules"
+          :value="rescheduleRequestsCount"
+          detail="Patient requests"
+          :badge="rescheduleRequestsCount > 0 ? 'Needs Action' : 'None'"
+          :badge-tone="rescheduleRequestsCount > 0 ? 'amber' : 'neutral'"
+          :value-tone="rescheduleRequestsCount > 0 ? 'amber' : 'default'"
+          :active="activeTab === 'reschedule'"
+          active-tone="amber"
           @click="activeTab = 'reschedule'"
-          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-          :class="
-            activeTab === 'reschedule'
-              ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
-              : 'border-gray-200/80 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase"
-              >Reschedules</span
-            >
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white"
-            >
-              <Icon
-                name="lucide:calendar-clock"
-                class="text-lg"
-              />
-            </div>
-          </div>
-          <div class="mt-2 flex items-baseline gap-2">
-            <span class="text-2xl font-black text-gray-900">{{ rescheduleRequestsCount }}</span>
-            <span
-              v-if="rescheduleRequestsCount > 0"
-              class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
-            >
-              Needs Action
-            </span>
-          </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Patient requests</div>
-        </button>
+        />
 
-        <!-- Card 3: Upcoming Consultations -->
-        <button
-          type="button"
+        <DoctorSideComponentsMetricCard
+          label="Upcoming"
+          :value="appointments.filter(a => a.status === 'scheduled').length"
+          detail="Future bookings"
+          badge="Scheduled"
+          badge-tone="neutral"
+          :active="activeTab === 'upcoming'"
           @click="activeTab = 'upcoming'"
-          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-          :class="
-            activeTab === 'upcoming'
-              ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
-              : 'border-gray-200/80 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Upcoming</span>
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
-            >
-              <Icon
-                name="lucide:calendar-days"
-                class="text-lg"
-              />
-            </div>
-          </div>
-          <div class="mt-2 text-2xl font-black text-gray-900">
-            {{ appointments.filter(a => a.status === 'scheduled').length }}
-          </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Future bookings</div>
-        </button>
+        />
 
-        <!-- Card 4: History / Completed -->
-        <button
-          type="button"
+        <DoctorSideComponentsMetricCard
+          label="History"
+          :value="completedAppointments.length"
+          detail="Completed consultations"
+          badge="Done"
+          :badge-tone="completedAppointments.length > 0 ? 'emerald' : 'neutral'"
+          :active="activeTab === 'history'"
+          active-tone="emerald"
           @click="activeTab = 'history'"
-          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-          :class="
-            activeTab === 'history'
-              ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20'
-              : 'border-gray-200/80 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">History</span>
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-colors group-hover:bg-emerald-600 group-hover:text-white"
-            >
-              <Icon
-                name="lucide:check-circle-2"
-                class="text-lg"
-              />
-            </div>
-          </div>
-          <div class="mt-2 text-2xl font-black text-gray-900">
-            {{ completedAppointments.length }}
-          </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Completed consultations</div>
-        </button>
+        />
       </div>
 
       <!-- Controls Bar: Tabs & Search Summary -->

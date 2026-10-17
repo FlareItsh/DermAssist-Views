@@ -36,6 +36,10 @@
     activeWorkspaceView.value = 'appointments'
   }
 
+  const handleShowAllWorkspace = () => {
+    activeWorkspaceView.value = 'all'
+  }
+
   onMounted(() => {
     if (!appointments.value.length) {
       fetchAppointments()
@@ -51,143 +55,58 @@
     <!-- Clinical KPI Summary Bar -->
     <div class="grid grid-cols-2 gap-3 sm:gap-3.5 md:grid-cols-4">
       <!-- KPI 1: Today's Appointments -->
-      <div
+      <DoctorSideComponentsMetricCard
+        label="Today's Visits"
+        :value="todayAppointments.length"
+        :detail="
+          todayAppointments.length === 1
+            ? '1 visit scheduled'
+            : `${todayAppointments.length} visits scheduled`
+        "
+        :badge="todayAppointments.length > 0 ? 'Active' : 'Today'"
+        :badge-tone="todayAppointments.length > 0 ? 'primary' : 'neutral'"
+        clickable
         @click="setTodayFilter"
-        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-xs"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-            Today's Visits
-          </span>
-          <span
-            v-if="todayAppointments.length > 0"
-            class="inline-flex items-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700"
-          >
-            Active
-          </span>
-          <span
-            v-else
-            class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
-          >
-            Today
-          </span>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-          <span class="text-3xl font-black tracking-tight text-gray-900 tabular-nums sm:text-4xl">
-            {{ todayAppointments.length }}
-          </span>
-        </div>
-        <p class="mt-1 text-xs font-medium text-gray-500">
-          {{
-            todayAppointments.length === 1
-              ? '1 visit scheduled'
-              : `${todayAppointments.length} visits scheduled`
-          }}
-        </p>
-      </div>
+      />
 
       <!-- KPI 2: Priority Triage Cases -->
-      <NuxtLink
+      <DoctorSideComponentsMetricCard
+        label="Priority Triage"
+        :value="priorityCount"
+        :detail="priorityCount === 1 ? '1 patient flagged' : `${priorityCount} patients flagged`"
+        :badge="priorityCount > 0 ? 'High Focus' : 'Normal'"
+        :badge-tone="priorityCount > 0 ? 'amber' : 'neutral'"
+        :value-tone="priorityCount > 0 ? 'amber' : 'default'"
         to="/doctor/patients"
-        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-xs"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-            Priority Triage
-          </span>
-          <span
-            v-if="priorityCount > 0"
-            class="inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200/60"
-          >
-            High Focus
-          </span>
-          <span
-            v-else
-            class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500"
-          >
-            Normal
-          </span>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-          <span
-            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
-            :class="priorityCount > 0 ? 'text-amber-600' : 'text-gray-900'"
-          >
-            {{ priorityCount }}
-          </span>
-        </div>
-        <p class="mt-1 text-xs font-medium text-gray-500">
-          {{ priorityCount === 1 ? '1 patient flagged' : `${priorityCount} patients flagged` }}
-        </p>
-      </NuxtLink>
+      />
 
       <!-- KPI 3: Urgent Diagnosis Scans -->
-      <div
-        @click="activeWorkspaceView = 'all'"
-        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-rose-300 hover:shadow-xs"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-            Urgent Scans
-          </span>
-          <span
-            v-if="pendingScansCount > 0"
-            class="inline-flex items-center rounded-md bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-200/60"
-          >
-            Action Required
-          </span>
-          <span
-            v-else
-            class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"
-          >
-            All Clear
-          </span>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-          <span
-            class="text-3xl font-black tracking-tight tabular-nums sm:text-4xl"
-            :class="pendingScansCount > 0 ? 'text-rose-600' : 'text-gray-900'"
-          >
-            {{ pendingScansCount }}
-          </span>
-        </div>
-        <p class="mt-1 text-xs font-medium text-gray-500">
-          {{
-            pendingScansCount === 1
-              ? '1 scan pending review'
-              : `${pendingScansCount} scans pending review`
-          }}
-        </p>
-      </div>
+      <DoctorSideComponentsMetricCard
+        label="Urgent Scans"
+        :value="pendingScansCount"
+        :detail="
+          pendingScansCount === 1
+            ? '1 scan pending review'
+            : `${pendingScansCount} scans pending review`
+        "
+        :badge="pendingScansCount > 0 ? 'Action Req.' : 'All Clear'"
+        :badge-tone="pendingScansCount > 0 ? 'rose' : 'emerald'"
+        :value-tone="pendingScansCount > 0 ? 'rose' : 'default'"
+        clickable
+        @click="handleShowAllWorkspace"
+      />
 
       <!-- KPI 4: Active Directory -->
-      <NuxtLink
+      <DoctorSideComponentsMetricCard
+        label="Directory"
+        :value="uniquePatientsCount"
+        :detail="
+          uniquePatientsCount === 1 ? '1 active patient' : `${uniquePatientsCount} active patients`
+        "
+        badge="Total"
+        badge-tone="neutral"
         to="/doctor/patients"
-        class="group relative flex cursor-pointer flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-xs"
-      >
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-            Directory
-          </span>
-          <span
-            class="inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
-          >
-            Total
-          </span>
-        </div>
-        <div class="mt-3 flex items-baseline gap-2">
-          <span class="text-3xl font-black tracking-tight text-gray-900 tabular-nums sm:text-4xl">
-            {{ uniquePatientsCount }}
-          </span>
-        </div>
-        <p class="mt-1 text-xs font-medium text-gray-500">
-          {{
-            uniquePatientsCount === 1
-              ? '1 active patient'
-              : `${uniquePatientsCount} active patients`
-          }}
-        </p>
-      </NuxtLink>
+      />
     </div>
 
     <!-- Main Content Area -->
