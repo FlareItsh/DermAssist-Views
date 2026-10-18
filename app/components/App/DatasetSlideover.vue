@@ -1042,11 +1042,11 @@
             <!-- Unselected Scans Warning Notice Banner -->
             <div
               v-if="excludedPendingCount > 0"
-              class="mb-4 flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:text-amber-200"
+              class="mb-4 flex flex-col gap-2.5 rounded-2xl border border-amber-300 bg-[#fffbeb] p-3.5 text-xs shadow-2xs sm:flex-row sm:items-center sm:justify-between"
             >
               <div class="flex items-start gap-2.5 sm:items-center">
                 <div
-                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-[#b45309]"
                 >
                   <Icon
                     name="lucide:alert-triangle"
@@ -1054,30 +1054,29 @@
                   />
                 </div>
                 <div>
-                  <p class="font-bold">
+                  <p class="font-bold text-[#78350f]">
                     {{ excludedPendingCount }} pending
                     {{ excludedPendingCount === 1 ? 'scan' : 'scans' }} unselected
                   </p>
-                  <p class="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">
+                  <p class="text-[11px] leading-relaxed text-[#92400e]">
                     Trained images are permanently included in the model. Unchecked pending scans
                     will remain in consultation records and will not be synced to the AI model.
                   </p>
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                <AppButton
-                  variant="outline"
-                  size="sm"
-                  class="h-7 border-amber-500/40 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                <button
+                  type="button"
+                  class="inline-flex h-7 items-center gap-1.5 rounded-xl bg-[#d97706] px-3 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#b45309] active:scale-[0.98]"
                   @click="selectAllImages"
                 >
                   <Icon
                     name="lucide:check-check"
-                    size="12"
-                    class="mr-1"
+                    size="13"
+                    class="text-white"
                   />
                   Include All Pending ({{ pendingScansCount }})
-                </AppButton>
+                </button>
               </div>
             </div>
 
