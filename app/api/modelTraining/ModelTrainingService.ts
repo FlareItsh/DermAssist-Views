@@ -57,6 +57,8 @@ export interface TrainingStatusResponse {
   started_at?: string
   completed_at?: string
   expansion_disease?: string
+  training_mode?: 'quick' | 'full' | string
+  fresh_start?: boolean
   error?: string
 }
 
@@ -111,6 +113,8 @@ export interface StartTrainingPayload {
   learning_rate?: number
   expansion_disease?: string
   selected_image_uuids?: string[]
+  training_mode?: 'quick' | 'full'
+  fresh_start?: boolean
 }
 
 export class ModelTrainingService extends BaseService {

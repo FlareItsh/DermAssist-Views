@@ -31,6 +31,17 @@
   const showDatasetSlideover = ref(false)
   const showResultsModal = ref(false)
   const selectedTrainingImageUuids = ref<string[]>([])
+  const selectedTrainingMode = ref<'quick' | 'full'>('quick')
+  const freshStart = ref(false)
+
+  const setTrainingMode = (mode: 'quick' | 'full') => {
+    selectedTrainingMode.value = mode
+  }
+
+  const toggleFreshStart = () => {
+    if (isTrainingActive.value) return
+    freshStart.value = !freshStart.value
+  }
 
   const logContainer = ref<HTMLElement | null>(null)
   const terminalInputRef = ref<HTMLInputElement | null>(null)
@@ -263,15 +274,19 @@
     try {
       const shouldSync = forceSync !== undefined ? forceSync : syncDataset.value
       const payload: any = {
-        architecture: 'ensemble',
+        architecture: selectedTrainingMode.value === 'quick' ? 'swin_transformer' : 'ensemble',
         epochs: Number(selectedEpochs.value),
-        sync_dataset: shouldSync
+        sync_dataset: shouldSync,
+        training_mode: selectedTrainingMode.value,
+        fresh_start: freshStart.value
       }
       if (selectedTrainingImageUuids.value.length > 0) {
         payload.selected_image_uuids = selectedTrainingImageUuids.value
       }
       await modelTrainingService.startTraining(payload)
-      toast.success('Tri-Model Ensemble retraining pipeline started!')
+      const modeText =
+        selectedTrainingMode.value === 'quick' ? 'Rapid Quick-Tune (Swin-T)' : 'Tri-Model Ensemble'
+      toast.success(`${modeText} retraining pipeline started!`)
       startPolling()
     } catch (err: any) {
       const msg =
@@ -1048,18 +1063,146 @@
                 size="18"
                 class="text-primary"
               />
-              Retrain Ensemble
+              {{ selectedTrainingMode === 'quick' ? 'Quick Model Retrain' : 'Retrain Ensemble' }}
             </h3>
             <AppBadge
-              color="primary"
+              :color="selectedTrainingMode === 'quick' ? 'warning' : 'primary'"
               size="sm"
               variant="subtle"
-              >All 3 Backbones</AppBadge
             >
+              {{ selectedTrainingMode === 'quick' ? '⚡ Quick (~20s)' : 'All 3 Backbones (~1.5h)' }}
+            </AppBadge>
           </div>
 
-          <!-- Sequential Pipeline Visual Indicator -->
-          <div class="bg-muted/40 border-border/80 space-y-2.5 rounded-2xl border p-4">
+          <!-- Training Mode Selection Toggle -->
+          <div
+            class="space-y-2 pt-1"
+            :class="{ 'opacity-60': isTrainingActive }"
+          >
+            <label
+              class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
+            >
+              Training Mode
+            </label>
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                :disabled="isTrainingActive"
+                class="flex flex-col items-start rounded-2xl border p-3 text-left transition-all disabled:cursor-not-allowed"
+                :class="
+                  selectedTrainingMode === 'quick'
+                    ? 'border-amber-500/50 bg-amber-500/10 ring-1 ring-amber-500/50'
+                    : 'border-border bg-background hover:bg-muted/40'
+                "
+                @click="setTrainingMode('quick')"
+              >
+                <div class="flex w-full items-center justify-between">
+                  <span class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                    <Icon
+                      name="lucide:zap"
+                      size="14"
+                      class="text-amber-500"
+                    />
+                    Quick Tune
+                  </span>
+                  <span
+                    class="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                  >
+                    ~20s
+                  </span>
+                </div>
+                <span class="text-muted-foreground mt-1 text-[11px] leading-tight">
+                  Frozen backbone + 90 anchor exemplars. Fast & safe.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                :disabled="isTrainingActive"
+                class="flex flex-col items-start rounded-2xl border p-3 text-left transition-all disabled:cursor-not-allowed"
+                :class="
+                  selectedTrainingMode === 'full'
+                    ? 'border-primary bg-primary/10 ring-primary ring-1'
+                    : 'border-border bg-background hover:bg-muted/40'
+                "
+                @click="setTrainingMode('full')"
+              >
+                <div class="flex w-full items-center justify-between">
+                  <span class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                    <Icon
+                      name="lucide:refresh-cw"
+                      size="13"
+                      class="text-primary"
+                    />
+                    Full Retrain
+                  </span>
+                  <span
+                    class="bg-primary/15 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+                  >
+                    ~1.5h
+                  </span>
+                </div>
+                <span class="text-muted-foreground mt-1 text-[11px] leading-tight">
+                  All 21k images across all 3 backbones.
+                </span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Sequential Pipeline Visual Indicator (Dynamic based on mode) -->
+          <div
+            v-if="selectedTrainingMode === 'quick'"
+            class="bg-muted/40 border-border/80 space-y-2.5 rounded-2xl border p-4"
+          >
+            <div class="text-foreground flex items-center justify-between text-xs font-bold">
+              <span class="flex items-center gap-1.5">
+                <Icon
+                  name="lucide:zap"
+                  size="14"
+                  class="text-amber-500"
+                />
+                Rapid Fine-Tuning Pipeline
+              </span>
+              <span class="text-primary text-[11px] font-semibold">Active Model Focus</span>
+            </div>
+            <div
+              class="bg-background border-border flex items-center justify-between rounded-xl border p-2.5"
+            >
+              <div class="flex items-center gap-2.5">
+                <div
+                  class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                >
+                  <Icon
+                    name="lucide:cpu"
+                    size="16"
+                  />
+                </div>
+                <div>
+                  <span class="text-foreground block text-xs font-bold"
+                    >Swin Transformer (Active)</span
+                  >
+                  <span class="text-muted-foreground block text-[10px]">
+                    Backbone Frozen • 512-dim Head Tuned
+                  </span>
+                </div>
+              </div>
+              <AppBadge
+                color="success"
+                size="sm"
+                variant="subtle"
+                >Guarded</AppBadge
+              >
+            </div>
+            <p class="text-muted-foreground pt-0.5 text-[11px] leading-relaxed">
+              Trains only the classification head on your new scan(s) plus 90 balanced anchor
+              exemplars to guarantee zero catastrophic forgetting.
+            </p>
+          </div>
+
+          <div
+            v-else
+            class="bg-muted/40 border-border/80 space-y-2.5 rounded-2xl border p-4"
+          >
             <div class="text-foreground flex items-center justify-between text-xs font-bold">
               <span>Tri-Model Training Order</span>
               <span class="text-primary text-[11px]">100% Equal Exposure</span>
@@ -1168,6 +1311,67 @@
             </div>
           </div>
 
+          <!-- Fresh Start (Ignore Checkpoints) Toggle -->
+          <div
+            class="space-y-2 pt-1"
+            :class="{ 'opacity-60': isTrainingActive }"
+          >
+            <div
+              class="border-border flex cursor-pointer items-center justify-between rounded-2xl border p-3.5 transition-all"
+              :class="
+                freshStart
+                  ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                  : 'bg-muted/30 hover:bg-muted/50'
+              "
+              @click="toggleFreshStart"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                  :class="
+                    freshStart
+                      ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-muted text-muted-foreground'
+                  "
+                >
+                  <Icon
+                    name="lucide:sprout"
+                    size="18"
+                  />
+                </div>
+                <div>
+                  <span class="text-foreground flex items-center gap-1.5 text-xs font-bold">
+                    Fresh Start (Ignore Checkpoints)
+                    <AppBadge
+                      v-if="freshStart"
+                      color="success"
+                      size="sm"
+                      variant="subtle"
+                    >
+                      Active
+                    </AppBadge>
+                  </span>
+                  <span class="text-muted-foreground block text-[11px] leading-tight">
+                    {{
+                      freshStart
+                        ? 'Trains from base ImageNet weights. Existing checkpoints safely backed up.'
+                        : 'Default: Resumes and fine-tunes from existing production checkpoints.'
+                    }}
+                  </span>
+                </div>
+              </div>
+              <div
+                class="flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors"
+                :class="freshStart ? 'bg-emerald-500' : 'bg-muted-foreground/30'"
+              >
+                <div
+                  class="h-4 w-4 rounded-full bg-white shadow-xs transition-transform"
+                  :class="freshStart ? 'translate-x-4' : 'translate-x-0'"
+                />
+              </div>
+            </div>
+          </div>
+
           <!-- Start Button & Sync Actions -->
           <div class="space-y-2">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1212,10 +1416,16 @@
                 @click="promptRetrainConfirmation"
               >
                 <Icon
-                  name="lucide:play"
+                  :name="selectedTrainingMode === 'quick' ? 'lucide:zap' : 'lucide:play'"
                   size="18"
                 />
-                {{ isCheckingSyncBeforeTrain ? 'Checking Sync Status...' : 'Retrain All 3 Models' }}
+                {{
+                  isCheckingSyncBeforeTrain
+                    ? 'Checking Sync Status...'
+                    : selectedTrainingMode === 'quick'
+                      ? 'Quick Retrain (~20s)'
+                      : 'Retrain All 3 Models'
+                }}
               </AppButton>
             </div>
           </div>
@@ -1652,16 +1862,37 @@
         >
           <div class="text-foreground flex items-center gap-2 font-semibold">
             <Icon
-              name="lucide:layers"
+              :name="selectedTrainingMode === 'quick' ? 'lucide:zap' : 'lucide:layers'"
               size="15"
               class="text-primary"
             />
-            <span>Tri-Model Ensemble Architecture</span>
+            <span>
+              {{
+                selectedTrainingMode === 'quick'
+                  ? 'Rapid Quick-Tune Architecture'
+                  : 'Tri-Model Ensemble Architecture'
+              }}
+            </span>
           </div>
           <p class="text-muted-foreground mt-1 text-[11px] leading-relaxed">
-            Will train Swin Transformer, ResNet-50, and EfficientNet-V2 for
-            {{ selectedEpochs }} epochs across Acne, Eczema, and Herpes.
+            {{
+              selectedTrainingMode === 'quick'
+                ? `Will fine-tune Swin Transformer classification head for ${selectedEpochs} epochs using new scans plus 90 balanced anchor exemplars in ~20s.`
+                : `Will train Swin Transformer, ResNet-50, and EfficientNet-V2 for ${selectedEpochs} epochs across Acne, Eczema, and Herpes.`
+            }}
           </p>
+          <div
+            v-if="freshStart"
+            class="mt-2.5 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+          >
+            <Icon
+              name="lucide:sprout"
+              size="14"
+            />
+            <span
+              >Fresh Start Active: Previous checkpoints will be bypassed and safely archived.</span
+            >
+          </div>
         </div>
 
         <div class="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-end">
