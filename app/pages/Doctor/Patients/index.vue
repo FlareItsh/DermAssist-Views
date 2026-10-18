@@ -20,8 +20,8 @@
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
-  const isLoadingPatients = ref(true)
-  const localSearch = ref('')
+  const route = useRoute()
+  const localSearch = ref((route.query.search as string) || '')
   const activeTab = ref<'all' | 'priority' | 'registered' | 'recent'>('all')
 
   // Modals
@@ -966,125 +966,48 @@
 
     <!-- Clinical Triage KPI Cards -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <!-- Card 1: Total Patients -->
-      <button
-        type="button"
+      <DoctorSideComponentsMetricCard
+        label="Directory"
+        :value="totalPatientsCount"
+        detail="All unique patients"
+        badge="Total"
+        badge-tone="neutral"
+        :active="activeTab === 'all'"
         @click="activeTab = 'all'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'all'
-            ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Directory</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:users"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">{{ totalPatientsCount }}</div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">All unique patients</div>
-      </button>
+      />
 
-      <!-- Card 2: Priority Attention -->
-      <button
-        type="button"
+      <DoctorSideComponentsMetricCard
+        label="Priority"
+        :value="priorityPatientsCount"
+        detail="Priority triage cases"
+        :badge="priorityPatientsCount > 0 ? 'High Focus' : 'Normal'"
+        :badge-tone="priorityPatientsCount > 0 ? 'amber' : 'neutral'"
+        :value-tone="priorityPatientsCount > 0 ? 'amber' : 'default'"
+        :active="activeTab === 'priority'"
+        active-tone="amber"
         @click="activeTab = 'priority'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'priority'
-            ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Priority</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:star"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-2xl font-black text-gray-900">{{ priorityPatientsCount }}</span>
-          <span
-            v-if="priorityPatientsCount > 0"
-            class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
-          >
-            High Focus
-          </span>
-        </div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Priority triage cases</div>
-      </button>
+      />
 
-      <!-- Card 3: Clinic Registered Patients -->
-      <button
-        type="button"
+      <DoctorSideComponentsMetricCard
+        label="Registered"
+        :value="registeredPatientsCount"
+        detail="Clinic-managed accounts"
+        :badge="pendingPatientsCount > 0 ? `+${pendingPatientsCount} Pending` : 'Managed'"
+        :badge-tone="pendingPatientsCount > 0 ? 'amber' : 'neutral'"
+        :active="activeTab === 'registered'"
         @click="activeTab = 'registered'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'registered'
-            ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Registered</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:building-2"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 flex items-baseline gap-2">
-          <span class="text-2xl font-black text-gray-900">{{ registeredPatientsCount }}</span>
-          <span
-            v-if="pendingPatientsCount > 0"
-            class="rounded-md border border-amber-300 bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
-          >
-            +{{ pendingPatientsCount }} Pending
-          </span>
-        </div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Clinic-managed accounts</div>
-      </button>
+      />
 
-      <!-- Card 4: Recent Consultations -->
-      <button
-        type="button"
+      <DoctorSideComponentsMetricCard
+        label="Recent"
+        :value="recentPatientsCount"
+        detail="Seen in last 14 days"
+        badge="14 Days"
+        :badge-tone="recentPatientsCount > 0 ? 'emerald' : 'neutral'"
+        :active="activeTab === 'recent'"
+        active-tone="emerald"
         @click="activeTab = 'recent'"
-        class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-        :class="
-          activeTab === 'recent'
-            ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-600/20'
-            : 'border-gray-200/80 bg-white hover:border-gray-300'
-        "
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Recent</span>
-          <div
-            class="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 transition-colors group-hover:bg-emerald-600 group-hover:text-white"
-          >
-            <Icon
-              name="lucide:calendar-check"
-              class="text-lg"
-            />
-          </div>
-        </div>
-        <div class="mt-2 text-2xl font-black text-gray-900">{{ recentPatientsCount }}</div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">Seen in last 14 days</div>
-      </button>
+      />
     </div>
 
     <!-- Controls Bar: Segmented Tabs & Search Input -->
