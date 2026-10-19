@@ -35,12 +35,31 @@ export const useEcho = () => {
       ;(window as any).Pusher = Pusher
     }
 
-    const host = config.public.reverbHost || window.location.hostname || 'localhost'
+    let host = config.public.reverbHost || 'localhost'
+    if (typeof window !== 'undefined') {
+      const currentHost = window.location.hostname
+      if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+        if (
+          !host ||
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host)
+        ) {
+          host = currentHost
+        }
+      } else if (
+        host !== 'localhost' &&
+        host !== '127.0.0.1' &&
+        /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host)
+      ) {
+        host = 'localhost'
+      }
+    }
     const port = Number(config.public.reverbPort) || 8080
     const scheme = config.public.reverbScheme || 'http'
     const key = config.public.reverbKey || 'k2sz1zlx9d0xc6plrtoy'
 
-    const apiBase = (config.public.apiBase || 'http://localhost:8000/api').replace(/\/+$/, '')
+    const apiBase = resolveApiBase(config.public.apiBase)
     const authEndpoint = `${apiBase}/broadcasting/auth`
 
     echoInstance = new Echo({

@@ -132,6 +132,16 @@ export class ModelTrainingService extends BaseService {
     return this.request('/admin/model/training-images', 'DELETE', { uuids })
   }
 
+  async recategorizeTrainingImages(
+    uuids: string[],
+    targetCategory: string
+  ): Promise<{ message: string; transferred_count: number; target_category: string }> {
+    return this.request('/admin/model/training-images/recategorize', 'POST', {
+      uuids,
+      target_category: targetCategory
+    })
+  }
+
   async startTraining(payload: StartTrainingPayload): Promise<any> {
     return this.request('/admin/model/retrain', 'POST', payload)
   }
