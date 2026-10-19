@@ -296,12 +296,11 @@
             <div>
               <span class="font-bold">Pending Staged Account:</span>
               <p class="mt-0.5 leading-snug text-amber-800">
-                If discarded, the account for
+                If discarded, the pending registration for
                 <span class="font-bold text-amber-950">{{
                   pendingPatientName || 'this patient'
                 }}</span>
-                will not be saved — only added to the list with no account to be usable unless
-                officially created.
+                will not be saved and the active session will be cleared.
               </p>
             </div>
           </div>

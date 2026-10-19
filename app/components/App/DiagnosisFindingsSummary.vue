@@ -581,80 +581,15 @@
     registrationError.value = null
   }
 
-  const shouldCreateAccount = ref(true)
-
   // Reset registration form inputs only when the modal is closed
   watch(isPatientModalOpen, isOpen => {
     if (!isOpen) {
       resetRegisterForm()
-      shouldCreateAccount.value = true
       activeModalTab.value = 'appointments'
     }
   })
 
   const handleRegisterPatient = async () => {
-    if (!shouldCreateAccount.value) {
-      if (!registerForm.firstName.trim() || !registerForm.lastName.trim()) {
-        registrationError.value = 'First Name and Last Name are required.'
-        return
-      }
-
-      if (!registerForm.date_of_birth) {
-        registrationError.value = 'Please provide the patient’s Date of Birth.'
-        return
-      }
-
-      const calculatedAge = calculatedRegisterAge.value ?? undefined
-
-      if (registerForm.contact_number) {
-        const parts = splitFullPhoneNumber(registerForm.contact_number)
-        const res = validatePhoneNumber(parts.national, parts.dialCode)
-        if (!res.valid) {
-          registrationError.value = res.error
-          return
-        }
-      }
-
-      const walkInPayload: PendingPatientRegistration = {
-        firstName: registerForm.firstName.trim(),
-        middleName: registerForm.middleName?.trim() || undefined,
-        lastName: registerForm.lastName.trim(),
-        date_of_birth: registerForm.date_of_birth || undefined,
-        age: calculatedAge,
-        gender: registerForm.gender || undefined,
-        contact_number: registerForm.contact_number?.trim() || undefined,
-        email: '',
-        password: '',
-        is_walk_in: true
-      }
-
-      walkInPatientInfo.value = {
-        firstName: walkInPayload.firstName,
-        middleName: walkInPayload.middleName,
-        lastName: walkInPayload.lastName,
-        age: walkInPayload.age,
-        gender: walkInPayload.gender,
-        date_of_birth: walkInPayload.date_of_birth,
-        contact_number: walkInPayload.contact_number
-      }
-      pendingPatientRegistration.value = walkInPayload
-      patientUuid.value = 'pending_new_patient'
-      assignedName.value = `${walkInPayload.firstName} ${walkInPayload.lastName}`
-      userName.value = assignedName.value
-      assignedAppointment.value = null
-
-      saveActiveDiagnosisState()
-
-      toast.success(
-        `Walk-in patient ${assignedName.value} prepared! Patient record will be saved when you complete the diagnosis.`
-      )
-
-      activeModalTab.value = 'appointments'
-      isPatientModalOpen.value = false
-      resetRegisterForm()
-      return
-    }
-
     if (
       !registerForm.firstName.trim() ||
       !registerForm.lastName.trim() ||
@@ -1406,57 +1341,6 @@
                   v-else-if="activeModalTab === 'register'"
                   class="flex flex-col gap-3 py-0.5"
                 >
-                  <!-- Account Creation Selection Mode -->
-                  <div class="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-2.5">
-                    <label class="mb-1.5 block px-1 text-[11px] font-bold text-indigo-900"
-                      >Patient Registration Type</label
-                    >
-                    <div class="grid grid-cols-2 gap-1.5">
-                      <button
-                        type="button"
-                        @click="shouldCreateAccount = true"
-                        class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition-all"
-                        :class="
-                          shouldCreateAccount
-                            ? 'border border-indigo-200/60 bg-white text-indigo-600 shadow-xs'
-                            : 'text-gray-600 hover:text-gray-900'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:account-circle-outline"
-                          class="shrink-0 text-sm"
-                        />
-                        <span>Create Account</span>
-                      </button>
-                      <button
-                        type="button"
-                        @click="shouldCreateAccount = false"
-                        class="flex cursor-pointer items-center justify-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-bold transition-all"
-                        :class="
-                          !shouldCreateAccount
-                            ? 'border border-indigo-200/60 bg-white text-indigo-600 shadow-xs'
-                            : 'text-gray-600 hover:text-gray-900'
-                        "
-                      >
-                        <Icon
-                          name="material-symbols:badge-outline"
-                          class="shrink-0 text-sm"
-                        />
-                        <span>No Account (Walk-In)</span>
-                      </button>
-                    </div>
-                    <p class="mt-1.5 px-1 text-[10px] leading-relaxed text-gray-500">
-                      <span v-if="shouldCreateAccount">
-                        Generates online portal credentials (email & temporary password) so the
-                        patient can log in.
-                      </span>
-                      <span v-else>
-                        Sets patient name & age for this consultation only without creating an
-                        online login account.
-                      </span>
-                    </p>
-                  </div>
-
                   <div
                     v-if="registrationError"
                     class="flex items-center gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700"
@@ -1496,11 +1380,8 @@
                     </div>
                   </div>
 
-                  <!-- Email & Contact Number Row (When Creating Account) -->
-                  <div
-                    v-if="shouldCreateAccount"
-                    class="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                  >
+                  <!-- Email & Contact Number Row -->
+                  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <label class="mb-1 block text-xs font-bold text-gray-700"
                         >Email Address <span class="text-rose-500">*</span></label
@@ -1509,7 +1390,7 @@
                         v-model="registerForm.email"
                         type="email"
                         placeholder="patient@example.com"
-                        :required="shouldCreateAccount"
+                        required
                         class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
                       />
                     </div>
@@ -1522,8 +1403,8 @@
                     </div>
                   </div>
 
-                  <!-- Temporary Password (Only when creating an account) -->
-                  <div v-if="shouldCreateAccount">
+                  <!-- Temporary Password -->
+                  <div>
                     <div class="mb-1 flex items-center justify-between">
                       <label class="block text-xs font-bold text-gray-700"
                         >Temporary Password <span class="text-rose-500">*</span></label
@@ -1537,7 +1418,7 @@
                         v-model="registerForm.password"
                         @input="isRegisterPasswordManuallyEdited = true"
                         type="text"
-                        :required="shouldCreateAccount"
+                        required
                         placeholder="Temporary password"
                         class="text-primary focus:border-primary focus:ring-primary/20 h-10 flex-1 rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 font-mono text-xs font-bold transition-all outline-none focus:ring-2"
                       />
@@ -1572,14 +1453,7 @@
                   <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <div class="mb-1 flex items-center justify-between">
-                        <label class="block text-xs font-bold text-gray-700">
-                          Date of Birth
-                          <span
-                            v-if="!shouldCreateAccount"
-                            class="text-rose-500"
-                            >*</span
-                          >
-                        </label>
+                        <label class="block text-xs font-bold text-gray-700">Date of Birth</label>
                         <span
                           v-if="calculatedRegisterAge !== null"
                           class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -1595,7 +1469,6 @@
                         v-model="registerForm.date_of_birth"
                         type="date"
                         :max="todayIsoDate"
-                        :required="!shouldCreateAccount"
                         class="focus:border-primary focus:ring-primary/20 h-10 w-full rounded-xl border border-gray-200 px-3.5 text-xs font-medium text-gray-900 transition-all outline-none focus:ring-2"
                       />
                     </div>
@@ -1610,15 +1483,6 @@
                         <option value="Other">Other</option>
                       </select>
                     </div>
-                  </div>
-
-                  <!-- Contact Number (Only for Walk-In mode where email row is not present) -->
-                  <div v-if="!shouldCreateAccount">
-                    <AppPhoneInput
-                      v-model="registerForm.contact_number"
-                      label="Contact Number (Optional)"
-                      placeholder="917 123 4567"
-                    />
                   </div>
                 </div>
 
@@ -1644,13 +1508,7 @@
                         name="svg-spinners:ring-resize"
                         class="mr-1.5 text-base"
                       />
-                      {{
-                        isSubmittingRegistration
-                          ? 'Assigning...'
-                          : shouldCreateAccount
-                            ? 'Create & Assign Patient'
-                            : 'Set Patient (No Account)'
-                      }}
+                      {{ isSubmittingRegistration ? 'Assigning...' : 'Create & Assign Patient' }}
                     </AppButton>
                   </div>
                   <div
