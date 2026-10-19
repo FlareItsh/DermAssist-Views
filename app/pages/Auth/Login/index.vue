@@ -262,7 +262,7 @@
   })
 
   const loginWithGoogle = () => {
-    const apiBase = config.public.apiBase || 'http://localhost:8000/api'
+    const apiBase = resolveApiBase(config.public.apiBase)
     window.location.href = `${apiBase}/auth/google/redirect`
   }
 

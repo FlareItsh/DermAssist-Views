@@ -30,6 +30,7 @@
     (e: 'deleted'): void
     (e: 'confirm', selectedUuids: string[]): void
     (e: 'synced'): void
+    (e: 'transferred'): void
   }>()
 
   const isOpen = computed({
@@ -41,10 +42,15 @@
   const isLoading = ref(false)
   const isDeleting = ref(false)
   const isSyncingScans = ref(false)
+  const isTransferring = ref(false)
   const showDeleteConfirm = ref(false)
   const showSyncConfirm = ref(false)
+  const showTransferModal = ref(false)
   const isBulkDelete = ref(false)
+  const isBulkTransfer = ref(false)
   const imageToDelete = ref<TrainingImageItem | null>(null)
+  const imageToTransfer = ref<TrainingImageItem | null>(null)
+  const targetTransferCategory = ref<string>('acne')
 
   // Standard Training Dataset State
   const images = ref<TrainingImageItem[]>([])
@@ -71,6 +77,27 @@
     { id: 'acne', label: 'Acne' },
     { id: 'eczema', label: 'Eczema' },
     { id: 'herpes', label: 'Herpes' }
+  ]
+
+  const transferTargetOptions = [
+    {
+      id: 'acne',
+      name: 'Acne',
+      desc: 'Follicular eruptions, inflammatory papules & pustules',
+      badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+    },
+    {
+      id: 'eczema',
+      name: 'Eczema',
+      desc: 'Atopic dermatitis, inflamed, scaling, or pruritic patches',
+      badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30'
+    },
+    {
+      id: 'herpes',
+      name: 'Herpes',
+      desc: 'Clustered vesicular eruptions, ulcerations & viral lesions',
+      badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
+    }
   ]
 
   const close = () => {
@@ -133,20 +160,16 @@
         herpes: rawImages.filter(i => (i.category || '').toLowerCase() === 'herpes').length
       }
 
-      // Initialize or preserve selected UUIDs (images already in dataset are permanently included)
+      // Initialize or preserve selected UUIDs
       const availableUuids = new Set(images.value.map(img => img.uuid))
-      const inDatasetUuids = images.value.filter(img => isImageSynced(img)).map(img => img.uuid)
 
       if (!isInitial && selectedUuids.value.size > 0) {
         // Preserve active user choices across reloads, filtering out any deleted scans
         const next = new Set(Array.from(selectedUuids.value).filter(id => availableUuids.has(id)))
-        inDatasetUuids.forEach(id => next.add(id))
         selectedUuids.value = next
       } else if (props.initialSelectedUuids && props.initialSelectedUuids.length > 0) {
         const validSelections = props.initialSelectedUuids.filter(uuid => availableUuids.has(uuid))
-        const next = new Set(validSelections.length > 0 ? validSelections : availableUuids)
-        inDatasetUuids.forEach(id => next.add(id))
-        selectedUuids.value = next
+        selectedUuids.value = new Set(validSelections.length > 0 ? validSelections : availableUuids)
       } else {
         selectedUuids.value = new Set(availableUuids)
       }
@@ -269,6 +292,11 @@
     () => images.value.filter(img => isImageSynced(img) && !isImageTrained(img)).length
   )
   const pendingScansCount = computed(() => images.value.filter(img => !isImageSynced(img)).length)
+  const customizableCount = computed(() => images.value.filter(img => !isImageTrained(img)).length)
+  const customizableSelectedCount = computed(
+    () =>
+      images.value.filter(img => !isImageTrained(img) && selectedUuids.value.has(img.uuid)).length
+  )
   const pendingSelectedCount = computed(
     () =>
       images.value.filter(img => !isImageSynced(img) && selectedUuids.value.has(img.uuid)).length
@@ -277,20 +305,19 @@
     () =>
       images.value.filter(img => !isImageSynced(img) && !selectedUuids.value.has(img.uuid)).length
   )
-  const excludedCount = computed(() => excludedPendingCount.value)
+  const excludedCount = computed(
+    () =>
+      images.value.filter(img => !isImageTrained(img) && !selectedUuids.value.has(img.uuid)).length
+  )
 
   const imagesInView = computed(() => filteredStandardImages.value)
   const isAllInViewSelected = computed(() => {
-    const pendingInView = imagesInView.value.filter(img => !isImageSynced(img))
-    if (pendingInView.length === 0) return true
-    return pendingInView.every(img => selectedUuids.value.has(img.uuid))
+    if (imagesInView.value.length === 0) return false
+    return imagesInView.value.every(img => selectedUuids.value.has(img.uuid))
   })
 
-  // Selection toggles (Trained & already synced images are locked in dataset pool)
+  // Selection toggles (Allow user to select/deselect any scan for retraining scope)
   const toggleImageSelection = (img: TrainingImageItem) => {
-    if (isImageTrained(img) || isImageSynced(img)) {
-      return
-    }
     const next = new Set(selectedUuids.value)
     if (next.has(img.uuid)) {
       next.delete(img.uuid)
@@ -301,16 +328,15 @@
   }
 
   const toggleSelectAllInView = () => {
-    const pendingInView = imagesInView.value.filter(img => !isImageSynced(img))
-    if (pendingInView.length === 0) return
+    if (imagesInView.value.length === 0) return
 
     const next = new Set(selectedUuids.value)
-    const allPendingInViewSelected = pendingInView.every(img => next.has(img.uuid))
+    const allSelected = imagesInView.value.every(img => next.has(img.uuid))
 
-    if (allPendingInViewSelected) {
-      pendingInView.forEach(img => next.delete(img.uuid))
+    if (allSelected) {
+      imagesInView.value.forEach(img => next.delete(img.uuid))
     } else {
-      pendingInView.forEach(img => next.add(img.uuid))
+      imagesInView.value.forEach(img => next.add(img.uuid))
     }
     selectedUuids.value = next
   }
@@ -319,19 +345,12 @@
     const next = new Set<string>()
     images.value.forEach(img => next.add(img.uuid))
     selectedUuids.value = next
-    toast.success('Included all candidate scans for retraining.')
+    toast.success(`Selected all ${images.value.length} candidate scans.`)
   }
 
   const deselectAllImages = () => {
-    // Only deselect pending candidate scans; images in dataset remain permanently locked
-    const next = new Set<string>()
-    images.value.forEach(img => {
-      if (isImageSynced(img)) {
-        next.add(img.uuid)
-      }
-    })
-    selectedUuids.value = next
-    toast.info('Excluded all pending scans from selection.')
+    selectedUuids.value = new Set()
+    toast.info('Cleared training image selection.')
   }
 
   // Deletion Actions (Trained baseline images are permanent and cannot be deleted)
@@ -464,6 +483,116 @@
       )
     } finally {
       isSyncingScans.value = false
+    }
+  }
+
+  // Category Transfer Actions
+  const currentSelectionCategory = computed(() => {
+    if (!isBulkTransfer.value && imageToTransfer.value) {
+      return (imageToTransfer.value.category || '').toLowerCase()
+    }
+    if (isBulkTransfer.value) {
+      const selectedImages = images.value.filter(img => selectedUuids.value.has(img.uuid))
+      const cats = new Set(selectedImages.map(img => (img.category || '').toLowerCase()))
+      if (cats.size === 1) {
+        return Array.from(cats)[0]
+      }
+    }
+    return null
+  })
+
+  const promptTransferSingle = (img: TrainingImageItem) => {
+    imageToTransfer.value = img
+    isBulkTransfer.value = false
+    const currentCat = (img.category || '').toLowerCase()
+    if (currentCat === 'acne') {
+      targetTransferCategory.value = 'eczema'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const promptTransferBulk = () => {
+    const targets = Array.from(selectedUuids.value)
+    if (targets.length === 0) {
+      toast.info('Please select at least one scan to transfer.')
+      return
+    }
+    imageToTransfer.value = null
+    isBulkTransfer.value = true
+
+    const selectedImages = images.value.filter(img => selectedUuids.value.has(img.uuid))
+    const cats = new Set(selectedImages.map(img => (img.category || '').toLowerCase()))
+    if (cats.size === 1 && cats.has('acne')) {
+      targetTransferCategory.value = 'eczema'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const closeTransferModal = () => {
+    if (isTransferring.value) return
+    showTransferModal.value = false
+    imageToTransfer.value = null
+  }
+
+  const handleExecuteTransfer = async () => {
+    const targets = isBulkTransfer.value
+      ? Array.from(selectedUuids.value)
+      : imageToTransfer.value
+        ? [imageToTransfer.value.uuid]
+        : []
+
+    if (targets.length === 0) {
+      showTransferModal.value = false
+      return
+    }
+
+    const target = targetTransferCategory.value
+    isTransferring.value = true
+
+    try {
+      const res = await modelTrainingService.recategorizeTrainingImages(targets, target)
+
+      const targetTitle = target.charAt(0).toUpperCase() + target.slice(1)
+      const targetSet = new Set(targets)
+
+      // Update matching images in local reactive state
+      images.value.forEach(img => {
+        if (targetSet.has(img.uuid)) {
+          img.category = target
+          img.label = targetTitle
+        }
+      })
+
+      // Recalculate category counts
+      const counts: Record<string, number> = {}
+      standardCategories.forEach(c => {
+        if (c.id !== 'all') {
+          counts[c.id] = images.value.filter(i => (i.category || '').toLowerCase() === c.id).length
+        }
+      })
+      categoryCounts.value = counts
+
+      // Deselect transferred images
+      const next = new Set(selectedUuids.value)
+      targets.forEach(id => next.delete(id))
+      selectedUuids.value = next
+
+      toast.success(
+        res.message || `Successfully transferred ${targets.length} scan(s) to ${targetTitle}.`
+      )
+
+      showTransferModal.value = false
+      imageToTransfer.value = null
+      emit('transferred')
+    } catch (err: any) {
+      console.error('Failed to transfer scan category:', err)
+      toast.error(err?.data?.message || err?.message || 'Failed to transfer scan category.')
+    } finally {
+      isTransferring.value = false
     }
   }
 
@@ -828,38 +957,52 @@
             <!-- Quick Selection & Deletion Helpers -->
             <div class="flex flex-wrap items-center gap-2">
               <AppButton
-                v-if="pendingScansCount > 0"
                 variant="outline"
                 size="sm"
                 class="h-7 gap-1.5 text-xs font-semibold"
-                :disabled="imagesInView.filter(img => !isImageSynced(img)).length === 0"
+                :disabled="imagesInView.length === 0"
                 @click="toggleSelectAllInView"
               >
                 <Icon
                   :name="isAllInViewSelected ? 'lucide:minus-square' : 'lucide:check-square'"
                   size="13"
                 />
-                {{ isAllInViewSelected ? 'Exclude Pending in View' : 'Include Pending in View' }}
+                {{ isAllInViewSelected ? 'Deselect in View' : 'Select in View' }}
               </AppButton>
 
               <AppButton
-                v-if="excludedPendingCount > 0"
+                v-if="selectedCount < images.length"
                 variant="ghost"
                 size="sm"
                 class="text-primary hover:bg-primary/10 h-7 text-xs font-semibold"
                 @click="selectAllImages"
               >
-                Include All Pending ({{ pendingScansCount }})
+                Select All ({{ images.length }})
               </AppButton>
 
               <AppButton
-                v-if="pendingSelectedCount > 0"
+                v-if="selectedCount > 0"
                 variant="ghost"
                 size="sm"
                 class="text-muted-foreground hover:bg-foreground/10 h-7 text-xs font-medium"
                 @click="deselectAllImages"
               >
-                Exclude Pending ({{ pendingSelectedCount }})
+                Clear Selection ({{ selectedCount }})
+              </AppButton>
+
+              <!-- Bulk Transfer Category Button -->
+              <AppButton
+                v-if="selectedCount > 0"
+                variant="outline"
+                size="sm"
+                class="border-primary/40 text-primary hover:bg-primary/10 h-7 gap-1 text-xs font-semibold"
+                @click="promptTransferBulk"
+              >
+                <Icon
+                  name="lucide:arrow-right-left"
+                  size="12"
+                />
+                Transfer Category ({{ selectedCount }})
               </AppButton>
 
               <!-- Bulk Permanent Delete Button (Pending Scans Only) -->
@@ -1034,11 +1177,11 @@
             <!-- Unselected Scans Warning Notice Banner -->
             <div
               v-if="excludedPendingCount > 0"
-              class="mb-4 flex flex-col gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:text-amber-200"
+              class="mb-4 flex flex-col gap-2.5 rounded-2xl border border-amber-300 bg-[#fffbeb] p-3.5 text-xs shadow-2xs sm:flex-row sm:items-center sm:justify-between"
             >
               <div class="flex items-start gap-2.5 sm:items-center">
                 <div
-                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                  class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-[#b45309]"
                 >
                   <Icon
                     name="lucide:alert-triangle"
@@ -1046,30 +1189,29 @@
                   />
                 </div>
                 <div>
-                  <p class="font-bold">
+                  <p class="font-bold text-[#78350f]">
                     {{ excludedPendingCount }} pending
                     {{ excludedPendingCount === 1 ? 'scan' : 'scans' }} unselected
                   </p>
-                  <p class="text-[11px] leading-relaxed text-amber-700/90 dark:text-amber-300/80">
+                  <p class="text-[11px] leading-relaxed text-[#92400e]">
                     Trained images are permanently included in the model. Unchecked pending scans
                     will remain in consultation records and will not be synced to the AI model.
                   </p>
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                <AppButton
-                  variant="outline"
-                  size="sm"
-                  class="h-7 border-amber-500/40 text-xs font-semibold text-amber-700 hover:bg-amber-500/20 dark:text-amber-300"
+                <button
+                  type="button"
+                  class="inline-flex h-7 items-center gap-1.5 rounded-xl bg-[#d97706] px-3 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#b45309] active:scale-[0.98]"
                   @click="selectAllImages"
                 >
                   <Icon
                     name="lucide:check-check"
-                    size="12"
-                    class="mr-1"
+                    size="13"
+                    class="text-white"
                   />
                   Include All Pending ({{ pendingScansCount }})
-                </AppButton>
+                </button>
               </div>
             </div>
 
@@ -1104,14 +1246,13 @@
               <div
                 v-for="img in filteredStandardImages"
                 :key="img.uuid"
-                class="group bg-card border-border relative flex flex-col overflow-hidden rounded-2xl border transition-all select-none"
+                class="group bg-card border-border relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all select-none hover:shadow-md"
                 :class="{
-                  'ring-border/80 cursor-default ring-1': isImageTrained(img) || isImageSynced(img),
-                  'cursor-pointer hover:shadow-md': !isImageTrained(img) && !isImageSynced(img),
-                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2':
-                    !isImageTrained(img) && !isImageSynced(img) && selectedUuids.has(img.uuid),
+                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2': selectedUuids.has(
+                    img.uuid
+                  ),
                   'border-border/60 bg-muted/20 hover:border-foreground/30 opacity-70 hover:opacity-100':
-                    !isImageTrained(img) && !isImageSynced(img) && !selectedUuids.has(img.uuid)
+                    !selectedUuids.has(img.uuid)
                 }"
                 @click="toggleImageSelection(img)"
               >
@@ -1140,52 +1281,24 @@
                     v-else
                     :src="resolveImageUrl(img)"
                     :alt="img.original_name || img.file_name || img.filename || 'Scan Image'"
-                    class="h-full w-full object-cover transition-transform duration-300"
+                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     :class="{
-                      'group-hover:scale-105': !isImageTrained(img) && !isImageSynced(img),
-                      'brightness-90 saturate-75':
-                        !isImageTrained(img) && !isImageSynced(img) && !selectedUuids.has(img.uuid)
+                      'brightness-90 saturate-75': !selectedUuids.has(img.uuid)
                     }"
                     loading="lazy"
                     @error="handleImageError(img.uuid)"
                   />
 
-                  <!-- Selection Checkbox / Trained / Synced Indicator (Top Left) -->
-                  <div class="absolute top-2 left-2 z-10">
+                  <!-- Selection Checkbox & Trained Status (Top Left) -->
+                  <div class="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                     <div
-                      v-if="isImageTrained(img)"
-                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90 shadow-xs backdrop-blur-md select-none"
-                      title="Trained dataset image — permanent baseline model data"
-                    >
-                      <Icon
-                        name="lucide:lock"
-                        size="10"
-                        class="text-emerald-400"
-                      />
-                      <span>Trained</span>
-                    </div>
-
-                    <div
-                      v-else-if="isImageSynced(img)"
-                      class="flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-950/70 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200 shadow-xs backdrop-blur-md select-none"
-                      title="Synced to local AI dataset storage — ready for model retraining"
-                    >
-                      <Icon
-                        name="lucide:cloud-check"
-                        size="11"
-                        class="text-emerald-400"
-                      />
-                      <span>Synced</span>
-                    </div>
-
-                    <div
-                      v-else
                       class="flex h-6 w-6 items-center justify-center rounded-lg transition-all"
                       :class="
                         selectedUuids.has(img.uuid)
                           ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-white/30'
-                          : 'border border-white/40 bg-black/50 text-white/40 backdrop-blur-xs'
+                          : 'border border-white/60 bg-black/60 text-white/40 backdrop-blur-xs'
                       "
+                      title="Toggle image selection for retraining"
                     >
                       <Icon
                         v-if="selectedUuids.has(img.uuid)"
@@ -1193,6 +1306,19 @@
                         size="14"
                         class="stroke-3"
                       />
+                    </div>
+
+                    <div
+                      v-if="isImageTrained(img)"
+                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs backdrop-blur-md select-none"
+                      title="Previously trained baseline scan"
+                    >
+                      <Icon
+                        name="lucide:check-circle-2"
+                        size="9"
+                        class="text-emerald-400"
+                      />
+                      <span>Trained</span>
                     </div>
                   </div>
 
@@ -1208,23 +1334,39 @@
                     </AppBadge>
                   </div>
 
-                  <!-- Trash Delete Button (Bottom Right overlay, available for un-trained scans) -->
-                  <button
-                    v-if="!isImageTrained(img)"
-                    type="button"
-                    class="hover:bg-destructive absolute right-2 bottom-2 z-20 flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
-                    :title="
-                      isImageSynced(img)
-                        ? 'Remove Synced Scan from Dataset'
-                        : 'Permanently Delete Pending Scan'
-                    "
-                    @click.stop="promptDeleteSingle(img)"
-                  >
-                    <Icon
-                      name="lucide:trash-2"
-                      size="12"
-                    />
-                  </button>
+                  <!-- Card Action Overlay (Bottom Right) -->
+                  <div class="absolute right-2 bottom-2 z-20 flex items-center gap-1.5">
+                    <!-- Transfer Category Button -->
+                    <button
+                      type="button"
+                      class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      title="Transfer scan to another category"
+                      @click.stop="promptTransferSingle(img)"
+                    >
+                      <Icon
+                        name="lucide:arrow-right-left"
+                        size="12"
+                      />
+                    </button>
+
+                    <!-- Trash Delete Button (available for un-trained scans) -->
+                    <button
+                      v-if="!isImageTrained(img)"
+                      type="button"
+                      class="hover:bg-destructive flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      :title="
+                        isImageSynced(img)
+                          ? 'Remove Synced Scan from Dataset'
+                          : 'Permanently Delete Pending Scan'
+                      "
+                      @click.stop="promptDeleteSingle(img)"
+                    >
+                      <Icon
+                        name="lucide:trash-2"
+                        size="12"
+                      />
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Footer Card Info -->
@@ -1257,14 +1399,28 @@
                     </span>
                     <span
                       v-else-if="isImageSynced(img)"
-                      class="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400"
-                      title="Synchronized to local dataset — ready for next retraining run"
+                      class="inline-flex items-center gap-1 font-semibold"
+                      :class="
+                        selectedUuids.has(img.uuid)
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-muted-foreground/80'
+                      "
+                      :title="
+                        selectedUuids.has(img.uuid)
+                          ? 'Synchronized to local dataset — included in active retraining scope'
+                          : 'Synchronized to local dataset — excluded from active retraining scope'
+                      "
                     >
                       <Icon
-                        name="lucide:cloud-check"
+                        :name="
+                          selectedUuids.has(img.uuid) ? 'lucide:cloud-check' : 'lucide:cloud-off'
+                        "
                         size="11"
+                        :class="
+                          selectedUuids.has(img.uuid) ? 'text-emerald-500' : 'text-muted-foreground'
+                        "
                       />
-                      Synced
+                      {{ selectedUuids.has(img.uuid) ? 'Synced' : 'Synced (Excluded)' }}
                     </span>
                     <span
                       v-else
@@ -1330,11 +1486,12 @@
                 Close
               </AppButton>
               <AppButton
-                variant="solid"
+                v-if="pendingSelectedCount > 0"
+                variant="outline"
                 size="md"
-                class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-md"
+                class="rounded-xl border-emerald-500/40 font-bold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
                 :loading="isSyncingScans"
-                :disabled="pendingSelectedCount === 0 || isSyncingScans"
+                :disabled="isSyncingScans"
                 @click="promptSyncSelectedScans"
               >
                 <Icon
@@ -1343,11 +1500,19 @@
                   class="mr-1.5"
                   :class="isSyncingScans ? 'animate-spin' : ''"
                 />
-                {{
-                  pendingSelectedCount > 0
-                    ? `Sync ${pendingSelectedCount} Selected ${pendingSelectedCount === 1 ? 'Scan' : 'Scans'}`
-                    : 'All Scans Synced'
-                }}
+                Sync {{ pendingSelectedCount }} Scans
+              </AppButton>
+              <AppButton
+                variant="solid"
+                size="md"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl font-bold shadow-md"
+                @click="handleConfirmScope"
+              >
+                <Icon
+                  name="lucide:check-circle-2"
+                  size="16"
+                />
+                Apply Retraining Scope ({{ selectedCount }} Scans)
               </AppButton>
             </div>
           </template>
@@ -1422,6 +1587,249 @@
     :loading="isSyncingScans"
     @confirm="handleExecuteSyncScans"
   />
+
+  <!-- Category Transfer Modal -->
+  <Teleport to="body">
+    <Transition name="modal">
+      <div
+        v-if="showTransferModal"
+        class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6"
+        @click.self="closeTransferModal"
+      >
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" />
+
+        <!-- Modal Container -->
+        <div
+          class="bg-card border-border relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border shadow-2xl transition-all"
+        >
+          <!-- Header -->
+          <div
+            class="border-border flex shrink-0 items-center justify-between border-b px-6 py-4 sm:px-8"
+          >
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
+              >
+                <Icon
+                  name="lucide:arrow-right-left"
+                  size="18"
+                />
+              </div>
+              <div>
+                <h3 class="text-foreground text-base font-bold sm:text-lg">
+                  {{
+                    isBulkTransfer ? `Transfer ${selectedCount} Scans` : 'Transfer Scan Category'
+                  }}
+                </h3>
+                <p class="text-muted-foreground text-xs">
+                  Reassign misclassified scans to their proper clinical disease category
+                </p>
+              </div>
+            </div>
+
+            <AppButton
+              variant="ghost"
+              size="icon"
+              class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+              :disabled="isTransferring"
+              @click="closeTransferModal"
+            >
+              <Icon
+                name="lucide:x"
+                class="h-4 w-4"
+              />
+            </AppButton>
+          </div>
+
+          <!-- Body -->
+          <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5 sm:px-8">
+            <!-- Single Preview -->
+            <div
+              v-if="!isBulkTransfer && imageToTransfer"
+              class="border-border/80 bg-muted/40 flex items-center gap-3.5 rounded-2xl border p-3"
+            >
+              <img
+                :src="resolveImageUrl(imageToTransfer)"
+                :alt="imageToTransfer.filename"
+                class="border-border h-16 w-16 shrink-0 rounded-xl border object-cover"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-foreground truncate font-mono text-xs font-semibold">
+                    {{
+                      imageToTransfer.original_name ||
+                      imageToTransfer.filename ||
+                      imageToTransfer.file_name
+                    }}
+                  </span>
+                </div>
+                <div class="mt-1 flex items-center gap-2 text-xs">
+                  <span class="text-muted-foreground text-[11px]">Current:</span>
+                  <span
+                    class="rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    :class="
+                      formatCategoryBadge(imageToTransfer.category).color === 'primary'
+                        ? 'bg-primary/10 border-primary/20 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                    "
+                  >
+                    {{ imageToTransfer.category }}
+                  </span>
+                  <span
+                    v-if="isImageSynced(imageToTransfer)"
+                    class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+                  >
+                    · Synced
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bulk Preview Strip -->
+            <div
+              v-else-if="isBulkTransfer"
+              class="border-border/80 bg-muted/40 rounded-2xl border p-3.5"
+            >
+              <div class="mb-2 flex items-center justify-between text-xs">
+                <span class="text-foreground font-semibold">
+                  Selected Images ({{ selectedCount }})
+                </span>
+                <span
+                  v-if="currentSelectionCategory"
+                  class="text-muted-foreground text-[11px]"
+                >
+                  All from
+                  <strong class="text-foreground capitalize">{{ currentSelectionCategory }}</strong>
+                </span>
+              </div>
+              <div class="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-1">
+                <div
+                  v-for="img in images.filter(i => selectedUuids.has(i.uuid)).slice(0, 8)"
+                  :key="img.uuid"
+                  class="relative shrink-0"
+                >
+                  <img
+                    :src="resolveImageUrl(img)"
+                    :alt="img.filename"
+                    class="border-border h-12 w-12 rounded-lg border object-cover"
+                  />
+                </div>
+                <div
+                  v-if="selectedCount > 8"
+                  class="border-border bg-background text-muted-foreground flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-bold"
+                >
+                  +{{ selectedCount - 8 }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Target Category Selection -->
+            <div>
+              <label
+                class="text-foreground mb-2.5 block text-xs font-bold tracking-wider uppercase"
+              >
+                Select Destination Category
+              </label>
+
+              <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                <button
+                  v-for="opt in transferTargetOptions"
+                  :key="opt.id"
+                  type="button"
+                  :disabled="opt.id === currentSelectionCategory"
+                  class="relative flex flex-col items-start rounded-2xl border p-3.5 text-left transition-all duration-150"
+                  :class="[
+                    opt.id === currentSelectionCategory
+                      ? 'border-border/60 bg-muted/30 cursor-not-allowed opacity-50'
+                      : targetTransferCategory === opt.id
+                        ? 'border-primary bg-primary/5 ring-primary/20 shadow-xs ring-2'
+                        : 'border-border hover:border-primary/40 hover:bg-muted/50 cursor-pointer'
+                  ]"
+                  @click="targetTransferCategory = opt.id"
+                >
+                  <div class="mb-1.5 flex w-full items-center justify-between">
+                    <span
+                      class="rounded-lg border px-2 py-0.5 text-[11px] font-bold uppercase"
+                      :class="opt.badgeClass"
+                    >
+                      {{ opt.name }}
+                    </span>
+
+                    <Icon
+                      v-if="
+                        targetTransferCategory === opt.id && opt.id !== currentSelectionCategory
+                      "
+                      name="lucide:check-circle-2"
+                      size="16"
+                      class="text-primary"
+                    />
+                    <span
+                      v-else-if="opt.id === currentSelectionCategory"
+                      class="text-muted-foreground text-[9px] font-semibold uppercase"
+                    >
+                      Current
+                    </span>
+                  </div>
+
+                  <p class="text-muted-foreground text-[11px] leading-snug">
+                    {{ opt.desc }}
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            <!-- Informational Banner -->
+            <div
+              class="flex items-start gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-300"
+            >
+              <Icon
+                name="lucide:info"
+                size="15"
+                class="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400"
+              />
+              <p class="text-[11px] leading-relaxed">
+                Reassigning will update consultation diagnostic labels, relocate files in local
+                dataset storage, and update the AI algorithm raw directory mirror for upcoming model
+                training.
+              </p>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div
+            class="border-border bg-card/95 flex shrink-0 items-center justify-end gap-2.5 border-t px-6 py-4 sm:px-8"
+          >
+            <AppButton
+              variant="ghost"
+              size="sm"
+              class="rounded-xl text-xs font-semibold"
+              :disabled="isTransferring"
+              @click="closeTransferModal"
+            >
+              Cancel
+            </AppButton>
+
+            <AppButton
+              variant="solid"
+              size="sm"
+              class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl text-xs font-bold shadow-xs"
+              :loading="isTransferring"
+              :disabled="isTransferring || targetTransferCategory === currentSelectionCategory"
+              @click="handleExecuteTransfer"
+            >
+              <Icon
+                name="lucide:arrow-right-left"
+                size="13"
+              />
+              Transfer to
+              {{ targetTransferCategory.charAt(0).toUpperCase() + targetTransferCategory.slice(1) }}
+            </AppButton>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -1441,5 +1849,14 @@
   .slideover-enter-from,
   .slideover-leave-to {
     transform: translateX(100%);
+  }
+
+  .modal-enter-active,
+  .modal-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .modal-enter-from,
+  .modal-leave-to {
+    opacity: 0;
   }
 </style>

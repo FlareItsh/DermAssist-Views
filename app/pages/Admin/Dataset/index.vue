@@ -194,6 +194,168 @@
     }
   }
 
+  // ── Category Transfer State & Actions ────────────────────────────────
+  const showTransferModal = ref(false)
+  const isTransferring = ref(false)
+  const isBulkTransfer = ref(false)
+  const itemToTransfer = ref<DatasetImageItem | null>(null)
+  const targetTransferCategory = ref<string>('acne')
+
+  const transferTargetOptions = [
+    {
+      id: 'acne',
+      name: 'Acne',
+      desc: 'Follicular eruptions, inflammatory papules & pustules',
+      badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+    },
+    {
+      id: 'eczema',
+      name: 'Eczema',
+      desc: 'Atopic dermatitis, inflamed, scaling, or pruritic patches',
+      badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30'
+    },
+    {
+      id: 'herpes',
+      name: 'Herpes',
+      desc: 'Clustered vesicular eruptions, ulcerations & viral lesions',
+      badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
+    }
+  ]
+
+  const selectedPriorityItems = computed(() => {
+    return allPriorityItems.value.filter(item => selectedPriorityUrls.value.has(item.url))
+  })
+
+  const currentSelectionCategory = computed(() => {
+    if (!isBulkTransfer.value && itemToTransfer.value) {
+      for (const d of datasets.value) {
+        if (
+          (d.items || []).some(i => i.url === itemToTransfer.value?.url) ||
+          (d.images || []).includes(itemToTransfer.value?.url || '')
+        ) {
+          return d.category.toLowerCase()
+        }
+      }
+      return null
+    }
+    if (isBulkTransfer.value && selectedPriorityItems.value.length > 0) {
+      const cats = new Set<string>()
+      for (const item of selectedPriorityItems.value) {
+        for (const d of datasets.value) {
+          if (
+            (d.items || []).some(i => i.url === item.url) ||
+            (d.images || []).includes(item.url)
+          ) {
+            cats.add(d.category.toLowerCase())
+            break
+          }
+        }
+      }
+      if (cats.size === 1) {
+        return Array.from(cats)[0]
+      }
+    }
+    return null
+  })
+
+  const promptTransferPriorityImage = (item: DatasetImageItem) => {
+    itemToTransfer.value = item
+    isBulkTransfer.value = false
+
+    let currentCat = ''
+    for (const d of datasets.value) {
+      if ((d.items || []).some(i => i.url === item.url) || (d.images || []).includes(item.url)) {
+        currentCat = d.category.toLowerCase()
+        break
+      }
+    }
+
+    if (currentCat === 'acne') {
+      targetTransferCategory.value = 'eczema'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const promptBulkTransferPriority = () => {
+    if (selectedPriorityUrls.value.size === 0) return
+    itemToTransfer.value = null
+    isBulkTransfer.value = true
+
+    if (currentSelectionCategory.value === 'acne') {
+      targetTransferCategory.value = 'herpes'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const promptCategorySelectedTransfer = (dataset: DatasetCategory) => {
+    const catUrls = getCategoryItems(dataset).map(i => i.url)
+    const selectedInCat = catUrls.filter(url => selectedPriorityUrls.value.has(url))
+    if (selectedInCat.length === 0) return
+
+    selectedPriorityUrls.value = new Set(selectedInCat)
+    itemToTransfer.value = null
+    isBulkTransfer.value = true
+
+    const catName = (dataset.category || '').toLowerCase()
+    if (catName === 'acne') {
+      targetTransferCategory.value = 'herpes'
+    } else if (catName === 'herpes') {
+      targetTransferCategory.value = 'acne'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const closeTransferModal = () => {
+    if (isTransferring.value) return
+    showTransferModal.value = false
+    itemToTransfer.value = null
+  }
+
+  const handleConfirmTransfer = async () => {
+    const target = targetTransferCategory.value
+    isTransferring.value = true
+
+    try {
+      const targets: string[] = isBulkTransfer.value
+        ? selectedPriorityItems.value.map(i => i.diagnosis_uuid || i.filename || i.url)
+        : itemToTransfer.value
+          ? ([
+              itemToTransfer.value.diagnosis_uuid ||
+                itemToTransfer.value.filename ||
+                itemToTransfer.value.url
+            ].filter(Boolean) as string[])
+          : []
+
+      if (targets.length === 0) {
+        showTransferModal.value = false
+        return
+      }
+
+      const res = await modelTrainingService.recategorizeTrainingImages(targets, target)
+      const targetTitle = target.charAt(0).toUpperCase() + target.slice(1)
+
+      toast.success(
+        res.message || `Successfully transferred ${targets.length} scan(s) to ${targetTitle}.`
+      )
+
+      selectedPriorityUrls.value = new Set()
+      showTransferModal.value = false
+      itemToTransfer.value = null
+      await fetchDataset()
+    } catch (err: any) {
+      console.error('Failed to transfer image category:', err)
+      toast.error(err?.data?.message || err?.message || 'Failed to transfer image category.')
+    } finally {
+      isTransferring.value = false
+    }
+  }
+
   // ── Standard Dataset & Sync State ─────────────────────────────────────
   const isLoading = ref(false)
   const isDeleting = ref(false)
@@ -835,6 +997,18 @@
                 Clear
               </button>
               <AppButton
+                variant="solid"
+                size="sm"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 font-bold shadow-xs"
+                @click="promptBulkTransferPriority"
+              >
+                <Icon
+                  name="lucide:arrow-right-left"
+                  size="14"
+                />
+                Transfer Selected ({{ selectedPriorityUrls.size }})
+              </AppButton>
+              <AppButton
                 variant="destructive"
                 size="sm"
                 class="gap-1.5 shadow-xs"
@@ -897,6 +1071,26 @@
               </label>
 
               <AppButton
+                v-if="
+                  getCategorySelectedCountPriority(getCategoryItems(dataset).map(i => i.url)) > 0
+                "
+                variant="outline"
+                size="sm"
+                class="border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground gap-1.5 font-semibold shadow-xs transition-all"
+                @click="promptCategorySelectedTransfer(dataset)"
+              >
+                <Icon
+                  name="lucide:arrow-right-left"
+                  size="14"
+                />
+                <span>
+                  Transfer ({{
+                    getCategorySelectedCountPriority(getCategoryItems(dataset).map(i => i.url))
+                  }})
+                </span>
+              </AppButton>
+
+              <AppButton
                 variant="outline"
                 size="sm"
                 class="gap-1.5"
@@ -954,14 +1148,17 @@
                   loading="lazy"
                 />
 
-                <!-- Selection Checkmark (Top Left) -->
-                <div class="absolute top-2 left-2 z-10 transition-all">
+                <!-- Selection Checkbox (Top Left) -->
+                <div
+                  class="absolute top-2 left-2 z-10 transition-all"
+                  title="Select image for bulk transfer or deletion"
+                >
                   <div
                     class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
                     :class="
                       selectedPriorityUrls.has(item.url)
-                        ? 'bg-primary border-primary text-white shadow-xs'
-                        : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                        ? 'bg-primary border-primary text-white shadow-xs ring-2 ring-white/40'
+                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs backdrop-blur-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
                     "
                   >
                     <Icon
@@ -1018,17 +1215,30 @@
                         {{ item.filename || 'scan.jpg' }}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      class="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-red-600/80 text-white shadow-xs transition-transform hover:scale-110 hover:bg-red-600"
-                      title="Delete Image"
-                      @click.stop="promptDeleteImage(item.url, false)"
-                    >
-                      <Icon
-                        name="lucide:trash-2"
-                        size="13"
-                      />
-                    </button>
+                    <div class="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        class="hover:bg-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs backdrop-blur-xs transition-transform hover:scale-110 hover:text-white"
+                        title="Transfer Category"
+                        @click.stop="promptTransferPriorityImage(item)"
+                      >
+                        <Icon
+                          name="lucide:arrow-right-left"
+                          size="13"
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-red-600/80 text-white shadow-xs transition-transform hover:scale-110 hover:bg-red-600"
+                        title="Delete Image"
+                        @click.stop="promptDeleteImage(item.url, false)"
+                      >
+                        <Icon
+                          name="lucide:trash-2"
+                          size="13"
+                        />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1421,13 +1631,16 @@
                 />
 
                 <!-- Selection Checkmark (Top Left) -->
-                <div class="absolute top-2 left-2 z-10 transition-all">
+                <div
+                  class="absolute top-2 left-2 z-10 transition-all"
+                  title="Select image"
+                >
                   <div
                     class="flex h-5 w-5 items-center justify-center rounded-md border transition-all duration-150"
                     :class="
                       selectedOosUrls.has(url)
-                        ? 'border-violet-600 bg-violet-600 text-white shadow-xs'
-                        : 'border-white/60 bg-black/40 text-transparent opacity-0 backdrop-blur-xs group-hover:opacity-100'
+                        ? 'border-violet-600 bg-violet-600 text-white shadow-xs ring-2 ring-white/40'
+                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs backdrop-blur-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
                     "
                   >
                     <Icon
@@ -1620,6 +1833,253 @@
       v-model="showDatasetSlideover"
       @synced="fetchDataset"
       @deleted="fetchDataset"
+      @transferred="fetchDataset"
     />
+
+    <!-- Category Transfer Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="showTransferModal"
+          class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6"
+          @click.self="closeTransferModal"
+        >
+          <!-- Backdrop -->
+          <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" />
+
+          <!-- Modal Container -->
+          <div
+            class="bg-card border-border relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-[2rem] border shadow-2xl transition-all"
+          >
+            <!-- Header -->
+            <div
+              class="border-border flex shrink-0 items-center justify-between border-b px-6 py-4 sm:px-8"
+            >
+              <div class="flex items-center gap-2.5">
+                <div
+                  class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
+                >
+                  <Icon
+                    name="lucide:arrow-right-left"
+                    size="18"
+                  />
+                </div>
+                <div>
+                  <h3 class="text-foreground text-base font-bold sm:text-lg">
+                    {{
+                      isBulkTransfer
+                        ? `Transfer ${selectedPriorityUrls.size} Scans`
+                        : 'Transfer Scan Category'
+                    }}
+                  </h3>
+                  <p class="text-muted-foreground text-xs">
+                    Reassign misclassified scans to their proper clinical disease category
+                  </p>
+                </div>
+              </div>
+
+              <AppButton
+                variant="ghost"
+                size="icon"
+                class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+                :disabled="isTransferring"
+                @click="closeTransferModal"
+              >
+                <Icon
+                  name="lucide:x"
+                  class="h-4 w-4"
+                />
+              </AppButton>
+            </div>
+
+            <!-- Body -->
+            <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5 sm:px-8">
+              <!-- Single Preview -->
+              <div
+                v-if="!isBulkTransfer && itemToTransfer"
+                class="border-border/80 bg-muted/40 flex items-center gap-3.5 rounded-2xl border p-3"
+              >
+                <img
+                  :src="getStorageUrl(itemToTransfer.url)"
+                  :alt="itemToTransfer.filename"
+                  class="border-border h-16 w-16 shrink-0 rounded-xl border object-cover"
+                />
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-foreground truncate font-mono text-xs font-semibold">
+                      {{ itemToTransfer.filename || 'scan.jpg' }}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex items-center gap-2 text-xs">
+                    <span class="text-muted-foreground text-[11px]">Current Category:</span>
+                    <span
+                      class="bg-primary/10 border-primary/20 text-primary rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                    >
+                      {{ currentSelectionCategory || 'Acne' }}
+                    </span>
+                    <span
+                      v-if="itemToTransfer.is_synced"
+                      class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400"
+                    >
+                      · Synced
+                    </span>
+                    <span
+                      v-else
+                      class="text-[10px] font-medium text-amber-600 dark:text-amber-400"
+                    >
+                      · Pending Sync
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bulk Preview Strip -->
+              <div
+                v-else-if="isBulkTransfer"
+                class="border-border/80 bg-muted/40 rounded-2xl border p-3.5"
+              >
+                <div class="mb-2 flex items-center justify-between text-xs">
+                  <span class="text-foreground font-semibold">
+                    Selected Images ({{ selectedPriorityUrls.size }})
+                  </span>
+                  <span
+                    v-if="currentSelectionCategory"
+                    class="text-muted-foreground text-[11px]"
+                  >
+                    All from
+                    <strong class="text-foreground capitalize">{{
+                      currentSelectionCategory
+                    }}</strong>
+                  </span>
+                </div>
+                <div class="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-1">
+                  <div
+                    v-for="item in selectedPriorityItems.slice(0, 8)"
+                    :key="item.url"
+                    class="relative shrink-0"
+                  >
+                    <img
+                      :src="getStorageUrl(item.url)"
+                      :alt="item.filename"
+                      class="border-border h-12 w-12 rounded-lg border object-cover"
+                    />
+                  </div>
+                  <div
+                    v-if="selectedPriorityUrls.size > 8"
+                    class="border-border bg-background text-muted-foreground flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-bold"
+                  >
+                    +{{ selectedPriorityUrls.size - 8 }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Target Category Selection -->
+              <div>
+                <label
+                  class="text-foreground mb-2.5 block text-xs font-bold tracking-wider uppercase"
+                >
+                  Select Destination Category
+                </label>
+
+                <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                  <button
+                    v-for="opt in transferTargetOptions"
+                    :key="opt.id"
+                    type="button"
+                    :disabled="opt.id === currentSelectionCategory"
+                    class="relative flex flex-col items-start rounded-2xl border p-3.5 text-left transition-all duration-150"
+                    :class="[
+                      opt.id === currentSelectionCategory
+                        ? 'border-border/60 bg-muted/30 cursor-not-allowed opacity-50'
+                        : targetTransferCategory === opt.id
+                          ? 'border-primary bg-primary/5 ring-primary/20 shadow-xs ring-2'
+                          : 'border-border hover:border-primary/40 hover:bg-muted/50 cursor-pointer'
+                    ]"
+                    @click="targetTransferCategory = opt.id"
+                  >
+                    <div class="mb-1.5 flex w-full items-center justify-between">
+                      <span
+                        class="rounded-lg border px-2 py-0.5 text-[11px] font-bold uppercase"
+                        :class="opt.badgeClass"
+                      >
+                        {{ opt.name }}
+                      </span>
+
+                      <Icon
+                        v-if="
+                          targetTransferCategory === opt.id && opt.id !== currentSelectionCategory
+                        "
+                        name="lucide:check-circle-2"
+                        size="16"
+                        class="text-primary"
+                      />
+                      <span
+                        v-else-if="opt.id === currentSelectionCategory"
+                        class="text-muted-foreground text-[9px] font-semibold uppercase"
+                      >
+                        Current
+                      </span>
+                    </div>
+
+                    <p class="text-muted-foreground text-[11px] leading-snug">
+                      {{ opt.desc }}
+                    </p>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Informational Banner -->
+              <div
+                class="flex items-start gap-2.5 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-300"
+              >
+                <Icon
+                  name="lucide:info"
+                  size="15"
+                  class="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400"
+                />
+                <p class="text-[11px] leading-relaxed">
+                  Reassigning will update consultation diagnostic labels, relocate physical files in
+                  local dataset storage, and update the AI algorithm raw directory mirror for
+                  upcoming model retraining.
+                </p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div
+              class="border-border bg-card/95 flex shrink-0 items-center justify-end gap-2.5 border-t px-6 py-4 sm:px-8"
+            >
+              <AppButton
+                variant="ghost"
+                size="sm"
+                class="rounded-xl text-xs font-semibold"
+                :disabled="isTransferring"
+                @click="closeTransferModal"
+              >
+                Cancel
+              </AppButton>
+
+              <AppButton
+                variant="solid"
+                size="sm"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl text-xs font-bold shadow-xs"
+                :loading="isTransferring"
+                :disabled="isTransferring || targetTransferCategory === currentSelectionCategory"
+                @click="handleConfirmTransfer"
+              >
+                <Icon
+                  name="lucide:arrow-right-left"
+                  size="13"
+                />
+                Transfer to
+                {{
+                  targetTransferCategory.charAt(0).toUpperCase() + targetTransferCategory.slice(1)
+                }}
+              </AppButton>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

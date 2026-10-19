@@ -654,7 +654,7 @@
   const route = useRoute()
 
   const registerWithGoogle = () => {
-    const apiBase = config.public.apiBase || 'http://localhost:8000/api'
+    const apiBase = resolveApiBase(config.public.apiBase)
     window.location.href = `${apiBase}/auth/google/redirect?role=${role.value}`
   }
 
@@ -1510,9 +1510,7 @@
               :disabled="isLoading"
               @click="handleStep2Click"
             >
-              <span>{{
-                isLoading ? 'Completing Registration...' : 'Complete Registration'
-              }}</span>
+              <span>{{ isLoading ? 'Completing Registration...' : 'Complete Registration' }}</span>
               <template
                 #trailing
                 v-if="!isLoading"

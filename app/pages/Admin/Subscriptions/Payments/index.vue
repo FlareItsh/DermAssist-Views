@@ -112,9 +112,6 @@
                   })
                 }}
               </p>
-              <p class="mt-0.5 font-mono break-all text-gray-500">
-                Ref: {{ invoice.transaction_reference || 'N/A' }}
-              </p>
             </div>
           </article>
         </template>
@@ -129,7 +126,6 @@
               <th class="px-5 py-3.5">Doctor</th>
               <th class="px-5 py-3.5">Subscribed Plan</th>
               <th class="px-5 py-3.5">Amount</th>
-              <th class="px-5 py-3.5">Gateway Reference</th>
               <th class="px-5 py-3.5">Payment Method</th>
               <th class="px-5 py-3.5">Date</th>
               <th class="px-5 py-3.5 text-right">Status</th>
@@ -138,7 +134,7 @@
           <tbody class="divide-y divide-gray-100">
             <tr v-if="isLoading">
               <td
-                colspan="7"
+                colspan="6"
                 class="px-5 py-10 text-center text-gray-500"
               >
                 <div class="flex items-center justify-center gap-2">
@@ -152,7 +148,7 @@
             </tr>
             <tr v-else-if="payments.length === 0">
               <td
-                colspan="7"
+                colspan="6"
                 class="px-5 py-12 text-center text-gray-500"
               >
                 <Icon
@@ -188,9 +184,6 @@
                 ₱{{
                   Number(invoice.final_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })
                 }}
-              </td>
-              <td class="px-5 py-4 font-mono text-xs text-gray-600">
-                {{ invoice.transaction_reference || 'N/A' }}
               </td>
               <td class="px-5 py-4 text-xs font-semibold text-gray-700 uppercase">
                 {{

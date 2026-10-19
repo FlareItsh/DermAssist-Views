@@ -48,7 +48,39 @@ export const useStorage = () => {
 
     // If storageBase is configured (e.g. http://localhost:8000/storage), use it
     if (storageBase) {
-      const base = storageBase.endsWith('/') ? storageBase.slice(0, -1) : storageBase
+      let base = storageBase.endsWith('/') ? storageBase.slice(0, -1) : storageBase
+      if (typeof window !== 'undefined') {
+        const currentHost = window.location.hostname
+        if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+          try {
+            const url = new URL(base)
+            if (
+              url.hostname === 'localhost' ||
+              url.hostname === '127.0.0.1' ||
+              /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(url.hostname)
+            ) {
+              url.hostname = currentHost
+              base = url.toString().replace(/\/+$/, '')
+            }
+          } catch {
+            // ignore
+          }
+        } else {
+          try {
+            const url = new URL(base)
+            if (
+              url.hostname !== 'localhost' &&
+              url.hostname !== '127.0.0.1' &&
+              /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(url.hostname)
+            ) {
+              url.hostname = currentHost
+              base = url.toString().replace(/\/+$/, '')
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
       return `${base}/${cleanPath}`
     }
 
