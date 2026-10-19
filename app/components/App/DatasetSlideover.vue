@@ -160,20 +160,16 @@
         herpes: rawImages.filter(i => (i.category || '').toLowerCase() === 'herpes').length
       }
 
-      // Initialize or preserve selected UUIDs (only trained baseline images are permanently locked)
+      // Initialize or preserve selected UUIDs
       const availableUuids = new Set(images.value.map(img => img.uuid))
-      const trainedUuids = images.value.filter(img => isImageTrained(img)).map(img => img.uuid)
 
       if (!isInitial && selectedUuids.value.size > 0) {
         // Preserve active user choices across reloads, filtering out any deleted scans
         const next = new Set(Array.from(selectedUuids.value).filter(id => availableUuids.has(id)))
-        trainedUuids.forEach(id => next.add(id))
         selectedUuids.value = next
       } else if (props.initialSelectedUuids && props.initialSelectedUuids.length > 0) {
         const validSelections = props.initialSelectedUuids.filter(uuid => availableUuids.has(uuid))
-        const next = new Set(validSelections.length > 0 ? validSelections : availableUuids)
-        trainedUuids.forEach(id => next.add(id))
-        selectedUuids.value = next
+        selectedUuids.value = new Set(validSelections.length > 0 ? validSelections : availableUuids)
       } else {
         selectedUuids.value = new Set(availableUuids)
       }
@@ -316,16 +312,12 @@
 
   const imagesInView = computed(() => filteredStandardImages.value)
   const isAllInViewSelected = computed(() => {
-    const selectableInView = imagesInView.value.filter(img => !isImageTrained(img))
-    if (selectableInView.length === 0) return true
-    return selectableInView.every(img => selectedUuids.value.has(img.uuid))
+    if (imagesInView.value.length === 0) return false
+    return imagesInView.value.every(img => selectedUuids.value.has(img.uuid))
   })
 
-  // Selection toggles (Only permanently trained weights are locked)
+  // Selection toggles (Allow user to select/deselect any scan for retraining scope)
   const toggleImageSelection = (img: TrainingImageItem) => {
-    if (isImageTrained(img)) {
-      return
-    }
     const next = new Set(selectedUuids.value)
     if (next.has(img.uuid)) {
       next.delete(img.uuid)
@@ -336,16 +328,15 @@
   }
 
   const toggleSelectAllInView = () => {
-    const selectableInView = imagesInView.value.filter(img => !isImageTrained(img))
-    if (selectableInView.length === 0) return
+    if (imagesInView.value.length === 0) return
 
     const next = new Set(selectedUuids.value)
-    const allSelectableInViewSelected = selectableInView.every(img => next.has(img.uuid))
+    const allSelected = imagesInView.value.every(img => next.has(img.uuid))
 
-    if (allSelectableInViewSelected) {
-      selectableInView.forEach(img => next.delete(img.uuid))
+    if (allSelected) {
+      imagesInView.value.forEach(img => next.delete(img.uuid))
     } else {
-      selectableInView.forEach(img => next.add(img.uuid))
+      imagesInView.value.forEach(img => next.add(img.uuid))
     }
     selectedUuids.value = next
   }
@@ -354,19 +345,12 @@
     const next = new Set<string>()
     images.value.forEach(img => next.add(img.uuid))
     selectedUuids.value = next
-    toast.success('Included all candidate scans for retraining.')
+    toast.success(`Selected all ${images.value.length} candidate scans.`)
   }
 
   const deselectAllImages = () => {
-    // Only deselect customizable scans; permanently trained baseline images remain locked
-    const next = new Set<string>()
-    images.value.forEach(img => {
-      if (isImageTrained(img)) {
-        next.add(img.uuid)
-      }
-    })
-    selectedUuids.value = next
-    toast.info('Excluded customizable scans from selection.')
+    selectedUuids.value = new Set()
+    toast.info('Cleared training image selection.')
   }
 
   // Deletion Actions (Trained baseline images are permanent and cannot be deleted)
@@ -973,38 +957,37 @@
             <!-- Quick Selection & Deletion Helpers -->
             <div class="flex flex-wrap items-center gap-2">
               <AppButton
-                v-if="customizableCount > 0"
                 variant="outline"
                 size="sm"
                 class="h-7 gap-1.5 text-xs font-semibold"
-                :disabled="imagesInView.filter(img => !isImageTrained(img)).length === 0"
+                :disabled="imagesInView.length === 0"
                 @click="toggleSelectAllInView"
               >
                 <Icon
                   :name="isAllInViewSelected ? 'lucide:minus-square' : 'lucide:check-square'"
                   size="13"
                 />
-                {{ isAllInViewSelected ? 'Exclude in View' : 'Include in View' }}
+                {{ isAllInViewSelected ? 'Deselect in View' : 'Select in View' }}
               </AppButton>
 
               <AppButton
-                v-if="excludedCount > 0"
+                v-if="selectedCount < images.length"
                 variant="ghost"
                 size="sm"
                 class="text-primary hover:bg-primary/10 h-7 text-xs font-semibold"
                 @click="selectAllImages"
               >
-                Include All ({{ customizableCount }})
+                Select All ({{ images.length }})
               </AppButton>
 
               <AppButton
-                v-if="customizableSelectedCount > 0"
+                v-if="selectedCount > 0"
                 variant="ghost"
                 size="sm"
                 class="text-muted-foreground hover:bg-foreground/10 h-7 text-xs font-medium"
                 @click="deselectAllImages"
               >
-                Exclude Selected ({{ customizableSelectedCount }})
+                Clear Selection ({{ selectedCount }})
               </AppButton>
 
               <!-- Bulk Transfer Category Button -->
@@ -1263,14 +1246,13 @@
               <div
                 v-for="img in filteredStandardImages"
                 :key="img.uuid"
-                class="group bg-card border-border relative flex flex-col overflow-hidden rounded-2xl border transition-all select-none"
+                class="group bg-card border-border relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border transition-all select-none hover:shadow-md"
                 :class="{
-                  'ring-border/80 cursor-default ring-1': isImageTrained(img),
-                  'cursor-pointer hover:shadow-md': !isImageTrained(img),
-                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2':
-                    !isImageTrained(img) && selectedUuids.has(img.uuid),
+                  'ring-primary border-primary bg-primary/5 shadow-xs ring-2': selectedUuids.has(
+                    img.uuid
+                  ),
                   'border-border/60 bg-muted/20 hover:border-foreground/30 opacity-70 hover:opacity-100':
-                    !isImageTrained(img) && !selectedUuids.has(img.uuid)
+                    !selectedUuids.has(img.uuid)
                 }"
                 @click="toggleImageSelection(img)"
               >
@@ -1299,39 +1281,24 @@
                     v-else
                     :src="resolveImageUrl(img)"
                     :alt="img.original_name || img.file_name || img.filename || 'Scan Image'"
-                    class="h-full w-full object-cover transition-transform duration-300"
+                    class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     :class="{
-                      'group-hover:scale-105': !isImageTrained(img),
-                      'brightness-90 saturate-75':
-                        !isImageTrained(img) && !selectedUuids.has(img.uuid)
+                      'brightness-90 saturate-75': !selectedUuids.has(img.uuid)
                     }"
                     loading="lazy"
                     @error="handleImageError(img.uuid)"
                   />
 
-                  <!-- Selection Checkbox / Trained / Synced Indicator (Top Left) -->
-                  <div class="absolute top-2 left-2 z-10">
+                  <!-- Selection Checkbox & Trained Status (Top Left) -->
+                  <div class="absolute top-2 left-2 z-10 flex items-center gap-1.5">
                     <div
-                      v-if="isImageTrained(img)"
-                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90 shadow-xs backdrop-blur-md select-none"
-                      title="Trained dataset image — permanent baseline model data"
-                    >
-                      <Icon
-                        name="lucide:lock"
-                        size="10"
-                        class="text-emerald-400"
-                      />
-                      <span>Trained</span>
-                    </div>
-
-                    <div
-                      v-else
                       class="flex h-6 w-6 items-center justify-center rounded-lg transition-all"
                       :class="
                         selectedUuids.has(img.uuid)
                           ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-white/30'
-                          : 'border border-white/40 bg-black/50 text-white/40 backdrop-blur-xs'
+                          : 'border border-white/60 bg-black/60 text-white/40 backdrop-blur-xs'
                       "
+                      title="Toggle image selection for retraining"
                     >
                       <Icon
                         v-if="selectedUuids.has(img.uuid)"
@@ -1339,6 +1306,19 @@
                         size="14"
                         class="stroke-3"
                       />
+                    </div>
+
+                    <div
+                      v-if="isImageTrained(img)"
+                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs backdrop-blur-md select-none"
+                      title="Previously trained baseline scan"
+                    >
+                      <Icon
+                        name="lucide:check-circle-2"
+                        size="9"
+                        class="text-emerald-400"
+                      />
+                      <span>Trained</span>
                     </div>
                   </div>
 
@@ -1506,11 +1486,12 @@
                 Close
               </AppButton>
               <AppButton
-                variant="solid"
+                v-if="pendingSelectedCount > 0"
+                variant="outline"
                 size="md"
-                class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-md"
+                class="rounded-xl border-emerald-500/40 font-bold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
                 :loading="isSyncingScans"
-                :disabled="pendingSelectedCount === 0 || isSyncingScans"
+                :disabled="isSyncingScans"
                 @click="promptSyncSelectedScans"
               >
                 <Icon
@@ -1519,11 +1500,19 @@
                   class="mr-1.5"
                   :class="isSyncingScans ? 'animate-spin' : ''"
                 />
-                {{
-                  pendingSelectedCount > 0
-                    ? `Sync ${pendingSelectedCount} Selected ${pendingSelectedCount === 1 ? 'Scan' : 'Scans'}`
-                    : 'All Scans Synced'
-                }}
+                Sync {{ pendingSelectedCount }} Scans
+              </AppButton>
+              <AppButton
+                variant="solid"
+                size="md"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl font-bold shadow-md"
+                @click="handleConfirmScope"
+              >
+                <Icon
+                  name="lucide:check-circle-2"
+                  size="16"
+                />
+                Apply Retraining Scope ({{ selectedCount }} Scans)
               </AppButton>
             </div>
           </template>

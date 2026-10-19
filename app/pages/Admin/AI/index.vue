@@ -3,13 +3,16 @@
   import {
     modelTrainingService,
     type ModelStatsResponse,
-    type TrainingStatusResponse
+    type TrainingStatusResponse,
+    type TrainingImageItem
   } from '~/api/modelTraining/ModelTrainingService'
   import { toast } from 'vue-sonner'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
+
+  const { getStorageUrl } = useStorage()
 
   // Configuration
   const selectedArch = ref<'swin_transformer' | 'resnet50' | 'efficientnet_v2'>('swin_transformer')
@@ -33,6 +36,69 @@
   const selectedTrainingImageUuids = ref<string[]>([])
   const selectedTrainingMode = ref<'quick' | 'full'>('quick')
   const freshStart = ref(false)
+
+  // Retraining Scope & Included Images
+  const allTrainingImages = ref<TrainingImageItem[]>([])
+  const isLoadingTrainingImages = ref(false)
+  const showIncludedImagesModal = ref(false)
+
+  const fetchTrainingImages = async () => {
+    isLoadingTrainingImages.value = true
+    try {
+      const res: any = await modelTrainingService.getTrainingImages()
+      allTrainingImages.value = res.images || res.data || []
+    } catch (e) {
+      console.error('Failed to load training images', e)
+    } finally {
+      isLoadingTrainingImages.value = false
+    }
+  }
+
+  const includedTrainingImages = computed<TrainingImageItem[]>(() => {
+    if (selectedTrainingImageUuids.value.length > 0) {
+      const uuidSet = new Set(selectedTrainingImageUuids.value)
+      return allTrainingImages.value.filter(img => uuidSet.has(img.uuid))
+    }
+    return allTrainingImages.value
+  })
+
+  const includedCategoryCounts = computed(() => {
+    const counts: Record<string, number> = { acne: 0, eczema: 0, herpes: 0 }
+    includedTrainingImages.value.forEach(img => {
+      const cat = (img.category || '').toLowerCase()
+      if (cat in counts) counts[cat]++
+    })
+    return counts
+  })
+
+  const removeImageFromScope = (uuid: string) => {
+    if (selectedTrainingImageUuids.value.length === 0) {
+      selectedTrainingImageUuids.value = allTrainingImages.value
+        .map(i => i.uuid)
+        .filter(id => id !== uuid)
+    } else {
+      selectedTrainingImageUuids.value = selectedTrainingImageUuids.value.filter(id => id !== uuid)
+    }
+    toast.info('Removed scan from retraining scope.')
+  }
+
+  const resetToAllImages = () => {
+    selectedTrainingImageUuids.value = []
+    toast.info('Retraining scope reset to all available dataset scans.')
+  }
+
+  const openImageSelector = () => {
+    showDatasetSlideover.value = true
+  }
+
+  const openIncludedImagesModal = () => {
+    showIncludedImagesModal.value = true
+  }
+
+  const handleOpenSelectorFromPreview = () => {
+    showIncludedImagesModal.value = false
+    showDatasetSlideover.value = true
+  }
 
   const setTrainingMode = (mode: 'quick' | 'full') => {
     selectedTrainingMode.value = mode
@@ -344,10 +410,11 @@
   const handleImagesSelected = (uuids: string[]) => {
     selectedTrainingImageUuids.value = uuids
     if (uuids.length > 0) {
-      toast.success(`${uuids.length} image(s) included for retraining.`)
+      toast.success(`${uuids.length} scan(s) selected for retraining.`)
     } else {
-      toast.info('No images selected for retraining.')
+      toast.info('Full dataset scope active for retraining.')
     }
+    fetchTrainingImages()
   }
 
   const promptSyncDataset = () => {
@@ -571,6 +638,7 @@
 
   onMounted(() => {
     fetchStats()
+    fetchTrainingImages()
     startPolling()
 
     if (import.meta.client) {
@@ -1274,38 +1342,185 @@
             class="space-y-2 pt-1"
             :class="{ 'opacity-60': isTrainingActive }"
           >
-            <label
-              class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
-            >
-              Training Dataset Scope
-            </label>
+            <div class="flex items-center justify-between">
+              <label
+                class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
+              >
+                Training Dataset Scope
+              </label>
+              <span
+                v-if="selectedTrainingImageUuids.length > 0"
+                class="text-primary text-[11px] font-bold"
+              >
+                Custom Scope ({{ selectedTrainingImageUuids.length }} Scans)
+              </span>
+              <span
+                v-else
+                class="text-muted-foreground text-[11px] font-medium"
+              >
+                Full Dataset Scope
+              </span>
+            </div>
+
             <div
-              class="bg-muted/30 border-border flex items-center justify-between rounded-2xl border p-3.5 transition-all"
+              class="border-border bg-card relative overflow-hidden rounded-2xl border p-4 shadow-xs transition-all"
+              :class="{
+                'ring-primary/30 border-primary/50 bg-primary/[0.02] ring-1':
+                  selectedTrainingImageUuids.length > 0
+              }"
             >
-              <div class="flex items-center gap-3">
-                <div
-                  class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                >
-                  <Icon
-                    name="lucide:check-square"
-                    size="18"
-                  />
+              <!-- Scope Header & Summary -->
+              <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div class="flex items-start gap-3">
+                  <div
+                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors"
+                    :class="
+                      selectedTrainingImageUuids.length > 0
+                        ? 'bg-primary text-primary-foreground shadow-xs'
+                        : 'bg-primary/10 text-primary'
+                    "
+                  >
+                    <Icon
+                      :name="
+                        selectedTrainingImageUuids.length > 0
+                          ? 'lucide:check-circle-2'
+                          : 'lucide:images'
+                      "
+                      size="20"
+                    />
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-foreground text-sm font-bold">
+                        {{
+                          selectedTrainingImageUuids.length > 0
+                            ? `${selectedTrainingImageUuids.length} Scans Selected for Retraining`
+                            : `All Dataset Scans (${includedTrainingImages.length})`
+                        }}
+                      </span>
+                      <AppBadge
+                        v-if="selectedTrainingImageUuids.length > 0"
+                        color="primary"
+                        size="xs"
+                        variant="subtle"
+                        class="font-bold"
+                      >
+                        Curated
+                      </AppBadge>
+                      <AppBadge
+                        v-else
+                        color="gray"
+                        size="xs"
+                        variant="subtle"
+                      >
+                        Default
+                      </AppBadge>
+                    </div>
+
+                    <!-- Category Breakdown -->
+                    <div class="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                      <span class="text-muted-foreground font-medium">Included:</span>
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400"
+                      >
+                        {{ includedCategoryCounts.acne }} Acne
+                      </span>
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-400"
+                      >
+                        {{ includedCategoryCounts.eczema }} Eczema
+                      </span>
+                      <span
+                        class="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-400"
+                      >
+                        {{ includedCategoryCounts.herpes }} Herpes
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <span class="text-foreground block text-xs font-bold">
+
+                <!-- Action Controls -->
+                <div class="flex items-center gap-2 self-end sm:self-center">
+                  <AppButton
+                    v-if="selectedTrainingImageUuids.length > 0"
+                    variant="ghost"
+                    size="xs"
+                    class="text-muted-foreground hover:text-foreground text-xs"
+                    @click="resetToAllImages"
+                  >
+                    Reset to All
+                  </AppButton>
+
+                  <AppButton
+                    variant="outline"
+                    size="sm"
+                    class="border-primary/30 hover:bg-primary/5 text-primary gap-1.5 text-xs font-semibold shadow-xs"
+                    @click="openImageSelector"
+                  >
+                    <Icon
+                      name="lucide:check-square"
+                      size="14"
+                    />
                     {{
-                      selectedTrainingImageUuids.length > 0
-                        ? `${selectedTrainingImageUuids.length} Images Selected`
-                        : 'All Images Selected (Default)'
+                      selectedTrainingImageUuids.length > 0 ? 'Change Selection' : 'Choose Images'
                     }}
+                  </AppButton>
+                </div>
+              </div>
+
+              <!-- Thumbnail Strip of Included Scans -->
+              <div
+                v-if="includedTrainingImages.length > 0"
+                class="border-border/60 mt-3.5 border-t pt-3"
+              >
+                <div class="mb-2 flex items-center justify-between">
+                  <span class="text-muted-foreground text-[11px] font-medium">
+                    Preview of Included Scans:
                   </span>
-                  <span class="text-muted-foreground block text-[11px]">
-                    {{
-                      selectedTrainingImageUuids.length > 0
-                        ? 'Curated selection will be ingested into retraining'
-                        : 'All available photos will be ingested into retraining'
-                    }}
-                  </span>
+                  <button
+                    type="button"
+                    class="text-primary inline-flex cursor-pointer items-center gap-1 text-[11px] font-semibold hover:underline"
+                    @click="openIncludedImagesModal"
+                  >
+                    <span>View all {{ includedTrainingImages.length }} scans</span>
+                    <Icon
+                      name="lucide:arrow-right"
+                      size="12"
+                    />
+                  </button>
+                </div>
+
+                <div class="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-1">
+                  <div
+                    v-for="img in includedTrainingImages.slice(0, 8)"
+                    :key="img.uuid"
+                    class="group/thumb border-border bg-muted relative h-12 w-12 shrink-0 cursor-pointer overflow-hidden rounded-xl border"
+                    :title="`${img.category ? img.category.toUpperCase() : 'Scan'}: ${img.filename || 'Scan image'}`"
+                    @click="openIncludedImagesModal"
+                  >
+                    <img
+                      :src="getStorageUrl(img.image_url || img.file_name || img.filename || '')"
+                      :alt="img.filename || 'Scan Image'"
+                      class="h-full w-full object-cover transition-transform group-hover/thumb:scale-110"
+                      loading="lazy"
+                    />
+                    <div
+                      class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/thumb:opacity-100"
+                    >
+                      <Icon
+                        name="lucide:eye"
+                        size="14"
+                        class="text-white"
+                      />
+                    </div>
+                  </div>
+                  <div
+                    v-if="includedTrainingImages.length > 8"
+                    class="border-border bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-dashed text-xs font-bold transition-colors"
+                    @click="openIncludedImagesModal"
+                  >
+                    +{{ includedTrainingImages.length - 8 }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1895,6 +2110,69 @@
           </div>
         </div>
 
+        <!-- Training Scope Transparency Card -->
+        <div class="border-border bg-card rounded-2xl border p-4 text-xs shadow-xs">
+          <div class="mb-2 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <Icon
+                name="lucide:check-circle-2"
+                size="15"
+                class="text-primary"
+              />
+              <span class="text-foreground font-bold">
+                Training Scope:
+                {{
+                  selectedTrainingImageUuids.length > 0
+                    ? `${selectedTrainingImageUuids.length} Curated Scans`
+                    : `Full Dataset (${includedTrainingImages.length} Scans)`
+                }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="text-primary cursor-pointer text-[11px] font-semibold hover:underline"
+              @click="openIncludedImagesModal"
+            >
+              Inspect all scans
+            </button>
+          </div>
+
+          <div class="text-muted-foreground mb-2.5 flex items-center gap-1.5 text-[11px]">
+            <span class="font-semibold text-emerald-600 dark:text-emerald-400"
+              >{{ includedCategoryCounts.acne }} Acne</span
+            >
+            <span>·</span>
+            <span class="font-semibold text-blue-600 dark:text-blue-400"
+              >{{ includedCategoryCounts.eczema }} Eczema</span
+            >
+            <span>·</span>
+            <span class="font-semibold text-amber-600 dark:text-amber-400"
+              >{{ includedCategoryCounts.herpes }} Herpes</span
+            >
+          </div>
+
+          <!-- Thumbnails Row -->
+          <div class="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-1">
+            <div
+              v-for="img in includedTrainingImages.slice(0, 8)"
+              :key="img.uuid"
+              class="border-border bg-muted relative h-11 w-11 shrink-0 overflow-hidden rounded-lg border"
+            >
+              <img
+                :src="getStorageUrl(img.image_url || img.file_name || img.filename || '')"
+                :alt="img.filename || 'Scan Image'"
+                class="h-full w-full object-cover"
+              />
+            </div>
+            <div
+              v-if="includedTrainingImages.length > 8"
+              class="border-border bg-muted/60 text-muted-foreground flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-bold"
+            >
+              +{{ includedTrainingImages.length - 8 }}
+            </div>
+          </div>
+        </div>
+
         <div class="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:items-center sm:justify-end">
           <AppButton
             variant="outline"
@@ -1938,9 +2216,173 @@
       v-model="showDatasetSlideover"
       :initial-selected-uuids="selectedTrainingImageUuids"
       @confirm="handleImagesSelected"
-      @deleted="fetchStats"
-      @synced="fetchStats"
+      @deleted="
+        () => {
+          fetchStats()
+          fetchTrainingImages()
+        }
+      "
+      @synced="
+        () => {
+          fetchStats()
+          fetchTrainingImages()
+        }
+      "
     />
+
+    <!-- Included Training Images Preview Modal -->
+    <AppModal
+      v-model="showIncludedImagesModal"
+      title="Images Included in Retraining Scope"
+      size="3xl"
+    >
+      <div class="space-y-4 p-1">
+        <!-- Header Summary Banner -->
+        <div
+          class="border-border bg-muted/30 flex flex-wrap items-center justify-between gap-3 rounded-2xl border p-4 text-xs"
+        >
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-foreground text-sm font-bold">
+                {{ includedTrainingImages.length }} Scans in Training Scope
+              </span>
+              <AppBadge
+                v-if="selectedTrainingImageUuids.length > 0"
+                color="primary"
+                size="xs"
+                variant="solid"
+              >
+                Curated Selection
+              </AppBadge>
+              <AppBadge
+                v-else
+                color="gray"
+                size="xs"
+                variant="solid"
+              >
+                Full Dataset
+              </AppBadge>
+            </div>
+            <div class="text-muted-foreground mt-1 flex items-center gap-2 text-[11px]">
+              <span>{{ includedCategoryCounts.acne }} Acne</span>
+              <span>·</span>
+              <span>{{ includedCategoryCounts.eczema }} Eczema</span>
+              <span>·</span>
+              <span>{{ includedCategoryCounts.herpes }} Herpes</span>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <AppButton
+              v-if="selectedTrainingImageUuids.length > 0"
+              variant="outline"
+              size="sm"
+              class="text-xs"
+              @click="resetToAllImages"
+            >
+              Reset to Full Dataset
+            </AppButton>
+            <AppButton
+              variant="solid"
+              size="sm"
+              class="gap-1.5 text-xs font-bold"
+              @click="handleOpenSelectorFromPreview"
+            >
+              <Icon
+                name="lucide:check-square"
+                size="14"
+              />
+              Modify Selection
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Image Grid -->
+        <div class="max-h-[60vh] overflow-y-auto pr-1">
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            <div
+              v-for="img in includedTrainingImages"
+              :key="img.uuid"
+              class="group border-border bg-card relative overflow-hidden rounded-2xl border shadow-xs transition-all hover:shadow-md"
+            >
+              <!-- Thumbnail -->
+              <div class="bg-muted relative aspect-square w-full overflow-hidden">
+                <img
+                  :src="getStorageUrl(img.image_url || img.file_name || img.filename || '')"
+                  :alt="img.filename || 'Scan Image'"
+                  class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  loading="lazy"
+                />
+
+                <!-- Category Badge -->
+                <div class="absolute top-2 left-2 z-10">
+                  <span
+                    class="rounded-md bg-black/70 px-2 py-0.5 text-[10px] font-bold tracking-wider text-white uppercase shadow-xs backdrop-blur-xs"
+                  >
+                    {{ img.category }}
+                  </span>
+                </div>
+
+                <!-- Remove Button (Top Right) -->
+                <button
+                  type="button"
+                  class="hover:bg-destructive absolute top-2 right-2 z-10 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 opacity-0 shadow-xs backdrop-blur-xs transition-all group-hover:opacity-100 hover:text-white"
+                  title="Remove from training scope"
+                  @click="removeImageFromScope(img.uuid)"
+                >
+                  <Icon
+                    name="lucide:x"
+                    size="13"
+                  />
+                </button>
+              </div>
+
+              <!-- Metadata Footer -->
+              <div class="p-2.5">
+                <p class="text-foreground truncate font-mono text-[11px] font-semibold">
+                  {{ img.filename || img.file_name || 'scan.jpg' }}
+                </p>
+                <div
+                  class="text-muted-foreground mt-1 flex items-center justify-between text-[10px]"
+                >
+                  <span
+                    v-if="img.is_synced"
+                    class="font-medium text-emerald-600 dark:text-emerald-400"
+                  >
+                    ● Synced
+                  </span>
+                  <span
+                    v-else
+                    class="font-medium text-amber-600 dark:text-amber-400"
+                  >
+                    ○ Pending Sync
+                  </span>
+                  <span class="capitalize">{{
+                    img.source === 'diagnosis' ? 'Visit' : 'Gallery'
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex w-full items-center justify-between">
+          <span class="text-muted-foreground text-xs">
+            {{ includedTrainingImages.length }} scans will be passed to PyTorch algorithms worker.
+          </span>
+          <AppButton
+            variant="solid"
+            size="sm"
+            class="font-semibold"
+            @click="showIncludedImagesModal = false"
+          >
+            Done
+          </AppButton>
+        </div>
+      </template>
+    </AppModal>
 
     <!-- Comprehensive Retraining Summary Modal -->
     <AppModal
