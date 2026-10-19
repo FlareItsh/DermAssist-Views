@@ -36,7 +36,17 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null
   const { getEcho } = useEcho()
 
-  const expansionDiseases = [
+  export interface ExpansionDisease {
+    id: string
+    name: string
+    category: string
+    desc: string
+    badge: string
+    icon: string
+    isCustom?: boolean
+  }
+
+  const defaultExpansionDiseases: ExpansionDisease[] = [
     {
       id: 'psoriasis',
       name: 'Psoriasis',
@@ -103,6 +113,137 @@
     }
   ]
 
+  const customExpansionDiseases = ref<ExpansionDisease[]>([])
+
+  const allExpansionDiseases = computed<ExpansionDisease[]>(() => {
+    return [...defaultExpansionDiseases, ...customExpansionDiseases.value]
+  })
+
+  // Add Custom Candidate Disease State
+  const showAddCustomDiseaseModal = ref(false)
+  const newDiseaseForm = ref({
+    name: '',
+    category: 'Autoimmune',
+    desc: '',
+    badge: 'Custom'
+  })
+
+  const quickDiseaseSuggestions = [
+    {
+      name: 'Alopecia Areata',
+      category: 'Autoimmune',
+      desc: 'Autoimmune follicular condition causing round or oval patches of sudden hair loss.',
+      badge: 'Autoimmune'
+    },
+    {
+      name: 'Impetigo',
+      category: 'Bacterial Infection',
+      desc: 'Contagious superficial bacterial skin infection with honey-colored crusted erosions.',
+      badge: 'Bacterial'
+    },
+    {
+      name: 'Scabies',
+      category: 'Parasitic Infestation',
+      desc: 'Intensely pruritic contagious parasitic skin infestation characterized by burrows.',
+      badge: 'Parasitic'
+    },
+    {
+      name: 'Seborrheic Dermatitis',
+      category: 'Inflammatory Condition',
+      desc: 'Chronic papulosquamous disorder affecting sebum-rich areas with greasy yellowish scales.',
+      badge: 'Scaly'
+    },
+    {
+      name: 'Melasma',
+      category: 'Pigmentary Disorder',
+      desc: 'Acquired hypermelanosis characterized by irregular brown macules in sun-exposed facial zones.',
+      badge: 'Pigmentary'
+    },
+    {
+      name: 'Keratosis Pilaris',
+      category: 'Follicular Condition',
+      desc: 'Follicular keratotic papules on proximal extensor surfaces of upper arms and thighs.',
+      badge: 'Follicular'
+    }
+  ]
+
+  const handleApplySuggestion = (s: (typeof quickDiseaseSuggestions)[0]) => {
+    newDiseaseForm.value.name = s.name
+    newDiseaseForm.value.category = s.category
+    newDiseaseForm.value.desc = s.desc
+    newDiseaseForm.value.badge = s.badge
+  }
+
+  const handleOpenAddCustomDisease = () => {
+    newDiseaseForm.value = {
+      name: '',
+      category: 'Autoimmune',
+      desc: '',
+      badge: 'Custom'
+    }
+    showAddCustomDiseaseModal.value = true
+  }
+
+  const handleSaveCustomDisease = () => {
+    const name = newDiseaseForm.value.name.trim()
+    if (!name) {
+      toast.error('Please enter a disease name.')
+      return
+    }
+
+    const id = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+    if (!id) {
+      toast.error('Invalid disease name.')
+      return
+    }
+
+    if (allExpansionDiseases.value.some(d => d.id === id)) {
+      toast.error('A disease with this name or identifier already exists.')
+      return
+    }
+
+    const newDisease: ExpansionDisease = {
+      id,
+      name,
+      category: newDiseaseForm.value.category.trim() || 'Research',
+      desc:
+        newDiseaseForm.value.desc.trim() || 'Custom candidate disease for AI expansion research.',
+      badge: newDiseaseForm.value.badge.trim() || 'Custom',
+      icon: 'lucide:flask-conical',
+      isCustom: true
+    }
+
+    customExpansionDiseases.value.push(newDisease)
+    if (import.meta.client) {
+      localStorage.setItem(
+        'dermassist_custom_expansion_diseases',
+        JSON.stringify(customExpansionDiseases.value)
+      )
+    }
+
+    selectedExpansionDisease.value = id
+    showAddCustomDiseaseModal.value = false
+    toast.success(`Candidate disease "${name}" added successfully!`)
+  }
+
+  const handleRemoveCustomDisease = (id: string, e?: Event) => {
+    if (e) e.stopPropagation()
+    customExpansionDiseases.value = customExpansionDiseases.value.filter(d => d.id !== id)
+    if (import.meta.client) {
+      localStorage.setItem(
+        'dermassist_custom_expansion_diseases',
+        JSON.stringify(customExpansionDiseases.value)
+      )
+    }
+    if (selectedExpansionDisease.value === id) {
+      selectedExpansionDisease.value = defaultExpansionDiseases[0].id
+    }
+    toast.success('Custom candidate disease removed.')
+  }
+
   const MIN_REQUIRED_DATASET = 10
 
   const isTrainingActive = computed(() => {
@@ -128,7 +269,7 @@
 
   const selectedDiseaseName = computed(() => {
     return (
-      expansionDiseases.find(d => d.id === selectedExpansionDisease.value)?.name ||
+      allExpansionDiseases.value.find(d => d.id === selectedExpansionDisease.value)?.name ||
       selectedExpansionDisease.value
     )
   })
@@ -265,6 +406,20 @@
   }
 
   onMounted(() => {
+    if (import.meta.client) {
+      try {
+        const raw = localStorage.getItem('dermassist_custom_expansion_diseases')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            customExpansionDiseases.value = parsed
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to restore custom expansion diseases:', err)
+      }
+    }
+
     fetchStats()
     startPolling()
 
@@ -418,18 +573,34 @@
                 Choose the out-of-scope research category to integrate into the model.
               </p>
             </div>
-            <AppBadge
-              color="primary"
-              size="sm"
-              variant="subtle"
-              >8 Available</AppBadge
-            >
+            <div class="flex items-center gap-2">
+              <AppBadge
+                color="primary"
+                size="sm"
+                variant="subtle"
+              >
+                {{ allExpansionDiseases.length }} Available
+              </AppBadge>
+              <AppButton
+                variant="outline"
+                size="sm"
+                class="h-7 gap-1 border-violet-500/40 text-xs font-semibold text-violet-600 hover:bg-violet-500/10 dark:text-violet-400"
+                :disabled="isTrainingActive"
+                @click="handleOpenAddCustomDisease"
+              >
+                <Icon
+                  name="lucide:plus"
+                  size="12"
+                />
+                Add Disease
+              </AppButton>
+            </div>
           </div>
 
           <!-- Disease Cards Grid -->
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div
-              v-for="d in expansionDiseases"
+              v-for="d in allExpansionDiseases"
               :key="d.id"
               class="flex cursor-pointer flex-col justify-between gap-3 rounded-2xl border p-4 text-left transition-all duration-200"
               :class="[
@@ -458,13 +629,27 @@
                     </div>
                     <span class="text-foreground truncate text-sm font-bold">{{ d.name }}</span>
                   </div>
-                  <AppBadge
-                    size="sm"
-                    :color="selectedExpansionDisease === d.id ? 'primary' : 'gray'"
-                    variant="subtle"
-                  >
-                    {{ d.badge }}
-                  </AppBadge>
+                  <div class="flex shrink-0 items-center gap-1.5">
+                    <AppBadge
+                      size="sm"
+                      :color="selectedExpansionDisease === d.id ? 'primary' : 'gray'"
+                      variant="subtle"
+                    >
+                      {{ d.badge }}
+                    </AppBadge>
+                    <button
+                      v-if="d.isCustom"
+                      type="button"
+                      class="text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex h-5 w-5 items-center justify-center rounded-md transition-colors"
+                      title="Remove custom candidate disease"
+                      @click="handleRemoveCustomDisease(d.id, $event)"
+                    >
+                      <Icon
+                        name="lucide:trash-2"
+                        size="11"
+                      />
+                    </button>
+                  </div>
                 </div>
                 <p class="text-muted-foreground text-[11px] leading-relaxed">
                   {{ d.desc }}
@@ -487,6 +672,27 @@
                 </span>
               </div>
             </div>
+
+            <!-- Add Custom Disease Card -->
+            <button
+              type="button"
+              class="border-border/80 group flex min-h-[140px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-4 text-center transition-all duration-200 hover:border-violet-500/50 hover:bg-violet-500/5"
+              :class="isTrainingActive ? 'pointer-events-none cursor-not-allowed opacity-60' : ''"
+              @click="handleOpenAddCustomDisease"
+            >
+              <div
+                class="bg-muted text-muted-foreground flex h-9 w-9 items-center justify-center rounded-xl transition-all group-hover:bg-violet-500 group-hover:text-white"
+              >
+                <Icon
+                  name="lucide:plus"
+                  size="18"
+                />
+              </div>
+              <span class="text-foreground text-xs font-bold">Add Custom Candidate</span>
+              <p class="text-muted-foreground max-w-[180px] text-[10px] leading-tight">
+                Define an emerging condition to gather research scans
+              </p>
+            </button>
           </div>
         </div>
 
@@ -873,7 +1079,139 @@
       dataset-type="out_of_scope"
       :initial-category="selectedExpansionDisease"
       @deleted="fetchStats"
+      @transferred="fetchStats"
     />
+
+    <!-- Add Custom Candidate Disease Modal -->
+    <AppModal
+      v-model="showAddCustomDiseaseModal"
+      size="lg"
+    >
+      <div class="space-y-6 p-1">
+        <!-- Header -->
+        <div class="flex items-start gap-4">
+          <div
+            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-600 dark:text-violet-400"
+          >
+            <Icon
+              name="lucide:flask-conical"
+              size="24"
+            />
+          </div>
+          <div>
+            <h3 class="text-foreground text-lg font-bold sm:text-xl">
+              Add Custom Candidate Disease
+            </h3>
+            <p class="text-muted-foreground mt-0.5 text-xs sm:text-sm">
+              Define a new skin condition to start collecting out-of-scope research scans and
+              prepare candidate expansion models.
+            </p>
+          </div>
+        </div>
+
+        <!-- Quick Suggestions -->
+        <div class="space-y-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-3.5">
+          <div class="flex items-center justify-between">
+            <span class="text-foreground text-xs font-semibold">Common Clinical Suggestions</span>
+            <span class="text-muted-foreground text-[11px]">Click to pre-fill</span>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="s in quickDiseaseSuggestions"
+              :key="s.name"
+              type="button"
+              class="border-border bg-card text-foreground rounded-lg border px-2.5 py-1 text-xs font-medium transition-all hover:border-violet-500/40 hover:bg-violet-500/10"
+              @click="handleApplySuggestion(s)"
+            >
+              + {{ s.name }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Fields -->
+        <div class="space-y-4">
+          <!-- Disease Name -->
+          <div>
+            <label class="text-foreground mb-1.5 block text-xs font-bold tracking-wider uppercase">
+              Disease Name <span class="text-destructive">*</span>
+            </label>
+            <input
+              v-model="newDiseaseForm.name"
+              type="text"
+              placeholder="e.g. Alopecia Areata"
+              class="border-border bg-background text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-hidden"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <!-- Medical Category -->
+            <div>
+              <label
+                class="text-foreground mb-1.5 block text-xs font-bold tracking-wider uppercase"
+              >
+                Medical Category
+              </label>
+              <input
+                v-model="newDiseaseForm.category"
+                type="text"
+                placeholder="e.g. Autoimmune, Bacterial, Fungal"
+                class="border-border bg-background text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-hidden"
+              />
+            </div>
+
+            <!-- Clinical Badge -->
+            <div>
+              <label
+                class="text-foreground mb-1.5 block text-xs font-bold tracking-wider uppercase"
+              >
+                Badge / Priority
+              </label>
+              <input
+                v-model="newDiseaseForm.badge"
+                type="text"
+                placeholder="e.g. High Priority, Emerging, Rare"
+                class="border-border bg-background text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-hidden"
+              />
+            </div>
+          </div>
+
+          <!-- Description -->
+          <div>
+            <label class="text-foreground mb-1.5 block text-xs font-bold tracking-wider uppercase">
+              Clinical Description
+            </label>
+            <textarea
+              v-model="newDiseaseForm.desc"
+              rows="3"
+              placeholder="Key diagnostic hallmarks, lesion morphology, clinical presentation..."
+              class="border-border bg-background text-foreground w-full resize-none rounded-xl border px-3.5 py-2.5 text-sm transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 focus:outline-hidden"
+            ></textarea>
+          </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="border-border flex items-center justify-end gap-3 border-t pt-4">
+          <AppButton
+            variant="ghost"
+            class="text-xs font-semibold"
+            @click="showAddCustomDiseaseModal = false"
+          >
+            Cancel
+          </AppButton>
+          <AppButton
+            variant="solid"
+            class="gap-1.5 rounded-xl bg-violet-600 text-xs font-bold text-white shadow-sm hover:bg-violet-700"
+            @click="handleSaveCustomDisease"
+          >
+            <Icon
+              name="lucide:plus"
+              size="14"
+            />
+            Add Candidate Disease
+          </AppButton>
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 

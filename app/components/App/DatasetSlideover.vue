@@ -50,6 +50,7 @@
   const isBulkTransfer = ref(false)
   const imageToDelete = ref<TrainingImageItem | null>(null)
   const imageToTransfer = ref<TrainingImageItem | null>(null)
+  const outOfScopeSingleUrlToTransfer = ref<string | null>(null)
   const targetTransferCategory = ref<string>('acne')
 
   // Standard Training Dataset State
@@ -79,26 +80,118 @@
     { id: 'herpes', label: 'Herpes' }
   ]
 
-  const transferTargetOptions = [
+  export interface TransferOption {
+    id: string
+    name: string
+    desc: string
+    badgeClass: string
+    isStandard: boolean
+  }
+
+  const standardTransferOptions: TransferOption[] = [
     {
       id: 'acne',
       name: 'Acne',
       desc: 'Follicular eruptions, inflammatory papules & pustules',
-      badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+      badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+      isStandard: true
     },
     {
       id: 'eczema',
       name: 'Eczema',
       desc: 'Atopic dermatitis, inflamed, scaling, or pruritic patches',
-      badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30'
+      badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
+      isStandard: true
     },
     {
       id: 'herpes',
       name: 'Herpes',
       desc: 'Clustered vesicular eruptions, ulcerations & viral lesions',
-      badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30'
+      badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
+      isStandard: true
     }
   ]
+
+  const researchTransferOptions: TransferOption[] = [
+    {
+      id: 'psoriasis',
+      name: 'Psoriasis',
+      desc: 'Scaly, erythematous plaque lesions with epidermal hyperplasia',
+      badgeClass: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+      isStandard: false
+    },
+    {
+      id: 'ringworm',
+      name: 'Ringworm',
+      desc: 'Annular dermatophyte lesions with characteristic raised borders',
+      badgeClass: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
+      isStandard: false
+    },
+    {
+      id: 'vitiligo',
+      name: 'Vitiligo',
+      desc: 'Melanocyte loss producing depigmented macules and patches',
+      badgeClass: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30',
+      isStandard: false
+    },
+    {
+      id: 'melanoma',
+      name: 'Melanoma',
+      desc: 'Asymmetric pigmented atypical lesions requiring deep analysis',
+      badgeClass: 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30',
+      isStandard: false
+    },
+    {
+      id: 'hives',
+      name: 'Hives (Urticaria)',
+      desc: 'Transient pruritic edematous erythematous wheals and flares',
+      badgeClass: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30',
+      isStandard: false
+    },
+    {
+      id: 'warts',
+      name: 'Warts (HPV)',
+      desc: 'Hyperkeratotic verrucous exophytic papules caused by HPV',
+      badgeClass: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30',
+      isStandard: false
+    },
+    {
+      id: 'lupus',
+      name: 'Lupus Erythematosus',
+      desc: 'Cutaneous lupus lesions including discoid and malar patterns',
+      badgeClass: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30',
+      isStandard: false
+    },
+    {
+      id: 'rosacea',
+      name: 'Rosacea',
+      desc: 'Centrofacial erythema, telangiectasia, and papulopustules',
+      badgeClass: 'bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30',
+      isStandard: false
+    }
+  ]
+
+  const transferTargetOptions = computed<TransferOption[]>(() => {
+    if (props.datasetType === 'out_of_scope') {
+      const customCats = outOfScopeDataset.value
+        .map(c => c.category.toLowerCase())
+        .filter(
+          cat =>
+            !researchTransferOptions.some(r => r.id === cat) &&
+            !standardTransferOptions.some(s => s.id === cat)
+        )
+        .map(cat => ({
+          id: cat,
+          name: cat.charAt(0).toUpperCase() + cat.slice(1),
+          desc: 'Custom research disease category',
+          badgeClass:
+            'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
+          isStandard: false
+        }))
+      return [...standardTransferOptions, ...researchTransferOptions, ...customCats]
+    }
+    return standardTransferOptions
+  })
 
   const close = () => {
     isOpen.value = false
@@ -488,6 +581,9 @@
 
   // Category Transfer Actions
   const currentSelectionCategory = computed(() => {
+    if (props.datasetType === 'out_of_scope') {
+      return (activeCategory.value || '').toLowerCase()
+    }
     if (!isBulkTransfer.value && imageToTransfer.value) {
       return (imageToTransfer.value.category || '').toLowerCase()
     }
@@ -501,8 +597,15 @@
     return null
   })
 
+  const getUrlFileName = (url: string) => {
+    if (!url) return ''
+    const parts = url.split('/')
+    return parts[parts.length - 1] || url
+  }
+
   const promptTransferSingle = (img: TrainingImageItem) => {
     imageToTransfer.value = img
+    outOfScopeSingleUrlToTransfer.value = null
     isBulkTransfer.value = false
     const currentCat = (img.category || '').toLowerCase()
     if (currentCat === 'acne') {
@@ -520,6 +623,7 @@
       return
     }
     imageToTransfer.value = null
+    outOfScopeSingleUrlToTransfer.value = null
     isBulkTransfer.value = true
 
     const selectedImages = images.value.filter(img => selectedUuids.value.has(img.uuid))
@@ -532,13 +636,90 @@
     showTransferModal.value = true
   }
 
+  const promptTransferSingleOutOfScope = (url: string) => {
+    outOfScopeSingleUrlToTransfer.value = url
+    imageToTransfer.value = null
+    isBulkTransfer.value = false
+    const currentCat = (activeCategory.value || '').toLowerCase()
+    if (currentCat === 'acne') {
+      targetTransferCategory.value = 'eczema'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
+  const promptTransferBulkOutOfScope = () => {
+    if (outOfScopeSelectedUrls.value.size === 0) {
+      toast.info('Please select at least one research image to transfer.')
+      return
+    }
+    outOfScopeSingleUrlToTransfer.value = null
+    imageToTransfer.value = null
+    isBulkTransfer.value = true
+    const currentCat = (activeCategory.value || '').toLowerCase()
+    if (currentCat === 'acne') {
+      targetTransferCategory.value = 'eczema'
+    } else {
+      targetTransferCategory.value = 'acne'
+    }
+    showTransferModal.value = true
+  }
+
   const closeTransferModal = () => {
     if (isTransferring.value) return
     showTransferModal.value = false
     imageToTransfer.value = null
+    outOfScopeSingleUrlToTransfer.value = null
   }
 
   const handleExecuteTransfer = async () => {
+    if (props.datasetType === 'out_of_scope') {
+      const urls = isBulkTransfer.value
+        ? Array.from(outOfScopeSelectedUrls.value)
+        : outOfScopeSingleUrlToTransfer.value
+          ? [outOfScopeSingleUrlToTransfer.value]
+          : []
+
+      if (urls.length === 0) {
+        showTransferModal.value = false
+        return
+      }
+
+      const selectedOpt = transferTargetOptions.value.find(
+        o => o.id === targetTransferCategory.value
+      )
+      const isStandard = selectedOpt?.isStandard ?? false
+
+      isTransferring.value = true
+      try {
+        const res = await outOfScopeDatasetService.transferImages(
+          urls,
+          targetTransferCategory.value,
+          isStandard
+        )
+
+        toast.success(
+          res.message ||
+            `Successfully transferred ${urls.length} scan(s) to ${selectedOpt?.name || targetTransferCategory.value}.`
+        )
+
+        outOfScopeSelectedUrls.value = new Set()
+        outOfScopeSingleUrlToTransfer.value = null
+        showTransferModal.value = false
+
+        await fetchOutOfScopeDataset()
+        emit('transferred')
+      } catch (err: any) {
+        console.error('Failed to transfer out-of-scope images:', err)
+        toast.error(err?.data?.message || err?.message || 'Failed to transfer images.')
+      } finally {
+        isTransferring.value = false
+      }
+      return
+    }
+
+    // Standard dataset transfer
     const targets = isBulkTransfer.value
       ? Array.from(selectedUuids.value)
       : imageToTransfer.value
@@ -1067,7 +1248,7 @@
             </button>
           </div>
 
-          <!-- Out of Scope Delete Actions -->
+          <!-- Out of Scope Actions -->
           <div
             v-if="outOfScopeSelectedUrls.size > 0"
             class="flex items-center gap-2"
@@ -1078,6 +1259,18 @@
             >
               Clear
             </button>
+            <AppButton
+              variant="outline"
+              size="sm"
+              class="border-primary/40 text-primary hover:bg-primary/10 h-7 gap-1 text-xs font-semibold"
+              @click="promptTransferBulkOutOfScope"
+            >
+              <Icon
+                name="lucide:arrow-right-left"
+                size="12"
+              />
+              Transfer ({{ outOfScopeSelectedUrls.size }})
+            </AppButton>
             <AppButton
               variant="destructive"
               size="sm"
@@ -1167,6 +1360,23 @@
                     name="lucide:check"
                     size="11"
                   />
+                </div>
+
+                <!-- Hover Card Action Overlay: Single Transfer -->
+                <div
+                  class="absolute right-1.5 bottom-1.5 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <button
+                    type="button"
+                    class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    title="Transfer scan to another disease"
+                    @click.stop="promptTransferSingleOutOfScope(url)"
+                  >
+                    <Icon
+                      name="lucide:arrow-right-left"
+                      size="12"
+                    />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1619,11 +1829,17 @@
               <div>
                 <h3 class="text-foreground text-base font-bold sm:text-lg">
                   {{
-                    isBulkTransfer ? `Transfer ${selectedCount} Scans` : 'Transfer Scan Category'
+                    isBulkTransfer
+                      ? `Transfer ${datasetType === 'out_of_scope' ? outOfScopeSelectedUrls.size : selectedCount} Scans`
+                      : 'Transfer Scan Category'
                   }}
                 </h3>
                 <p class="text-muted-foreground text-xs">
-                  Reassign misclassified scans to their proper clinical disease category
+                  {{
+                    datasetType === 'out_of_scope'
+                      ? 'Reassign research scan to another candidate condition or promote into standard models'
+                      : 'Reassign misclassified scans to their proper clinical disease category'
+                  }}
                 </p>
               </div>
             </div>
@@ -1644,9 +1860,9 @@
 
           <!-- Body -->
           <div class="flex-1 space-y-5 overflow-y-auto px-6 py-5 sm:px-8">
-            <!-- Single Preview -->
+            <!-- Single Preview: Standard Dataset -->
             <div
-              v-if="!isBulkTransfer && imageToTransfer"
+              v-if="datasetType === 'standard' && !isBulkTransfer && imageToTransfer"
               class="border-border/80 bg-muted/40 flex items-center gap-3.5 rounded-2xl border p-3"
             >
               <img
@@ -1686,9 +1902,41 @@
               </div>
             </div>
 
-            <!-- Bulk Preview Strip -->
+            <!-- Single Preview: Out of Scope Dataset -->
             <div
-              v-else-if="isBulkTransfer"
+              v-else-if="
+                datasetType === 'out_of_scope' && !isBulkTransfer && outOfScopeSingleUrlToTransfer
+              "
+              class="border-border/80 bg-muted/40 flex items-center gap-3.5 rounded-2xl border p-3"
+            >
+              <img
+                :src="getStorageUrl(outOfScopeSingleUrlToTransfer)"
+                :alt="getUrlFileName(outOfScopeSingleUrlToTransfer)"
+                class="border-border h-16 w-16 shrink-0 rounded-xl border object-cover"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-foreground truncate font-mono text-xs font-semibold">
+                    {{ getUrlFileName(outOfScopeSingleUrlToTransfer) }}
+                  </span>
+                </div>
+                <div class="mt-1 flex items-center gap-2 text-xs">
+                  <span class="text-muted-foreground text-[11px]">Current:</span>
+                  <span
+                    class="rounded-md border border-violet-500/20 bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-bold text-violet-700 uppercase dark:text-violet-300"
+                  >
+                    {{ activeCategory }}
+                  </span>
+                  <span class="text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                    · Research Scan
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bulk Preview Strip: Standard Dataset -->
+            <div
+              v-else-if="datasetType === 'standard' && isBulkTransfer"
               class="border-border/80 bg-muted/40 rounded-2xl border p-3.5"
             >
               <div class="mb-2 flex items-center justify-between text-xs">
@@ -1724,15 +1972,61 @@
               </div>
             </div>
 
+            <!-- Bulk Preview Strip: Out of Scope Dataset -->
+            <div
+              v-else-if="datasetType === 'out_of_scope' && isBulkTransfer"
+              class="border-border/80 bg-muted/40 rounded-2xl border p-3.5"
+            >
+              <div class="mb-2 flex items-center justify-between text-xs">
+                <span class="text-foreground font-semibold">
+                  Selected Research Scans ({{ outOfScopeSelectedUrls.size }})
+                </span>
+                <span
+                  v-if="currentSelectionCategory"
+                  class="text-muted-foreground text-[11px]"
+                >
+                  All from
+                  <strong class="text-foreground capitalize">{{ currentSelectionCategory }}</strong>
+                </span>
+              </div>
+              <div class="scrollbar-thin flex items-center gap-2 overflow-x-auto pb-1">
+                <div
+                  v-for="url in Array.from(outOfScopeSelectedUrls).slice(0, 8)"
+                  :key="url"
+                  class="relative shrink-0"
+                >
+                  <img
+                    :src="getStorageUrl(url)"
+                    :alt="getUrlFileName(url)"
+                    class="border-border h-12 w-12 rounded-lg border object-cover"
+                  />
+                </div>
+                <div
+                  v-if="outOfScopeSelectedUrls.size > 8"
+                  class="border-border bg-background text-muted-foreground flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed text-[11px] font-bold"
+                >
+                  +{{ outOfScopeSelectedUrls.size - 8 }}
+                </div>
+              </div>
+            </div>
+
             <!-- Target Category Selection -->
             <div>
-              <label
-                class="text-foreground mb-2.5 block text-xs font-bold tracking-wider uppercase"
-              >
-                Select Destination Category
-              </label>
+              <div class="mb-2.5 flex items-center justify-between">
+                <label class="text-foreground block text-xs font-bold tracking-wider uppercase">
+                  Select Destination Category
+                </label>
+                <span
+                  v-if="datasetType === 'out_of_scope'"
+                  class="text-muted-foreground text-[11px]"
+                >
+                  Supports standard + research models
+                </span>
+              </div>
 
-              <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              <div
+                class="grid max-h-72 grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3"
+              >
                 <button
                   v-for="opt in transferTargetOptions"
                   :key="opt.id"
@@ -1748,12 +2042,24 @@
                   ]"
                   @click="targetTransferCategory = opt.id"
                 >
-                  <div class="mb-1.5 flex w-full items-center justify-between">
+                  <div class="mb-1.5 flex w-full items-center justify-between gap-1">
                     <span
                       class="rounded-lg border px-2 py-0.5 text-[11px] font-bold uppercase"
                       :class="opt.badgeClass"
                     >
                       {{ opt.name }}
+                    </span>
+
+                    <span
+                      v-if="datasetType === 'out_of_scope'"
+                      class="rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase"
+                      :class="
+                        opt.isStandard
+                          ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                          : 'border border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-400'
+                      "
+                    >
+                      {{ opt.isStandard ? 'Standard' : 'Research' }}
                     </span>
 
                     <Icon
@@ -1762,11 +2068,11 @@
                       "
                       name="lucide:check-circle-2"
                       size="16"
-                      class="text-primary"
+                      class="text-primary shrink-0"
                     />
                     <span
                       v-else-if="opt.id === currentSelectionCategory"
-                      class="text-muted-foreground text-[9px] font-semibold uppercase"
+                      class="text-muted-foreground shrink-0 text-[9px] font-semibold uppercase"
                     >
                       Current
                     </span>
@@ -1789,9 +2095,11 @@
                 class="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400"
               />
               <p class="text-[11px] leading-relaxed">
-                Reassigning will update consultation diagnostic labels, relocate files in local
-                dataset storage, and update the AI algorithm raw directory mirror for upcoming model
-                training.
+                {{
+                  datasetType === 'out_of_scope'
+                    ? 'Transferring will move image files to the target disease directory on disk. If transferring into a standard category (Acne, Eczema, Herpes), the scan becomes part of the baseline production dataset.'
+                    : 'Reassigning will update consultation diagnostic labels, relocate files in local dataset storage, and update the AI algorithm raw directory mirror for upcoming model training.'
+                }}
               </p>
             </div>
           </div>
