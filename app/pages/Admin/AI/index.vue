@@ -243,35 +243,97 @@
 
   const architectures = [
     {
-      id: 'swin_transformer',
+      id: 'swin_transformer' as const,
       name: 'Swin Transformer',
+      short: 'Swin-T',
       type: 'State-of-the-Art (Vision Transformer)',
       desc: 'Shifted-window attention network. Highest accuracy on clinical skin lesions.',
+      descSummary: 'Backbone Frozen • 512-dim Head Tuned',
       badge: 'Recommended',
-      badgeColor: 'primary' as const
+      badgeColor: 'primary' as const,
+      icon: 'lucide:sparkles'
     },
     {
-      id: 'resnet50',
-      name: 'ResNet50',
+      id: 'resnet50' as const,
+      name: 'ResNet-50',
+      short: 'ResNet50',
       type: 'Residual Convolutional Backbone',
       desc: 'Deep residual network with stable feature representation across skin tones.',
+      descSummary: 'Residual ConvNet • 512-dim Head Tuned',
       badge: 'Stable',
-      badgeColor: 'gray' as const
+      badgeColor: 'gray' as const,
+      icon: 'lucide:network'
     },
     {
-      id: 'efficientnet_v2',
+      id: 'efficientnet_v2' as const,
       name: 'EfficientNet-V2',
+      short: 'EfficientNet',
       type: 'Optimized Convolutional Network',
       desc: 'Lightweight architecture with fast training and low latency inference.',
+      descSummary: 'Compound Scaled CNN • 512-dim Head Tuned',
       badge: 'Fast',
-      badgeColor: 'gray' as const
+      badgeColor: 'gray' as const,
+      icon: 'lucide:cpu'
     }
   ]
+
+  const isArchInitialized = ref(false)
+
+  const dynamicArchitectures = computed(() => {
+    const modelsAvailable = stats.value?.ai_service?.models_available || []
+    const activeArch = (stats.value?.ai_service?.active_architecture || '').toLowerCase()
+
+    return architectures.map(arch => {
+      const hasCheckpoint = modelsAvailable.some((m: string) => {
+        const lower = m.toLowerCase()
+        if (arch.id === 'swin_transformer') return lower.includes('swin')
+        if (arch.id === 'resnet50') return lower.includes('resnet50')
+        if (arch.id === 'efficientnet_v2') return lower.includes('efficientnet')
+        return false
+      })
+
+      const isAlgoActive =
+        activeArch.includes(arch.id.replace('_', '')) ||
+        activeArch.includes(arch.id) ||
+        (activeArch.includes('ensemble') && arch.id === 'swin_transformer')
+
+      return {
+        ...arch,
+        hasCheckpoint,
+        isAlgoActive
+      }
+    })
+  })
+
+  const selectedArchData = computed(() => {
+    return (
+      dynamicArchitectures.value.find(a => a.id === selectedArch.value) ||
+      dynamicArchitectures.value[0] ||
+      architectures[0]
+    )
+  })
+
+  const handleSelectArch = (archId: 'swin_transformer' | 'resnet50' | 'efficientnet_v2') => {
+    if (isTrainingActive.value) return
+    selectedArch.value = archId
+    isArchInitialized.value = true
+  }
 
   const fetchStats = async () => {
     isLoadingStats.value = true
     try {
       stats.value = await modelTrainingService.getStats()
+      if (!isArchInitialized.value && stats.value?.ai_service?.active_architecture) {
+        const active = stats.value.ai_service.active_architecture.toLowerCase()
+        if (active.includes('resnet50')) {
+          selectedArch.value = 'resnet50'
+        } else if (active.includes('efficientnet')) {
+          selectedArch.value = 'efficientnet_v2'
+        } else if (active.includes('swin')) {
+          selectedArch.value = 'swin_transformer'
+        }
+        isArchInitialized.value = true
+      }
     } catch (err: any) {
       console.error('Failed to load model stats:', err)
       toast.error('Could not connect to AI algorithm service.')
@@ -339,8 +401,9 @@
     isStarting.value = true
     try {
       const shouldSync = forceSync !== undefined ? forceSync : syncDataset.value
+      const chosenArch = selectedTrainingMode.value === 'quick' ? selectedArch.value : 'ensemble'
       const payload: any = {
-        architecture: selectedTrainingMode.value === 'quick' ? 'swin_transformer' : 'ensemble',
+        architecture: chosenArch,
         epochs: Number(selectedEpochs.value),
         sync_dataset: shouldSync,
         training_mode: selectedTrainingMode.value,
@@ -351,7 +414,9 @@
       }
       await modelTrainingService.startTraining(payload)
       const modeText =
-        selectedTrainingMode.value === 'quick' ? 'Rapid Quick-Tune (Swin-T)' : 'Tri-Model Ensemble'
+        selectedTrainingMode.value === 'quick'
+          ? `Rapid Quick-Tune (${selectedArchData.value.name})`
+          : 'Tri-Model Ensemble'
       toast.success(`${modeText} retraining pipeline started!`)
       startPolling()
     } catch (err: any) {
@@ -1231,39 +1296,80 @@
                 />
                 Rapid Fine-Tuning Pipeline
               </span>
-              <span class="text-primary text-[11px] font-semibold">Active Model Focus</span>
+              <span class="text-primary text-[11px] font-semibold">Select Model Focus</span>
             </div>
-            <div
-              class="bg-background border-border flex items-center justify-between rounded-xl border p-2.5"
-            >
-              <div class="flex items-center gap-2.5">
-                <div
-                  class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                >
-                  <Icon
-                    name="lucide:cpu"
-                    size="16"
-                  />
-                </div>
-                <div>
-                  <span class="text-foreground block text-xs font-bold"
-                    >Swin Transformer (Active)</span
-                  >
-                  <span class="text-muted-foreground block text-[10px]">
-                    Backbone Frozen • 512-dim Head Tuned
-                  </span>
-                </div>
-              </div>
-              <AppBadge
-                color="success"
-                size="sm"
-                variant="subtle"
-                >Guarded</AppBadge
+
+            <!-- Dynamic Model Selector Cards -->
+            <div class="space-y-2">
+              <button
+                v-for="arch in dynamicArchitectures"
+                :key="arch.id"
+                type="button"
+                :disabled="isTrainingActive"
+                class="border-border bg-background hover:bg-muted/60 flex w-full cursor-pointer items-center justify-between rounded-xl border p-2.5 text-left transition-all disabled:cursor-not-allowed"
+                :class="
+                  selectedArch === arch.id
+                    ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-1 ring-amber-500'
+                    : 'border-border bg-background hover:bg-muted/60'
+                "
+                @click="handleSelectArch(arch.id)"
               >
+                <div class="flex min-w-0 items-center gap-2.5">
+                  <div
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                    :class="
+                      selectedArch === arch.id
+                        ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                        : 'bg-muted text-muted-foreground'
+                    "
+                  >
+                    <Icon
+                      :name="arch.icon || 'lucide:cpu'"
+                      size="16"
+                    />
+                  </div>
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <span class="text-foreground truncate text-xs font-bold">
+                        {{ arch.name }}
+                      </span>
+                      <span
+                        v-if="arch.isAlgoActive"
+                        class="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400"
+                      >
+                        Algo Active
+                      </span>
+                    </div>
+                    <span class="text-muted-foreground block truncate text-[10px]">
+                      {{ arch.descSummary }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex shrink-0 items-center gap-1.5 pl-2">
+                  <span
+                    v-if="selectedArch === arch.id"
+                    class="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-white"
+                  >
+                    <Icon
+                      name="lucide:check"
+                      size="12"
+                    />
+                  </span>
+                  <AppBadge
+                    v-else
+                    :color="arch.badgeColor"
+                    size="sm"
+                    variant="subtle"
+                  >
+                    {{ arch.badge }}
+                  </AppBadge>
+                </div>
+              </button>
             </div>
+
             <p class="text-muted-foreground pt-0.5 text-[11px] leading-relaxed">
-              Trains only the classification head on your new scan(s) plus 90 balanced anchor
-              exemplars to guarantee zero catastrophic forgetting.
+              Fine-tunes the classification head for {{ selectedArchData.name }} using selected
+              scans plus 90 balanced anchor exemplars to guarantee zero catastrophic forgetting.
             </p>
           </div>
 
@@ -2092,7 +2198,7 @@
           <p class="text-muted-foreground mt-1 text-[11px] leading-relaxed">
             {{
               selectedTrainingMode === 'quick'
-                ? `Will fine-tune Swin Transformer classification head for ${selectedEpochs} epochs using new scans plus 90 balanced anchor exemplars in ~20s.`
+                ? `Will fine-tune ${selectedArchData.name} classification head for ${selectedEpochs} epochs using new scans plus 90 balanced anchor exemplars in ~20s.`
                 : `Will train Swin Transformer, ResNet-50, and EfficientNet-V2 for ${selectedEpochs} epochs across Acne, Eczema, and Herpes.`
             }}
           </p>
