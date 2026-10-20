@@ -391,7 +391,7 @@
 
   const renewalPieSegments = computed(() => {
     const rate = Math.min(100, Math.max(0, renewalRatePercentage.value))
-    const radius = 46
+    const radius = 58
     const circumference = 2 * Math.PI * radius
     const renewedDash = (rate / 100) * circumference
     const remainingDash = circumference - renewedDash
@@ -715,12 +715,12 @@
             </p>
           </div>
 
-          <!-- Right: Pie / Donut Chart (Enlarged) -->
+          <!-- Right: Pie / Donut Chart (Expanded to Consume Div) -->
           <div class="relative flex shrink-0 items-center justify-center">
             <svg
-              width="116"
-              height="116"
-              viewBox="0 0 116 116"
+              width="146"
+              height="146"
+              viewBox="0 0 150 150"
               class="overflow-visible"
               role="img"
               aria-label="Subscription renewal rate pie chart"
@@ -746,35 +746,35 @@
 
               <!-- Recessed Channel Track -->
               <circle
-                cx="58"
-                cy="58"
-                r="46"
+                cx="75"
+                cy="75"
+                r="58"
                 fill="none"
                 stroke="#f1f5f9"
-                stroke-width="14"
+                stroke-width="18"
               />
 
               <!-- Active Segment Progress Arc -->
               <circle
-                cx="58"
-                cy="58"
-                r="46"
+                cx="75"
+                cy="75"
+                r="58"
                 fill="none"
                 stroke="url(#outsideRenewalPieGradient)"
-                stroke-width="14"
+                stroke-width="18"
                 :stroke-dasharray="`${renewalPieSegments.renewedDash} ${renewalPieSegments.remainingDash}`"
                 stroke-dashoffset="0"
                 stroke-linecap="round"
-                transform="rotate(-90 58 58)"
+                transform="rotate(-90 75 75)"
                 class="transition-all duration-700 ease-out"
               />
 
               <!-- Centered Percentage Label -->
               <text
-                x="58"
-                y="63"
+                x="75"
+                y="81"
                 text-anchor="middle"
-                class="fill-gray-950 text-sm font-black tabular-nums sm:text-base"
+                class="fill-gray-950 text-lg font-black tabular-nums sm:text-xl"
               >
                 {{ Math.round(renewalRatePercentage) }}%
               </text>
