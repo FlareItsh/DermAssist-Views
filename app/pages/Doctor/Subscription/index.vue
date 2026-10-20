@@ -449,13 +449,13 @@
         <!-- Direct Actions on Active Plan (If not inherited) -->
         <div
           v-if="!isInherited && currentSubscription"
-          class="flex flex-wrap items-center gap-2"
+          class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center"
         >
           <AppButton
             v-if="currentSubscription.is_pending_cancellation || !currentSubscription.auto_renew"
             variant="solid"
             size="sm"
-            class="bg-indigo-600 text-white hover:bg-indigo-700"
+            class="w-full justify-center bg-indigo-600 text-white hover:bg-indigo-700 sm:w-auto"
             :loading="isResumingSub"
             @click="handleResumeSubscription"
           >
@@ -470,7 +470,7 @@
             v-if="currentSubscription.status === 'expired' || !currentSubscription.is_active"
             variant="solid"
             size="sm"
-            class="bg-indigo-600 text-white hover:bg-indigo-700"
+            class="w-full justify-center bg-indigo-600 text-white hover:bg-indigo-700 sm:w-auto"
             @click="openCheckout(currentSubscription.plan)"
           >
             <Icon
@@ -489,7 +489,7 @@
             "
             variant="ghost"
             size="sm"
-            class="text-xs font-bold text-rose-600 hover:bg-rose-50"
+            class="w-full justify-center text-xs font-bold text-rose-600 hover:bg-rose-50 sm:w-auto"
             @click="openCancelModal"
           >
             <Icon
@@ -555,7 +555,7 @@
           to="/doctor/profile?tab=clinics"
           variant="outline"
           size="sm"
-          class="shrink-0 border-indigo-200 bg-white font-bold text-indigo-700 hover:bg-indigo-50"
+          class="w-full shrink-0 justify-center border-indigo-200 bg-white font-bold text-indigo-700 hover:bg-indigo-50 sm:w-auto"
         >
           <Icon
             name="lucide:users"
@@ -585,11 +585,11 @@
               :class="currentSubscription.auto_renew ? 'translate-x-4' : 'translate-x-0'"
             />
           </button>
-          <div>
+          <div class="min-w-0">
             <span class="font-bold text-gray-900">
               Auto-Renewal: {{ currentSubscription.auto_renew ? 'Active' : 'Disabled' }}
             </span>
-            <span class="ml-1 text-[11px] text-gray-500">
+            <span class="block text-[11px] text-gray-500 sm:ml-1 sm:inline">
               ({{
                 currentSubscription.auto_renew
                   ? 'Plan automatically renews on expiration date'
@@ -627,12 +627,12 @@
 
         <!-- Billing Cycle Toggle -->
         <div
-          class="inline-flex items-center self-start rounded-2xl border border-gray-200 bg-gray-100 p-1 shadow-2xs sm:self-auto"
+          class="inline-flex w-full items-center justify-center self-start rounded-2xl border border-gray-200 bg-gray-100 p-1 shadow-2xs sm:w-auto sm:self-auto"
         >
           <button
             type="button"
             @click="billingCycle = 'monthly'"
-            class="cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            class="flex-1 cursor-pointer rounded-xl px-3.5 py-1.5 text-center text-xs font-bold transition-all sm:flex-initial"
             :class="
               billingCycle === 'monthly'
                 ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
@@ -644,7 +644,7 @@
           <button
             type="button"
             @click="billingCycle = 'annual'"
-            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            class="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3.5 py-1.5 text-center text-xs font-bold transition-all sm:flex-initial"
             :class="
               billingCycle === 'annual'
                 ? 'border border-gray-200/60 bg-white text-indigo-600 shadow-xs'
@@ -890,7 +890,54 @@
         v-else
         class="overflow-hidden rounded-3xl border border-gray-200/80 bg-white shadow-xs"
       >
-        <div class="overflow-x-auto">
+        <!-- Mobile Card List (<md) -->
+        <div class="divide-y divide-gray-100 md:hidden">
+          <div
+            v-for="inv in paginatedInvoices"
+            :key="inv.uuid"
+            class="space-y-2.5 p-4 transition-colors hover:bg-gray-50/60"
+          >
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-extrabold text-gray-900">
+                  {{ inv.subscription?.plan?.name || 'Subscription Plan' }}
+                </span>
+                <span class="block text-[11px] font-medium text-gray-500">
+                  {{
+                    new Date(inv.created_at).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })
+                  }}
+                </span>
+              </div>
+              <AppBadge
+                :color="getBadgeColor(inv.payment_status)"
+                variant="subtle"
+                size="xs"
+              >
+                {{ inv.payment_status }}
+              </AppBadge>
+            </div>
+
+            <div class="flex items-center justify-between border-t border-gray-100 pt-2 text-xs">
+              <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                {{
+                  inv.payment_method === 'paymongo'
+                    ? 'PayMongo Online'
+                    : inv.payment_method || 'Online Checkout'
+                }}
+              </span>
+              <span class="font-mono text-sm font-black text-gray-950">
+                ₱{{ Number(inv.final_amount).toLocaleString() }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop Table (>=md) -->
+        <div class="hidden overflow-x-auto md:block">
           <table class="w-full text-left text-xs text-gray-700">
             <thead
               class="border-b border-gray-200/80 bg-gray-50/80 text-[11px] font-bold tracking-wider text-gray-500 uppercase"
@@ -958,7 +1005,7 @@
       :description="billingCycle === 'annual' ? 'Annual Billing Cycle' : 'Monthly Billing Cycle'"
       size="lg"
     >
-      <div class="space-y-5">
+      <div class="space-y-4 sm:space-y-5">
         <AppAlert
           v-if="checkoutSuccessMsg"
           type="success"
@@ -973,7 +1020,9 @@
         />
 
         <!-- Order Summary -->
-        <div class="space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-xs">
+        <div
+          class="space-y-2 rounded-2xl border border-gray-100 bg-gray-50/80 p-3.5 text-xs sm:p-4"
+        >
           <div class="flex justify-between text-gray-500">
             <span>Base Price ({{ billingCycle }})</span>
             <span class="font-bold text-gray-900">
@@ -1007,22 +1056,22 @@
         <!-- Coupon Input -->
         <div class="space-y-1.5">
           <label class="block text-xs font-bold text-gray-700">Promo Coupon Code</label>
-          <div class="flex gap-2">
+          <div class="flex flex-col gap-2 sm:flex-row">
             <input
               v-model="couponCode"
               type="text"
               placeholder="ENTER CODE"
-              class="h-9 flex-1 rounded-xl border border-gray-200 bg-white px-3 font-mono text-xs text-gray-900 uppercase outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+              class="h-10 flex-1 rounded-xl border border-gray-200 bg-white px-3 font-mono text-xs text-gray-900 uppercase outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 sm:h-9"
             />
             <AppButton
               variant="outline"
               size="sm"
-              class="rounded-xl"
+              class="h-10 w-full justify-center rounded-xl font-bold sm:h-9 sm:w-auto"
               :disabled="isValidatingCoupon || !couponCode"
               :loading="isValidatingCoupon"
               @click="handleValidateCoupon"
             >
-              Apply
+              Apply Code
             </AppButton>
           </div>
           <p
@@ -1034,15 +1083,17 @@
         </div>
 
         <!-- Payment Notice -->
-        <div class="space-y-1 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 text-xs">
+        <div
+          class="space-y-1 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-3.5 text-xs sm:p-4"
+        >
           <p class="flex items-center gap-1.5 font-bold text-indigo-900">
             <Icon
               name="lucide:zap"
-              class="h-4 w-4 text-indigo-600"
+              class="h-4 w-4 shrink-0 text-indigo-600"
             />
             Instant Automated Subscription Activation
           </p>
-          <p class="text-gray-600">
+          <p class="text-xs leading-relaxed text-gray-600">
             Secure checkout gateway supporting
             <strong>GCash, Maya, QR Ph, and Credit/Debit Cards</strong>. Your subscription activates
             immediately upon payment completion.
@@ -1051,22 +1102,27 @@
       </div>
 
       <template #footer>
-        <AppButton
-          variant="ghost"
-          size="md"
-          @click="isCheckoutOpen = false"
+        <div
+          class="flex w-full flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-3"
         >
-          Cancel
-        </AppButton>
-        <AppButton
-          variant="solid"
-          size="md"
-          class="bg-indigo-600 text-white hover:bg-indigo-700"
-          :loading="isSubmittingCheckout"
-          @click="processCheckout"
-        >
-          Proceed to Secure Payment
-        </AppButton>
+          <AppButton
+            variant="ghost"
+            size="md"
+            class="w-full justify-center sm:w-auto"
+            @click="isCheckoutOpen = false"
+          >
+            Cancel
+          </AppButton>
+          <AppButton
+            variant="solid"
+            size="md"
+            class="w-full justify-center bg-indigo-600 text-white hover:bg-indigo-700 sm:w-auto"
+            :loading="isSubmittingCheckout"
+            @click="processCheckout"
+          >
+            Proceed to Secure Payment
+          </AppButton>
+        </div>
       </template>
     </AppModal>
 
@@ -1079,8 +1135,10 @@
       description="You will continue to have full access until the end of your paid billing period."
       size="lg"
     >
-      <div class="space-y-4 py-2">
-        <div class="space-y-1.5 rounded-2xl border border-gray-100 bg-gray-50/80 p-4 text-xs">
+      <div class="space-y-4 py-1 sm:py-2">
+        <div
+          class="space-y-1.5 rounded-2xl border border-gray-100 bg-gray-50/80 p-3.5 text-xs sm:p-4"
+        >
           <div class="flex items-center gap-2 font-bold text-gray-900">
             <Icon
               name="lucide:info"
@@ -1088,7 +1146,7 @@
             />
             <span>How cancellation works</span>
           </div>
-          <p class="text-gray-600">
+          <p class="text-xs leading-relaxed text-gray-600">
             Your plan will remain fully active until
             <strong class="text-gray-900">
               {{
@@ -1113,7 +1171,7 @@
             <label
               v-for="(reason, idx) in cancellationReasons"
               :key="idx"
-              class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-gray-200 p-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 p-3 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-50"
               :class="
                 cancelReason === reason
                   ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600/30'
@@ -1125,9 +1183,9 @@
                 name="cancelReason"
                 :value="reason"
                 v-model="cancelReason"
-                class="accent-indigo-600"
+                class="mt-0.5 shrink-0 accent-indigo-600"
               />
-              <span>{{ reason }}</span>
+              <span class="min-w-0 leading-normal">{{ reason }}</span>
             </label>
           </div>
         </div>
@@ -1146,10 +1204,13 @@
       </div>
 
       <template #footer>
-        <div class="flex w-full items-center justify-end gap-3">
+        <div
+          class="flex w-full flex-col-reverse items-stretch justify-end gap-2 sm:flex-row sm:items-center sm:gap-3"
+        >
           <AppButton
             variant="ghost"
             size="md"
+            class="w-full justify-center sm:w-auto"
             @click="isCancelModalOpen = false"
             :disabled="isCancellingSub"
           >
@@ -1158,7 +1219,7 @@
           <AppButton
             variant="solid"
             size="md"
-            class="bg-rose-600 text-white hover:bg-rose-700"
+            class="w-full justify-center bg-rose-600 text-white hover:bg-rose-700 sm:w-auto"
             :loading="isCancellingSub"
             @click="handleConfirmCancel"
           >

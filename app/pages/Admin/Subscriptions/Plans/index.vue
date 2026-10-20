@@ -265,13 +265,13 @@
     <Teleport to="body">
       <div
         v-if="showModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4"
       >
         <div
-          class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl md:p-6"
+          class="max-h-[92vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:p-6"
         >
           <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h3 class="text-lg font-black text-gray-950">
+            <h3 class="text-base font-black text-gray-950 sm:text-lg">
               {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
             </h3>
             <button
@@ -316,7 +316,7 @@
               </select>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
                   >Monthly Price (₱)</label
@@ -384,7 +384,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
                   >Free Trial Days</label
@@ -471,18 +471,20 @@
               </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 border-t border-gray-100 pt-4">
+            <div
+              class="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center"
+            >
               <button
                 type="button"
                 @click="showModal = false"
-                class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 :disabled="isSubmitting"
-                class="bg-primary hover:bg-primary-dark rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition disabled:opacity-50"
+                class="bg-primary hover:bg-primary-dark w-full rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white shadow-sm transition disabled:opacity-50 sm:w-auto sm:py-2"
               >
                 {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
               </button>

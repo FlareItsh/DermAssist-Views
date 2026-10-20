@@ -1,30 +1,32 @@
 <template>
   <div
     v-if="show && coupon"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs transition-opacity sm:p-4"
   >
     <div
       class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all"
     >
       <!-- Header -->
       <div
-        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-6 py-4"
+        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3 sm:px-6 sm:py-4"
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 sm:gap-3">
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-xl"
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10"
             :class="hasRedemptions ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'"
           >
             <Icon
               :name="hasRedemptions ? 'lucide:archive' : 'lucide:trash-2'"
-              class="text-lg"
+              class="text-base sm:text-lg"
             />
           </div>
           <div>
-            <h3 class="text-base font-black text-gray-950">
+            <h3 class="text-sm font-black text-gray-950 sm:text-base">
               {{ hasRedemptions ? 'Archive Promo Coupon' : 'Delete Promo Coupon' }}
             </h3>
-            <p class="font-mono text-xs font-bold text-gray-500">{{ coupon.code }}</p>
+            <p class="font-mono text-[11px] font-bold text-gray-500 sm:text-xs">
+              {{ coupon.code }}
+            </p>
           </div>
         </div>
         <button
@@ -41,7 +43,7 @@
       </div>
 
       <!-- Content -->
-      <div class="space-y-4 p-6">
+      <div class="space-y-4 p-4 sm:p-6">
         <!-- Scenario A: Coupon has existing redemptions -->
         <div
           v-if="hasRedemptions"
@@ -134,12 +136,12 @@
 
       <!-- Footer -->
       <div
-        class="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50/70 px-6 py-4"
+        class="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-gray-100 bg-gray-50/70 px-4 py-3 sm:flex-row sm:items-center sm:px-6 sm:py-4"
       >
         <button
           type="button"
           @click="handleCancel"
-          class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2"
         >
           Cancel
         </button>
@@ -150,7 +152,7 @@
           type="button"
           :disabled="isSubmitting"
           @click="handleConfirmArchive"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 disabled:opacity-50"
+          class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:py-2"
         >
           <Icon
             v-if="isSubmitting"
@@ -170,7 +172,7 @@
           type="button"
           :disabled="isSubmitting"
           @click="handleConfirmArchive"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 disabled:opacity-50"
+          class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 disabled:opacity-50 sm:w-auto sm:py-2"
         >
           <Icon
             v-if="isSubmitting"
@@ -190,7 +192,7 @@
           type="button"
           :disabled="isSubmitting"
           @click="handleConfirmPermanentDelete"
-          class="inline-flex items-center gap-1.5 rounded-xl border border-rose-300 bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-rose-700 disabled:opacity-50"
+          class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-rose-300 bg-rose-600 px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition hover:bg-rose-700 disabled:opacity-50 sm:w-auto sm:py-2"
         >
           <Icon
             v-if="isSubmitting"

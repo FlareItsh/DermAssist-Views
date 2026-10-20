@@ -37,7 +37,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
         @click.self="close"
       >
         <!-- Overlay -->
@@ -45,7 +45,7 @@
 
         <!-- Modal Container -->
         <div
-          class="modal-container relative max-h-[92vh] w-full rounded-[2rem] bg-white shadow-2xl transition-all sm:rounded-[2.5rem]"
+          class="modal-container relative max-h-[92vh] w-full rounded-2xl bg-white shadow-2xl transition-all sm:rounded-[2rem] md:rounded-[2.5rem]"
           :class="[
             sizeClasses[size],
             hideScrollbar ? 'scrollbar-none overflow-y-auto' : 'overflow-y-auto'
@@ -55,7 +55,7 @@
           <AppButton
             variant="ghost"
             size="icon"
-            class="absolute top-4 right-4 z-10 rounded-full hover:bg-gray-100 sm:top-6 sm:right-6"
+            class="absolute top-3.5 right-3.5 z-10 rounded-full hover:bg-gray-100 sm:top-6 sm:right-6"
             @click="close"
           >
             <Icon
@@ -65,10 +65,10 @@
           </AppButton>
 
           <!-- Content -->
-          <div :class="compact ? 'p-5 sm:p-7' : 'p-6 sm:p-10'">
+          <div :class="compact ? 'p-4 sm:p-6 md:p-7' : 'p-4 sm:p-6 md:p-10'">
             <div
               v-if="title || description"
-              :class="compact ? 'mb-4 pr-8 sm:mb-5 sm:pr-10' : 'mb-6 pr-8 sm:mb-8 sm:pr-12'"
+              :class="compact ? 'mb-4 pr-8 sm:mb-5 sm:pr-10' : 'mb-5 pr-8 sm:mb-8 sm:pr-12'"
             >
               <h3
                 v-if="title"
@@ -96,8 +96,8 @@
               v-if="$slots.footer"
               :class="
                 compact
-                  ? 'mt-6 flex items-center justify-end gap-3'
-                  : 'mt-10 flex items-center justify-end gap-3'
+                  ? 'mt-6 flex flex-col-reverse items-stretch justify-end gap-2 sm:flex-row sm:items-center sm:gap-3'
+                  : 'mt-7 flex flex-col-reverse items-stretch justify-end gap-2.5 sm:mt-10 sm:flex-row sm:items-center sm:gap-3'
               "
             >
               <slot name="footer" />
