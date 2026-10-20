@@ -685,8 +685,8 @@
         </div>
 
         <div class="mt-3 flex items-center justify-between gap-3">
-          <!-- Left: Numbers and Legend -->
-          <div class="min-w-0 flex-1">
+          <!-- Left: Numbers and Legend (Aligned to bottom for consistent spacing) -->
+          <div class="min-w-0 flex-1 self-end pb-0.5">
             <div class="flex items-baseline gap-1.5">
               <span
                 class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
