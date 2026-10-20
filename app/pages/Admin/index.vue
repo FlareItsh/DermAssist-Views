@@ -1169,8 +1169,8 @@
       @close="handleCloseProfitsModal"
     >
       <div class="space-y-6">
-        <!-- Metric Key Stats Row -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <!-- Metric Key Stats Row (Unified, Non-Redundant) -->
+        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
           <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
             <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
               >Total Profits</span
@@ -1188,7 +1188,9 @@
             <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
               {{ dashboardStats?.subscription_profits?.active_subscribers_count ?? 0 }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">Currently active</span>
+            <span class="text-[10px] font-medium text-gray-400">
+              {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} all-time
+            </span>
           </div>
 
           <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
@@ -1212,48 +1214,15 @@
             </span>
             <span class="text-[10px] font-medium text-gray-400">Registered</span>
           </div>
-        </div>
-
-        <!-- Metric Secondary Stats Row -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Active Subscriptions</span
-            >
-            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
-              {{ dashboardStats?.subscription_profits?.active_subscribers_count ?? 0 }}
-            </span>
-            <span class="text-[10px] font-medium text-gray-400">Currently active</span>
-          </div>
-
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >All-Time Subscribed</span
-            >
-            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
-              {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }}
-            </span>
-            <span class="text-[10px] font-medium text-gray-400">Subscribed doctors</span>
-          </div>
-
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Total Doctors</span
-            >
-            <span class="mt-1 block text-xl font-black text-emerald-700 tabular-nums">
-              {{ dashboardStats?.user_counts?.total_doctors ?? doctorCount }}
-            </span>
-            <span class="text-[10px] font-medium text-gray-400">Registered clinicians</span>
-          </div>
 
           <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
             <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
               >Total Patients</span
             >
-            <span class="mt-1 block text-xl font-black text-blue-700 tabular-nums">
+            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
               {{ dashboardStats?.user_counts?.total_patients ?? patientCount }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">Registered patients</span>
+            <span class="text-[10px] font-medium text-gray-400">Registered</span>
           </div>
         </div>
 
