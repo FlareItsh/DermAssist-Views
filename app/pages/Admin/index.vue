@@ -391,7 +391,7 @@
 
   const renewalPieSegments = computed(() => {
     const rate = Math.min(100, Math.max(0, renewalRatePercentage.value))
-    const radius = 38
+    const radius = 58
     const circumference = 2 * Math.PI * radius
     const renewedDash = (rate / 100) * circumference
     const remainingDash = circumference - renewedDash
@@ -669,38 +669,37 @@
       <div
         class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
       >
-        <div>
-          <!-- Header -->
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
-              Subscription Renewal Rate
-            </span>
-            <span
-              class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
-            >
-              <Icon
-                name="lucide:repeat"
-                class="h-3 w-3"
-              />
-              {{ renewalRatePercentage }}%
-            </span>
-          </div>
-
-          <!-- Big Metric (Matches Card 1 mt-2.5 and baseline) -->
-          <div class="mt-2.5 flex items-baseline gap-1.5">
-            <span class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl">
-              {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
-            </span>
-            <span class="text-xs font-medium text-gray-400">
-              / {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} renewed
-            </span>
-          </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+            Subscription Renewal Rate
+          </span>
+          <span
+            class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
+          >
+            <Icon
+              name="lucide:repeat"
+              class="h-3 w-3"
+            />
+            {{ renewalRatePercentage }}%
+          </span>
         </div>
 
-        <!-- Bottom Row: Legend & Description (Left) + Pie Chart (Right) -->
-        <div class="mt-4 flex items-center justify-between gap-3">
+        <div class="mt-3 flex items-center justify-between gap-3">
+          <!-- Left: Numbers and Legend -->
           <div class="min-w-0 flex-1">
-            <div class="flex flex-wrap items-center gap-2.5 text-xs">
+            <div class="flex items-baseline gap-1.5">
+              <span
+                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+              >
+                {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
+              </span>
+              <span class="text-xs font-semibold text-gray-500">
+                / {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} renewed
+              </span>
+            </div>
+
+            <!-- Mini Legend -->
+            <div class="mt-3 flex flex-wrap items-center gap-2.5 text-xs">
               <span class="inline-flex items-center gap-1.5 font-medium text-gray-700">
                 <span class="h-2 w-2 rounded-full bg-blue-600"></span>
                 Renewed ({{ renewalRatePercentage }}%)
@@ -716,12 +715,12 @@
             </p>
           </div>
 
-          <!-- Right: Pie / Donut Chart -->
+          <!-- Right: Pie / Donut Chart (Expanded to Consume Div) -->
           <div class="relative flex shrink-0 items-center justify-center">
             <svg
-              width="96"
-              height="96"
-              viewBox="0 0 100 100"
+              width="146"
+              height="146"
+              viewBox="0 0 150 150"
               class="overflow-visible"
               role="img"
               aria-label="Subscription renewal rate pie chart"
@@ -747,35 +746,35 @@
 
               <!-- Recessed Channel Track -->
               <circle
-                cx="50"
-                cy="50"
-                r="38"
+                cx="75"
+                cy="75"
+                r="58"
                 fill="none"
                 stroke="#f1f5f9"
-                stroke-width="12"
+                stroke-width="18"
               />
 
               <!-- Active Segment Progress Arc -->
               <circle
-                cx="50"
-                cy="50"
-                r="38"
+                cx="75"
+                cy="75"
+                r="58"
                 fill="none"
                 stroke="url(#outsideRenewalPieGradient)"
-                stroke-width="12"
+                stroke-width="18"
                 :stroke-dasharray="`${renewalPieSegments.renewedDash} ${renewalPieSegments.remainingDash}`"
                 stroke-dashoffset="0"
                 stroke-linecap="round"
-                transform="rotate(-90 50 50)"
+                transform="rotate(-90 75 75)"
                 class="transition-all duration-700 ease-out"
               />
 
               <!-- Centered Percentage Label -->
               <text
-                x="50"
-                y="55"
+                x="75"
+                y="81"
                 text-anchor="middle"
-                class="fill-gray-950 text-xs font-black tabular-nums sm:text-sm"
+                class="fill-gray-950 text-lg font-black tabular-nums sm:text-xl"
               >
                 {{ Math.round(renewalRatePercentage) }}%
               </text>
