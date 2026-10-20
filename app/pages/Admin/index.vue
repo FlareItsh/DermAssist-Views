@@ -385,6 +385,84 @@
     return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0)}`
   }
 
+  const renewalRatePercentage = computed(() => {
+    return Number(dashboardStats.value?.subscription_profits?.renewal_rate_percentage || 0)
+  })
+
+  const renewalPieSegments = computed(() => {
+    const rate = Math.min(100, Math.max(0, renewalRatePercentage.value))
+    const radius = 34
+    const circumference = 2 * Math.PI * radius
+    const renewedDash = (rate / 100) * circumference
+    const remainingDash = circumference - renewedDash
+    return {
+      radius,
+      circumference,
+      renewedDash,
+      remainingDash,
+      rate
+    }
+  })
+
+  const revenueTrendSeries = computed(() => {
+    const raw = dashboardStats.value?.subscription_profits?.revenue_trend
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((item: any) => ({
+        label: item.label,
+        amount: Number(item.amount || 0)
+      }))
+    }
+    const now = new Date()
+    return Array.from({ length: 6 }, (_, index) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      return {
+        label: d.toLocaleDateString('en', { month: 'short' }),
+        amount: 0
+      }
+    })
+  })
+
+  const revenueGrowthRate = computed(() => {
+    const rate = Number(dashboardStats.value?.subscription_profits?.growth_rate || 0)
+    return {
+      value: rate >= 0 ? `+${rate}%` : `${rate}%`,
+      direction: rate >= 0 ? ('up' as const) : ('down' as const)
+    }
+  })
+
+  const sparkWidth = 280
+  const sparkHeight = 64
+  const sparkPadding = { top: 8, bottom: 20, left: 16, right: 16 }
+
+  const sparkPoints = computed(() => {
+    const data = revenueTrendSeries.value
+    const maxVal = Math.max(...data.map(d => d.amount), 1)
+    const plotWidth = sparkWidth - sparkPadding.left - sparkPadding.right
+    const plotHeight = sparkHeight - sparkPadding.top - sparkPadding.bottom
+    const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth
+
+    return data.map((d, i) => {
+      const x = sparkPadding.left + i * step
+      const y = sparkPadding.top + plotHeight - (d.amount / maxVal) * plotHeight
+      return {
+        ...d,
+        x,
+        y
+      }
+    })
+  })
+
+  const sparkLinePath = computed(() => {
+    const pts = sparkPoints.value
+    if (!pts.length) return ''
+    return pts.reduce((acc, pt, i, arr) => {
+      if (i === 0) return `M ${pt.x} ${pt.y}`
+      const prev = arr[i - 1]
+      const cx = (pt.x - prev.x) / 2
+      return `${acc} C ${prev.x + cx} ${prev.y}, ${pt.x - cx} ${pt.y}, ${pt.x} ${pt.y}`
+    }, '')
+  })
+
   const fetchDashboardStats = async () => {
     isLoadingDashboardStats.value = true
     try {
@@ -859,66 +937,220 @@
     >
       <div class="space-y-6">
         <!-- Revenue & Renewal Highlight Cards -->
+        <!-- Revenue & Renewal Highlight Cards -->
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <!-- Total Revenue Card -->
+          <!-- Total Revenue Card (Stripe-style Minimalist Sparkline) -->
           <div
-            class="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-white p-5 shadow-2xs"
+            class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
           >
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold tracking-wider text-emerald-800 uppercase"
-                >Total Net Profits</span
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+                  Net Revenue
+                </span>
+                <span
+                  class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  :class="
+                    revenueGrowthRate.direction === 'up'
+                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 ring-inset'
+                      : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20 ring-inset'
+                  "
+                >
+                  <Icon
+                    :name="
+                      revenueGrowthRate.direction === 'up'
+                        ? 'lucide:trending-up'
+                        : 'lucide:trending-down'
+                    "
+                    class="h-3 w-3"
+                  />
+                  {{ revenueGrowthRate.value }}
+                </span>
+              </div>
+              <div class="mt-2.5 flex items-baseline gap-1.5">
+                <span
+                  class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+                >
+                  {{ formattedProfits }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Dynamic Minimalist Sparkline Chart -->
+            <div class="mt-4 w-full">
+              <svg
+                :viewBox="`0 0 ${sparkWidth} ${sparkHeight}`"
+                class="w-full overflow-visible"
+                role="img"
+                aria-label="Monthly net revenue trend line"
               >
-              <span
-                class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"
-              >
-                <Icon
-                  name="lucide:sparkles"
-                  class="h-3 w-3"
+                <!-- Dashed Vertical Grid Guides -->
+                <line
+                  v-for="pt in sparkPoints"
+                  :key="`guide-${pt.label}`"
+                  :x1="pt.x"
+                  :x2="pt.x"
+                  :y1="sparkPadding.top"
+                  :y2="sparkHeight - sparkPadding.bottom"
+                  stroke="#e2e8f0"
+                  stroke-width="1"
+                  stroke-dasharray="2 3"
                 />
-                Lifetime
-              </span>
+
+                <!-- Dynamic Sparkline Line -->
+                <path
+                  :d="sparkLinePath"
+                  fill="none"
+                  stroke="#0f172a"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+
+                <!-- Point Dots -->
+                <circle
+                  v-for="pt in sparkPoints"
+                  :key="`dot-${pt.label}`"
+                  :cx="pt.x"
+                  :cy="pt.y"
+                  r="2.5"
+                  fill="#0f172a"
+                  stroke="#ffffff"
+                  stroke-width="1.5"
+                />
+
+                <!-- X-Axis Month Labels -->
+                <text
+                  v-for="pt in sparkPoints"
+                  :key="`axis-${pt.label}`"
+                  :x="pt.x"
+                  :y="sparkHeight - 4"
+                  text-anchor="middle"
+                  class="fill-gray-400 text-[9px] font-semibold uppercase"
+                >
+                  {{ pt.label }}
+                </text>
+              </svg>
             </div>
-            <div class="mt-3 flex items-baseline gap-1">
-              <span
-                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
-              >
-                {{ formattedProfits }}
-              </span>
-            </div>
-            <p class="mt-2 text-xs font-medium text-gray-500">
-              Aggregated from all approved and paid subscription invoices.
-            </p>
           </div>
 
-          <!-- Renewal Rate Card -->
+          <!-- Renewal Rate Card (With Pie Chart on Right Side) -->
           <div
-            class="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-5 shadow-2xs"
+            class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
           >
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold tracking-wider text-blue-800 uppercase"
-                >Renewal Rate</span
-              >
+              <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+                Renewal Rate
+              </span>
               <span
-                class="inline-flex items-center gap-1 rounded-full bg-blue-100/80 px-2 py-0.5 text-[11px] font-semibold text-blue-800"
+                class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
               >
                 <Icon
                   name="lucide:repeat"
                   class="h-3 w-3"
                 />
-                {{ dashboardStats?.subscription_profits?.renewal_rate_percentage ?? 0 }}%
+                {{ renewalRatePercentage }}%
               </span>
             </div>
-            <div class="mt-3 flex items-baseline gap-2">
-              <span
-                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
-              >
-                {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
-              </span>
-              <span class="text-xs font-semibold text-gray-500">renewed subscribers</span>
+
+            <div class="mt-3 flex items-center justify-between gap-3">
+              <!-- Left: Numbers and Legend -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-baseline gap-1.5">
+                  <span
+                    class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+                  >
+                    {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
+                  </span>
+                  <span class="text-xs font-semibold text-gray-500">
+                    /
+                    {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} renewed
+                  </span>
+                </div>
+
+                <!-- Mini Legend -->
+                <div class="mt-3 flex flex-wrap items-center gap-2.5 text-xs">
+                  <span class="inline-flex items-center gap-1.5 font-medium text-gray-700">
+                    <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                    Renewed ({{ renewalRatePercentage }}%)
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 font-medium text-gray-400">
+                    <span class="h-2 w-2 rounded-full bg-slate-300"></span>
+                    Non-renewed
+                  </span>
+                </div>
+
+                <p class="mt-2 text-[11px] font-medium text-gray-400">
+                  Subscribed clinicians who renewed plan.
+                </p>
+              </div>
+
+              <!-- Right: Pie / Donut Chart -->
+              <div class="relative flex shrink-0 items-center justify-center">
+                <svg
+                  width="88"
+                  height="88"
+                  viewBox="0 0 88 88"
+                  class="overflow-visible"
+                  role="img"
+                  aria-label="Subscription renewal rate pie chart"
+                >
+                  <defs>
+                    <linearGradient
+                      id="renewalPieGradient"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="100%"
+                    >
+                      <stop
+                        offset="0%"
+                        stop-color="#3b82f6"
+                      />
+                      <stop
+                        offset="100%"
+                        stop-color="#1d4ed8"
+                      />
+                    </linearGradient>
+                  </defs>
+
+                  <!-- Recessed Channel Track -->
+                  <circle
+                    cx="44"
+                    cy="44"
+                    r="34"
+                    fill="none"
+                    stroke="#f1f5f9"
+                    stroke-width="11"
+                  />
+
+                  <!-- Active Segment Progress Arc -->
+                  <circle
+                    cx="44"
+                    cy="44"
+                    r="34"
+                    fill="none"
+                    stroke="url(#renewalPieGradient)"
+                    stroke-width="11"
+                    :stroke-dasharray="`${renewalPieSegments.renewedDash} ${renewalPieSegments.remainingDash}`"
+                    stroke-dashoffset="0"
+                    stroke-linecap="round"
+                    transform="rotate(-90 44 44)"
+                    class="transition-all duration-700 ease-out"
+                  />
+
+                  <!-- Centered Percentage Label -->
+                  <text
+                    x="44"
+                    y="48"
+                    text-anchor="middle"
+                    class="fill-gray-950 text-xs font-black tabular-nums sm:text-sm"
+                  >
+                    {{ Math.round(renewalRatePercentage) }}%
+                  </text>
+                </svg>
+              </div>
             </div>
-            <p class="mt-2 text-xs font-medium text-gray-500">
-              Percentage of subscribed users who renewed their subscription.
-            </p>
           </div>
         </div>
 
