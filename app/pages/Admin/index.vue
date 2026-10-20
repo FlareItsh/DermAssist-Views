@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
+  import { subscriptionAdminService } from '~/api/subscription/SubscriptionAdminService'
   import { userService } from '~/api/user/UserService'
   import { verificationService } from '~/api/verification/VerificationService'
 
@@ -344,7 +345,68 @@
     }
   }
 
+  const dashboardStats = ref<any>(null)
+  const isLoadingDashboardStats = ref(true)
+  const showProfitsModal = ref(false)
+
+  const handleOpenProfitsModal = () => {
+    showProfitsModal.value = true
+  }
+
+  const handleCloseProfitsModal = () => {
+    showProfitsModal.value = false
+  }
+
+  const formattedProfits = computed(() => {
+    const rev = Number(dashboardStats.value?.subscription_profits?.total_revenue || 0)
+    return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(rev)}`
+  })
+
+  const scanUsageTotal = computed(() => {
+    return dashboardStats.value?.scan_usage?.total_scans || 0
+  })
+
+  const scanUsageDetail = computed(() => {
+    const doc = dashboardStats.value?.scan_usage?.doctor_scans_count || 0
+    const pat = dashboardStats.value?.scan_usage?.patient_scans_count || 0
+    return `${doc} Doctor • ${pat} Patient`
+  })
+
+  const scanUsageTrend = computed(() => {
+    const recent = dashboardStats.value?.scan_usage?.scans_30d || 0
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
+  const formatCurrency = (amount: number) => {
+    return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0)}`
+  }
+
+  const fetchDashboardStats = async () => {
+    isLoadingDashboardStats.value = true
+    try {
+      const response = await subscriptionAdminService.getDashboardStats()
+      dashboardStats.value = response?.data || response || null
+      if (dashboardStats.value?.user_counts) {
+        if (!patientCount.value) {
+          patientCount.value = dashboardStats.value.user_counts.total_patients || 0
+        }
+        if (!doctorCount.value) {
+          doctorCount.value = dashboardStats.value.user_counts.total_doctors || 0
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error)
+    } finally {
+      isLoadingDashboardStats.value = false
+    }
+  }
+
   onMounted(() => {
+    fetchDashboardStats()
     fetchUserCounts()
     fetchVerifications()
     fetchDatasets()
@@ -354,7 +416,9 @@
 
 <template>
   <div class="">
-    <div class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-4 md:gap-4">
+    <div
+      class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-3 md:gap-4 xl:grid-cols-6"
+    >
       <AdminSideComponentsMetricCard
         label="Patients"
         :value="patientCount"
@@ -371,6 +435,25 @@
         :trend="doctorTrend"
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingUsers"
+      />
+
+      <AdminSideComponentsMetricCard
+        label="AI Scans Used"
+        :value="scanUsageTotal"
+        unit="scans"
+        :detail="scanUsageDetail"
+        :trend="scanUsageTrend"
+        :loading="isLoadingDashboardStats"
+      />
+
+      <AdminSideComponentsMetricCard
+        label="Subscription Profits"
+        :value="formattedProfits"
+        detail="Tap to view subscribers & renewals"
+        badge="Details →"
+        :loading="isLoadingDashboardStats"
+        class="cursor-pointer transition-all hover:border-emerald-400 hover:shadow-md hover:ring-2 hover:ring-emerald-500/10"
+        @click="handleOpenProfitsModal"
       />
 
       <AdminSideComponentsMetricCard
@@ -764,5 +847,213 @@
         :loading="isLoadingDatasets"
       />
     </div>
+
+    <!-- Subscription Profits Details Modal -->
+    <AppModal
+      :model-value="showProfitsModal"
+      size="2xl"
+      title="Subscription Profits & Retention"
+      description="Detailed breakdown of subscription revenue, active subscribers, and renewal rates."
+      @update:model-value="showProfitsModal = $event"
+      @close="handleCloseProfitsModal"
+    >
+      <div class="space-y-6">
+        <!-- Revenue & Renewal Highlight Cards -->
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <!-- Total Revenue Card -->
+          <div
+            class="relative overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-white p-5 shadow-2xs"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold tracking-wider text-emerald-800 uppercase"
+                >Total Net Profits</span
+              >
+              <span
+                class="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[11px] font-semibold text-emerald-800"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="h-3 w-3"
+                />
+                Lifetime
+              </span>
+            </div>
+            <div class="mt-3 flex items-baseline gap-1">
+              <span
+                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+              >
+                {{ formattedProfits }}
+              </span>
+            </div>
+            <p class="mt-2 text-xs font-medium text-gray-500">
+              Aggregated from all approved and paid subscription invoices.
+            </p>
+          </div>
+
+          <!-- Renewal Rate Card -->
+          <div
+            class="relative overflow-hidden rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-indigo-50/30 to-white p-5 shadow-2xs"
+          >
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold tracking-wider text-blue-800 uppercase"
+                >Renewal Rate</span
+              >
+              <span
+                class="inline-flex items-center gap-1 rounded-full bg-blue-100/80 px-2 py-0.5 text-[11px] font-semibold text-blue-800"
+              >
+                <Icon
+                  name="lucide:repeat"
+                  class="h-3 w-3"
+                />
+                {{ dashboardStats?.subscription_profits?.renewal_rate_percentage ?? 0 }}%
+              </span>
+            </div>
+            <div class="mt-3 flex items-baseline gap-2">
+              <span
+                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+              >
+                {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
+              </span>
+              <span class="text-xs font-semibold text-gray-500">renewed subscribers</span>
+            </div>
+            <p class="mt-2 text-xs font-medium text-gray-500">
+              Percentage of subscribed users who renewed their subscription.
+            </p>
+          </div>
+        </div>
+
+        <!-- Metric Secondary Stats Row -->
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
+            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
+              >Active Subscriptions</span
+            >
+            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
+              {{ dashboardStats?.subscription_profits?.active_subscribers_count ?? 0 }}
+            </span>
+            <span class="text-[10px] font-medium text-gray-400">Currently active</span>
+          </div>
+
+          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
+            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
+              >All-Time Subscribed</span
+            >
+            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
+              {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }}
+            </span>
+            <span class="text-[10px] font-medium text-gray-400">Subscribed doctors</span>
+          </div>
+
+          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
+            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
+              >Total Doctors</span
+            >
+            <span class="mt-1 block text-xl font-black text-emerald-700 tabular-nums">
+              {{ dashboardStats?.user_counts?.total_doctors ?? doctorCount }}
+            </span>
+            <span class="text-[10px] font-medium text-gray-400">Registered clinicians</span>
+          </div>
+
+          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
+            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
+              >Total Patients</span
+            >
+            <span class="mt-1 block text-xl font-black text-blue-700 tabular-nums">
+              {{ dashboardStats?.user_counts?.total_patients ?? patientCount }}
+            </span>
+            <span class="text-[10px] font-medium text-gray-400">Registered patients</span>
+          </div>
+        </div>
+
+        <!-- Recent Invoices List -->
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+              Recent Subscription Payments & Renewals
+            </h4>
+            <NuxtLink
+              to="/admin/subscriptions"
+              class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              View in Subscriptions →
+            </NuxtLink>
+          </div>
+
+          <div
+            v-if="dashboardStats?.subscription_profits?.recent_invoices?.length"
+            class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white"
+          >
+            <div
+              v-for="invoice in dashboardStats.subscription_profits.recent_invoices"
+              :key="invoice.id"
+              class="flex items-center justify-between p-3.5 transition hover:bg-gray-50/80"
+            >
+              <div class="min-w-0 pr-3">
+                <div class="flex items-center gap-2">
+                  <p class="truncate text-xs font-bold text-gray-900">
+                    {{ invoice.user?.name || 'Doctor Account' }}
+                  </p>
+                  <span
+                    v-if="invoice.is_renewal"
+                    class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+                  >
+                    Renewal
+                  </span>
+                  <span
+                    v-else
+                    class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
+                  >
+                    New
+                  </span>
+                </div>
+                <p class="mt-0.5 truncate text-[11px] font-medium text-gray-400">
+                  {{ invoice.user?.email || 'N/A' }} • {{ formatAppealDate(invoice.paid_at) }}
+                </p>
+              </div>
+
+              <div class="shrink-0 text-right">
+                <span class="text-xs font-black text-gray-950 tabular-nums">
+                  {{ formatCurrency(invoice.amount) }}
+                </span>
+                <span class="block text-[10px] font-medium text-emerald-600"> Approved </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="rounded-xl border border-dashed border-gray-200 p-8 text-center"
+          >
+            <Icon
+              name="lucide:receipt"
+              class="mx-auto h-8 w-8 text-gray-300"
+            />
+            <p class="mt-2 text-xs font-medium text-gray-500">
+              No subscription invoices recorded yet.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <AppButton
+            variant="outline"
+            size="sm"
+            @click="handleCloseProfitsModal"
+          >
+            Close
+          </AppButton>
+          <NuxtLink to="/admin/subscriptions">
+            <AppButton
+              variant="primary"
+              size="sm"
+            >
+              Manage Subscriptions
+            </AppButton>
+          </NuxtLink>
+        </div>
+      </template>
+    </AppModal>
   </div>
 </template>
