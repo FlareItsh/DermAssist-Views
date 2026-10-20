@@ -1,29 +1,29 @@
 <template>
   <div
     v-if="show && form"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs transition-opacity sm:p-4"
   >
     <div
       class="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all"
     >
       <!-- Header -->
       <div
-        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-6 py-4"
+        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3 sm:px-6 sm:py-4"
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 sm:gap-3">
           <div
-            class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-xl"
+            class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10"
           >
             <Icon
               name="lucide:pencil"
-              class="text-lg"
+              class="text-base sm:text-lg"
             />
           </div>
           <div>
-            <h3 class="text-base font-black text-gray-950">
+            <h3 class="text-sm font-black text-gray-950 sm:text-base">
               {{ form.id ? `Edit Coupon: ${form.code}` : 'Create Promo Coupon' }}
             </h3>
-            <p class="text-xs text-gray-500">
+            <p class="line-clamp-1 text-[11px] text-gray-500 sm:line-clamp-none sm:text-xs">
               Adjust active schedules, usage limits, eligibility constraints, and status
             </p>
           </div>
@@ -46,7 +46,7 @@
         @submit.prevent="handleSubmit"
         class="flex flex-col"
       >
-        <div class="max-h-[72vh] space-y-6 overflow-y-auto p-6">
+        <div class="max-h-[75vh] space-y-5 overflow-y-auto p-4 sm:space-y-6 sm:p-6">
           <!-- Safeguard Notice if Redeemed -->
           <div
             v-if="form.id && form.has_redemptions"
@@ -343,19 +343,19 @@
 
         <!-- Footer -->
         <div
-          class="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50/70 px-6 py-4"
+          class="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-gray-100 bg-gray-50/70 px-4 py-3 sm:flex-row sm:items-center sm:px-6 sm:py-4"
         >
           <button
             type="button"
             @click="handleClose"
-            class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+            class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2"
           >
             Cancel
           </button>
           <button
             type="submit"
             :disabled="isSubmitting"
-            class="bg-primary hover:bg-primary-dark inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
+            class="bg-primary hover:bg-primary-dark inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition disabled:opacity-50 sm:w-auto sm:py-2"
           >
             <Icon
               v-if="isSubmitting"

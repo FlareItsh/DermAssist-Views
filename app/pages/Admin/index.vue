@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { datasetService, type DatasetCategory } from '~/api/dataset/DatasetService'
+  import { subscriptionAdminService } from '~/api/subscription/SubscriptionAdminService'
   import { userService } from '~/api/user/UserService'
   import { verificationService } from '~/api/verification/VerificationService'
 
@@ -344,7 +345,146 @@
     }
   }
 
+  const dashboardStats = ref<any>(null)
+  const isLoadingDashboardStats = ref(true)
+  const showProfitsModal = ref(false)
+
+  const handleOpenProfitsModal = () => {
+    showProfitsModal.value = true
+  }
+
+  const handleCloseProfitsModal = () => {
+    showProfitsModal.value = false
+  }
+
+  const formattedProfits = computed(() => {
+    const rev = Number(dashboardStats.value?.subscription_profits?.total_revenue || 0)
+    return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(rev)}`
+  })
+
+  const scanUsageTotal = computed(() => {
+    return dashboardStats.value?.scan_usage?.total_scans || 0
+  })
+
+  const scanUsageDetail = computed(() => {
+    const doc = dashboardStats.value?.scan_usage?.doctor_scans_count || 0
+    const pat = dashboardStats.value?.scan_usage?.patient_scans_count || 0
+    return `${doc} Doctor • ${pat} Patient`
+  })
+
+  const scanUsageTrend = computed(() => {
+    const recent = dashboardStats.value?.scan_usage?.scans_30d || 0
+    return {
+      value: recent > 0 ? `+${recent}` : '0 new',
+      direction: recent > 0 ? ('up' as const) : ('neutral' as const),
+      label: 'last 30d'
+    }
+  })
+
+  const formatCurrency = (amount: number) => {
+    return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount || 0)}`
+  }
+
+  const renewalRatePercentage = computed(() => {
+    return Number(dashboardStats.value?.subscription_profits?.renewal_rate_percentage || 0)
+  })
+
+  const renewalPieSegments = computed(() => {
+    const rate = Math.min(100, Math.max(0, renewalRatePercentage.value))
+    const radius = 58
+    const circumference = 2 * Math.PI * radius
+    const renewedDash = (rate / 100) * circumference
+    const remainingDash = circumference - renewedDash
+    return {
+      radius,
+      circumference,
+      renewedDash,
+      remainingDash,
+      rate
+    }
+  })
+
+  const revenueTrendSeries = computed(() => {
+    const raw = dashboardStats.value?.subscription_profits?.revenue_trend
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.map((item: any) => ({
+        label: item.label,
+        amount: Number(item.amount || 0)
+      }))
+    }
+    const now = new Date()
+    return Array.from({ length: 6 }, (_, index) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
+      return {
+        label: d.toLocaleDateString('en', { month: 'short' }),
+        amount: 0
+      }
+    })
+  })
+
+  const revenueGrowthRate = computed(() => {
+    const rate = Number(dashboardStats.value?.subscription_profits?.growth_rate || 0)
+    return {
+      value: rate >= 0 ? `+${rate}%` : `${rate}%`,
+      direction: rate >= 0 ? ('up' as const) : ('down' as const)
+    }
+  })
+
+  const sparkWidth = 280
+  const sparkHeight = 64
+  const sparkPadding = { top: 8, bottom: 20, left: 16, right: 16 }
+
+  const sparkPoints = computed(() => {
+    const data = revenueTrendSeries.value
+    const maxVal = Math.max(...data.map(d => d.amount), 1)
+    const plotWidth = sparkWidth - sparkPadding.left - sparkPadding.right
+    const plotHeight = sparkHeight - sparkPadding.top - sparkPadding.bottom
+    const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth
+
+    return data.map((d, i) => {
+      const x = sparkPadding.left + i * step
+      const y = sparkPadding.top + plotHeight - (d.amount / maxVal) * plotHeight
+      return {
+        ...d,
+        x,
+        y
+      }
+    })
+  })
+
+  const sparkLinePath = computed(() => {
+    const pts = sparkPoints.value
+    if (!pts.length) return ''
+    return pts.reduce((acc, pt, i, arr) => {
+      if (i === 0) return `M ${pt.x} ${pt.y}`
+      const prev = arr[i - 1]
+      const cx = (pt.x - prev.x) / 2
+      return `${acc} C ${prev.x + cx} ${prev.y}, ${pt.x - cx} ${pt.y}, ${pt.x} ${pt.y}`
+    }, '')
+  })
+
+  const fetchDashboardStats = async () => {
+    isLoadingDashboardStats.value = true
+    try {
+      const response = await subscriptionAdminService.getDashboardStats()
+      dashboardStats.value = response?.data || response || null
+      if (dashboardStats.value?.user_counts) {
+        if (!patientCount.value) {
+          patientCount.value = dashboardStats.value.user_counts.total_patients || 0
+        }
+        if (!doctorCount.value) {
+          doctorCount.value = dashboardStats.value.user_counts.total_doctors || 0
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard stats:', error)
+    } finally {
+      isLoadingDashboardStats.value = false
+    }
+  }
+
   onMounted(() => {
+    fetchDashboardStats()
     fetchUserCounts()
     fetchVerifications()
     fetchDatasets()
@@ -354,23 +494,112 @@
 
 <template>
   <div class="">
+    <!-- Row 1: User Demographics (Primary Gradient Banners, Single-Line Text & Number) -->
+    <div class="mb-4 grid grid-cols-1 gap-3.5 sm:gap-4 md:mb-5 md:grid-cols-2">
+      <!-- Patients Banner -->
+      <NuxtLink
+        to="/admin/moderation/users?role=patient"
+        class="group via-primary flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-700 p-4 text-white shadow-xs transition hover:shadow-md hover:brightness-105 sm:px-5"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+          >
+            <Icon
+              name="lucide:user"
+              class="h-5 w-5"
+            />
+          </div>
+          <div class="flex min-w-0 items-baseline gap-2.5">
+            <span class="text-xs font-bold tracking-wider text-white/90 uppercase"> Patients </span>
+            <span class="text-2xl font-black text-white tabular-nums">
+              {{ patientCount }}
+            </span>
+            <span class="hidden truncate text-xs font-light tracking-wide text-white/60 sm:inline">
+              registered
+            </span>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="patientTrend"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+          >
+            <Icon
+              name="lucide:trending-up"
+              class="h-3 w-3"
+            />
+            {{ patientTrend.value }} {{ patientTrend.label || '' }}
+          </span>
+          <Icon
+            name="lucide:chevron-right"
+            class="h-4 w-4 text-white/80 transition group-hover:translate-x-0.5 group-hover:text-white"
+          />
+        </div>
+      </NuxtLink>
+
+      <!-- Doctors Banner -->
+      <NuxtLink
+        to="/admin/moderation/users?role=doctor"
+        class="group via-primary flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-700 p-4 text-white shadow-xs transition hover:shadow-md hover:brightness-105 sm:px-5"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+          >
+            <Icon
+              name="lucide:stethoscope"
+              class="h-5 w-5"
+            />
+          </div>
+          <div class="flex min-w-0 items-baseline gap-2.5">
+            <span class="text-xs font-bold tracking-wider text-white/90 uppercase"> Doctors </span>
+            <span class="text-2xl font-black text-white tabular-nums">
+              {{ doctorCount }}
+            </span>
+            <span class="hidden truncate text-xs font-light tracking-wide text-white/60 sm:inline">
+              registered
+            </span>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="doctorTrend"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+          >
+            <Icon
+              name="lucide:trending-up"
+              class="h-3 w-3"
+            />
+            {{ doctorTrend.value }} {{ doctorTrend.label || '' }}
+          </span>
+          <Icon
+            name="lucide:chevron-right"
+            class="h-4 w-4 text-white/80 transition group-hover:translate-x-0.5 group-hover:text-white"
+          />
+        </div>
+      </NuxtLink>
+    </div>
+
+    <!-- Row 2: Key Operations & Clinical Metrics (4 Cards) -->
     <div class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-4 md:gap-4">
       <AdminSideComponentsMetricCard
-        label="Patients"
-        :value="patientCount"
-        detail="Total registered patient users"
-        :trend="patientTrend"
-        to="/admin/moderation/users?role=patient"
-        :loading="isLoadingUsers"
+        label="AI Scans Used"
+        :value="scanUsageTotal"
+        unit="scans"
+        :detail="scanUsageDetail"
+        :trend="scanUsageTrend"
+        :loading="isLoadingDashboardStats"
       />
 
       <AdminSideComponentsMetricCard
-        label="Doctors"
-        :value="doctorCount"
-        detail="Total registered clinician accounts"
-        :trend="doctorTrend"
-        to="/admin/moderation/users?role=doctor"
-        :loading="isLoadingUsers"
+        label="Subscription Profits"
+        :value="formattedProfits"
+        detail="Tap to view subscribers & renewals"
+        badge="Details →"
+        :loading="isLoadingDashboardStats"
+        class="cursor-pointer transition-all hover:border-emerald-400 hover:shadow-md hover:ring-2 hover:ring-emerald-500/10"
+        @click="handleOpenProfitsModal"
       />
 
       <AdminSideComponentsMetricCard
@@ -391,6 +620,236 @@
         to="/admin/appeals"
         :loading="isLoadingAppeals"
       />
+    </div>
+
+    <!-- Financial & Subscription Visual Graph Cards (Above Website Usage) -->
+    <div class="mb-5 grid grid-cols-1 gap-3.5 sm:gap-4 md:mb-6 md:grid-cols-2">
+      <!-- Card 1: Net Revenue with Dynamic Minimalist Sparkline Chart -->
+      <div
+        class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
+      >
+        <div>
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+              Net Revenue
+            </span>
+            <div class="flex items-center gap-2">
+              <span
+                class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                :class="
+                  revenueGrowthRate?.direction === 'up'
+                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 ring-inset'
+                    : 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20 ring-inset'
+                "
+              >
+                <Icon
+                  :name="
+                    revenueGrowthRate?.direction === 'up'
+                      ? 'lucide:trending-up'
+                      : 'lucide:trending-down'
+                  "
+                  class="h-3 w-3"
+                />
+                {{ revenueGrowthRate?.value || '0%' }}
+              </span>
+
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                @click="handleOpenProfitsModal"
+              >
+                <span>Details</span>
+                <Icon
+                  name="lucide:arrow-right"
+                  class="h-3 w-3"
+                />
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-2.5 flex items-baseline gap-1.5">
+            <span class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl">
+              {{ formattedProfits }}
+            </span>
+            <span class="text-xs font-medium text-gray-400">Total Profits Gained</span>
+          </div>
+        </div>
+
+        <!-- Dynamic Minimalist Sparkline Chart -->
+        <div class="mt-4 w-full">
+          <svg
+            :viewBox="'0 0 ' + sparkWidth + ' ' + sparkHeight"
+            class="w-full overflow-visible"
+            role="img"
+            aria-label="Monthly net revenue trend line"
+          >
+            <!-- Dashed Vertical Grid Guides -->
+            <line
+              v-for="pt in sparkPoints"
+              :key="'guide-' + pt.label"
+              :x1="pt.x"
+              :x2="pt.x"
+              :y1="sparkPadding.top"
+              :y2="sparkHeight - sparkPadding.bottom"
+              stroke="#e2e8f0"
+              stroke-width="1"
+              stroke-dasharray="2 3"
+            />
+
+            <!-- Dynamic Sparkline Line (Thinner, Hairline Precision) -->
+            <path
+              :d="sparkLinePath"
+              fill="none"
+              stroke="#0f172a"
+              stroke-width="1.25"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <!-- Point Dots -->
+            <circle
+              v-for="pt in sparkPoints"
+              :key="'dot-' + pt.label"
+              :cx="pt.x"
+              :cy="pt.y"
+              r="1.75"
+              fill="#0f172a"
+              stroke="#ffffff"
+              stroke-width="1"
+            />
+
+            <!-- X-Axis Month Labels (Smaller, Unbolded) -->
+            <text
+              v-for="pt in sparkPoints"
+              :key="'axis-' + pt.label"
+              :x="pt.x"
+              :y="sparkHeight - 4"
+              text-anchor="middle"
+              class="fill-gray-400 text-[7px] font-normal tracking-wider uppercase"
+            >
+              {{ pt.label }}
+            </text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Card 2: Renewal Rate with Pie Chart on Right Side -->
+      <div
+        class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
+      >
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+            Subscription Renewal Rate
+          </span>
+          <span
+            class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
+          >
+            <Icon
+              name="lucide:repeat"
+              class="h-3 w-3"
+            />
+            {{ renewalRatePercentage }}%
+          </span>
+        </div>
+
+        <div class="mt-3 flex items-center justify-between gap-3">
+          <!-- Left: Numbers and Legend (Aligned to bottom for consistent spacing) -->
+          <div class="min-w-0 flex-1 self-end pb-0.5">
+            <div class="flex items-baseline gap-1.5">
+              <span
+                class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl"
+              >
+                {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }}
+              </span>
+              <span class="text-xs font-semibold text-gray-500">
+                / {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} renewed
+              </span>
+            </div>
+
+            <!-- Mini Legend -->
+            <div class="mt-3 flex flex-wrap items-center gap-2.5 text-xs">
+              <span class="inline-flex items-center gap-1.5 font-medium text-gray-700">
+                <span class="h-2 w-2 rounded-full bg-blue-600"></span>
+                Renewed ({{ renewalRatePercentage }}%)
+              </span>
+              <span class="inline-flex items-center gap-1.5 font-medium text-gray-400">
+                <span class="h-2 w-2 rounded-full bg-slate-300"></span>
+                Non-renewed
+              </span>
+            </div>
+
+            <p class="mt-2 text-[11px] font-medium text-gray-400">
+              Percentage of subscribed doctors who renewed plan.
+            </p>
+          </div>
+
+          <!-- Right: Pie / Donut Chart (Expanded to Consume Div) -->
+          <div class="relative flex shrink-0 items-center justify-center">
+            <svg
+              width="146"
+              height="146"
+              viewBox="0 0 150 150"
+              class="overflow-visible"
+              role="img"
+              aria-label="Subscription renewal rate pie chart"
+            >
+              <defs>
+                <linearGradient
+                  id="outsideRenewalPieGradient"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="100%"
+                >
+                  <stop
+                    offset="0%"
+                    stop-color="#3b82f6"
+                  />
+                  <stop
+                    offset="100%"
+                    stop-color="#1d4ed8"
+                  />
+                </linearGradient>
+              </defs>
+
+              <!-- Recessed Channel Track -->
+              <circle
+                cx="75"
+                cy="75"
+                r="58"
+                fill="none"
+                stroke="#f1f5f9"
+                stroke-width="18"
+              />
+
+              <!-- Active Segment Progress Arc -->
+              <circle
+                cx="75"
+                cy="75"
+                r="58"
+                fill="none"
+                stroke="url(#outsideRenewalPieGradient)"
+                stroke-width="18"
+                :stroke-dasharray="`${renewalPieSegments.renewedDash} ${renewalPieSegments.remainingDash}`"
+                stroke-dashoffset="0"
+                stroke-linecap="round"
+                transform="rotate(-90 75 75)"
+                class="transition-all duration-700 ease-out"
+              />
+
+              <!-- Centered Percentage Label -->
+              <text
+                x="75"
+                y="81"
+                text-anchor="middle"
+                class="fill-gray-950 text-lg font-black tabular-nums sm:text-xl"
+              >
+                {{ Math.round(renewalRatePercentage) }}%
+              </text>
+            </svg>
+          </div>
+        </div>
+      </div>
     </div>
 
     <section
@@ -764,5 +1223,176 @@
         :loading="isLoadingDatasets"
       />
     </div>
+
+    <!-- Subscription Profits Details Modal -->
+    <AppModal
+      :model-value="showProfitsModal"
+      size="2xl"
+      title="Subscription Profits & Retention"
+      description="Detailed breakdown of subscription revenue, active subscribers, and renewal rates."
+      @update:model-value="showProfitsModal = $event"
+      @close="handleCloseProfitsModal"
+    >
+      <div class="space-y-6">
+        <!-- Subscription Financial & Retention Metrics (Top 3 Cards) -->
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
+          >
+            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+              Total Profits
+            </span>
+            <span class="my-1.5 block text-2xl font-black text-emerald-700 tabular-nums">
+              {{ formattedProfits }}
+            </span>
+            <span class="block text-xs font-medium text-gray-400"> Lifetime Revenue </span>
+          </div>
+
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
+          >
+            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+              Active Subs
+            </span>
+            <span class="my-1.5 block text-2xl font-black text-gray-900 tabular-nums">
+              {{ dashboardStats?.subscription_profits?.active_subscribers_count ?? 0 }}
+            </span>
+            <span class="block text-xs font-medium text-gray-400">
+              {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} all-time
+            </span>
+          </div>
+
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
+          >
+            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+              Renewal Rate
+            </span>
+            <span class="my-1.5 block text-2xl font-black text-blue-700 tabular-nums">
+              {{ renewalRatePercentage }}%
+            </span>
+            <span class="block text-xs font-medium text-gray-400">
+              {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }} renewed
+            </span>
+          </div>
+        </div>
+
+        <!-- User Demographics (Bottom 2 Wide Divs) -->
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
+          >
+            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+              Total Doctors
+            </span>
+            <span class="my-1.5 block text-2xl font-black text-gray-900 tabular-nums">
+              {{ dashboardStats?.user_counts?.total_doctors ?? doctorCount }}
+            </span>
+            <span class="block text-xs font-medium text-gray-400"> Registered Doctors </span>
+          </div>
+
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
+          >
+            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+              Total Patients
+            </span>
+            <span class="my-1.5 block text-2xl font-black text-gray-900 tabular-nums">
+              {{ dashboardStats?.user_counts?.total_patients ?? patientCount }}
+            </span>
+            <span class="block text-xs font-medium text-gray-400"> Registered Patients </span>
+          </div>
+        </div>
+
+        <!-- Recent Invoices List -->
+        <div>
+          <div class="mb-3 flex items-center justify-between">
+            <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+              Recent Subscription Payments & Renewals
+            </h4>
+            <NuxtLink
+              to="/admin/subscriptions"
+              class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+            >
+              View in Subscriptions →
+            </NuxtLink>
+          </div>
+
+          <div
+            v-if="dashboardStats?.subscription_profits?.recent_invoices?.length"
+            class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white"
+          >
+            <div
+              v-for="invoice in dashboardStats.subscription_profits.recent_invoices"
+              :key="invoice.id"
+              class="flex items-center justify-between p-3.5 transition hover:bg-gray-50/80"
+            >
+              <div class="min-w-0 pr-3">
+                <div class="flex items-center gap-2">
+                  <p class="truncate text-xs font-bold text-gray-900">
+                    {{ invoice.user?.name || 'Doctor Account' }}
+                  </p>
+                  <span
+                    v-if="invoice.is_renewal"
+                    class="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+                  >
+                    Renewal
+                  </span>
+                  <span
+                    v-else
+                    class="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-blue-600/20 ring-inset"
+                  >
+                    New
+                  </span>
+                </div>
+                <p class="mt-0.5 truncate text-[11px] font-medium text-gray-400">
+                  {{ invoice.user?.email || 'N/A' }} • {{ formatAppealDate(invoice.paid_at) }}
+                </p>
+              </div>
+
+              <div class="shrink-0 text-right">
+                <span class="text-xs font-black text-gray-950 tabular-nums">
+                  {{ formatCurrency(invoice.amount) }}
+                </span>
+                <span class="block text-[10px] font-medium text-emerald-600"> Approved </span>
+              </div>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="rounded-xl border border-dashed border-gray-200 p-8 text-center"
+          >
+            <Icon
+              name="lucide:receipt"
+              class="mx-auto h-8 w-8 text-gray-300"
+            />
+            <p class="mt-2 text-xs font-medium text-gray-500">
+              No subscription invoices recorded yet.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <AppButton
+            variant="outline"
+            size="sm"
+            @click="handleCloseProfitsModal"
+          >
+            Close
+          </AppButton>
+          <NuxtLink to="/admin/subscriptions">
+            <AppButton
+              variant="primary"
+              size="sm"
+            >
+              Manage Subscriptions
+            </AppButton>
+          </NuxtLink>
+        </div>
+      </template>
+    </AppModal>
   </div>
 </template>

@@ -80,7 +80,8 @@
     try {
       isLoadingPatients.value = true
       const response = await userService.listDoctorPatients({ per_page: 100 })
-      doctorRegisteredPatients.value = response.data || []
+      const raw = response?.data ?? response ?? []
+      doctorRegisteredPatients.value = Array.isArray(raw) ? raw : []
     } catch (e) {
       console.error('Failed to fetch registered patients:', e)
     } finally {
@@ -231,6 +232,12 @@
         (appt.id && isInPriority(appt.id)) ||
         (appt.uuid && isInPriority(appt.uuid))
 
+      const isRegisteredPatient = Boolean(
+        patientObj?.is_doctor_registered ||
+        patientObj?.registered_by_doctor_id ||
+        (appt as any).is_doctor_registered
+      )
+
       if (map.has(key)) {
         const existing = map.get(key)!
         existing.appointments.push(appt)
@@ -238,6 +245,7 @@
           existing.conversationUuid = appt.conversation_uuid
         }
         if (isPrio) existing.isPriority = true
+        if (isRegisteredPatient) existing.isRegistered = true
       } else {
         const address = patientObj
           ? [patientObj.barangay, patientObj.city, patientObj.province]
@@ -987,7 +995,7 @@
           </div>
         </div>
         <div class="mt-2 text-2xl font-black text-gray-900">{{ totalPatientsCount }}</div>
-        <div class="mt-0.5 text-[11px] font-medium text-gray-500">All unique patients</div>
+        <div class="mt-0.5 text-[11px] font-medium text-gray-500">All patients</div>
       </button>
 
       <!-- Card 2: Priority Attention -->

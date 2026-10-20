@@ -1,27 +1,29 @@
 <template>
   <div
     v-if="show && coupon"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-opacity"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs transition-opacity sm:p-4"
   >
     <div
       class="w-full max-w-lg overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all"
     >
       <!-- Header -->
       <div
-        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-6 py-4"
+        class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3 sm:px-6 sm:py-4"
       >
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 sm:gap-3">
           <div
-            class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-xl"
+            class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10"
           >
             <Icon
               name="lucide:ticket"
-              class="text-xl"
+              class="text-lg sm:text-xl"
             />
           </div>
           <div>
-            <h3 class="text-base font-black text-gray-950">Coupon Details</h3>
-            <p class="text-xs text-gray-500">Audit configuration, usage metrics, and rules</p>
+            <h3 class="text-sm font-black text-gray-950 sm:text-base">Coupon Details</h3>
+            <p class="text-[11px] text-gray-500 sm:text-xs">
+              Audit configuration, usage metrics, and rules
+            </p>
           </div>
         </div>
         <button
@@ -38,7 +40,7 @@
       </div>
 
       <!-- Content -->
-      <div class="max-h-[75vh] space-y-5 overflow-y-auto p-6">
+      <div class="max-h-[75vh] space-y-4 overflow-y-auto p-4 sm:space-y-5 sm:p-6">
         <!-- Code & Discount Banner -->
         <div
           class="border-primary/20 from-primary/5 via-primary/[0.02] relative overflow-hidden rounded-2xl border bg-linear-to-br to-transparent p-5"
@@ -48,8 +50,10 @@
               <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase"
                 >Promo Code</span
               >
-              <div class="flex items-center gap-2">
-                <span class="text-primary font-mono text-2xl font-black tracking-wider">
+              <div class="flex flex-wrap items-center gap-2">
+                <span
+                  class="text-primary font-mono text-xl font-black tracking-wider break-all sm:text-2xl"
+                >
                   {{ coupon.code }}
                 </span>
                 <button
@@ -137,7 +141,7 @@
             ></div>
           </div>
 
-          <div class="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div class="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
             <div class="rounded-xl border border-gray-100 bg-white p-2.5">
               <span class="text-[10px] font-bold text-gray-400 uppercase">Per Customer Limit</span>
               <p class="font-bold text-gray-900">
@@ -168,7 +172,7 @@
           <h4 class="mb-3 text-xs font-bold tracking-wider text-gray-500 uppercase">
             Active Schedule Window
           </h4>
-          <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
             <div class="rounded-xl border border-gray-100 bg-white p-3">
               <span class="mb-1 block text-[10px] font-bold text-gray-400 uppercase"
                 >Valid From</span
@@ -246,22 +250,22 @@
 
       <!-- Footer -->
       <div
-        class="flex items-center justify-between border-t border-gray-100 bg-gray-50/70 px-6 py-4"
+        class="flex flex-col-reverse items-stretch justify-between gap-2.5 border-t border-gray-100 bg-gray-50/70 px-4 py-3 sm:flex-row sm:items-center sm:px-6 sm:py-4"
       >
         <button
           type="button"
           @click="handleClose"
-          class="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 transition hover:bg-gray-50"
+          class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2"
         >
           Close
         </button>
 
-        <div class="flex items-center gap-2">
+        <div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <button
             v-if="coupon.is_archived"
             type="button"
             @click="handleRestore"
-            class="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
+            class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-100 sm:w-auto sm:py-2"
           >
             <Icon
               name="lucide:archive-restore"
@@ -273,7 +277,7 @@
             v-else
             type="button"
             @click="handleOpenEdit"
-            class="bg-primary hover:bg-primary-dark inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition"
+            class="bg-primary hover:bg-primary-dark inline-flex w-full items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white shadow-xs transition sm:w-auto sm:py-2"
           >
             <Icon
               name="lucide:pencil"

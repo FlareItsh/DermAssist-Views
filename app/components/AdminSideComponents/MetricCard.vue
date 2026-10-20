@@ -63,11 +63,16 @@
   <component
     :is="cardComponent"
     :to="to || undefined"
-    class="group dark:border-border/60 dark:bg-card dark:hover:border-border flex h-full flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-4 shadow-2xs transition-all duration-200 hover:border-gray-300 hover:shadow-xs sm:p-5"
+    class="group dark:border-border/60 dark:bg-card dark:hover:border-border relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border border-blue-100/90 bg-gradient-to-br from-white via-white to-blue-100/45 p-4 shadow-2xs transition-all duration-200 before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-gradient-to-r before:from-transparent before:via-blue-500/25 before:to-transparent hover:border-blue-200 hover:shadow-xs sm:p-5"
     :class="[to ? 'cursor-pointer' : '']"
   >
+    <!-- Ambient Corner Glow (Harmonizes with Primary Accents) -->
+    <div
+      class="pointer-events-none absolute -top-6 -right-6 h-24 w-24 rounded-full bg-blue-500/10 blur-xl transition-all duration-300 group-hover:scale-125 group-hover:bg-blue-500/20"
+    />
+
     <!-- Header Row: Clean Label (left) & Single High-Craft Pill Badge (right) -->
-    <div class="flex items-center justify-between gap-2">
+    <div class="relative z-10 flex items-center justify-between gap-2">
       <span
         class="dark:text-muted-foreground truncate text-xs font-semibold tracking-wider text-gray-500 uppercase"
       >
@@ -108,7 +113,7 @@
     </div>
 
     <!-- Center Hero: Dominant, Bold, Centered Metric Value -->
-    <div class="my-auto flex flex-col items-center justify-center py-4 text-center">
+    <div class="relative z-10 my-auto flex flex-col items-center justify-center py-4 text-center">
       <div
         v-if="loading"
         class="h-10 w-24 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800"
@@ -133,7 +138,7 @@
     </div>
 
     <!-- Bottom Caption: Clean, Subtle Description -->
-    <div class="text-center">
+    <div class="relative z-10 text-center">
       <p
         v-if="detail"
         class="dark:text-muted-foreground line-clamp-2 text-xs font-medium text-gray-500"
