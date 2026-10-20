@@ -434,6 +434,8 @@
   const sparkHeight = 64
   const sparkPadding = { top: 8, bottom: 20, left: 16, right: 16 }
 
+  const moneyScaleLabels = ['0', '2K', '3K', '4K', '5K', '6K+']
+
   const sparkPoints = computed(() => {
     const data = revenueTrendSeries.value
     const maxVal = Math.max(...data.map(d => d.amount), 1)
@@ -447,7 +449,8 @@
       return {
         ...d,
         x,
-        y
+        y,
+        moneyLabel: moneyScaleLabels[i] ?? `${i}K`
       }
     })
   })
@@ -618,7 +621,7 @@
             <!-- Dashed Vertical Grid Guides -->
             <line
               v-for="pt in sparkPoints"
-              :key="'guide-' + pt.label"
+              :key="'guide-' + pt.moneyLabel"
               :x1="pt.x"
               :x2="pt.x"
               :y1="sparkPadding.top"
@@ -641,7 +644,7 @@
             <!-- Point Dots -->
             <circle
               v-for="pt in sparkPoints"
-              :key="'dot-' + pt.label"
+              :key="'dot-' + pt.moneyLabel"
               :cx="pt.x"
               :cy="pt.y"
               r="2.5"
@@ -650,16 +653,16 @@
               stroke-width="1.5"
             />
 
-            <!-- X-Axis Month Labels -->
+            <!-- X-Axis Money Labels (0, 2K, 3K, 4K, 5K, 6K+) -->
             <text
               v-for="pt in sparkPoints"
-              :key="'axis-' + pt.label"
+              :key="'axis-' + pt.moneyLabel"
               :x="pt.x"
               :y="sparkHeight - 4"
               text-anchor="middle"
-              class="fill-gray-400 text-[7.5px] font-semibold tracking-wider uppercase"
+              class="fill-gray-400 text-[8px] font-semibold uppercase tabular-nums"
             >
-              {{ pt.label }}
+              {{ pt.moneyLabel }}
             </text>
           </svg>
         </div>
