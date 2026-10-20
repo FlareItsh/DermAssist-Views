@@ -494,8 +494,95 @@
 
 <template>
   <div class="">
-    <!-- Row 1: Key Operations & Clinical Metrics (4 Cards) -->
-    <div class="mb-4 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-5 md:grid-cols-4 md:gap-4">
+    <!-- Row 1: User Demographics (Primary Gradient Banners, Single-Line Text & Number) -->
+    <div class="mb-4 grid grid-cols-1 gap-3.5 sm:gap-4 md:mb-5 md:grid-cols-2">
+      <!-- Patients Banner -->
+      <NuxtLink
+        to="/admin/moderation/users?role=patient"
+        class="group via-primary flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-700 p-4 text-white shadow-xs transition hover:shadow-md hover:brightness-105 sm:px-5"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+          >
+            <Icon
+              name="lucide:user"
+              class="h-5 w-5"
+            />
+          </div>
+          <div class="flex min-w-0 items-baseline gap-2.5">
+            <span class="text-xs font-bold tracking-wider text-white/90 uppercase"> Patients </span>
+            <span class="text-2xl font-black text-white tabular-nums">
+              {{ patientCount }}
+            </span>
+            <span class="hidden truncate text-xs font-light tracking-wide text-white/60 sm:inline">
+              registered
+            </span>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="patientTrend"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+          >
+            <Icon
+              name="lucide:trending-up"
+              class="h-3 w-3"
+            />
+            {{ patientTrend.value }} {{ patientTrend.label || '' }}
+          </span>
+          <Icon
+            name="lucide:chevron-right"
+            class="h-4 w-4 text-white/80 transition group-hover:translate-x-0.5 group-hover:text-white"
+          />
+        </div>
+      </NuxtLink>
+
+      <!-- Doctors Banner -->
+      <NuxtLink
+        to="/admin/moderation/users?role=doctor"
+        class="group via-primary flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-700 p-4 text-white shadow-xs transition hover:shadow-md hover:brightness-105 sm:px-5"
+      >
+        <div class="flex min-w-0 items-center gap-3">
+          <div
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+          >
+            <Icon
+              name="lucide:stethoscope"
+              class="h-5 w-5"
+            />
+          </div>
+          <div class="flex min-w-0 items-baseline gap-2.5">
+            <span class="text-xs font-bold tracking-wider text-white/90 uppercase"> Doctors </span>
+            <span class="text-2xl font-black text-white tabular-nums">
+              {{ doctorCount }}
+            </span>
+            <span class="hidden truncate text-xs font-light tracking-wide text-white/60 sm:inline">
+              registered
+            </span>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <span
+            v-if="doctorTrend"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+          >
+            <Icon
+              name="lucide:trending-up"
+              class="h-3 w-3"
+            />
+            {{ doctorTrend.value }} {{ doctorTrend.label || '' }}
+          </span>
+          <Icon
+            name="lucide:chevron-right"
+            class="h-4 w-4 text-white/80 transition group-hover:translate-x-0.5 group-hover:text-white"
+          />
+        </div>
+      </NuxtLink>
+    </div>
+
+    <!-- Row 2: Key Operations & Clinical Metrics (4 Cards) -->
+    <div class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-4 md:gap-4">
       <AdminSideComponentsMetricCard
         label="AI Scans Used"
         :value="scanUsageTotal"
@@ -532,27 +619,6 @@
         :badge="sortedAppeals.length > 0 ? `${sortedAppeals.length} Action Req.` : 'All Clear'"
         to="/admin/appeals"
         :loading="isLoadingAppeals"
-      />
-    </div>
-
-    <!-- Row 2: User Demographics (2 Wide Divs Below Top Row) -->
-    <div class="mb-5 grid grid-cols-1 gap-3.5 sm:gap-4 md:mb-6 md:grid-cols-2">
-      <AdminSideComponentsMetricCard
-        label="Patients"
-        :value="patientCount"
-        detail="Total registered patient users"
-        :trend="patientTrend"
-        to="/admin/moderation/users?role=patient"
-        :loading="isLoadingUsers"
-      />
-
-      <AdminSideComponentsMetricCard
-        label="Doctors"
-        :value="doctorCount"
-        detail="Total registered clinician accounts"
-        :trend="doctorTrend"
-        to="/admin/moderation/users?role=doctor"
-        :loading="isLoadingUsers"
       />
     </div>
 
