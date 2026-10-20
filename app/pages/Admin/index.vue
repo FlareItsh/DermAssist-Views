@@ -628,12 +628,12 @@
               stroke-dasharray="2 3"
             />
 
-            <!-- Dynamic Sparkline Line -->
+            <!-- Dynamic Sparkline Line (Thinner, Hairline Precision) -->
             <path
               :d="sparkLinePath"
               fill="none"
               stroke="#0f172a"
-              stroke-width="2"
+              stroke-width="1.25"
               stroke-linecap="round"
               stroke-linejoin="round"
             />
@@ -644,10 +644,10 @@
               :key="'dot-' + pt.label"
               :cx="pt.x"
               :cy="pt.y"
-              r="2.5"
+              r="1.75"
               fill="#0f172a"
               stroke="#ffffff"
-              stroke-width="1.5"
+              stroke-width="1"
             />
 
             <!-- X-Axis Month Labels (Smaller, Unbolded) -->
