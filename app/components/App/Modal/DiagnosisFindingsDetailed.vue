@@ -50,6 +50,23 @@
     isPatientModalOpen.value = false
   }
 
+  const doctorRegisteredPatients = ref<any[]>([])
+  const loadDoctorPatients = async () => {
+    if (props.role !== 'doctor') return
+    try {
+      const res = await userService.listDoctorPatients({ per_page: 100 })
+      doctorRegisteredPatients.value = res?.data ?? (Array.isArray(res) ? res : [])
+    } catch {
+      // silent fail
+    }
+  }
+
+  onMounted(() => {
+    if (props.role === 'doctor') {
+      loadDoctorPatients()
+    }
+  })
+
   const uniquePatients = computed(() => {
     const patientsMap = new Map()
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
@@ -69,6 +86,15 @@
             existing.latest_appointment_date = appt.date || appt.created_at
           }
         }
+      }
+    }
+
+    for (const reg of doctorRegisteredPatients.value) {
+      if (reg.uuid && !patientsMap.has(reg.uuid)) {
+        patientsMap.set(reg.uuid, {
+          ...reg,
+          latest_appointment_date: reg.created_at
+        })
       }
     }
 
@@ -623,6 +649,27 @@
         createAccountError.value = res.error
         return
       }
+    }
+
+    const regEmail = newAccountForm.email.trim().toLowerCase()
+    const existingPatient =
+      uniquePatients.value.find((p: any) => p.email && p.email.toLowerCase() === regEmail) ||
+      doctorRegisteredPatients.value.find((p: any) => p.email && p.email.toLowerCase() === regEmail)
+
+    if (existingPatient) {
+      patientUuid.value = existingPatient.uuid
+      pendingPatientRegistration.value = null
+      userName.value = `${existingPatient.first_name} ${existingPatient.last_name}`
+      editablePatientName.value = `${existingPatient.first_name} ${existingPatient.last_name}`
+      if (existingPatient.age) {
+        editablePatientAge.value = String(existingPatient.age)
+      }
+      saveActiveDiagnosisState()
+      toast.success(
+        `Assigned to existing registered patient ${existingPatient.first_name} ${existingPatient.last_name}`
+      )
+      isCreateAccountModalOpen.value = false
+      return
     }
 
     isSubmittingAccount.value = true

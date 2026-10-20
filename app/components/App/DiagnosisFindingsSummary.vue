@@ -609,6 +609,34 @@
       }
     }
 
+    const regEmail = registerForm.email.trim().toLowerCase()
+    const existingPatient =
+      doctorRegisteredPatients.value.find(
+        (p: any) => p.email && p.email.toLowerCase() === regEmail
+      ) ||
+      availableAppointments.value.find(
+        (a: any) => a.patient?.email && a.patient.email.toLowerCase() === regEmail
+      )
+
+    if (existingPatient) {
+      const patientUuidVal = existingPatient.uuid || existingPatient.patient_uuid
+      const pName =
+        existingPatient.patientName || `${existingPatient.first_name} ${existingPatient.last_name}`
+      patientUuid.value = patientUuidVal
+      appointmentUuid.value = existingPatient.id || null
+      pendingPatientRegistration.value = null
+      walkInPatientInfo.value = null
+      assignedName.value = pName
+      userName.value = pName
+      assignedAppointment.value = existingPatient.time ? existingPatient : null
+      saveActiveDiagnosisState()
+      toast.success(`Assigned to existing registered patient ${pName}`)
+      activeModalTab.value = 'appointments'
+      isPatientModalOpen.value = false
+      resetRegisterForm()
+      return
+    }
+
     isSubmittingRegistration.value = true
     registrationError.value = null
 

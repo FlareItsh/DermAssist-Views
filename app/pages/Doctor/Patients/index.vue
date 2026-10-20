@@ -16,6 +16,7 @@
   const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const { calculateAge, todayIsoDate, splitFullPhoneNumber, validatePhoneNumber } =
     useFormSanitizer()
+  const { pendingPatientRegistration } = useDiagnosis()
   const showPassword = ref(false)
 
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@
     try {
       isLoadingPatients.value = true
       const response = await userService.listDoctorPatients({ per_page: 100 })
-      doctorRegisteredPatients.value = response.data || []
+      doctorRegisteredPatients.value = response?.data || (Array.isArray(response) ? response : [])
     } catch (e) {
       console.error('Failed to fetch registered patients:', e)
     } finally {
@@ -94,6 +95,14 @@
       fetchAppointments()
     }
   })
+
+  watch(
+    () => route.fullPath,
+    () => {
+      fetchRegisteredPatients()
+      fetchAppointments()
+    }
+  )
 
   // ─── Helpers ─────────────────────────────────────────────────────────────────
   const getTodayStr = () => {
@@ -158,6 +167,46 @@
 
   const unifiedPatients = computed<PatientDirectoryItem[]>(() => {
     const map = new Map<string, PatientDirectoryItem>()
+
+    // 0. Include in-memory staged patient from the active scanner session if present
+    if (pendingPatientRegistration.value) {
+      const p = pendingPatientRegistration.value
+      const key = 'pending_new_patient'
+      const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Staged Patient'
+      const address =
+        [p.barangay, p.city, p.province].filter(Boolean).join(', ') || 'Cruz Skin Clinic'
+      map.set(key, {
+        uuid: 'pending_new_patient',
+        id: 0,
+        name: fullName,
+        firstName: p.firstName || '',
+        middleName: p.middleName || '',
+        lastName: p.lastName || '',
+        email: p.email || '',
+        contact_number: p.contact_number || null,
+        date_of_birth: p.date_of_birth || null,
+        age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
+        gender: p.gender || 'N/A',
+        street: p.street || '',
+        barangay: p.barangay || '',
+        city: p.city || '',
+        province: p.province || '',
+        location: address,
+        avatar: null,
+        isRegistered: true,
+        isPendingCreation: true,
+        isWalkIn: Boolean(p.is_walk_in),
+        accountStatus: 'active',
+        totalScans: 0,
+        isPriority: false,
+        appointments: [],
+        latestAppointment: null,
+        lastVisit: 'Staged (Unsaved)',
+        latestCondition: 'General Patient Care',
+        conversationUuid: undefined,
+        createdAt: new Date().toISOString()
+      })
+    }
 
     // 1. Process Doctor-Registered Patients first
     for (const p of doctorRegisteredPatients.value) {
