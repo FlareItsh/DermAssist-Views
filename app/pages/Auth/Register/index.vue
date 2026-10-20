@@ -2,6 +2,7 @@
   import { authService } from '~/api/auth/AuthService'
   import { userService } from '~/api/user/UserService'
   import { toast } from 'vue-sonner'
+  import { resolveApiBase } from '~/utils/resolveApiBase'
   definePageMeta({
     layout: 'auth-split-layout'
   })

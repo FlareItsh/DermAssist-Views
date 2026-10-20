@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { authService } from '~/api/auth/AuthService'
   import Button from '~/components/App/Button.vue'
+  import { resolveApiBase } from '~/utils/resolveApiBase'
 
   definePageMeta({
     layout: 'auth-split-layout'

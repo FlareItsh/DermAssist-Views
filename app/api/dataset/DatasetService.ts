@@ -30,12 +30,14 @@ export class DatasetService extends BaseService {
     page?: number
     per_page?: number
     all?: boolean
+    scope?: string
   }): Promise<DatasetCategory[]> {
     const queryParts: string[] = []
     if (params?.category) queryParts.push(`category=${encodeURIComponent(params.category)}`)
     if (params?.page) queryParts.push(`page=${params.page}`)
     if (params?.per_page) queryParts.push(`per_page=${params.per_page}`)
     if (params?.all) queryParts.push(`all=true`)
+    if (params?.scope) queryParts.push(`scope=${encodeURIComponent(params.scope)}`)
     const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
     return this.request<DatasetCategory[]>(`/dataset${queryString}`, 'GET')
   }
@@ -77,8 +79,11 @@ export class DatasetService extends BaseService {
     return this.request('/dataset/bulk', 'DELETE', { urls })
   }
 
-  async downloadDataset(category?: string): Promise<Blob> {
-    const query = category ? `?category=${encodeURIComponent(category)}` : ''
+  async downloadDataset(category?: string, params?: { scope?: string }): Promise<Blob> {
+    const queryParts: string[] = []
+    if (category) queryParts.push(`category=${encodeURIComponent(category)}`)
+    if (params?.scope) queryParts.push(`scope=${encodeURIComponent(params.scope)}`)
+    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
     return $api<Blob>(`/dataset/download${query}`, {
       method: 'GET',
       responseType: 'blob'

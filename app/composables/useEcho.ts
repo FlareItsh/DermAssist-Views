@@ -1,5 +1,6 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
+import { resolveApiBase } from '~/utils/resolveApiBase'
 
 let echoInstance: Echo<'reverb'> | null = null
 

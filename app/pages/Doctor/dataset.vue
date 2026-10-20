@@ -11,6 +11,7 @@
   })
 
   const isLoading = ref(false)
+  const isDownloading = ref(false)
   const datasets = ref<DatasetCategory[]>([])
   const showUploadModal = ref(false)
 
@@ -21,7 +22,7 @@
   const fetchDataset = async () => {
     isLoading.value = true
     try {
-      datasets.value = await datasetService.getDataset()
+      datasets.value = await datasetService.getDataset({ scope: 'doctor' })
     } catch (e) {
       console.error('Failed to fetch dataset', e)
       toast.error('Failed to load dataset gallery.')
@@ -31,23 +32,26 @@
   }
 
   const downloadZip = async (category?: string) => {
+    isDownloading.value = true
     try {
-      const blob = await datasetService.downloadDataset(category)
+      const blob = await datasetService.downloadDataset(category, { scope: 'doctor' })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.setAttribute(
         'download',
-        category ? `dataset_${category.toLowerCase()}.zip` : 'dataset_all.zip'
+        category ? `doctor_dataset_${category.toLowerCase()}.zip` : 'doctor_scans_all.zip'
       )
       document.body.appendChild(link)
       link.click()
       link.parentNode?.removeChild(link)
       window.URL.revokeObjectURL(url)
       toast.success('Download started.')
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to download zip', e)
-      toast.error('Failed to download zip.')
+      toast.error(e?.data?.error || 'No scans available to download.')
+    } finally {
+      isDownloading.value = false
     }
   }
 
@@ -68,12 +72,12 @@
       <div>
         <div class="mb-1 flex flex-wrap items-center gap-2">
           <h1 class="text-foreground text-2xl font-bold sm:text-3xl">
-            Clinical Dataset Repository
+            Doctor Clinical Scans Repository
           </h1>
         </div>
         <p class="text-muted-foreground text-xs sm:text-sm">
-          Contribute verified dermoscopic and smartphone lesion scans to enhance the AI diagnostic
-          models.
+          Manage your verified clinical lesion scans and direct uploads contributed to the AI
+          diagnostic retraining pool.
         </p>
       </div>
 
@@ -81,6 +85,7 @@
         <AppButton
           variant="outline"
           class="flex-1 justify-center gap-2 text-xs font-bold sm:flex-none sm:text-sm"
+          :disabled="isDownloading || totalImagesCount === 0"
           @click="downloadZip()"
         >
           <Icon
@@ -111,18 +116,19 @@
           <div class="bg-secondary mt-0.5 h-8 w-1 shrink-0 rounded-full sm:h-9" />
           <div>
             <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-foreground text-base font-bold">Direct AI Dataset Contribution</h3>
+              <h3 class="text-foreground text-base font-bold">Your AI Dataset Contributions</h3>
               <AppBadge
                 color="gray"
                 size="sm"
                 class="md:hidden"
               >
-                {{ totalImagesCount }} images stored
+                {{ totalImagesCount }} scans stored
               </AppBadge>
             </div>
             <p class="text-muted-foreground mt-0.5 max-w-xl text-xs">
-              Upload verified clinical photos from your practice. Your contributions are included in
-              automated model retraining safeguarded by the Validation Guard.
+              Verified clinical photos from your consultations and direct uploads. Scans contributed
+              from your practice are included in automated model retraining safeguarded by the
+              Validation Guard.
             </p>
           </div>
         </div>
@@ -132,7 +138,7 @@
             color="gray"
             size="md"
           >
-            {{ totalImagesCount }} images stored
+            {{ totalImagesCount }} scans stored
           </AppBadge>
         </div>
       </div>
@@ -163,9 +169,10 @@
         size="56"
         class="mx-auto mb-4 opacity-40"
       />
-      <h3 class="text-foreground mb-1 text-lg font-bold">No images in dataset yet</h3>
+      <h3 class="text-foreground mb-1 text-lg font-bold">No scans in your repository yet</h3>
       <p class="mx-auto mb-6 max-w-sm text-xs">
-        Contribute your first clinical lesion images using the dropzone above.
+        Perform consultation scans or contribute verified clinical lesion images using the dropzone
+        above.
       </p>
     </div>
 
@@ -189,7 +196,7 @@
               color="gray"
               size="sm"
             >
-              {{ dataset.images.length }} images
+              {{ dataset.images.length }} scans
             </AppBadge>
           </div>
 
@@ -197,6 +204,7 @@
             variant="outline"
             size="sm"
             class="gap-1.5 text-xs font-semibold"
+            :disabled="isDownloading || dataset.images.length === 0"
             @click="downloadZip(dataset.category)"
           >
             <Icon
@@ -209,6 +217,7 @@
         </div>
 
         <div
+          v-if="dataset.images.length > 0"
           class="grid grid-cols-2 gap-3.5 p-4 sm:grid-cols-3 sm:gap-4 sm:p-6 md:grid-cols-4 lg:grid-cols-6"
         >
           <div
@@ -222,6 +231,13 @@
               loading="lazy"
             />
           </div>
+        </div>
+
+        <div
+          v-else
+          class="text-muted-foreground flex items-center justify-center py-10 text-center text-xs"
+        >
+          <span>No {{ dataset.category }} scans contributed by your account yet.</span>
         </div>
       </div>
     </div>
