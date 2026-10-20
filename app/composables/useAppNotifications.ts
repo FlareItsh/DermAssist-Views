@@ -224,11 +224,19 @@ export const useAppNotifications = () => {
             .listen('.DoctorVerificationStatusUpdated', () => {
               refreshProfile()
             })
-
-          if (userRole.value === 'admin') {
-            echo.private('admin.moderation').listen('.DoctorVerificationStatusUpdated', () => {
+            .listen('.ScanAppealUpdated', () => {
               pollAllNotifications()
             })
+
+          if (userRole.value === 'admin') {
+            echo
+              .private('admin.moderation')
+              .listen('.DoctorVerificationStatusUpdated', () => {
+                pollAllNotifications()
+              })
+              .listen('.ScanAppealUpdated', () => {
+                pollAllNotifications()
+              })
           }
         }
       }

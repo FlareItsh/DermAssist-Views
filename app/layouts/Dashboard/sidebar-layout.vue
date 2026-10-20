@@ -411,6 +411,25 @@
     fetchPublishedPatchNotes()
     if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
       fetchAppeals()
+      if (import.meta.client) {
+        const { getEcho } = useEcho()
+        const echo = getEcho()
+        if (echo) {
+          echo.private('admin.moderation').listen('.ScanAppealUpdated', () => {
+            fetchAppeals(true)
+          })
+        }
+      }
+    }
+  })
+
+  onUnmounted(() => {
+    if (import.meta.client) {
+      const { getEcho } = useEcho()
+      const echo = getEcho()
+      if (echo) {
+        echo.private('admin.moderation').stopListening('.ScanAppealUpdated')
+      }
     }
   })
 

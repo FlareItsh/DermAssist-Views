@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { toast } from 'vue-sonner'
   import type { AdminAppeal } from '~/composables/useAdminAppeals'
 
@@ -144,9 +144,40 @@
     })
   })
 
+  const { getEcho } = useEcho()
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      fetchAppeals()
+    }
+  }
+
   onMounted(async () => {
     await fetchAppeals()
     markAppealsSeen()
+
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.private('admin.moderation').listen('.ScanAppealUpdated', (payload?: any) => {
+          fetchAppeals(true)
+          if (payload?.action === 'submitted') {
+            toast.info('New doctor scan appeal received.')
+          }
+        })
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    }
+  })
+
+  onUnmounted(() => {
+    if (import.meta.client) {
+      const echo = getEcho()
+      if (echo) {
+        echo.private('admin.moderation').stopListening('.ScanAppealUpdated')
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   })
 </script>
 

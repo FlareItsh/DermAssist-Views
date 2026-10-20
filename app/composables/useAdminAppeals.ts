@@ -112,7 +112,8 @@ export const useAdminAppeals = () => {
     )
   })
 
-  const fetchAppeals = async () => {
+  const fetchAppeals = async (force = false) => {
+    if (isLoadingAppeals.value && !force) return
     isLoadingAppeals.value = true
     appealsError.value = null
 
