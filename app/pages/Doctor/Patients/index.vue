@@ -2960,14 +2960,14 @@
           </p>
         </div>
 
-        <!-- Patient Records List -->
+        <!-- Folder Stack View (Identical to Doctor/Records/index.vue) -->
         <div
           v-else
-          class="custom-scrollbar max-h-[60vh] overflow-y-auto px-4 pt-6 pb-16 sm:pt-8"
+          class="custom-scrollbar max-h-[60vh] overflow-y-auto px-2 pt-8 pb-16 sm:pt-10"
         >
-          <div class="flex flex-col gap-6 pt-2">
+          <div class="flex flex-col">
             <AppRecordFolder
-              v-for="record in patientRecords"
+              v-for="(record, index) in patientRecords"
               :key="record.id || record.uuid"
               :time="formatRecordDate(record.created_at)"
               :title="
@@ -2976,7 +2976,11 @@
                   ? `Doctor's Diagnosis: ${record.label}`
                   : 'AI Scan Result')
               "
-              class="cursor-pointer transition-all duration-300 hover:-translate-y-2 hover:shadow-lg"
+              :style="{
+                marginTop: index === 0 ? '0px' : '-200px',
+                zIndex: 10 + index
+              }"
+              class="transition-all hover:z-100 hover:-translate-y-6"
               @click="openRecordModal(record)"
             />
           </div>
