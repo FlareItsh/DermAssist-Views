@@ -23,8 +23,12 @@ export class AppealService extends BaseService {
     return await this.request(`${this.resource}/${uuid}`, 'DELETE')
   }
 
+  async resolve(uuid: string, payload: object = {}): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/resolve`, 'PATCH', payload)
+  }
+
   async restore(uuid: string): Promise<any> {
-    return await this.request(`${this.resource}/${uuid}/restore`, 'POST')
+    return await this.request(`${this.resource}/${uuid}/restore`, 'PATCH')
   }
 
   useList(params: object = {}, options: any = {}) {

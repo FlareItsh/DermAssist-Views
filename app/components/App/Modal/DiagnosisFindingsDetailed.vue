@@ -681,6 +681,49 @@
   const appealSuccess = ref(false)
   const appealError = ref<string | null>(null)
 
+  const { searchDiseases, fetchCandidateDiseases } = useDiseaseCatalog()
+  const isDiseaseDropdownOpen = ref(false)
+  const diseaseSearchQuery = ref('')
+
+  // Eagerly pre-load candidate diseases catalog when appeal view is accessed
+  watch(isAppealOpen, open => {
+    if (open) {
+      fetchCandidateDiseases(true)
+    }
+  })
+
+  onMounted(() => {
+    fetchCandidateDiseases()
+  })
+
+  const filteredSuggestedDiseases = computed(() => {
+    return searchDiseases(diseaseSearchQuery.value || suggestedLabel.value, activeDisease.value)
+  })
+
+  const handleSelectSuggestedDisease = (diseaseName: string) => {
+    suggestedLabel.value = diseaseName
+    diseaseSearchQuery.value = diseaseName
+    isDiseaseDropdownOpen.value = false
+  }
+
+  const handleClearSuggestedDisease = () => {
+    suggestedLabel.value = ''
+    diseaseSearchQuery.value = ''
+    isDiseaseDropdownOpen.value = false
+  }
+
+  const handleDiseaseInputBlur = () => {
+    setTimeout(() => {
+      isDiseaseDropdownOpen.value = false
+    }, 200)
+  }
+
+  const handleDiseaseInput = () => {
+    diseaseSearchQuery.value = suggestedLabel.value
+    isDiseaseDropdownOpen.value = true
+    fetchCandidateDiseases()
+  }
+
   const submitAppeal = async () => {
     if (!suggestedLabel.value) return
 
@@ -691,19 +734,30 @@
     try {
       await appealService.create({
         user_uuid: userUuid.value,
+        diagnosis_uuid: targetDiagnosisUuid.value,
         diagnosis_label: activeDisease.value,
         suggested_label: suggestedLabel.value,
         description: appealDescription.value
       })
       appealSuccess.value = true
+
+      // Immediately apply doctor's clinical override to the active view
+      const chosen = suggestedLabel.value
+      activeDisease.value = chosen as DiseaseName
+      if (currentDiagnosis.value) {
+        currentDiagnosis.value.label = chosen
+      }
+      toast.success(`Appeal filed: Clinical diagnosis updated to "${chosen}".`)
+
       setTimeout(() => {
         isAppealOpen.value = false
         appealSuccess.value = false
         suggestedLabel.value = ''
+        diseaseSearchQuery.value = ''
         appealDescription.value = ''
-      }, 2000)
+      }, 1500)
     } catch (err: any) {
-      appealError.value = err.data?.message || 'Failed to submit appeal.'
+      appealError.value = err.data?.message || err.message || 'Failed to submit appeal.'
     } finally {
       isSubmittingAppeal.value = false
     }
@@ -2159,17 +2213,80 @@
           v-if="isAppealOpen"
           class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
         >
-          <div class="flex flex-col gap-1.5 sm:gap-2">
+          <div class="relative flex flex-col gap-1.5 sm:gap-2">
             <label
               class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
               >Suggested Diagnosis</label
             >
-            <input
-              v-model="suggestedLabel"
-              type="text"
-              class="focus:ring-primary w-full rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
-              placeholder="Enter correct diagnosis..."
-            />
+            <div class="relative flex items-center">
+              <Icon
+                name="lucide:search"
+                class="pointer-events-none absolute left-3 text-xs text-gray-400 sm:text-sm"
+              />
+              <input
+                v-model="suggestedLabel"
+                type="text"
+                @focus="isDiseaseDropdownOpen = true"
+                @blur="handleDiseaseInputBlur"
+                @input="handleDiseaseInput"
+                class="focus:ring-primary w-full rounded-xl border-0 bg-gray-50/50 py-2.5 pr-8 pl-8 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:py-3 sm:pr-9 sm:pl-9 sm:text-sm"
+                placeholder="Search disease (e.g. Psoriasis, Herpes, Vitiligo)..."
+              />
+              <button
+                v-if="suggestedLabel"
+                type="button"
+                @click="handleClearSuggestedDisease"
+                class="absolute right-2.5 rounded-full p-1 text-gray-400 transition-colors hover:text-gray-600"
+                title="Clear diagnosis"
+              >
+                <Icon
+                  name="lucide:x"
+                  class="text-xs sm:text-sm"
+                />
+              </button>
+            </div>
+
+            <!-- Disease Dropdown Suggestions -->
+            <div
+              v-if="isDiseaseDropdownOpen"
+              class="absolute top-full left-0 z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
+            >
+              <div
+                v-if="filteredSuggestedDiseases.length === 0"
+                class="p-3 text-center text-xs text-gray-500"
+              >
+                <span
+                  >Custom condition: "<strong class="text-gray-900">{{ suggestedLabel }}</strong
+                  >"</span
+                >
+                <p class="mt-0.5 text-[11px] text-gray-400">
+                  Doctor-specified custom diagnosis will be recorded.
+                </p>
+              </div>
+
+              <div
+                v-for="d in filteredSuggestedDiseases"
+                :key="d.id"
+                @mousedown="handleSelectSuggestedDisease(d.name)"
+                class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs transition-colors hover:bg-gray-50"
+                :class="
+                  suggestedLabel === d.name
+                    ? 'bg-primary/5 text-primary font-bold'
+                    : 'text-gray-700'
+                "
+              >
+                <div class="flex min-w-0 items-center gap-2">
+                  <Icon
+                    :name="d.icon || 'lucide:flask-conical'"
+                    class="shrink-0 text-xs text-gray-400"
+                  />
+                  <span class="truncate font-medium">{{ d.name }}</span>
+                </div>
+                <div class="flex shrink-0 items-center">
+                  <span class="text-[10px] text-gray-400">{{ d.category }}</span>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="flex flex-col gap-1.5 sm:gap-2">
             <label

@@ -1,20 +1,49 @@
 import { appealService } from '~/api/appeal/AppealService'
 
 export interface AdminAppealUser {
+  id?: number
+  uuid?: string
   first_name?: string
   last_name?: string
   email?: string
   affiliation?: string | null
+  avatar_path?: string | null
+}
+
+export interface AdminAppealDiagnosis {
+  id?: number
+  uuid?: string
+  label?: string
+  confidence?: number
+  probabilities?: Record<string, number>
+  image_url?: string | null
+  image_path?: string | null
+  is_out_of_scope?: boolean
+  out_of_scope_category?: string | null
+  contributed_to_dataset?: boolean
+  created_at?: string
+  patient?: {
+    id?: number
+    uuid?: string
+    first_name?: string
+    last_name?: string
+    email?: string
+  } | null
 }
 
 export interface AdminAppeal {
+  id?: number
   uuid: string
   diagnosis_label?: string
   suggested_label?: string
   description?: string
+  status?: string
+  resolved_at?: string | null
+  resolution_notes?: string | null
   created_at?: string
   updated_at?: string
   user?: AdminAppealUser
+  diagnosis?: AdminAppealDiagnosis | null
 }
 
 const getAppealsData = (response: any): AdminAppeal[] => {
@@ -27,19 +56,13 @@ export const useAdminAppeals = () => {
   const appeals = useState<AdminAppeal[]>('admin-appeals-list', () => [])
   const isLoadingAppeals = useState<boolean>('admin-appeals-loading', () => false)
   const appealsError = useState<string | null>('admin-appeals-error', () => null)
-
   const filterStatus = useState<string>('admin-appeals-filter', () => 'pending')
-
-  const resolvedAppealUuids = useCookie<string[]>('admin_resolved_appeals', {
-    default: () => [],
-    maxAge: 60 * 60 * 24 * 365
-  })
 
   const filteredAppeals = computed(() => {
     if (filterStatus.value === 'resolved') {
-      return appeals.value.filter(a => resolvedAppealUuids.value.includes(a.uuid))
+      return appeals.value.filter(a => a.status === 'resolved')
     }
-    return appeals.value.filter(a => !resolvedAppealUuids.value.includes(a.uuid))
+    return appeals.value.filter(a => a.status !== 'resolved')
   })
 
   const sortedAppeals = computed(() => {
@@ -50,6 +73,10 @@ export const useAdminAppeals = () => {
       )
     })
   })
+
+  const pendingCount = computed(() => appeals.value.filter(a => a.status !== 'resolved').length)
+  const resolvedCount = computed(() => appeals.value.filter(a => a.status === 'resolved').length)
+  const totalCount = computed(() => appeals.value.length)
 
   const latestAppealSignature = computed(() => {
     return sortedAppeals.value
@@ -75,7 +102,7 @@ export const useAdminAppeals = () => {
     appealsError.value = null
 
     try {
-      const response = await appealService.list()
+      const response = await appealService.list({ status: 'all' })
       appeals.value = getAppealsData(response)
     } catch (error: any) {
       appealsError.value = error?.message || 'Failed to load doctor scan appeals.'
@@ -90,14 +117,45 @@ export const useAdminAppeals = () => {
     }
   }
 
-  const resolveAppeal = (uuid: string) => {
-    if (!resolvedAppealUuids.value.includes(uuid)) {
-      resolvedAppealUuids.value.push(uuid)
+  const resolveAppeal = async (
+    uuid: string,
+    options: { resolution_notes?: string; update_dataset?: boolean } = {}
+  ) => {
+    try {
+      const res = await appealService.resolve(uuid, options)
+      const updated = res?.data || res
+      const idx = appeals.value.findIndex(a => a.uuid === uuid)
+      if (idx !== -1) {
+        appeals.value[idx] = {
+          ...appeals.value[idx],
+          ...updated,
+          status: 'resolved',
+          resolved_at: new Date().toISOString()
+        }
+      }
+      return updated
+    } catch (err: any) {
+      throw err
     }
   }
 
-  const restoreAppeal = (uuid: string) => {
-    resolvedAppealUuids.value = resolvedAppealUuids.value.filter(id => id !== uuid)
+  const restoreAppeal = async (uuid: string) => {
+    try {
+      const res = await appealService.restore(uuid)
+      const updated = res?.data || res
+      const idx = appeals.value.findIndex(a => a.uuid === uuid)
+      if (idx !== -1) {
+        appeals.value[idx] = {
+          ...appeals.value[idx],
+          ...updated,
+          status: 'pending',
+          resolved_at: null
+        }
+      }
+      return updated
+    } catch (err: any) {
+      throw err
+    }
   }
 
   return {
@@ -106,6 +164,9 @@ export const useAdminAppeals = () => {
     isLoadingAppeals,
     appealsError,
     filterStatus,
+    pendingCount,
+    resolvedCount,
+    totalCount,
     hasUnseenAppeals,
     fetchAppeals,
     markAppealsSeen,

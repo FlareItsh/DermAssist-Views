@@ -36,8 +36,12 @@
   let pollTimer: ReturnType<typeof setInterval> | null = null
   const { getEcho } = useEcho()
 
+  const { candidateDiseases, fetchCandidateDiseases, addCustomDisease, removeCustomDisease } =
+    useDiseaseCatalog()
+
   export interface ExpansionDisease {
     id: string
+    uuid?: string
     name: string
     category: string
     desc: string
@@ -46,77 +50,19 @@
     isCustom?: boolean
   }
 
-  const defaultExpansionDiseases: ExpansionDisease[] = [
-    {
-      id: 'psoriasis',
-      name: 'Psoriasis',
-      category: 'Autoimmune',
-      desc: 'Chronic autoimmune condition with scaly, erythematous plaques.',
-      badge: 'High Priority',
-      icon: 'lucide:flame'
-    },
-    {
-      id: 'ringworm',
-      name: 'Ringworm (Tinea)',
-      category: 'Fungal Infection',
-      desc: 'Annular dermatophyte lesions with characteristic raised borders.',
-      badge: 'Common',
-      icon: 'lucide:circle-dot'
-    },
-    {
-      id: 'vitiligo',
-      name: 'Vitiligo',
-      category: 'Pigmentary Disorder',
-      desc: 'Autoimmune destruction of melanocytes resulting in depigmented patches.',
-      badge: 'Pigmentary',
-      icon: 'lucide:sun'
-    },
-    {
-      id: 'melanoma',
-      name: 'Melanoma (Research)',
-      category: 'Atypical Lesion',
-      desc: 'Asymmetric pigmented lesions requiring careful boundary analysis.',
-      badge: 'Critical',
-      icon: 'lucide:alert-octagon'
-    },
-    {
-      id: 'hives',
-      name: 'Hives (Urticaria)',
-      category: 'Allergic Reaction',
-      desc: 'Transient pruritic edematous erythematous wheals and flares.',
-      badge: 'Allergic',
-      icon: 'lucide:wind'
-    },
-    {
-      id: 'warts',
-      name: 'Warts (HPV)',
-      category: 'Viral Infection',
-      desc: 'Hyperkeratotic verrucous exophytic papules caused by HPV.',
-      badge: 'Viral',
-      icon: 'lucide:shield-alert'
-    },
-    {
-      id: 'lupus',
-      name: 'Lupus Erythematosus',
-      category: 'Autoimmune',
-      desc: 'Cutaneous lupus lesions including discoid and malar photosensitive patterns.',
-      badge: 'Autoimmune',
-      icon: 'lucide:dna'
-    },
-    {
-      id: 'rosacea',
-      name: 'Rosacea',
-      category: 'Vascular Condition',
-      desc: 'Centrofacial erythema, telangiectasia, and inflammatory papulopustules.',
-      badge: 'Vascular',
-      icon: 'lucide:sparkles'
-    }
-  ]
-
-  const customExpansionDiseases = ref<ExpansionDisease[]>([])
-
   const allExpansionDiseases = computed<ExpansionDisease[]>(() => {
-    return [...defaultExpansionDiseases, ...customExpansionDiseases.value]
+    return candidateDiseases.value
+      .filter(d => !d.is_core)
+      .map(d => ({
+        id: d.slug,
+        uuid: d.uuid,
+        name: d.name,
+        category: d.category || 'Research',
+        desc: d.description || 'Candidate disease for AI expansion research.',
+        badge: d.badge || (d.is_default ? 'Common' : 'Custom'),
+        icon: d.icon || 'lucide:flask-conical',
+        isCustom: !d.is_default
+      }))
   })
 
   // Add Custom Candidate Disease State
@@ -184,64 +130,67 @@
     showAddCustomDiseaseModal.value = true
   }
 
-  const handleSaveCustomDisease = () => {
+  const isSavingCustomDisease = ref(false)
+
+  const handleSaveCustomDisease = async () => {
     const name = newDiseaseForm.value.name.trim()
     if (!name) {
       toast.error('Please enter a disease name.')
       return
     }
 
-    const id = name
+    const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '')
-    if (!id) {
+    if (!slug) {
       toast.error('Invalid disease name.')
       return
     }
 
-    if (allExpansionDiseases.value.some(d => d.id === id)) {
+    if (
+      allExpansionDiseases.value.some(
+        d => d.id === slug || d.name.toLowerCase() === name.toLowerCase()
+      )
+    ) {
       toast.error('A disease with this name or identifier already exists.')
       return
     }
 
-    const newDisease: ExpansionDisease = {
-      id,
-      name,
-      category: newDiseaseForm.value.category.trim() || 'Research',
-      desc:
-        newDiseaseForm.value.desc.trim() || 'Custom candidate disease for AI expansion research.',
-      badge: newDiseaseForm.value.badge.trim() || 'Custom',
-      icon: 'lucide:flask-conical',
-      isCustom: true
-    }
+    isSavingCustomDisease.value = true
+    try {
+      const created = await addCustomDisease({
+        name,
+        category: newDiseaseForm.value.category.trim() || 'Research',
+        description:
+          newDiseaseForm.value.desc.trim() || 'Custom candidate disease for AI expansion research.',
+        badge: newDiseaseForm.value.badge.trim() || 'Custom',
+        icon: 'lucide:flask-conical'
+      })
 
-    customExpansionDiseases.value.push(newDisease)
-    if (import.meta.client) {
-      localStorage.setItem(
-        'dermassist_custom_expansion_diseases',
-        JSON.stringify(customExpansionDiseases.value)
-      )
+      selectedExpansionDisease.value = created?.slug || slug
+      showAddCustomDiseaseModal.value = false
+      toast.success(`Candidate disease "${name}" saved to database successfully!`)
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to save candidate disease.')
+    } finally {
+      isSavingCustomDisease.value = false
     }
-
-    selectedExpansionDisease.value = id
-    showAddCustomDiseaseModal.value = false
-    toast.success(`Candidate disease "${name}" added successfully!`)
   }
 
-  const handleRemoveCustomDisease = (id: string, e?: Event) => {
+  const handleRemoveCustomDisease = async (disease: ExpansionDisease, e?: Event) => {
     if (e) e.stopPropagation()
-    customExpansionDiseases.value = customExpansionDiseases.value.filter(d => d.id !== id)
-    if (import.meta.client) {
-      localStorage.setItem(
-        'dermassist_custom_expansion_diseases',
-        JSON.stringify(customExpansionDiseases.value)
-      )
+    if (!disease.uuid) return
+
+    try {
+      await removeCustomDisease(disease.uuid)
+      if (selectedExpansionDisease.value === disease.id) {
+        selectedExpansionDisease.value = allExpansionDiseases.value[0]?.id || 'psoriasis'
+      }
+      toast.success('Custom candidate disease removed.')
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to remove candidate disease.')
     }
-    if (selectedExpansionDisease.value === id) {
-      selectedExpansionDisease.value = defaultExpansionDiseases[0].id
-    }
-    toast.success('Custom candidate disease removed.')
   }
 
   const MIN_REQUIRED_DATASET = 10
@@ -405,21 +354,8 @@
     }
   }
 
-  onMounted(() => {
-    if (import.meta.client) {
-      try {
-        const raw = localStorage.getItem('dermassist_custom_expansion_diseases')
-        if (raw) {
-          const parsed = JSON.parse(raw)
-          if (Array.isArray(parsed)) {
-            customExpansionDiseases.value = parsed
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to restore custom expansion diseases:', err)
-      }
-    }
-
+  onMounted(async () => {
+    await fetchCandidateDiseases()
     fetchStats()
     startPolling()
 
@@ -642,7 +578,7 @@
                       type="button"
                       class="text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex h-5 w-5 items-center justify-center rounded-md transition-colors"
                       title="Remove custom candidate disease"
-                      @click="handleRemoveCustomDisease(d.id, $event)"
+                      @click="handleRemoveCustomDisease(d, $event)"
                     >
                       <Icon
                         name="lucide:trash-2"
