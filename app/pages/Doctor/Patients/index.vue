@@ -37,6 +37,7 @@
   const showScheduleModal = ref(false)
   const selectedPatientForAppointment = ref<any | null>(null)
   const selectedPatientForDetail = ref<any | null>(null)
+  const selectedPatientForRecords = ref<PatientDirectoryItem | null>(null)
   const isOpeningChat = ref(false)
 
   // Account Management Modals
@@ -551,8 +552,20 @@
     }
   }
 
-  const openPatientDetail = async (patient: PatientDirectoryItem) => {
+  const formatRecordDate = (dateStr?: string) => {
+    if (!dateStr) return 'Recent Scan'
+    const d = new Date(dateStr)
+    return isNaN(d.getTime())
+      ? dateStr
+      : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+  }
+
+  const openPatientDetail = (patient: PatientDirectoryItem) => {
     selectedPatientForDetail.value = patient
+  }
+
+  const openPatientRecordsModal = async (patient: PatientDirectoryItem) => {
+    selectedPatientForRecords.value = patient
     await fetchPatientRecords(patient)
   }
 
@@ -1326,7 +1339,7 @@
           <div
             v-for="patient in paginatedPatients"
             :key="patient.uuid || patient.id"
-            @click="openPatientDetail(patient)"
+            @click="openPatientRecordsModal(patient)"
             class="group relative flex cursor-pointer flex-col justify-between rounded-3xl border p-5 shadow-xs transition-all hover:border-indigo-300 hover:shadow-md hover:ring-2 hover:ring-indigo-500/10"
             :class="
               patient.isPendingCreation
@@ -1845,133 +1858,37 @@
           </div>
         </div>
 
-        <!-- Diagnostic Findings & AI Scans -->
-        <div>
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="text-sm font-bold tracking-wider text-gray-900 uppercase">
-                Diagnostic Findings & AI Scans
-              </h3>
-              <p class="text-xs text-gray-500">
-                Skin evaluations, AI classifications, and doctor-verified clinical records for this
-                patient.
-              </p>
-            </div>
-            <span
-              v-if="patientRecords.length > 0"
-              class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700"
+        <!-- Quick Link to Records Folder Modal -->
+        <div
+          class="flex items-center justify-between rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5"
+        >
+          <div class="flex items-center gap-2.5">
+            <div
+              class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs"
             >
               <Icon
-                name="lucide:folder-heart"
-                class="text-xs"
+                name="lucide:folder-open"
+                class="text-lg"
               />
-              {{ patientRecords.length }} {{ patientRecords.length === 1 ? 'Record' : 'Records' }}
-            </span>
-          </div>
-
-          <!-- Loading Records State -->
-          <div
-            v-if="isLoadingRecords"
-            class="mt-3 flex items-center justify-center rounded-2xl border border-gray-100 bg-gray-50/50 p-6"
-          >
-            <Icon
-              name="svg-spinners:ring-resize"
-              class="text-xl text-indigo-600"
-            />
-            <span class="ml-2 text-xs font-semibold text-gray-500">Loading patient records...</span>
-          </div>
-
-          <!-- Empty Records State -->
-          <div
-            v-else-if="patientRecords.length === 0"
-            class="mt-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-6 text-center text-xs text-gray-500"
-          >
-            No diagnostic scans or AI evaluations on file for this patient yet.
-          </div>
-
-          <!-- Records List -->
-          <div
-            v-else
-            class="custom-scrollbar mt-3 max-h-72 space-y-2.5 overflow-y-auto pr-1"
-          >
-            <div
-              v-for="rec in patientRecords"
-              :key="rec.id || rec.uuid"
-              @click="openRecordModal(rec)"
-              class="group flex cursor-pointer flex-col justify-between gap-3 rounded-2xl border border-gray-200/80 bg-white p-3.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs sm:flex-row sm:items-center"
-            >
-              <div class="flex items-center gap-3">
-                <div
-                  v-if="rec.image_path"
-                  class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-2xs"
-                >
-                  <img
-                    :src="getStorageUrl(rec.image_path)"
-                    :alt="rec.label || 'Skin Scan'"
-                    class="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                </div>
-                <div
-                  v-else
-                  class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600"
-                >
-                  <Icon
-                    name="lucide:scan-face"
-                    class="text-xl"
-                  />
-                </div>
-
-                <div class="min-w-0">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span
-                      class="truncate text-xs font-bold text-gray-900 group-hover:text-indigo-600"
-                    >
-                      {{
-                        rec.label && rec.label !== 'None' ? rec.label : rec.title || 'Skin Analysis'
-                      }}
-                    </span>
-                    <span
-                      v-if="rec.confidence"
-                      class="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"
-                    >
-                      {{ Math.round(rec.confidence * 100) }}% Match
-                    </span>
-                    <span
-                      class="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
-                      :class="
-                        rec.clinical_note
-                          ? 'bg-indigo-50 text-indigo-700'
-                          : 'bg-gray-100 text-gray-600'
-                      "
-                    >
-                      {{ rec.clinical_note ? 'Doctor Verified' : 'AI Scan' }}
-                    </span>
-                  </div>
-                  <p class="mt-0.5 text-[11px] text-gray-500">
-                    Recorded on {{ formatDateTime(rec.created_at) }}
-                    <template v-if="rec.clinical_note?.chief_complaint">
-                      •
-                      <span class="text-gray-700 italic"
-                        >"{{ rec.clinical_note.chief_complaint }}"</span
-                      >
-                    </template>
-                  </p>
-                </div>
-              </div>
-
-              <div class="flex shrink-0 items-center gap-2">
-                <span
-                  class="inline-flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition group-hover:bg-indigo-600 group-hover:text-white"
-                >
-                  <Icon
-                    name="lucide:eye"
-                    class="text-xs"
-                  />
-                  View Record
-                </span>
-              </div>
+            </div>
+            <div>
+              <h4 class="text-xs font-bold text-gray-900">Patient Medical Folders</h4>
+              <p class="text-[11px] text-gray-500">
+                Access AI clinical scans, evaluations, and diagnostic reports in folder view.
+              </p>
             </div>
           </div>
+          <button
+            type="button"
+            @click="openPatientRecordsModal(selectedPatientForDetail)"
+            class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-50"
+          >
+            <Icon
+              name="lucide:folders"
+              class="text-xs"
+            />
+            Open Folders
+          </button>
         </div>
 
         <!-- Consultation History Timeline -->
@@ -2941,6 +2858,131 @@
               />
               Set Temporary Password
             </AppButton>
+          </div>
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- 10. Dedicated Patient Records Modal (Folder Stack View) -->
+    <AppModal
+      :model-value="!!selectedPatientForRecords"
+      size="4xl"
+      @close="selectedPatientForRecords = null"
+    >
+      <div
+        v-if="selectedPatientForRecords"
+        class="space-y-6"
+      >
+        <!-- Modal Top Header -->
+        <div
+          class="flex flex-col gap-4 border-b border-gray-100 pr-8 pb-5 sm:flex-row sm:items-center sm:justify-between sm:pr-12"
+        >
+          <div class="flex min-w-0 items-center gap-4">
+            <div
+              v-if="selectedPatientForRecords.avatar"
+              class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 border-indigo-100 bg-gray-50 shadow-sm"
+            >
+              <NuxtImg
+                :src="selectedPatientForRecords.avatar"
+                :alt="selectedPatientForRecords.name"
+                class="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+            <div
+              v-else-if="selectedPatientForRecords.isWalkIn"
+              class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-amber-200 bg-amber-50 text-lg font-black text-amber-800 shadow-sm"
+            >
+              {{ getInitials(selectedPatientForRecords.name) }}
+            </div>
+            <div
+              v-else
+              class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-indigo-100 bg-indigo-50 text-lg font-black text-indigo-700 shadow-sm"
+            >
+              {{ getInitials(selectedPatientForRecords.name) }}
+            </div>
+
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <h2 class="text-xl font-black text-gray-900">
+                  {{ selectedPatientForRecords.name }}'s Records
+                </h2>
+                <span
+                  v-if="patientRecords.length > 0"
+                  class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700"
+                >
+                  <Icon
+                    name="lucide:folder"
+                    class="text-xs"
+                  />
+                  {{ patientRecords.length }}
+                  {{ patientRecords.length === 1 ? 'Record' : 'Records' }}
+                </span>
+              </div>
+              <p class="mt-0.5 text-xs text-gray-500">
+                Medical record folders, AI scans, and doctor diagnostic findings. Click any folder
+                to inspect.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div
+          v-if="isLoadingRecords"
+          class="flex flex-col items-center justify-center py-20 text-center"
+        >
+          <Icon
+            name="svg-spinners:ring-resize"
+            class="text-3xl text-indigo-600"
+          />
+          <p class="mt-3 text-xs font-semibold text-gray-500">
+            Retrieving patient medical folders...
+          </p>
+        </div>
+
+        <!-- Empty State -->
+        <div
+          v-else-if="patientRecords.length === 0"
+          class="flex flex-col items-center justify-center py-16 text-center"
+        >
+          <div
+            class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"
+          >
+            <Icon
+              name="lucide:folder-open"
+              class="text-3xl"
+            />
+          </div>
+          <h3 class="text-base font-bold text-gray-800">No medical records found</h3>
+          <p class="mt-1 max-w-sm text-xs text-gray-500">
+            There are no clinical scans or diagnostic records saved for this patient yet.
+          </p>
+        </div>
+
+        <!-- Folder Stack View (Identical to Doctor/Records/index.vue) -->
+        <div
+          v-else
+          class="custom-scrollbar max-h-[60vh] overflow-y-auto px-4 pt-12 pb-24 sm:pt-14"
+        >
+          <div class="flex flex-col pt-2">
+            <AppRecordFolder
+              v-for="(record, index) in patientRecords"
+              :key="record.id || record.uuid"
+              :time="formatRecordDate(record.created_at)"
+              :title="
+                record.title ||
+                (record.label && record.label !== 'None'
+                  ? `Doctor's Diagnosis: ${record.label}`
+                  : 'AI Scan Result')
+              "
+              :style="{
+                marginTop: index === 0 ? '0px' : '-170px',
+                zIndex: 10 + index
+              }"
+              class="relative transition-all duration-300 hover:!z-100 hover:-translate-y-6"
+              @click="openRecordModal(record)"
+            />
           </div>
         </div>
       </div>
