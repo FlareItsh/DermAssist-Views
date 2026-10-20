@@ -12,7 +12,7 @@
   <!-- feel free na baguhon ni HAHAH-->
   <div
     @click="$emit('click')"
-    class="folder-silhouette-shadow group flex w-full cursor-pointer flex-col transition-all duration-300 hover:-translate-y-4"
+    class="folder-silhouette-shadow group relative flex w-full cursor-pointer flex-col transition-all duration-300 hover:-translate-y-4"
   >
     <div class="relative z-20 flex h-12 shrink-0 translate-y-px items-end sm:h-16">
       <div

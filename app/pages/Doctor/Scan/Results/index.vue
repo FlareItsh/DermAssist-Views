@@ -23,9 +23,58 @@
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const userName = useCookie('user_name')
 
+  const showConfirmDiscardModal = ref(false)
+  const isCompleted = ref(false)
+  const pendingDestination = ref<string | null>(null)
+
   const handleBackClick = () => {
-    navigateTo('/Doctor/Scan')
+    showConfirmDiscardModal.value = true
   }
+
+  const handleConfirmDiscard = () => {
+    showConfirmDiscardModal.value = false
+    isCompleted.value = true
+    if (import.meta.client) {
+      try {
+        localStorage.removeItem('dermassist_active_diagnosis')
+        localStorage.removeItem('draft_clinical_note_active')
+        localStorage.removeItem('draft_patient_info_active')
+        if (currentDiagnosis.value?.uuid) {
+          localStorage.removeItem(`draft_clinical_note_diag_${currentDiagnosis.value.uuid}`)
+          localStorage.removeItem(`draft_patient_info_${currentDiagnosis.value.uuid}`)
+        }
+      } catch (e) {
+        // silent fail
+      }
+    }
+    resetScanner()
+    const target = pendingDestination.value || '/Doctor/Scan'
+    pendingDestination.value = null
+    navigateTo(target)
+  }
+
+  onBeforeRouteLeave((to, from, next) => {
+    if (isCompleted.value || !currentDiagnosis.value) {
+      next()
+      return
+    }
+    pendingDestination.value = to.fullPath
+    showConfirmDiscardModal.value = true
+    next(false)
+  })
+
+  const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (!isCompleted.value && currentDiagnosis.value) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+  }
+
+  onUnmounted(() => {
+    if (import.meta.client) {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  })
 
   const isRealPatientUuid = computed(() => {
     return (
@@ -114,8 +163,11 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  // Redirect to scanner if no diagnosis is present, no patient is assigned, or if scan is healthy/non-skin; set isProceededToResults when on results page
   onMounted(async () => {
+    if (import.meta.client) {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+    }
+
     if (
       !currentDiagnosis.value ||
       !isScanned.value ||
@@ -136,6 +188,7 @@
   })
 
   const handleFinished = () => {
+    isCompleted.value = true
     if (import.meta.client) {
       try {
         localStorage.removeItem('dermassist_active_diagnosis')
@@ -150,7 +203,7 @@
       }
     }
     resetScanner()
-    navigateTo('/Doctor/Appointments')
+    navigateTo('/Doctor/Scan')
   }
 </script>
 
@@ -249,6 +302,19 @@
         </template>
       </ClientOnly>
     </main>
+
+    <!-- Discard / Quit Confirmation Modal -->
+    <AppModalConfirmation
+      v-model="showConfirmDiscardModal"
+      title="Discard Clinical Assessment?"
+      description="You have an active assessment in progress. Leaving without finishing will cause the active scan, diagnostic findings, and clinical notes to be lost."
+      icon="lucide:trash-2"
+      icon-color="danger"
+      confirm-text="Discard & Exit"
+      cancel-text="Continue Assessment"
+      confirm-variant="destructive"
+      @confirm="handleConfirmDiscard"
+    />
   </div>
 </template>
 

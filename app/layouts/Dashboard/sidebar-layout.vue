@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen flex-col overflow-hidden">
+  <div class="flex h-[100dvh] h-screen flex-col overflow-hidden">
     <!-- Desktop Navbar (hidden on mobile; doctors also hide it on tablet) -->
     <div :class="desktopChromeClass">
       <AppNavbar

@@ -2830,7 +2830,7 @@
 
         <!-- Input Area -->
         <div
-          class="bg-card border-border/60 shrink-0 border-t px-3 py-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 sm:py-3 md:border-0 md:bg-transparent md:p-6 md:pt-0"
+          class="bg-card border-border/60 shrink-0 border-t px-3 pt-2.5 pb-[max(0.875rem,calc(env(safe-area-inset-bottom,0px)+0.5rem))] sm:px-4 sm:py-3 md:border-0 md:bg-transparent md:p-6 md:pt-0"
         >
           <!-- File Preview Area -->
           <div
@@ -2866,7 +2866,7 @@
             </div>
           </div>
 
-          <div class="group relative flex items-end gap-2 sm:gap-3">
+          <div class="group relative flex items-center gap-2 sm:gap-3">
             <!-- Hidden File Input -->
             <input
               type="file"
@@ -2876,17 +2876,17 @@
               @change="handleFileChange"
             />
 
-            <div class="relative flex flex-1 items-end">
+            <div class="relative flex flex-1 items-center">
               <textarea
                 v-model="messageTerm"
                 placeholder="Type a message..."
                 @input="broadcastTyping"
                 @keydown="handleKeydown"
-                class="bg-foreground/5 text-foreground placeholder:text-foreground/40 focus:border-primary/40 focus:ring-primary/20 custom-scrollbar border-border/50 mb-1 h-11 w-full resize-none rounded-3xl border py-2.5 pr-22 pl-4 text-xs transition-all outline-none focus:ring-3 sm:mb-2 sm:h-12 sm:text-sm md:h-13 md:py-3 md:text-base"
+                class="bg-foreground/5 text-foreground placeholder:text-foreground/40 focus:border-primary/40 focus:ring-primary/20 custom-scrollbar border-border/50 h-11 w-full resize-none rounded-3xl border py-2.5 pr-22 pl-4 text-xs leading-normal transition-all outline-none focus:ring-3 sm:h-12 sm:pr-24 sm:text-sm md:h-13 md:py-3 md:text-base"
               ></textarea>
 
               <div
-                class="absolute right-3 -mb-0.5 flex -translate-y-1/2 items-center gap-1 sm:right-4 sm:-mb-1 sm:gap-2"
+                class="absolute top-1/2 right-2.5 flex -translate-y-1/2 items-center gap-1 sm:right-3.5 sm:gap-1.5"
               >
                 <!-- Attachment Button -->
                 <button

@@ -580,41 +580,56 @@
     try {
       // Create pending patient account now when finishing diagnosis and save
       if (pendingPatientRegistration.value) {
-        try {
-          const isWalkIn = !!pendingPatientRegistration.value.is_walk_in
-          const res = await userService.createDoctorPatient(pendingPatientRegistration.value)
-          const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
-          patientUuid.value = createdUser.uuid
-          userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+        // If patientUuid is already a real valid UUID of an existing assigned patient, don't create another account!
+        const isValidExistingPatientUuid =
+          patientUuid.value &&
+          patientUuid.value !== 'pending_new_patient' &&
+          patientUuid.value !== 'walk_in_guest' &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(patientUuid.value)
+
+        if (isValidExistingPatientUuid) {
           pendingPatientRegistration.value = null
           walkInPatientInfo.value = null
           saveActiveDiagnosisState()
+        } else {
+          try {
+            const isWalkIn = !!pendingPatientRegistration.value.is_walk_in
+            const res = await userService.createDoctorPatient(pendingPatientRegistration.value)
+            const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
+            patientUuid.value = createdUser.uuid
+            userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+            pendingPatientRegistration.value = null
+            walkInPatientInfo.value = null
+            saveActiveDiagnosisState()
 
-          if (props.diagnosisUuid) {
-            try {
-              await diagnosisService.update(props.diagnosisUuid, { patient_uuid: createdUser.uuid })
-            } catch (linkErr) {
-              console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
+            if (props.diagnosisUuid) {
+              try {
+                await diagnosisService.update(props.diagnosisUuid, {
+                  patient_uuid: createdUser.uuid
+                })
+              } catch (linkErr) {
+                console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
+              }
             }
+            if (isWalkIn) {
+              toast.success(
+                `Patient record for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
+              )
+            } else {
+              toast.success(
+                `Account for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
+              )
+            }
+          } catch (accountErr: any) {
+            console.error('Failed to create pending patient account:', accountErr)
+            const msg =
+              accountErr?.data?.message ||
+              accountErr?.response?._data?.message ||
+              'Failed to create patient account.'
+            toast.error(msg)
+            isSaving.value = false
+            return
           }
-          if (isWalkIn) {
-            toast.success(
-              `Patient record for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
-            )
-          } else {
-            toast.success(
-              `Account for ${createdUser.first_name} ${createdUser.last_name} created successfully!`
-            )
-          }
-        } catch (accountErr: any) {
-          console.error('Failed to create pending patient account:', accountErr)
-          const msg =
-            accountErr?.data?.message ||
-            accountErr?.response?._data?.message ||
-            'Failed to create patient account.'
-          toast.error(msg)
-          isSaving.value = false
-          return
         }
       }
 
@@ -710,9 +725,10 @@
       }
 
       // Save to research dataset based on scan type (out-of-scope → separate storage, standard → normal dataset)
+      // When finishing diagnosis & save (or explicitly consented), commit scan to dataset so it appears on dataset gallery
       if (
+        (props.isFinishMode || props.contributeToOutOfScopeDataset === true) &&
         props.isOutOfScope &&
-        props.contributeToOutOfScopeDataset === true &&
         props.diagnosisUuid
       ) {
         try {
@@ -720,7 +736,11 @@
         } catch (datasetErr) {
           console.error('Failed to save scan to out-of-scope research dataset:', datasetErr)
         }
-      } else if (!props.isOutOfScope && props.contributeToDataset === true && props.diagnosisUuid) {
+      } else if (
+        (props.isFinishMode || props.contributeToDataset === true) &&
+        !props.isOutOfScope &&
+        props.diagnosisUuid
+      ) {
         try {
           await datasetService.saveFromDiagnosis(props.diagnosisUuid)
         } catch (datasetErr) {

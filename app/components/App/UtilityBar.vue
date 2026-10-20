@@ -331,15 +331,17 @@
           <!-- Unread badge — pulses only when there are actually unread messages -->
           <span
             v-if="totalUnreadCount > 0"
-            class="absolute top-2 right-2 flex h-4 w-4 items-center justify-center"
+            class="absolute top-1.5 right-1.5 flex h-4.5 min-w-4.5 items-center justify-center"
           >
             <span
               class="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
             ></span>
             <span
-              class="bg-primary relative inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white text-[8px] font-black text-white"
+              class="bg-primary relative inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-white px-0.5 text-[9px] leading-none font-black text-white shadow-xs select-none"
             >
-              {{ totalUnreadCount > 9 ? '9+' : totalUnreadCount }}
+              <span class="translate-y-px text-center leading-none">{{
+                totalUnreadCount > 9 ? '9+' : totalUnreadCount
+              }}</span>
             </span>
           </span>
         </AppButton>
@@ -521,15 +523,17 @@
 
           <span
             v-if="unreadNotifications.length > 0"
-            class="absolute top-2 right-2 flex h-4 w-4 items-center justify-center"
+            class="absolute top-1.5 right-1.5 flex h-4.5 min-w-4.5 items-center justify-center"
           >
             <span
               class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"
             ></span>
             <span
-              class="relative inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 text-[8px] font-black text-white"
+              class="relative inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-0.5 text-[9px] leading-none font-black text-white shadow-xs select-none"
             >
-              {{ unreadNotifications.length > 9 ? '9+' : unreadNotifications.length }}
+              <span class="translate-y-px text-center leading-none">{{
+                unreadNotifications.length > 9 ? '9+' : unreadNotifications.length
+              }}</span>
             </span>
           </span>
         </AppButton>
