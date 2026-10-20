@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
   import { conversationService } from '~/api/conversation/ConversationService'
+  import { recordService } from '~/api/record/RecordService'
   import { toast } from 'vue-sonner'
 
   definePageMeta({
@@ -21,9 +22,15 @@
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
+  const isLoadingPatients = ref(false)
   const route = useRoute()
   const localSearch = ref((route.query.search as string) || '')
   const activeTab = ref<'all' | 'priority' | 'registered' | 'recent'>('all')
+
+  // Patient Records State for Selected Patient
+  const patientRecords = ref<any[]>([])
+  const isLoadingRecords = ref(false)
+  const selectedRecordForModal = ref<any | null>(null)
 
   // Modals
   const showRegisterModal = ref(false)
@@ -81,7 +88,8 @@
     try {
       isLoadingPatients.value = true
       const response = await userService.listDoctorPatients({ per_page: 100 })
-      doctorRegisteredPatients.value = response?.data || (Array.isArray(response) ? response : [])
+      const raw = response?.data ?? response ?? []
+      doctorRegisteredPatients.value = Array.isArray(raw) ? raw : []
     } catch (e) {
       console.error('Failed to fetch registered patients:', e)
     } finally {
@@ -272,20 +280,41 @@
 
       if (patientName.startsWith('Dr.')) continue
 
-      const key = patientUuid || `id_${patientId}`
       const isPrio =
         (patientUuid && isInPriority(patientUuid)) ||
         (patientId && isInPriority(String(patientId))) ||
         (appt.id && isInPriority(appt.id)) ||
         (appt.uuid && isInPriority(appt.uuid))
 
-      if (map.has(key)) {
-        const existing = map.get(key)!
+      const isRegisteredPatient = Boolean(
+        patientObj?.is_doctor_registered ||
+        patientObj?.registered_by_doctor_id ||
+        (appt as any).is_doctor_registered
+      )
+
+      // Find existing entry by UUID or ID
+      let existing: PatientDirectoryItem | undefined = undefined
+      if (patientUuid && map.has(patientUuid)) {
+        existing = map.get(patientUuid)
+      } else if (patientId && map.has(`id_${patientId}`)) {
+        existing = map.get(`id_${patientId}`)
+      } else if (patientId && map.has(`reg_${patientId}`)) {
+        existing = map.get(`reg_${patientId}`)
+      } else {
+        existing = Array.from(map.values()).find(
+          m =>
+            (patientUuid && m.uuid === patientUuid) ||
+            (patientId && m.id && Number(m.id) === Number(patientId))
+        )
+      }
+
+      if (existing) {
         existing.appointments.push(appt)
         if (appt.conversation_uuid && !existing.conversationUuid) {
           existing.conversationUuid = appt.conversation_uuid
         }
         if (isPrio) existing.isPriority = true
+        if (isRegisteredPatient) existing.isRegistered = true
       } else {
         const address = patientObj
           ? [patientObj.barangay, patientObj.city, patientObj.province]
@@ -299,6 +328,8 @@
             patientObj.email.startsWith('walkin.') &&
             patientObj.email.endsWith('@clinic.local'))
         )
+
+        const key = patientUuid || (patientId ? `id_${patientId}` : `temp_${Date.now()}`)
 
         map.set(key, {
           uuid: patientUuid || `temp_${patientId}`,
@@ -326,7 +357,7 @@
             : appt.diagnosis_image
               ? getStorageUrl(appt.diagnosis_image)
               : null,
-          isRegistered: patientObj?.is_doctor_registered || false,
+          isRegistered: isRegisteredPatient,
           isWalkIn,
           accountStatus: patientObj?.account_status || 'active',
           accountAction: patientObj?.account_action,
@@ -482,8 +513,51 @@
   }
 
   // ─── Clinical Navigation Actions ──────────────────────────────────────────────
-  const openPatientDetail = (patient: PatientDirectoryItem) => {
+  const fetchPatientRecords = async (patient: PatientDirectoryItem) => {
+    patientRecords.value = []
+    if (!patient) return
+    isLoadingRecords.value = true
+    try {
+      const params: Record<string, any> = {}
+      if (
+        patient.uuid &&
+        !patient.uuid.startsWith('pending_') &&
+        !patient.uuid.startsWith('temp_') &&
+        !patient.uuid.startsWith('reg_')
+      ) {
+        params.patient_uuid = patient.uuid
+      }
+      const res = await recordService.getRecords(params)
+      const list = (res as any)?.data || res || []
+      const rawRecords = Array.isArray(list) ? list : []
+      patientRecords.value = rawRecords.filter((r: any) => {
+        const rPatientUuid = r.patient?.uuid || r.patient_uuid || r.user_uuid
+        const rPatientId = r.patient?.id || r.patient_id
+        if (patient.uuid && rPatientUuid && rPatientUuid === patient.uuid) return true
+        if (patient.id && rPatientId && Number(rPatientId) === Number(patient.id)) return true
+        if (
+          patient.email &&
+          r.patient?.email &&
+          r.patient.email.toLowerCase() === patient.email.toLowerCase()
+        ) {
+          return true
+        }
+        return false
+      })
+    } catch (e) {
+      console.error('Failed to load patient records:', e)
+    } finally {
+      isLoadingRecords.value = false
+    }
+  }
+
+  const openPatientDetail = async (patient: PatientDirectoryItem) => {
     selectedPatientForDetail.value = patient
+    await fetchPatientRecords(patient)
+  }
+
+  const openRecordModal = (record: any) => {
+    selectedRecordForModal.value = record
   }
 
   const openBookAppointmentModal = (patient: any) => {
@@ -1018,7 +1092,7 @@
       <DoctorSideComponentsMetricCard
         label="Directory"
         :value="totalPatientsCount"
-        detail="All unique patients"
+        detail="All patients"
         badge="Total"
         badge-tone="neutral"
         :active="activeTab === 'all'"
@@ -1252,11 +1326,12 @@
           <div
             v-for="patient in paginatedPatients"
             :key="patient.uuid || patient.id"
-            class="group relative flex flex-col justify-between rounded-3xl border p-5 shadow-xs transition-all hover:shadow-md"
+            @click="openPatientDetail(patient)"
+            class="group relative flex cursor-pointer flex-col justify-between rounded-3xl border p-5 shadow-xs transition-all hover:border-indigo-300 hover:shadow-md hover:ring-2 hover:ring-indigo-500/10"
             :class="
               patient.isPendingCreation
                 ? 'border-amber-300 bg-amber-50/25 ring-1 ring-amber-300/80 hover:border-amber-400'
-                : 'border-gray-200/80 bg-white hover:border-indigo-300'
+                : 'border-gray-200/80 bg-white'
             "
           >
             <!-- Card Top Header -->
@@ -1475,7 +1550,7 @@
                 <!-- Profile / Case Review -->
                 <button
                   type="button"
-                  @click="openPatientDetail(patient)"
+                  @click.stop="openPatientDetail(patient)"
                   class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-2xs transition hover:bg-indigo-100 active:scale-95"
                 >
                   <Icon
@@ -1491,7 +1566,7 @@
                   <button
                     v-if="!patient.isWalkIn"
                     type="button"
-                    @click="openPatientChat(patient)"
+                    @click.stop="openPatientChat(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
                     title="Message Patient"
                   >
@@ -1504,7 +1579,7 @@
                   <!-- Book Follow-up -->
                   <button
                     type="button"
-                    @click="openBookAppointmentModal(patient)"
+                    @click.stop="openBookAppointmentModal(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
                     title="Schedule Appointment"
                   >
@@ -1518,7 +1593,7 @@
                   <button
                     v-if="patient.isRegistered"
                     type="button"
-                    @click="promptEditPatient(patient)"
+                    @click.stop="promptEditPatient(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-indigo-600 active:scale-95"
                     title="Edit Patient Details"
                   >
@@ -1532,7 +1607,7 @@
                   <button
                     v-if="patient.isRegistered"
                     type="button"
-                    @click="openPatientDetail(patient)"
+                    @click.stop="openPatientDetail(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
                     title="Manage Account"
                   >
@@ -1766,6 +1841,135 @@
               :class="selectedPatientForDetail.isPriority ? 'text-amber-600' : 'text-gray-500'"
             >
               {{ selectedPatientForDetail.isPriority ? 'High Attention' : 'Standard' }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Diagnostic Findings & AI Scans -->
+        <div>
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold tracking-wider text-gray-900 uppercase">
+                Diagnostic Findings & AI Scans
+              </h3>
+              <p class="text-xs text-gray-500">
+                Skin evaluations, AI classifications, and doctor-verified clinical records for this
+                patient.
+              </p>
+            </div>
+            <span
+              v-if="patientRecords.length > 0"
+              class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700"
+            >
+              <Icon
+                name="lucide:folder-heart"
+                class="text-xs"
+              />
+              {{ patientRecords.length }} {{ patientRecords.length === 1 ? 'Record' : 'Records' }}
+            </span>
+          </div>
+
+          <!-- Loading Records State -->
+          <div
+            v-if="isLoadingRecords"
+            class="mt-3 flex items-center justify-center rounded-2xl border border-gray-100 bg-gray-50/50 p-6"
+          >
+            <Icon
+              name="svg-spinners:ring-resize"
+              class="text-xl text-indigo-600"
+            />
+            <span class="ml-2 text-xs font-semibold text-gray-500">Loading patient records...</span>
+          </div>
+
+          <!-- Empty Records State -->
+          <div
+            v-else-if="patientRecords.length === 0"
+            class="mt-3 rounded-2xl border border-gray-200/80 bg-gray-50/50 p-6 text-center text-xs text-gray-500"
+          >
+            No diagnostic scans or AI evaluations on file for this patient yet.
+          </div>
+
+          <!-- Records List -->
+          <div
+            v-else
+            class="custom-scrollbar mt-3 max-h-72 space-y-2.5 overflow-y-auto pr-1"
+          >
+            <div
+              v-for="rec in patientRecords"
+              :key="rec.id || rec.uuid"
+              @click="openRecordModal(rec)"
+              class="group flex cursor-pointer flex-col justify-between gap-3 rounded-2xl border border-gray-200/80 bg-white p-3.5 shadow-2xs transition hover:border-indigo-300 hover:shadow-xs sm:flex-row sm:items-center"
+            >
+              <div class="flex items-center gap-3">
+                <div
+                  v-if="rec.image_path"
+                  class="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-2xs"
+                >
+                  <img
+                    :src="getStorageUrl(rec.image_path)"
+                    :alt="rec.label || 'Skin Scan'"
+                    class="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                </div>
+                <div
+                  v-else
+                  class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600"
+                >
+                  <Icon
+                    name="lucide:scan-face"
+                    class="text-xl"
+                  />
+                </div>
+
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="truncate text-xs font-bold text-gray-900 group-hover:text-indigo-600"
+                    >
+                      {{
+                        rec.label && rec.label !== 'None' ? rec.label : rec.title || 'Skin Analysis'
+                      }}
+                    </span>
+                    <span
+                      v-if="rec.confidence"
+                      class="rounded-md bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700"
+                    >
+                      {{ Math.round(rec.confidence * 100) }}% Match
+                    </span>
+                    <span
+                      class="rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                      :class="
+                        rec.clinical_note
+                          ? 'bg-indigo-50 text-indigo-700'
+                          : 'bg-gray-100 text-gray-600'
+                      "
+                    >
+                      {{ rec.clinical_note ? 'Doctor Verified' : 'AI Scan' }}
+                    </span>
+                  </div>
+                  <p class="mt-0.5 text-[11px] text-gray-500">
+                    Recorded on {{ formatDateTime(rec.created_at) }}
+                    <template v-if="rec.clinical_note?.chief_complaint">
+                      •
+                      <span class="text-gray-700 italic"
+                        >"{{ rec.clinical_note.chief_complaint }}"</span
+                      >
+                    </template>
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex shrink-0 items-center gap-2">
+                <span
+                  class="inline-flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition group-hover:bg-indigo-600 group-hover:text-white"
+                >
+                  <Icon
+                    name="lucide:eye"
+                    class="text-xs"
+                  />
+                  View Record
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -2741,6 +2945,27 @@
         </div>
       </div>
     </AppModal>
+
+    <!-- Record Detailed Viewer Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="selectedRecordForModal"
+          class="fixed inset-0 z-999 flex items-center justify-center bg-black/50 p-4 transition-all"
+          @click.self="selectedRecordForModal = null"
+        >
+          <div
+            class="modal-container bg-card relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
+          >
+            <AppModalRecord
+              :record="selectedRecordForModal"
+              role="doctor"
+              @close="selectedRecordForModal = null"
+            />
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

@@ -17,8 +17,8 @@ export interface RecordItem {
 }
 
 export class RecordService extends BaseService {
-  async getRecords(): Promise<RecordItem[]> {
-    return this.request<RecordItem[]>('/records', 'GET')
+  async getRecords(params: object = {}): Promise<RecordItem[]> {
+    return this.request<RecordItem[]>('/records', 'GET', params)
   }
 
   async downloadPdf(uuid: string): Promise<Blob> {
