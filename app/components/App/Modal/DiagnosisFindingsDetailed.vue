@@ -727,6 +727,52 @@
   const isSubmittingAppeal = ref(false)
   const appealSuccess = ref(false)
   const appealError = ref<string | null>(null)
+  const activeAppeal = ref<any | null>(null)
+  const isLoadingActiveAppeal = ref(false)
+
+  const fetchActiveAppeal = async () => {
+    const uuid = targetDiagnosisUuid.value
+    if (!uuid || props.role !== 'doctor') {
+      activeAppeal.value = null
+      return
+    }
+    isLoadingActiveAppeal.value = true
+    try {
+      const res = await appealService.list({ diagnosis_uuid: uuid, status: 'all' })
+      const list = res?.data ?? (Array.isArray(res) ? res : [])
+      activeAppeal.value = list[0] || null
+    } catch {
+      activeAppeal.value = null
+    } finally {
+      isLoadingActiveAppeal.value = false
+    }
+  }
+
+  watch(
+    targetDiagnosisUuid,
+    () => {
+      fetchActiveAppeal()
+    },
+    { immediate: true }
+  )
+
+  const handleOpenAppeal = () => {
+    isAppealOpen.value = true
+  }
+
+  const handleOpenReappeal = () => {
+    if (activeAppeal.value) {
+      suggestedLabel.value = activeAppeal.value.suggested_label || ''
+      diseaseSearchQuery.value = activeAppeal.value.suggested_label || ''
+      appealDescription.value = ''
+    }
+    isAppealOpen.value = true
+  }
+
+  const handleCancelAppeal = () => {
+    isAppealOpen.value = false
+    appealError.value = null
+  }
 
   const { searchDiseases, fetchCandidateDiseases } = useDiseaseCatalog()
   const isDiseaseDropdownOpen = ref(false)
@@ -795,6 +841,8 @@
         currentDiagnosis.value.label = chosen
       }
       toast.success(`Appeal filed: Clinical diagnosis updated to "${chosen}".`)
+
+      await fetchActiveAppeal()
 
       setTimeout(() => {
         isAppealOpen.value = false
@@ -2239,27 +2287,186 @@
         v-if="props.role === 'doctor'"
         class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
       >
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
-            <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
-              File an appeal to suggest a different diagnosis.
-            </p>
-          </div>
-          <AppButton
-            v-if="!isAppealOpen"
-            variant="outline"
-            @click="isAppealOpen = true"
-            class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
+        <!-- State 1: When Appeal Form is NOT open -->
+        <template v-if="!isAppealOpen">
+          <!-- 1a: Previous Appeal was Rejected -->
+          <div
+            v-if="activeAppeal && activeAppeal.status === 'rejected'"
+            class="flex flex-col gap-3 rounded-2xl border border-rose-200/80 bg-rose-50/60 p-4 sm:p-5"
           >
-            File Appeal
-          </AppButton>
-        </div>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div class="flex items-start gap-3">
+                <div
+                  class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 shadow-sm"
+                >
+                  <Icon
+                    name="lucide:x-circle"
+                    size="18"
+                  />
+                </div>
+                <div class="space-y-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <h4 class="text-xs font-black text-rose-950 sm:text-sm">
+                      Previous Appeal Rejected
+                    </h4>
+                    <span
+                      class="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700 shadow-xs"
+                    >
+                      Suggested: {{ activeAppeal.suggested_label }}
+                    </span>
+                  </div>
+                  <p class="text-xs leading-relaxed text-rose-900/90">
+                    <strong class="font-bold">Moderation feedback:</strong>
+                    "{{
+                      activeAppeal.resolution_notes ||
+                      'Scan image does not meet retraining criteria or clinical diagnosis was unsubstantiated.'
+                    }}"
+                  </p>
+                  <p class="text-[11px] leading-relaxed text-rose-700/80">
+                    Your clinical diagnosis on this patient's record is retained. You can submit
+                    another appeal with additional details or suggest an alternative diagnosis.
+                  </p>
+                </div>
+              </div>
+              <AppButton
+                variant="outline"
+                size="sm"
+                @click="handleOpenReappeal"
+                class="shrink-0 rounded-xl border-rose-300 bg-white text-xs font-bold text-rose-700 shadow-xs hover:border-rose-400 hover:bg-rose-50"
+              >
+                <Icon
+                  name="lucide:rotate-ccw"
+                  size="14"
+                  class="mr-1.5"
+                />
+                Appeal Again
+              </AppButton>
+            </div>
+          </div>
 
+          <!-- 1b: Previous Appeal is Pending Review -->
+          <div
+            v-else-if="activeAppeal && activeAppeal.status === 'pending'"
+            class="flex flex-col gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shadow-sm"
+              >
+                <Icon
+                  name="lucide:clock"
+                  size="18"
+                />
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h4 class="text-xs font-black text-amber-950 sm:text-sm">
+                    Appeal Under Moderation Review
+                  </h4>
+                  <span
+                    class="rounded-md border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-800 shadow-xs"
+                  >
+                    Suggested: {{ activeAppeal.suggested_label }}
+                  </span>
+                </div>
+                <p class="mt-1 text-xs text-amber-900/80">
+                  Your suggestion is awaiting review by AI moderation for retraining dataset
+                  ingestion.
+                </p>
+              </div>
+            </div>
+            <AppButton
+              variant="outline"
+              size="sm"
+              @click="handleOpenReappeal"
+              class="shrink-0 rounded-xl border-amber-300 bg-white text-xs font-bold text-amber-800 shadow-xs hover:border-amber-400 hover:bg-amber-50"
+            >
+              Update Appeal
+            </AppButton>
+          </div>
+
+          <!-- 1c: Previous Appeal was Resolved -->
+          <div
+            v-else-if="activeAppeal && activeAppeal.status === 'resolved'"
+            class="flex items-start gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 sm:p-5"
+          >
+            <div
+              class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-sm"
+            >
+              <Icon
+                name="lucide:check-circle-2"
+                size="18"
+              />
+            </div>
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <h4 class="text-xs font-black text-emerald-950 sm:text-sm">
+                  Appeal Approved & Ingested
+                </h4>
+                <span
+                  class="rounded-md border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-800 shadow-xs"
+                >
+                  Verified: {{ activeAppeal.suggested_label }}
+                </span>
+              </div>
+              <p class="mt-1 text-xs text-emerald-900/80">
+                Moderation approved your clinical diagnosis. This scan was relocated to the
+                retraining dataset.
+              </p>
+            </div>
+          </div>
+
+          <!-- 1d: No Appeal Filed Yet -->
+          <div
+            v-else
+            class="flex items-center justify-between gap-3"
+          >
+            <div>
+              <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
+              <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
+                File an appeal to suggest a different diagnosis.
+              </p>
+            </div>
+            <AppButton
+              variant="outline"
+              @click="handleOpenAppeal"
+              class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
+            >
+              File Appeal
+            </AppButton>
+          </div>
+        </template>
+
+        <!-- State 2: When Appeal Form is Open -->
         <div
-          v-if="isAppealOpen"
+          v-else
           class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
         >
+          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+            <div>
+              <h4 class="text-xs font-black text-gray-950 sm:text-sm">
+                {{
+                  activeAppeal?.status === 'rejected'
+                    ? 'Re-Appeal Scan Diagnosis'
+                    : 'File Diagnosis Appeal'
+                }}
+              </h4>
+              <p class="text-[11px] text-gray-500">
+                {{
+                  activeAppeal?.status === 'rejected'
+                    ? 'Provide updated clinical notes or select another diagnosis for moderation re-review.'
+                    : 'Suggest an alternative classification for clinical record and AI retraining.'
+                }}
+              </p>
+            </div>
+            <span
+              v-if="activeAppeal?.status === 'rejected'"
+              class="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+            >
+              Re-Appeal
+            </span>
+          </div>
+
           <div class="relative flex flex-col gap-1.5 sm:gap-2">
             <label
               class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
@@ -2335,6 +2542,7 @@
               </div>
             </div>
           </div>
+
           <div class="flex flex-col gap-1.5 sm:gap-2">
             <label
               class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
@@ -2364,7 +2572,7 @@
           <div class="mt-1 flex items-center justify-end gap-2.5 sm:mt-2 sm:gap-3">
             <AppButton
               variant="ghost"
-              @click="isAppealOpen = false"
+              @click="handleCancelAppeal"
               class="rounded-xl px-3 py-1.5 text-xs font-bold text-gray-500 sm:px-4 sm:py-2 sm:text-sm"
               :disabled="isSubmittingAppeal"
             >
@@ -2376,7 +2584,7 @@
               :disabled="!suggestedLabel"
               class="bg-primary text-card rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
             >
-              Submit Appeal
+              {{ activeAppeal?.status === 'rejected' ? 'Submit Re-Appeal' : 'Submit Appeal' }}
             </AppButton>
           </div>
         </div>

@@ -19,14 +19,20 @@
     (e: 'update:modelValue', value: boolean): void
     (e: 'close'): void
     (e: 'resolved', uuid: string): void
+    (e: 'rejected', uuid: string): void
     (e: 'restored', uuid: string): void
     (e: 'select-appeal', appeal: AdminAppeal): void
   }>()
 
   const { getStorageUrl } = useStorage()
-  const { resolveAppeal: apiResolve, restoreAppeal: apiRestore } = useAdminAppeals()
+  const {
+    resolveAppeal: apiResolve,
+    rejectAppeal: apiReject,
+    restoreAppeal: apiRestore
+  } = useAdminAppeals()
 
   const isResolving = ref(false)
+  const isRejecting = ref(false)
   const isRestoring = ref(false)
   const resolutionNotes = ref('')
   const isImageZoomed = ref(false)
@@ -116,6 +122,22 @@
       toast.error(err?.data?.message || err?.message || 'Failed to resolve appeal.')
     } finally {
       isResolving.value = false
+    }
+  }
+
+  const handleReject = async () => {
+    if (!props.appeal?.uuid) return
+    isRejecting.value = true
+    try {
+      await apiReject(props.appeal.uuid, {
+        resolution_notes: resolutionNotes.value.trim() || undefined
+      })
+      emit('rejected', props.appeal.uuid)
+      toast.success('Appeal rejected and excluded from retraining dataset.')
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to reject appeal.')
+    } finally {
+      isRejecting.value = false
     }
   }
 
@@ -457,20 +479,71 @@
                   </div>
                 </div>
 
-                <!-- Retraining Ingestion Notice -->
-                <div class="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-4 text-xs">
+                <!-- Moderation Notes Card for Pending Appeals -->
+                <div
+                  v-if="props.appeal.status === 'pending'"
+                  class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5"
+                >
+                  <label class="block text-xs font-bold text-gray-700">
+                    Moderation Notes / Feedback (Optional)
+                  </label>
+                  <p class="mt-0.5 text-[11px] text-gray-400">
+                    Will be saved in audit history and displayed to the doctor if rejected.
+                  </p>
+                  <textarea
+                    v-model="resolutionNotes"
+                    rows="2"
+                    class="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 text-xs text-gray-800 transition-all outline-none focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+                    placeholder="e.g. Scan resolution too blurry, atypical presentation requiring biopsy..."
+                  />
+                </div>
+
+                <!-- Rejected Notice if Appeal was Rejected -->
+                <div
+                  v-else-if="props.appeal.status === 'rejected'"
+                  class="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 text-xs"
+                >
                   <div class="flex items-start gap-2.5">
                     <Icon
-                      name="lucide:sparkles"
-                      class="text-primary mt-0.5 shrink-0 text-base"
+                      name="lucide:x-circle"
+                      class="mt-0.5 shrink-0 text-base text-rose-500"
                     />
                     <div>
-                      <span class="font-bold text-gray-900">AI Retraining Pipeline Ingestion</span>
+                      <span class="font-bold text-rose-700">Appeal Rejected by Moderation</span>
                       <p class="mt-0.5 text-[11px] leading-relaxed text-gray-600">
-                        The doctor's diagnosis was already applied to the clinical record. Resolving
-                        this appeal ingests and relocates this scan into the
-                        <strong>{{ props.appeal.suggested_label }}</strong> dataset folder for model
-                        retraining.
+                        This appeal was rejected and excluded from AI retraining datasets.
+                      </p>
+                      <p
+                        v-if="props.appeal.resolution_notes"
+                        class="mt-1.5 text-xs text-gray-700 italic"
+                      >
+                        Reason: "{{ props.appeal.resolution_notes }}"
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Retraining Ingestion Notice if Resolved -->
+                <div
+                  v-else
+                  class="rounded-2xl border border-green-500/20 bg-green-500/5 p-4 text-xs"
+                >
+                  <div class="flex items-start gap-2.5">
+                    <Icon
+                      name="lucide:check-circle-2"
+                      class="mt-0.5 shrink-0 text-base text-green-600"
+                    />
+                    <div>
+                      <span class="font-bold text-gray-900">Approved for AI Retraining</span>
+                      <p class="mt-0.5 text-[11px] leading-relaxed text-gray-600">
+                        Scan image is assigned to the
+                        <strong>{{ props.appeal.suggested_label }}</strong> model dataset.
+                      </p>
+                      <p
+                        v-if="props.appeal.resolution_notes"
+                        class="mt-1.5 text-xs text-gray-700 italic"
+                      >
+                        Notes: "{{ props.appeal.resolution_notes }}"
                       </p>
                     </div>
                   </div>
@@ -519,20 +592,35 @@
                     Close
                   </AppButton>
 
-                  <AppButton
-                    v-if="props.appeal.status === 'pending'"
-                    variant="primary"
-                    @click="handleResolve"
-                    :loading="isResolving"
-                    class="bg-primary rounded-xl px-5 py-2 text-xs font-bold text-white shadow-sm sm:text-sm"
-                  >
-                    <Icon
-                      name="lucide:check-circle-2"
-                      size="16"
-                      class="mr-1.5"
-                    />
-                    Approve for AI Retraining
-                  </AppButton>
+                  <template v-if="props.appeal.status === 'pending'">
+                    <AppButton
+                      variant="outline"
+                      @click="handleReject"
+                      :loading="isRejecting"
+                      class="rounded-xl px-4 py-2 text-xs font-bold text-rose-600 hover:border-rose-300 hover:bg-rose-50 sm:text-sm"
+                    >
+                      <Icon
+                        name="lucide:x-circle"
+                        size="15"
+                        class="mr-1.5"
+                      />
+                      Reject Appeal
+                    </AppButton>
+
+                    <AppButton
+                      variant="primary"
+                      @click="handleResolve"
+                      :loading="isResolving"
+                      class="bg-primary rounded-xl px-5 py-2 text-xs font-bold text-white shadow-sm sm:text-sm"
+                    >
+                      <Icon
+                        name="lucide:check-circle-2"
+                        size="16"
+                        class="mr-1.5"
+                      />
+                      Approve for AI Retraining
+                    </AppButton>
+                  </template>
 
                   <AppButton
                     v-else

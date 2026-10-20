@@ -13,11 +13,25 @@
 
   const { searchQuery } = useSearch()
 
+  const checkAndOpenTargetRecord = () => {
+    const targetUuid = route.query.diagnosis_uuid || route.query.record_uuid
+    if (targetUuid && records.value.length > 0) {
+      const match = records.value.find(
+        (r: any) => r.uuid === targetUuid || r.diagnosis_uuid === targetUuid || r.id == targetUuid
+      )
+      if (match) {
+        selectedRecord.value = match
+        isOpen.value = true
+      }
+    }
+  }
+
   const fetchRecords = async () => {
     isLoading.value = true
     try {
       const response = await recordService.getRecords()
       records.value = (response as any).data || response || []
+      checkAndOpenTargetRecord()
     } catch (e) {
       console.error('Failed to fetch records', e)
     } finally {
@@ -33,6 +47,16 @@
     }
     fetchRecords()
   })
+
+  watch(
+    () => route.query,
+    () => {
+      if (route.query.search) {
+        searchQuery.value = String(route.query.search)
+      }
+      checkAndOpenTargetRecord()
+    }
+  )
 
   const filteredRecords = computed(() => {
     let result = records.value

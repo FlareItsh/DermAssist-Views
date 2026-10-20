@@ -16,8 +16,10 @@
     filterStatus,
     pendingCount,
     resolvedCount,
+    rejectedCount,
     totalCount,
     resolveAppeal: apiResolve,
+    rejectAppeal: apiReject,
     restoreAppeal: apiRestore
   } = useAdminAppeals()
 
@@ -27,6 +29,36 @@
   const searchQuery = ref('')
   const selectedAppeal = ref<AdminAppeal | null>(null)
   const isDetailModalOpen = ref(false)
+
+  // Rejection Confirmation State
+  const showRejectConfirm = ref(false)
+  const appealToReject = ref<AdminAppeal | null>(null)
+  const rejectionNotes = ref('')
+  const isRejecting = ref(false)
+
+  const openRejectModal = (appeal: AdminAppeal, e?: Event) => {
+    if (e) e.stopPropagation()
+    appealToReject.value = appeal
+    rejectionNotes.value = ''
+    showRejectConfirm.value = true
+  }
+
+  const handleConfirmReject = async () => {
+    if (!appealToReject.value) return
+    isRejecting.value = true
+    try {
+      await apiReject(appealToReject.value.uuid, {
+        resolution_notes: rejectionNotes.value.trim() || undefined
+      })
+      toast.success('Appeal rejected and removed from pending moderation.')
+      showRejectConfirm.value = false
+      appealToReject.value = null
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to reject appeal.')
+    } finally {
+      isRejecting.value = false
+    }
+  }
 
   const handleOpenDetail = (appeal: AdminAppeal) => {
     selectedAppeal.value = appeal
@@ -142,6 +174,10 @@
           <p class="text-lg font-black text-green-600">{{ resolvedCount }}</p>
         </div>
         <div class="rounded-2xl border border-gray-100 bg-white px-3.5 py-2 shadow-sm">
+          <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Rejected</span>
+          <p class="text-lg font-black text-rose-500">{{ rejectedCount }}</p>
+        </div>
+        <div class="rounded-2xl border border-gray-100 bg-white px-3.5 py-2 shadow-sm">
           <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Total</span>
           <p class="text-lg font-black text-gray-900">{{ totalCount }}</p>
         </div>
@@ -212,6 +248,27 @@
               "
             >
               {{ resolvedCount }}
+            </span>
+          </button>
+          <button
+            @click="filterStatus = 'rejected'"
+            :class="
+              filterStatus === 'rejected'
+                ? 'bg-white font-bold text-gray-950 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            "
+            class="flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all"
+          >
+            <span>Rejected</span>
+            <span
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold"
+              :class="
+                filterStatus === 'rejected'
+                  ? 'bg-rose-50 text-rose-600'
+                  : 'bg-gray-200 text-gray-600'
+              "
+            >
+              {{ rejectedCount }}
             </span>
           </button>
         </div>
@@ -287,6 +344,12 @@
                 >
                   Resolved
                 </span>
+                <span
+                  v-else-if="appeal.status === 'rejected'"
+                  class="rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
+                >
+                  Rejected
+                </span>
               </div>
               <p class="mt-0.5 truncate text-xs text-gray-500">{{ getContactDetails(appeal) }}</p>
               <p class="mt-1 text-[11px] font-medium text-gray-400">
@@ -348,21 +411,37 @@
               Inspect Appeal
             </AppButton>
 
-            <AppButton
-              v-if="filterStatus === 'pending'"
-              variant="outline"
-              size="sm"
-              @click.stop="resolveAppeal(appeal.uuid, $event)"
-              class="rounded-xl px-3 py-1.5 text-xs font-bold text-green-700 hover:border-green-300 hover:bg-green-50"
-              title="Quickly approve and ingest for retraining"
-            >
-              <Icon
-                name="lucide:check-circle-2"
-                size="14"
-                class="mr-1.5"
-              />
-              Resolve
-            </AppButton>
+            <template v-if="filterStatus === 'pending'">
+              <AppButton
+                variant="outline"
+                size="sm"
+                @click.stop="resolveAppeal(appeal.uuid, $event)"
+                class="rounded-xl px-3 py-1.5 text-xs font-bold text-green-700 hover:border-green-300 hover:bg-green-50"
+                title="Quickly approve and ingest for retraining"
+              >
+                <Icon
+                  name="lucide:check-circle-2"
+                  size="14"
+                  class="mr-1.5"
+                />
+                Resolve
+              </AppButton>
+
+              <AppButton
+                variant="outline"
+                size="sm"
+                @click.stop="openRejectModal(appeal, $event)"
+                class="rounded-xl px-3 py-1.5 text-xs font-bold text-rose-600 hover:border-rose-300 hover:bg-rose-50"
+                title="Reject this appeal"
+              >
+                <Icon
+                  name="lucide:x-circle"
+                  size="14"
+                  class="mr-1.5"
+                />
+                Reject
+              </AppButton>
+            </template>
 
             <AppButton
               v-else
@@ -391,7 +470,13 @@
           class="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-500"
         >
           <Icon
-            :name="filterStatus === 'pending' ? 'lucide:alert-circle' : 'lucide:check-circle-2'"
+            :name="
+              filterStatus === 'pending'
+                ? 'lucide:alert-circle'
+                : filterStatus === 'resolved'
+                  ? 'lucide:check-circle-2'
+                  : 'lucide:x-circle'
+            "
             class="text-3xl"
           />
         </div>
@@ -401,7 +486,9 @@
               ? `No appeals found matching "${searchQuery}".`
               : filterStatus === 'pending'
                 ? 'No pending doctor scan appeals found.'
-                : 'No resolved appeals found.'
+                : filterStatus === 'resolved'
+                  ? 'No resolved appeals found.'
+                  : 'No rejected doctor scan appeals found.'
           }}
         </p>
         <p
@@ -420,7 +507,37 @@
       :appeals-list="displayedAppeals"
       @select-appeal="handleSelectAppeal"
       @resolved="fetchAppeals"
+      @rejected="fetchAppeals"
       @restored="fetchAppeals"
     />
+
+    <!-- Confirmation Modal for Appeal Rejection -->
+    <AppModalConfirmation
+      v-model="showRejectConfirm"
+      title="Reject Doctor Scan Appeal?"
+      description="This appeal will be marked as rejected and excluded from AI retraining datasets. The doctor will receive a rejection notification and can submit a new appeal."
+      icon="lucide:x-circle"
+      icon-color="danger"
+      confirm-text="Reject Appeal"
+      cancel-text="Keep Pending"
+      confirm-variant="destructive"
+      :loading="isRejecting"
+      @confirm="handleConfirmReject"
+    >
+      <div class="mt-4 text-left">
+        <label class="block text-xs font-bold text-gray-700"
+          >Rejection Reason / Notes (Optional)</label
+        >
+        <p class="mt-0.5 text-[11px] text-gray-500">
+          Provide feedback visible to the doctor explaining why this appeal was rejected.
+        </p>
+        <textarea
+          v-model="rejectionNotes"
+          rows="3"
+          class="mt-2 w-full resize-none rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 text-xs text-gray-800 transition-all outline-none focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-100"
+          placeholder="e.g. Scan resolution too blurry, atypical presentation requiring in-person biopsy..."
+        />
+      </div>
+    </AppModalConfirmation>
   </div>
 </template>

@@ -62,7 +62,10 @@ export const useAdminAppeals = () => {
     if (filterStatus.value === 'resolved') {
       return appeals.value.filter(a => a.status === 'resolved')
     }
-    return appeals.value.filter(a => a.status !== 'resolved')
+    if (filterStatus.value === 'rejected') {
+      return appeals.value.filter(a => a.status === 'rejected')
+    }
+    return appeals.value.filter(a => a.status !== 'resolved' && a.status !== 'rejected')
   })
 
   const sortedAppeals = computed(() => {
@@ -74,8 +77,20 @@ export const useAdminAppeals = () => {
     })
   })
 
-  const pendingCount = computed(() => appeals.value.filter(a => a.status !== 'resolved').length)
+  const allSortedAppeals = computed(() => {
+    return [...appeals.value].sort((a, b) => {
+      return (
+        new Date(getAppealTimestamp(b) || 0).getTime() -
+        new Date(getAppealTimestamp(a) || 0).getTime()
+      )
+    })
+  })
+
+  const pendingCount = computed(
+    () => appeals.value.filter(a => a.status !== 'resolved' && a.status !== 'rejected').length
+  )
   const resolvedCount = computed(() => appeals.value.filter(a => a.status === 'resolved').length)
+  const rejectedCount = computed(() => appeals.value.filter(a => a.status === 'rejected').length)
   const totalCount = computed(() => appeals.value.length)
 
   const latestAppealSignature = computed(() => {
@@ -139,6 +154,25 @@ export const useAdminAppeals = () => {
     }
   }
 
+  const rejectAppeal = async (uuid: string, options: { resolution_notes?: string } = {}) => {
+    try {
+      const res = await appealService.reject(uuid, options)
+      const updated = res?.data || res
+      const idx = appeals.value.findIndex(a => a.uuid === uuid)
+      if (idx !== -1) {
+        appeals.value[idx] = {
+          ...appeals.value[idx],
+          ...updated,
+          status: 'rejected',
+          resolved_at: new Date().toISOString()
+        }
+      }
+      return updated
+    } catch (err: any) {
+      throw err
+    }
+  }
+
   const restoreAppeal = async (uuid: string) => {
     try {
       const res = await appealService.restore(uuid)
@@ -161,16 +195,19 @@ export const useAdminAppeals = () => {
   return {
     appeals,
     sortedAppeals,
+    allSortedAppeals,
     isLoadingAppeals,
     appealsError,
     filterStatus,
     pendingCount,
     resolvedCount,
+    rejectedCount,
     totalCount,
     hasUnseenAppeals,
     fetchAppeals,
     markAppealsSeen,
     resolveAppeal,
+    rejectAppeal,
     restoreAppeal
   }
 }
