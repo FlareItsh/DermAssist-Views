@@ -1166,60 +1166,96 @@
       @close="handleCloseProfitsModal"
     >
       <div class="space-y-6">
-        <!-- Metric Key Stats Row (Unified, Non-Redundant) -->
+        <!-- Metric Key Stats Row (Unified, Non-Redundant, Centered) -->
         <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5">
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Total Profits</span
-            >
-            <span class="mt-1 block text-xl font-black text-emerald-700 tabular-nums">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 px-2 py-3.5 text-center"
+          >
+            <div class="flex h-7 items-center justify-center">
+              <span
+                class="text-[10px] font-semibold tracking-wide text-gray-500 uppercase sm:text-[11px]"
+              >
+                Total Profits
+              </span>
+            </div>
+            <span class="my-1 block text-xl font-black text-emerald-700 tabular-nums">
               {{ formattedProfits }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">Lifetime Revenue</span>
+            <span class="block text-[10px] font-medium whitespace-nowrap text-gray-400">
+              Lifetime Revenue
+            </span>
           </div>
 
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Active Subs</span
-            >
-            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 px-2 py-3.5 text-center"
+          >
+            <div class="flex h-7 items-center justify-center">
+              <span
+                class="text-[10px] font-semibold tracking-wide text-gray-500 uppercase sm:text-[11px]"
+              >
+                Active Subs
+              </span>
+            </div>
+            <span class="my-1 block text-xl font-black text-gray-900 tabular-nums">
               {{ dashboardStats?.subscription_profits?.active_subscribers_count ?? 0 }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">
+            <span class="block text-[10px] font-medium whitespace-nowrap text-gray-400">
               {{ dashboardStats?.subscription_profits?.total_subscribed_users ?? 0 }} all-time
             </span>
           </div>
 
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Renewal Rate</span
-            >
-            <span class="mt-1 block text-xl font-black text-blue-700 tabular-nums">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 px-2 py-3.5 text-center"
+          >
+            <div class="flex h-7 items-center justify-center">
+              <span
+                class="text-[10px] font-semibold tracking-wide text-gray-500 uppercase sm:text-[11px]"
+              >
+                Renewal Rate
+              </span>
+            </div>
+            <span class="my-1 block text-xl font-black text-blue-700 tabular-nums">
               {{ renewalRatePercentage }}%
             </span>
-            <span class="text-[10px] font-medium text-gray-400">
+            <span class="block text-[10px] font-medium whitespace-nowrap text-gray-400">
               {{ dashboardStats?.subscription_profits?.renewed_users_count ?? 0 }} renewed
             </span>
           </div>
 
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Total Doctors</span
-            >
-            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 px-2 py-3.5 text-center"
+          >
+            <div class="flex h-7 items-center justify-center">
+              <span
+                class="text-[10px] font-semibold tracking-wide text-gray-500 uppercase sm:text-[11px]"
+              >
+                Total Doctors
+              </span>
+            </div>
+            <span class="my-1 block text-xl font-black text-gray-900 tabular-nums">
               {{ dashboardStats?.user_counts?.total_doctors ?? doctorCount }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">Registered</span>
+            <span class="block text-[10px] font-medium whitespace-nowrap text-gray-400">
+              Registered
+            </span>
           </div>
 
-          <div class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 text-center">
-            <span class="block text-[11px] font-semibold tracking-wider text-gray-500 uppercase"
-              >Total Patients</span
-            >
-            <span class="mt-1 block text-xl font-black text-gray-900 tabular-nums">
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 px-2 py-3.5 text-center"
+          >
+            <div class="flex h-7 items-center justify-center">
+              <span
+                class="text-[10px] font-semibold tracking-wide text-gray-500 uppercase sm:text-[11px]"
+              >
+                Total Patients
+              </span>
+            </div>
+            <span class="my-1 block text-xl font-black text-gray-900 tabular-nums">
               {{ dashboardStats?.user_counts?.total_patients ?? patientCount }}
             </span>
-            <span class="text-[10px] font-medium text-gray-400">Registered</span>
+            <span class="block text-[10px] font-medium whitespace-nowrap text-gray-400">
+              Registered
+            </span>
           </div>
         </div>
 
