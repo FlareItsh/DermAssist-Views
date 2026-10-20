@@ -494,27 +494,8 @@
 
 <template>
   <div class="">
-    <div
-      class="mb-5 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-6 md:grid-cols-3 md:gap-4 xl:grid-cols-6"
-    >
-      <AdminSideComponentsMetricCard
-        label="Patients"
-        :value="patientCount"
-        detail="Total registered patient users"
-        :trend="patientTrend"
-        to="/admin/moderation/users?role=patient"
-        :loading="isLoadingUsers"
-      />
-
-      <AdminSideComponentsMetricCard
-        label="Doctors"
-        :value="doctorCount"
-        detail="Total registered clinician accounts"
-        :trend="doctorTrend"
-        to="/admin/moderation/users?role=doctor"
-        :loading="isLoadingUsers"
-      />
-
+    <!-- Row 1: Key Operations & Clinical Metrics (4 Cards) -->
+    <div class="mb-4 grid grid-cols-2 gap-3 sm:gap-3.5 md:mb-5 md:grid-cols-4 md:gap-4">
       <AdminSideComponentsMetricCard
         label="AI Scans Used"
         :value="scanUsageTotal"
@@ -551,6 +532,27 @@
         :badge="sortedAppeals.length > 0 ? `${sortedAppeals.length} Action Req.` : 'All Clear'"
         to="/admin/appeals"
         :loading="isLoadingAppeals"
+      />
+    </div>
+
+    <!-- Row 2: User Demographics (2 Wide Divs Below Top Row) -->
+    <div class="mb-5 grid grid-cols-1 gap-3.5 sm:gap-4 md:mb-6 md:grid-cols-2">
+      <AdminSideComponentsMetricCard
+        label="Patients"
+        :value="patientCount"
+        detail="Total registered patient users"
+        :trend="patientTrend"
+        to="/admin/moderation/users?role=patient"
+        :loading="isLoadingUsers"
+      />
+
+      <AdminSideComponentsMetricCard
+        label="Doctors"
+        :value="doctorCount"
+        detail="Total registered clinician accounts"
+        :trend="doctorTrend"
+        to="/admin/moderation/users?role=doctor"
+        :loading="isLoadingUsers"
       />
     </div>
 
