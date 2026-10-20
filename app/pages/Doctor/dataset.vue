@@ -225,10 +225,11 @@
             :key="idx"
             class="bg-muted border-border group relative aspect-square overflow-hidden rounded-2xl border"
           >
-            <NuxtImg
+            <img
               :src="getStorageUrl(url)"
               class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               loading="lazy"
+              alt="Clinical lesion scan"
             />
           </div>
         </div>
