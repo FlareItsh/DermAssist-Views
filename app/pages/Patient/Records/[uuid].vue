@@ -18,6 +18,10 @@
   const isLoading = ref(true)
   const isImageExpanded = ref(false)
 
+  const isAppealed = computed(() => {
+    return Boolean(record.value?.is_appealed || record.value?.appeal)
+  })
+
   const activeDiseaseInfo = computed(() => {
     if (!record.value) return null
     const label = record.value.label || record.value.title || 'None'
@@ -134,6 +138,7 @@
         <AppModalRecord
           v-else-if="record"
           :record="record"
+          role="patient"
           @close="navigateTo('/Patient/Records')"
         />
       </main>
@@ -198,7 +203,7 @@
             </h3>
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <span
-                v-if="record.confidence"
+                v-if="record.confidence && !isAppealed"
                 class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
                 :style="{
                   backgroundColor: `${diseaseColor}15`,
@@ -418,7 +423,7 @@
 
         <!-- Diagnosis Probability Breakdown -->
         <div
-          v-if="probabilityList.length > 0"
+          v-if="probabilityList.length > 0 && !isAppealed"
           class="flex flex-col gap-2.5 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
         >
           <h4 class="text-xs font-semibold tracking-wider text-gray-500 uppercase">

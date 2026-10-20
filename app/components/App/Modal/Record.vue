@@ -23,6 +23,10 @@
     return userRole.value === 'patient'
   })
 
+  const isAppealed = computed(() => {
+    return Boolean(props.record?.is_appealed || props.record?.appeal)
+  })
+
   // Selected disease for dynamic characteristics and symptoms switching
   const selectedDisease = ref<string>('Acne')
 
@@ -213,7 +217,7 @@
           </h3>
           <div class="mt-1 flex flex-wrap items-center gap-2">
             <span
-              v-if="activeConfidence"
+              v-if="activeConfidence && !(isPatientView && isAppealed)"
               class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
               :style="{ backgroundColor: `${diseaseColor}15`, color: diseaseColor }"
             >
@@ -238,7 +242,7 @@
 
       <!-- Probability Distribution & Interactive Disease Selector -->
       <div
-        v-if="probabilityList.length > 0"
+        v-if="probabilityList.length > 0 && !(isPatientView && isAppealed)"
         class="rounded-2xl border border-gray-100 bg-white p-4 shadow-2xs"
       >
         <div class="mb-3 flex items-center justify-between">
