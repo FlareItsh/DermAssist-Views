@@ -1612,9 +1612,7 @@
                 isNoneState
                   ? 'Non-Skin Image Detected'
                   : isOutOfScopeState
-                    ? currentDiagnosis?.out_of_scope_category
-                      ? `Out-of-Scope: ${formatCategory(currentDiagnosis.out_of_scope_category)}`
-                      : 'Other Condition (Out of Scope)'
+                    ? 'Out-of-Scope Condition'
                     : isInconclusiveState
                       ? 'Inconclusive Finding'
                       : isHealthyState
@@ -1622,13 +1620,23 @@
                         : currentDiagnosis?.label || 'Waiting...'
               }}
             </p>
-            <AppBadge
-              v-if="isOutOfScopeState"
-              color="purple"
-              size="sm"
-            >
-              Other Condition (Out of Scope)
-            </AppBadge>
+            <template v-if="isOutOfScopeState">
+              <AppBadge
+                color="purple"
+                size="sm"
+              >
+                Out-of-Scope
+              </AppBadge>
+              <AppBadge
+                v-if="currentDiagnosis?.out_of_scope_category"
+                color="purple"
+                variant="subtle"
+                size="sm"
+                :uppercase="false"
+              >
+                Possible Match: {{ formatCategory(currentDiagnosis.out_of_scope_category) }}
+              </AppBadge>
+            </template>
             <AppBadge
               v-else-if="isInconclusiveState"
               color="warning"

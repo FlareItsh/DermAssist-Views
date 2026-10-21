@@ -1322,21 +1322,29 @@
                   activeDisease === 'None'
                     ? 'Non-Skin Image Detected'
                     : activeDisease === 'OutOfScope'
-                      ? outOfScopeCategoryFromDiagnosis
-                        ? `Out-of-Scope: ${formatCategory(outOfScopeCategoryFromDiagnosis)}`
-                        : 'Out-of-Scope Skin Condition'
+                      ? 'Out-of-Scope Condition'
                       : activeDisease === 'Inconclusive'
                         ? 'Inconclusive Finding'
                         : activeDisease
                 }}
               </h1>
-              <AppBadge
-                v-if="activeDisease === 'OutOfScope'"
-                color="purple"
-                size="sm"
-              >
-                Other Condition (Not in Main 3)
-              </AppBadge>
+              <template v-if="activeDisease === 'OutOfScope'">
+                <AppBadge
+                  color="purple"
+                  size="sm"
+                >
+                  Other Condition (Not in Main 3)
+                </AppBadge>
+                <AppBadge
+                  v-if="outOfScopeCategoryFromDiagnosis"
+                  color="purple"
+                  variant="subtle"
+                  size="sm"
+                  :uppercase="false"
+                >
+                  Possible Match: {{ formatCategory(outOfScopeCategoryFromDiagnosis) }}
+                </AppBadge>
+              </template>
               <AppBadge
                 v-else-if="activeDisease === 'Inconclusive'"
                 color="warning"

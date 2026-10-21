@@ -46,6 +46,16 @@
     return Math.round(currentDiagnosis.value.confidence * 100)
   })
 
+  const formatCategory = (cat?: string | null) => {
+    if (!cat) return ''
+    const c = cat.toLowerCase()
+    if (c === 'ringworm') return 'Ringworm (Tinea)'
+    if (c === 'hives') return 'Hives / Urticaria'
+    if (c === 'warts') return 'Warts (HPV)'
+    if (c === 'psoriasis') return 'Psoriasis'
+    return cat.charAt(0).toUpperCase() + cat.slice(1)
+  }
+
   const formatListText = (text: string) => {
     if (text.includes(':')) {
       const parts = text.split(':')
@@ -385,7 +395,7 @@
         <h3 class="text-foreground mt-0.5 truncate text-base leading-snug font-semibold">
           {{ activeDiseaseLabel }}
         </h3>
-        <div class="mt-1 flex items-center gap-2">
+        <div class="mt-1 flex flex-wrap items-center gap-1.5">
           <span
             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
             :style="{
@@ -398,6 +408,12 @@
               :style="{ backgroundColor: activeDiseaseInfo?.color || '#7B5EF5' }"
             ></span>
             {{ confidencePercent }}% Confidence
+          </span>
+          <span
+            v-if="isOutOfScopeState && currentDiagnosis?.out_of_scope_category"
+            class="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-700"
+          >
+            Possible Match: {{ formatCategory(currentDiagnosis.out_of_scope_category) }}
           </span>
         </div>
       </div>
