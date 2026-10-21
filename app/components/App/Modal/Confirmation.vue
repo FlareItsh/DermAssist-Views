@@ -10,6 +10,7 @@
     icon?: string
     iconColor?: 'danger' | 'warning' | 'primary' | 'info'
     loading?: boolean
+    confirmDisabled?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -19,7 +20,8 @@
     confirmVariant: 'destructive',
     icon: 'lucide:alert-triangle',
     iconColor: 'danger',
-    loading: false
+    loading: false,
+    confirmDisabled: false
   })
 
   const emit = defineEmits<{
@@ -76,7 +78,10 @@
         @click.self="close"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 transition-opacity"></div>
+        <div
+          class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+          @click="close"
+        ></div>
 
         <!-- Modal Container -->
         <div
@@ -140,7 +145,7 @@
               size="md"
               block
               :loading="loading"
-              :disabled="loading"
+              :disabled="loading || confirmDisabled"
               @click="confirm"
             >
               {{ confirmText }}

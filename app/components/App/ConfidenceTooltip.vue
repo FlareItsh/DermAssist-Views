@@ -9,6 +9,7 @@
     buttonClass?: string
     chartData?: DonutEntry[]
     confidence?: number
+    isInconclusive?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -16,7 +17,8 @@
     iconClass: 'text-base',
     buttonClass: '',
     chartData: undefined,
-    confidence: undefined
+    confidence: undefined,
+    isInconclusive: false
   })
 
   const activeTab = ref<'overview' | 'formulas'>('overview')
@@ -31,6 +33,20 @@
       return globalChartData.value
     }
     return []
+  })
+
+  const highlightedLabels = computed<string[]>(() => {
+    if (!activeChartEntries.value.length) return []
+    const valid = activeChartEntries.value.filter(d => typeof d.value === 'number')
+    if (!valid.length) return []
+    const sorted = [...valid].sort((a, b) => b.value - a.value)
+    const maxVal = sorted[0].value
+    if (props.isInconclusive) {
+      if (sorted.length <= 2) return sorted.map(d => d.label)
+      const secondVal = sorted[1].value
+      return sorted.filter(d => d.value >= secondVal).map(d => d.label)
+    }
+    return sorted.filter(d => d.value === maxVal).map(d => d.label)
   })
 
   const hasRealScanData = computed(() => {
@@ -284,16 +300,40 @@
             <div
               v-for="(entry, idx) in activeChartEntries"
               :key="idx"
-              class="flex items-center justify-between text-[10px]"
+              class="flex items-center justify-between rounded-md px-1.5 py-0.5 text-[10px] transition-colors"
+              :class="{
+                'bg-primary/5 font-bold': highlightedLabels.includes(entry.label)
+              }"
             >
               <span class="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
                 <span
                   class="h-2 w-2 shrink-0 rounded-full"
                   :style="{ backgroundColor: entry.color }"
                 />
-                {{ entry.label }}
+                <span
+                  :class="{
+                    'font-bold text-gray-900 dark:text-gray-100': highlightedLabels.includes(
+                      entry.label
+                    )
+                  }"
+                >
+                  {{ entry.label }}
+                </span>
+                <span
+                  v-if="highlightedLabels.includes(entry.label)"
+                  class="text-primary text-[8px] font-black tracking-wider uppercase"
+                >
+                  {{ isInconclusive ? '(Contender)' : '(Top Match)' }}
+                </span>
               </span>
-              <span class="font-mono font-semibold text-gray-900 dark:text-gray-100">
+              <span
+                class="font-mono"
+                :class="
+                  highlightedLabels.includes(entry.label)
+                    ? 'text-primary font-black'
+                    : 'font-semibold text-gray-900 dark:text-gray-100'
+                "
+              >
                 {{ entry.value }}%
               </span>
             </div>

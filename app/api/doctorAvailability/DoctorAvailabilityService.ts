@@ -23,6 +23,10 @@ export class DoctorAvailabilityService extends BaseService {
     return await this.request(`/availabilities/${uuid}`, 'DELETE')
   }
 
+  async update(uuid: string, payload: Partial<DoctorAvailabilityPayload>): Promise<any> {
+    return await this.request(`/availabilities/${uuid}`, 'PUT', payload)
+  }
+
   async checkDoctor(doctorUuid: string, params: object = {}): Promise<any> {
     return await this.request(`/doctors/${doctorUuid}/availability-check`, 'GET', params)
   }

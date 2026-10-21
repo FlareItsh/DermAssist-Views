@@ -1,9 +1,11 @@
 <script setup lang="ts">
+  import { onUnmounted, watch } from 'vue'
+
   interface Props {
     modelValue: boolean
     title?: string
     description?: string
-    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl'
+    size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl' | '6xl'
     hideScrollbar?: boolean
     compact?: boolean
   }
@@ -22,13 +24,36 @@
     emit('close')
   }
 
+  // Prevent background window/body scrolling when modal is active
+  watch(
+    () => props.modelValue,
+    val => {
+      if (import.meta.client) {
+        if (val) {
+          document.body.style.overflow = 'hidden'
+        } else {
+          document.body.style.overflow = ''
+        }
+      }
+    },
+    { immediate: true }
+  )
+
+  onUnmounted(() => {
+    if (import.meta.client) {
+      document.body.style.overflow = ''
+    }
+  })
+
   const sizeClasses: Record<string, string> = {
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
-    '4xl': 'max-w-4xl'
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
+    '6xl': 'max-w-6xl'
   }
 </script>
 
@@ -48,11 +73,8 @@
 
         <!-- Modal Container -->
         <div
-          class="modal-container relative max-h-[92vh] w-full rounded-2xl bg-white shadow-2xl transition-all sm:rounded-[2rem] md:rounded-[2.5rem]"
-          :class="[
-            sizeClasses[size],
-            hideScrollbar ? 'scrollbar-none overflow-y-auto' : 'overflow-y-auto'
-          ]"
+          class="modal-container relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-all sm:rounded-[2rem] md:rounded-[2.5rem]"
+          :class="sizeClasses[size]"
         >
           <!-- Close Button -->
           <AppButton
@@ -67,8 +89,14 @@
             />
           </AppButton>
 
-          <!-- Content -->
-          <div :class="compact ? 'p-4 sm:p-6 md:p-7' : 'p-4 sm:p-6 md:p-10'">
+          <!-- Scrollable Body with Internal Page-Consistent Custom Scrollbar -->
+          <div
+            class="custom-scrollbar my-3 mr-1.5 min-h-0 flex-1 overflow-y-auto overscroll-contain sm:mr-2.5"
+            :class="[
+              hideScrollbar ? 'scrollbar-none' : '',
+              compact ? 'p-4 sm:p-6 md:p-7' : 'p-4 sm:p-6 md:p-10'
+            ]"
+          >
             <div
               v-if="title || description"
               :class="compact ? 'mb-4 pr-8 sm:mb-5 sm:pr-10' : 'mb-5 pr-8 sm:mb-8 sm:pr-12'"
@@ -113,6 +141,31 @@
 </template>
 
 <style scoped>
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
   .modal-enter-active,
   .modal-leave-active {
     transition: opacity 0.3s ease;

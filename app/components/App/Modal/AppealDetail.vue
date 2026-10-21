@@ -212,7 +212,7 @@
     >
       <!-- Backdrop -->
       <div
-        class="fixed inset-0 bg-gray-950/60 backdrop-blur-sm transition-opacity"
+        class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
         @click="handleClose"
       />
 

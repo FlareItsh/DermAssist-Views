@@ -498,7 +498,7 @@ export const useDiagnosis = () => {
         : 'Other Condition'
       return [
         {
-          label: `Out-of-Scope: ${formattedCat}`,
+          label: rawCat ? `Out-of-Scope (Possible: ${formattedCat})` : 'Out-of-Scope Condition',
           value: 100,
           color: COLOR_MAP['OutOfScope']
         }

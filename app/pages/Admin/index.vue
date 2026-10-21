@@ -357,17 +357,364 @@
   const isLoadingDashboardStats = ref(true)
   const showProfitsModal = ref(false)
 
-  const handleOpenProfitsModal = () => {
+  type ModalProfitsFilter = 'all' | 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
+
+  const modalProfitsFilter = ref<ModalProfitsFilter>('month')
+  const modalProfitsCustomDate = ref<string>(new Date().toISOString().split('T')[0])
+  const isLoadingModalFilter = ref(false)
+  const modalFilteredData = ref<any | null>(null)
+  const isModalMaximized = ref(true)
+
+  const toggleMaximizeModal = () => {
+    isModalMaximized.value = !isModalMaximized.value
+  }
+
+  const modalFilterOptions: { id: ModalProfitsFilter; label: string }[] = [
+    { id: 'month', label: 'This Month' },
+    { id: 'today', label: 'Today' },
+    { id: 'yesterday', label: 'Yesterday' },
+    { id: '7d', label: 'Last 7 Days' },
+    { id: '30d', label: 'Last 30 Days' },
+    { id: 'all', label: 'All Time' }
+  ]
+
+  const fetchModalFilteredProfits = async (date?: string, startDate?: string, endDate?: string) => {
+    isLoadingModalFilter.value = true
+    try {
+      const params: any = {}
+      if (date) params.date = date
+      if (startDate && endDate) {
+        params.start_date = startDate
+        params.end_date = endDate
+      }
+      const res = await subscriptionAdminService.getDashboardStats(params)
+      const data = res?.data || res
+      modalFilteredData.value = data?.subscription_profits?.filtered_metrics || null
+    } catch (err) {
+      console.error('Failed to fetch filtered profits:', err)
+    } finally {
+      isLoadingModalFilter.value = false
+    }
+  }
+
+  const setModalProfitsFilter = async (filter: ModalProfitsFilter) => {
+    modalProfitsFilter.value = filter
+    if (filter === 'all') {
+      modalFilteredData.value = null
+      return
+    }
+
+    const today = new Date()
+    const formatDate = (d: Date) => {
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
+    if (filter === 'today') {
+      await fetchModalFilteredProfits(formatDate(today))
+    } else if (filter === 'yesterday') {
+      const yest = new Date(today)
+      yest.setDate(yest.getDate() - 1)
+      await fetchModalFilteredProfits(formatDate(yest))
+    } else if (filter === '7d') {
+      const past = new Date(today)
+      past.setDate(past.getDate() - 6)
+      await fetchModalFilteredProfits(undefined, formatDate(past), formatDate(today))
+    } else if (filter === '30d') {
+      const past = new Date(today)
+      past.setDate(past.getDate() - 29)
+      await fetchModalFilteredProfits(undefined, formatDate(past), formatDate(today))
+    } else if (filter === 'month') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1)
+      await fetchModalFilteredProfits(undefined, formatDate(start), formatDate(today))
+    } else if (filter === 'custom') {
+      if (modalProfitsCustomDate.value) {
+        await fetchModalFilteredProfits(modalProfitsCustomDate.value)
+      }
+    }
+  }
+
+  const handleModalCustomDateInput = async (event: Event) => {
+    const val = (event.target as HTMLInputElement)?.value
+    if (val) {
+      modalProfitsCustomDate.value = val
+      modalProfitsFilter.value = 'custom'
+      await fetchModalFilteredProfits(val)
+    }
+  }
+
+  const resetModalProfitsFilter = async () => {
+    modalProfitsFilter.value = 'month'
+    await setModalProfitsFilter('month')
+  }
+
+  const handleOpenProfitsModal = async () => {
     showProfitsModal.value = true
+    isModalMaximized.value = true
+    await setModalProfitsFilter('month')
   }
 
   const handleCloseProfitsModal = () => {
     showProfitsModal.value = false
+    isModalMaximized.value = true
+    modalProfitsFilter.value = 'month'
+    modalFilteredData.value = null
+  }
+
+  const handleUpdateProfitsModal = (val: boolean) => {
+    showProfitsModal.value = val
+    if (!val) {
+      isModalMaximized.value = true
+      modalProfitsFilter.value = 'month'
+      modalFilteredData.value = null
+    }
+  }
+
+  const detailedChartWidth = 920
+  const detailedChartHeight = 260
+  const detailedPadding = { top: 25, bottom: 45, left: 65, right: 25 }
+
+  const detailedChartSeries = computed(() => {
+    const now = new Date()
+    let startDate: Date
+    let endDate: Date = new Date()
+
+    if (modalProfitsFilter.value === 'today') {
+      startDate = new Date(now)
+    } else if (modalProfitsFilter.value === 'yesterday') {
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 1)
+      endDate = new Date(startDate)
+    } else if (modalProfitsFilter.value === '7d') {
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 6)
+    } else if (modalProfitsFilter.value === '30d') {
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 29)
+    } else if (modalProfitsFilter.value === 'month') {
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+      endDate = new Date(now)
+    } else if (modalProfitsFilter.value === 'custom') {
+      const parts = modalProfitsCustomDate.value.split('-')
+      if (parts.length === 3) {
+        startDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+        endDate = new Date(startDate)
+      } else {
+        startDate = new Date(now)
+      }
+    } else {
+      startDate = new Date(now)
+      startDate.setDate(startDate.getDate() - 29)
+    }
+
+    const invoiceMap: Record<string, { amount: number; count: number }> = {}
+    const rawInvoices = displayedInvoices.value || []
+    rawInvoices.forEach((inv: any) => {
+      const d = (inv.paid_at || '').split('T')[0] || (inv.paid_at || '').split(' ')[0]
+      if (d) {
+        if (!invoiceMap[d]) invoiceMap[d] = { amount: 0, count: 0 }
+        invoiceMap[d].amount += Number(inv.amount || 0)
+        invoiceMap[d].count += 1
+      }
+    })
+
+    const fallbackTotals = dashboardStats.value?.subscription_profits?.daily_totals || {}
+    const series: any[] = []
+    const cur = new Date(startDate)
+    const end = new Date(endDate)
+
+    if (cur.toISOString().split('T')[0] === end.toISOString().split('T')[0]) {
+      const dStr = cur.toISOString().split('T')[0]
+      const invData = invoiceMap[dStr]
+      return [
+        {
+          date: dStr,
+          label: cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          full_date: cur.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          amount: invData ? invData.amount : fallbackTotals[dStr] || 0,
+          count: invData ? invData.count : fallbackTotals[dStr] ? 1 : 0
+        }
+      ]
+    }
+
+    while (cur <= end) {
+      const dStr = cur.toISOString().split('T')[0]
+      const invData = invoiceMap[dStr]
+      const amt = invData ? invData.amount : fallbackTotals[dStr] || 0
+      const count = invData ? invData.count : 0
+
+      series.push({
+        date: dStr,
+        label:
+          cur.getDate() === 1 || series.length === 0
+            ? cur.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            : String(cur.getDate()),
+        full_date: cur.toLocaleDateString('en-US', {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        amount: amt,
+        count
+      })
+      cur.setDate(cur.getDate() + 1)
+    }
+
+    return series
+  })
+
+  const detailedChartMetrics = computed(() => {
+    const s = detailedChartSeries.value
+    const total = s.reduce((acc, d) => acc + d.amount, 0)
+    const totalTx = s.reduce((acc, d) => acc + d.count, 0)
+    const avg = s.length > 0 ? total / s.length : 0
+
+    let peak = s[0] || { amount: 0, full_date: 'N/A' }
+    s.forEach(d => {
+      if (d.amount > peak.amount) peak = d
+    })
+
+    return {
+      totalFormatted: formatCurrency(total),
+      avgFormatted: formatCurrency(avg),
+      peakAmount: formatCurrency(peak.amount),
+      peakDate: peak.full_date || peak.label || 'N/A',
+      totalTx
+    }
+  })
+
+  const detailedMaxVal = computed(() => {
+    const rawMax = Math.max(...detailedChartSeries.value.map(d => d.amount), 500)
+    if (rawMax <= 1000) return 1000
+    if (rawMax <= 5000) return Math.ceil(rawMax / 1000) * 1000
+    if (rawMax <= 20000) return Math.ceil(rawMax / 5000) * 5000
+    return Math.ceil(rawMax / 10000) * 10000
+  })
+
+  const detailedYScaleTicks = computed(() => {
+    const max = detailedMaxVal.value
+    return [
+      { val: max, label: formatCurrency(max), yRatio: 1 },
+      { val: max * 0.66, label: formatCurrency(max * 0.66), yRatio: 0.66 },
+      { val: max * 0.33, label: formatCurrency(max * 0.33), yRatio: 0.33 },
+      { val: 0, label: '₱0', yRatio: 0 }
+    ]
+  })
+
+  const detailedPoints = computed(() => {
+    const data = detailedChartSeries.value
+    const maxVal = detailedMaxVal.value
+    const plotWidth = detailedChartWidth - detailedPadding.left - detailedPadding.right
+    const plotHeight = detailedChartHeight - detailedPadding.top - detailedPadding.bottom
+    const step = data.length > 1 ? plotWidth / (data.length - 1) : plotWidth
+
+    return data.map((d, i) => {
+      const x = detailedPadding.left + (data.length === 1 ? plotWidth / 2 : i * step)
+      const y = detailedPadding.top + plotHeight - (d.amount / maxVal) * plotHeight
+      return {
+        ...d,
+        x,
+        y,
+        index: i
+      }
+    })
+  })
+
+  const detailedLinePath = computed(() => {
+    const pts = detailedPoints.value
+    if (!pts.length) return ''
+    if (pts.length === 1) return `M ${pts[0].x - 20} ${pts[0].y} L ${pts[0].x + 20} ${pts[0].y}`
+    return pts.reduce((acc, pt, i, arr) => {
+      if (i === 0) return `M ${pt.x} ${pt.y}`
+      const prev = arr[i - 1]
+      const cx = (pt.x - prev.x) / 2
+      return `${acc} C ${prev.x + cx} ${prev.y}, ${pt.x - cx} ${pt.y}, ${pt.x} ${pt.y}`
+    }, '')
+  })
+
+  const detailedAreaPath = computed(() => {
+    const pts = detailedPoints.value
+    if (!pts.length) return ''
+    const line = detailedLinePath.value
+    const first = pts[0]
+    const last = pts[pts.length - 1]
+    const bottomY = detailedChartHeight - detailedPadding.bottom
+    return `${line} L ${last.x} ${bottomY} L ${first.x} ${bottomY} Z`
+  })
+
+  const hoveredDetailedPoint = ref<any | null>(null)
+
+  const handleDetailedChartMouseMove = (event: MouseEvent) => {
+    const pts = detailedPoints.value
+    if (!pts || pts.length === 0) return
+    const target = event.currentTarget as HTMLElement
+    if (!target) return
+    const rect = target.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const relX = event.clientX - rect.left
+    const svgX = (relX / rect.width) * detailedChartWidth
+
+    let closest = pts[0]
+    let minDist = Math.abs(pts[0].x - svgX)
+    for (let i = 1; i < pts.length; i++) {
+      const dist = Math.abs(pts[i].x - svgX)
+      if (dist < minDist) {
+        minDist = dist
+        closest = pts[i]
+      }
+    }
+    hoveredDetailedPoint.value = closest
+  }
+
+  const handleDetailedChartMouseLeave = () => {
+    hoveredDetailedPoint.value = null
   }
 
   const formattedProfits = computed(() => {
     const rev = Number(dashboardStats.value?.subscription_profits?.total_revenue || 0)
     return `₱${new Intl.NumberFormat('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(rev)}`
+  })
+
+  const displayedProfitsAmount = computed(() => {
+    if (modalProfitsFilter.value !== 'all' && modalFilteredData.value) {
+      return formatCurrency(modalFilteredData.value.amount || 0)
+    }
+    return formattedProfits.value
+  })
+
+  const displayedProfitsSubtitle = computed(() => {
+    if (modalProfitsFilter.value === 'all' || !modalFilteredData.value) {
+      return 'Lifetime Revenue'
+    }
+    if (modalProfitsFilter.value === 'today') return 'Gained Today'
+    if (modalProfitsFilter.value === 'yesterday') return 'Gained Yesterday'
+    if (modalProfitsFilter.value === '7d') return 'Gained in Last 7 Days'
+    if (modalProfitsFilter.value === '30d') return 'Gained in Last 30 Days'
+    if (modalProfitsFilter.value === 'month') return 'Gained This Month'
+    if (modalProfitsFilter.value === 'custom') {
+      const parts = modalProfitsCustomDate.value.split('-')
+      if (parts.length === 3) {
+        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
+        return `Gained on ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}`
+      }
+      return `Gained on ${modalProfitsCustomDate.value}`
+    }
+    return 'Filtered Revenue'
+  })
+
+  const displayedInvoices = computed(() => {
+    if (modalProfitsFilter.value !== 'all' && modalFilteredData.value) {
+      return modalFilteredData.value.invoices || []
+    }
+    return dashboardStats.value?.subscription_profits?.recent_invoices || []
   })
 
   const scanUsageTotal = computed(() => {
@@ -412,19 +759,98 @@
     }
   })
 
+  const revenueTimeframe = ref<'7D' | '14D' | '30D' | '6M'>('7D')
+  const hoveredRevenuePoint = ref<any | null>(null)
+
+  const setRevenueTimeframe = (tf: '7D' | '14D' | '30D' | '6M') => {
+    revenueTimeframe.value = tf
+    hoveredRevenuePoint.value = null
+  }
+
   const revenueTrendSeries = computed(() => {
-    const raw = dashboardStats.value?.subscription_profits?.revenue_trend
+    let raw: any[] | undefined
+    const profits = dashboardStats.value?.subscription_profits
+
+    if (revenueTimeframe.value === '7D') {
+      raw = profits?.revenue_trend_7d
+    } else if (revenueTimeframe.value === '14D') {
+      raw = profits?.revenue_trend_14d
+    } else if (revenueTimeframe.value === '30D') {
+      raw = profits?.revenue_trend_30d
+    } else if (revenueTimeframe.value === '6M') {
+      raw = profits?.revenue_trend_6m || profits?.revenue_trend
+    }
+
     if (Array.isArray(raw) && raw.length > 0) {
       return raw.map((item: any) => ({
         label: item.label,
+        full_date: item.full_date || item.label,
         amount: Number(item.amount || 0)
       }))
     }
+
+    // Fallbacks if data has not yet loaded
+    if (revenueTimeframe.value === '7D') {
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+      const now = new Date()
+      return Array.from({ length: 7 }, (_, index) => {
+        const d = new Date(now)
+        d.setDate(now.getDate() - (6 - index))
+        return {
+          label: days[d.getDay()],
+          full_date: d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          amount: 0
+        }
+      })
+    }
+
+    if (revenueTimeframe.value === '14D') {
+      const now = new Date()
+      return Array.from({ length: 14 }, (_, index) => {
+        const d = new Date(now)
+        d.setDate(now.getDate() - (13 - index))
+        return {
+          label: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          full_date: d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          amount: 0
+        }
+      })
+    }
+
+    if (revenueTimeframe.value === '30D') {
+      const now = new Date()
+      return Array.from({ length: 30 }, (_, index) => {
+        const d = new Date(now)
+        d.setDate(now.getDate() - (29 - index))
+        return {
+          label: String(d.getDate()),
+          full_date: d.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          amount: 0
+        }
+      })
+    }
+
     const now = new Date()
     return Array.from({ length: 6 }, (_, index) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1)
       return {
         label: d.toLocaleDateString('en', { month: 'short' }),
+        full_date: d.toLocaleDateString('en', { month: 'long', year: 'numeric' }),
         amount: 0
       }
     })
@@ -470,6 +896,38 @@
       return `${acc} C ${prev.x + cx} ${prev.y}, ${pt.x - cx} ${pt.y}, ${pt.x} ${pt.y}`
     }, '')
   })
+
+  const shouldShowAxisLabel = (index: number, total: number) => {
+    if (total <= 7) return true
+    if (total <= 14) return index % 2 === 0 || index === total - 1
+    return index % 5 === 0 || index === total - 1
+  }
+
+  const handleSparkMouseMove = (event: MouseEvent) => {
+    const pts = sparkPoints.value
+    if (!pts || pts.length === 0) return
+    const target = event.currentTarget as HTMLElement
+    if (!target) return
+    const rect = target.getBoundingClientRect()
+    if (rect.width <= 0) return
+    const relX = event.clientX - rect.left
+    const svgX = (relX / rect.width) * sparkWidth
+
+    let closest = pts[0]
+    let minDist = Math.abs(pts[0].x - svgX)
+    for (let i = 1; i < pts.length; i++) {
+      const dist = Math.abs(pts[i].x - svgX)
+      if (dist < minDist) {
+        minDist = dist
+        closest = pts[i]
+      }
+    }
+    hoveredRevenuePoint.value = closest
+  }
+
+  const handleSparkMouseLeave = () => {
+    hoveredRevenuePoint.value = null
+  }
 
   const fetchDashboardStats = async () => {
     isLoadingDashboardStats.value = true
@@ -637,10 +1095,33 @@
         class="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-5 shadow-2xs transition hover:border-gray-300"
       >
         <div>
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
-              Net Revenue
-            </span>
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold tracking-wider text-gray-500 uppercase">
+                Net Revenue
+              </span>
+
+              <!-- Minimalist Segmented Timeframe Switcher -->
+              <div
+                class="inline-flex items-center rounded-lg bg-gray-100 p-0.5 text-[11px] font-medium text-gray-600"
+              >
+                <button
+                  v-for="tf in ['7D', '14D', '30D', '6M'] as const"
+                  :key="tf"
+                  type="button"
+                  class="rounded-md px-2 py-0.5 text-[10.5px] font-medium transition-all"
+                  :class="
+                    revenueTimeframe === tf
+                      ? 'bg-white font-semibold text-gray-950 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-900'
+                  "
+                  @click="setRevenueTimeframe(tf)"
+                >
+                  {{ tf }}
+                </button>
+              </div>
+            </div>
+
             <div class="flex items-center gap-2">
               <span
                 class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
@@ -675,33 +1156,88 @@
             </div>
           </div>
 
-          <div class="mt-2.5 flex items-baseline gap-1.5">
-            <span class="text-3xl font-black tracking-tight text-gray-950 tabular-nums sm:text-4xl">
-              {{ formattedProfits }}
+          <div class="mt-2.5 flex items-baseline gap-2">
+            <span
+              class="text-3xl font-black tracking-tight text-gray-950 tabular-nums transition-colors sm:text-4xl"
+            >
+              {{
+                hoveredRevenuePoint ? formatCurrency(hoveredRevenuePoint.amount) : formattedProfits
+              }}
             </span>
-            <span class="text-xs font-medium text-gray-400">Total Profits Gained</span>
+            <div class="flex items-center gap-1.5">
+              <span
+                v-if="hoveredRevenuePoint"
+                class="inline-flex items-center rounded-md bg-emerald-50 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+              >
+                {{ hoveredRevenuePoint.full_date || hoveredRevenuePoint.label }}
+              </span>
+              <span
+                v-else
+                class="text-xs font-medium text-gray-400"
+              >
+                Total Profits Gained
+              </span>
+            </div>
           </div>
         </div>
 
-        <!-- Dynamic Minimalist Sparkline Chart -->
-        <div class="mt-4 w-full">
+        <!-- Dynamic Minimalist Sparkline Chart with Interactive Hover & Tooltip -->
+        <div
+          class="relative mt-4 w-full"
+          @mousemove="handleSparkMouseMove"
+          @mouseleave="handleSparkMouseLeave"
+        >
+          <!-- Floating Tooltip Pill (Linear / Stripe style) -->
+          <div
+            v-if="hoveredRevenuePoint"
+            class="pointer-events-none absolute -top-11 z-20 -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1 whitespace-nowrap text-white shadow-xl ring-1 ring-white/10 backdrop-blur-sm transition-all duration-75"
+            :style="{
+              left: `clamp(80px, ${(hoveredRevenuePoint.x / sparkWidth) * 100}%, calc(100% - 80px))`
+            }"
+          >
+            <div class="relative z-10 flex flex-col items-center text-center leading-tight">
+              <span class="text-[9.5px] font-medium tracking-wide text-gray-300">
+                {{ hoveredRevenuePoint.full_date || hoveredRevenuePoint.label }}
+              </span>
+              <span class="text-[11px] font-bold text-emerald-400 tabular-nums">
+                {{ formatCurrency(hoveredRevenuePoint.amount) }}
+              </span>
+            </div>
+            <div
+              class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900/95"
+            ></div>
+          </div>
+
           <svg
             :viewBox="'0 0 ' + sparkWidth + ' ' + sparkHeight"
-            class="w-full overflow-visible"
+            class="w-full cursor-crosshair overflow-visible"
             role="img"
-            aria-label="Monthly net revenue trend line"
+            aria-label="Net revenue trend line"
           >
             <!-- Dashed Vertical Grid Guides -->
             <line
               v-for="pt in sparkPoints"
-              :key="'guide-' + pt.label"
+              :key="'guide-' + pt.label + '-' + pt.x"
               :x1="pt.x"
               :x2="pt.x"
               :y1="sparkPadding.top"
               :y2="sparkHeight - sparkPadding.bottom"
-              stroke="#e2e8f0"
+              stroke="#f1f5f9"
               stroke-width="1"
               stroke-dasharray="2 3"
+            />
+
+            <!-- Active Vertical Hover Hairline Rule -->
+            <line
+              v-if="hoveredRevenuePoint"
+              :x1="hoveredRevenuePoint.x"
+              :x2="hoveredRevenuePoint.x"
+              :y1="sparkPadding.top"
+              :y2="sparkHeight - sparkPadding.bottom"
+              stroke="#0f172a"
+              stroke-width="1.25"
+              stroke-dasharray="2 2"
+              class="opacity-70"
             />
 
             <!-- Dynamic Sparkline Line (Thinner, Hairline Precision) -->
@@ -717,23 +1253,43 @@
             <!-- Point Dots -->
             <circle
               v-for="pt in sparkPoints"
-              :key="'dot-' + pt.label"
+              :key="'dot-' + pt.label + '-' + pt.x"
               :cx="pt.x"
               :cy="pt.y"
-              r="1.75"
+              :r="revenueTimeframe === '30D' ? 1 : 1.75"
               fill="#0f172a"
               stroke="#ffffff"
               stroke-width="1"
             />
 
-            <!-- X-Axis Month Labels (Smaller, Unbolded) -->
+            <!-- Active Hover Point Dots (Glow + Solid) -->
+            <g v-if="hoveredRevenuePoint">
+              <circle
+                :cx="hoveredRevenuePoint.x"
+                :cy="hoveredRevenuePoint.y"
+                r="6"
+                fill="#0f172a"
+                fill-opacity="0.15"
+              />
+              <circle
+                :cx="hoveredRevenuePoint.x"
+                :cy="hoveredRevenuePoint.y"
+                r="3"
+                fill="#0f172a"
+                stroke="#ffffff"
+                stroke-width="1.5"
+              />
+            </g>
+
+            <!-- X-Axis Labels (Filtered for clarity) -->
             <text
-              v-for="pt in sparkPoints"
-              :key="'axis-' + pt.label"
+              v-for="(pt, idx) in sparkPoints"
+              v-show="shouldShowAxisLabel(idx, sparkPoints.length)"
+              :key="'axis-' + pt.label + '-' + idx"
               :x="pt.x"
               :y="sparkHeight - 4"
               text-anchor="middle"
-              class="fill-gray-400 text-[7px] font-normal tracking-wider uppercase"
+              class="fill-gray-400 text-[5px] font-normal tracking-wider uppercase select-none"
             >
               {{ pt.label }}
             </text>
@@ -1255,27 +1811,380 @@
     <!-- Subscription Profits Details Modal -->
     <AppModal
       :model-value="showProfitsModal"
-      size="2xl"
+      :size="isModalMaximized ? '6xl' : '2xl'"
       title="Subscription Profits & Retention"
       description="Detailed breakdown of subscription revenue, active subscribers, and renewal rates."
-      @update:model-value="showProfitsModal = $event"
+      @update:model-value="handleUpdateProfitsModal"
       @close="handleCloseProfitsModal"
     >
       <div class="space-y-6">
-        <!-- Subscription Financial & Retention Metrics (Top 3 Cards) -->
-        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-          <div
-            class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
-          >
-            <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
-              Total Profits
-            </span>
-            <span class="my-1.5 block text-2xl font-black text-emerald-700 tabular-nums">
-              {{ formattedProfits }}
-            </span>
-            <span class="block text-xs font-medium text-gray-400"> Lifetime Revenue </span>
+        <!-- Interactive Date Filter Bar with Maximize Toggle -->
+        <div class="rounded-xl border border-gray-200/90 bg-gray-50/80 p-3.5 shadow-2xs">
+          <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-2">
+              <Icon
+                name="lucide:calendar-search"
+                class="h-4 w-4 text-emerald-700"
+              />
+              <span class="text-xs font-semibold text-gray-800">Filter Revenue by Date:</span>
+            </div>
+
+            <!-- Custom Single Date Picker & Maximize Toggle -->
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center gap-1.5">
+                <label
+                  for="modal-custom-date"
+                  class="text-[11px] font-medium text-gray-500"
+                >
+                  Pick Date:
+                </label>
+                <input
+                  id="modal-custom-date"
+                  type="date"
+                  :value="modalProfitsCustomDate"
+                  class="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-800 shadow-2xs focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                  @change="handleModalCustomDateInput"
+                />
+              </div>
+
+              <!-- Maximize / Restore Button -->
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200/90 bg-white px-2.5 py-1 text-xs font-semibold text-gray-700 shadow-2xs transition hover:bg-gray-100"
+                @click="toggleMaximizeModal"
+              >
+                <Icon
+                  :name="isModalMaximized ? 'lucide:minimize-2' : 'lucide:maximize-2'"
+                  class="h-3.5 w-3.5 text-emerald-700"
+                />
+                <span>{{ isModalMaximized ? 'Minimize' : 'Detailed Graph' }}</span>
+              </button>
+            </div>
           </div>
 
+          <!-- Quick Preset Pills -->
+          <div
+            class="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-gray-200/60 pt-2.5"
+          >
+            <button
+              v-for="opt in modalFilterOptions"
+              :key="opt.id"
+              type="button"
+              class="inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-medium transition"
+              :class="
+                modalProfitsFilter === opt.id
+                  ? 'bg-emerald-700 font-semibold text-white shadow-2xs'
+                  : 'border border-gray-200/90 bg-white text-gray-600 hover:bg-gray-100'
+              "
+              @click="setModalProfitsFilter(opt.id)"
+            >
+              {{ opt.label }}
+            </button>
+
+            <button
+              v-if="modalProfitsFilter !== 'month'"
+              type="button"
+              class="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+              @click="resetModalProfitsFilter"
+            >
+              <Icon
+                name="lucide:rotate-ccw"
+                class="h-3 w-3"
+              />
+              <span>Reset to This Month</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Very Detailed Analytics Graph Section (Expanded on Maximize) -->
+        <div
+          v-if="isModalMaximized"
+          class="rounded-2xl border border-gray-200/90 bg-white p-5 shadow-xs transition-all"
+        >
+          <!-- Detailed Header & KPIs -->
+          <div
+            class="mb-4 flex flex-col gap-3 border-b border-gray-100 pb-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <div class="flex items-center gap-2">
+                <span
+                  class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50"
+                ></span>
+                <h4 class="text-sm font-bold tracking-tight text-gray-900">
+                  High-Resolution Net Revenue Progression
+                </h4>
+                <span
+                  class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+                >
+                  Detailed Analytics
+                </span>
+              </div>
+              <p class="mt-0.5 text-xs text-gray-500">
+                Day-by-day revenue velocity and payment occurrences across the active period.
+              </p>
+            </div>
+
+            <!-- Detailed Summary Metric Pills -->
+            <div class="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
+              <div class="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-1.5 text-right">
+                <span class="block text-[10px] font-semibold text-gray-400 uppercase"
+                  >Total Period</span
+                >
+                <span class="text-xs font-black text-emerald-700 tabular-nums">{{
+                  detailedChartMetrics.totalFormatted
+                }}</span>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-1.5 text-right">
+                <span class="block text-[10px] font-semibold text-gray-400 uppercase"
+                  >Daily Average</span
+                >
+                <span class="text-xs font-bold text-gray-800 tabular-nums">{{
+                  detailedChartMetrics.avgFormatted
+                }}</span>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-1.5 text-right">
+                <span class="block text-[10px] font-semibold text-gray-400 uppercase"
+                  >Peak Gain</span
+                >
+                <span class="text-xs font-bold text-emerald-700 tabular-nums">{{
+                  detailedChartMetrics.peakAmount
+                }}</span>
+              </div>
+              <div class="rounded-xl border border-gray-100 bg-gray-50/80 px-3 py-1.5 text-right">
+                <span class="block text-[10px] font-semibold text-gray-400 uppercase"
+                  >Transactions</span
+                >
+                <span class="text-xs font-bold text-gray-800 tabular-nums"
+                  >{{ detailedChartMetrics.totalTx }} paid</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Detailed Chart Container -->
+          <div
+            class="relative mt-8 w-full overflow-visible"
+            @mousemove="handleDetailedChartMouseMove"
+            @mouseleave="handleDetailedChartMouseLeave"
+          >
+            <!-- Floating Hover Tooltip -->
+            <div
+              v-if="hoveredDetailedPoint"
+              class="pointer-events-none absolute -top-12 z-30 -translate-x-1/2 rounded-xl bg-gray-950/95 px-3 py-1.5 whitespace-nowrap text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-md transition-all duration-75"
+              :style="{
+                left: `clamp(90px, ${(hoveredDetailedPoint.x / detailedChartWidth) * 100}%, calc(100% - 90px))`
+              }"
+            >
+              <div class="relative z-10 flex flex-col items-center text-center leading-tight">
+                <span class="text-[10px] font-medium tracking-wide text-gray-300">
+                  {{ hoveredDetailedPoint.full_date || hoveredDetailedPoint.label }}
+                </span>
+                <span class="mt-0.5 text-xs font-black text-emerald-400 tabular-nums">
+                  +{{ formatCurrency(hoveredDetailedPoint.amount) }}
+                </span>
+                <span class="text-[9px] font-medium text-gray-400">
+                  {{ hoveredDetailedPoint.count }} subscription
+                  {{ hoveredDetailedPoint.count === 1 ? 'payment' : 'payments' }}
+                </span>
+              </div>
+              <div
+                class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-950/95"
+              ></div>
+            </div>
+
+            <!-- SVG Spline Area Chart -->
+            <svg
+              :viewBox="'0 0 ' + detailedChartWidth + ' ' + detailedChartHeight"
+              class="w-full cursor-crosshair overflow-visible"
+              role="img"
+              aria-label="High-resolution revenue spline chart"
+            >
+              <defs>
+                <linearGradient
+                  id="detailedAreaGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="0%"
+                    stop-color="#10b981"
+                    stop-opacity="0.35"
+                  />
+                  <stop
+                    offset="60%"
+                    stop-color="#10b981"
+                    stop-opacity="0.08"
+                  />
+                  <stop
+                    offset="100%"
+                    stop-color="#10b981"
+                    stop-opacity="0.0"
+                  />
+                </linearGradient>
+              </defs>
+
+              <!-- Y-Axis Grid Lines & Scales -->
+              <g
+                v-for="tick in detailedYScaleTicks"
+                :key="'ytick-' + tick.val"
+              >
+                <line
+                  :x1="detailedPadding.left"
+                  :x2="detailedChartWidth - detailedPadding.right"
+                  :y1="
+                    detailedPadding.top +
+                    (detailedChartHeight - detailedPadding.top - detailedPadding.bottom) *
+                      (1 - tick.yRatio)
+                  "
+                  :y2="
+                    detailedPadding.top +
+                    (detailedChartHeight - detailedPadding.top - detailedPadding.bottom) *
+                      (1 - tick.yRatio)
+                  "
+                  stroke="#f1f5f9"
+                  stroke-width="1"
+                  stroke-dasharray="3 3"
+                />
+                <text
+                  :x="detailedPadding.left - 8"
+                  :y="
+                    detailedPadding.top +
+                    (detailedChartHeight - detailedPadding.top - detailedPadding.bottom) *
+                      (1 - tick.yRatio) +
+                    3
+                  "
+                  text-anchor="end"
+                  class="fill-gray-400 text-[7px] font-medium tabular-nums select-none"
+                >
+                  {{ tick.label }}
+                </text>
+              </g>
+
+              <!-- Area Fill Under Spline -->
+              <path
+                :d="detailedAreaPath"
+                fill="url(#detailedAreaGradient)"
+              />
+
+              <!-- Active Vertical Hairline Cursor -->
+              <line
+                v-if="hoveredDetailedPoint"
+                :x1="hoveredDetailedPoint.x"
+                :x2="hoveredDetailedPoint.x"
+                :y1="detailedPadding.top"
+                :y2="detailedChartHeight - detailedPadding.bottom"
+                stroke="#059669"
+                stroke-width="1.5"
+                stroke-dasharray="2 2"
+                class="opacity-80"
+              />
+
+              <!-- Spline Stroke -->
+              <path
+                :d="detailedLinePath"
+                fill="none"
+                stroke="#059669"
+                stroke-width="2.25"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+
+              <!-- Points Dots -->
+              <circle
+                v-for="pt in detailedPoints"
+                :key="'dpt-' + pt.label + '-' + pt.x"
+                :cx="pt.x"
+                :cy="pt.y"
+                :r="pt.amount > 0 ? 2.5 : 1.5"
+                :fill="pt.amount > 0 ? '#047857' : '#94a3b8'"
+                stroke="#ffffff"
+                stroke-width="1.25"
+              />
+
+              <!-- Active Hover Circle with Halo -->
+              <g v-if="hoveredDetailedPoint">
+                <circle
+                  :cx="hoveredDetailedPoint.x"
+                  :cy="hoveredDetailedPoint.y"
+                  r="9"
+                  fill="#10b981"
+                  fill-opacity="0.2"
+                />
+                <circle
+                  :cx="hoveredDetailedPoint.x"
+                  :cy="hoveredDetailedPoint.y"
+                  r="4.5"
+                  fill="#047857"
+                  stroke="#ffffff"
+                  stroke-width="2"
+                />
+              </g>
+
+              <!-- X-Axis Labels -->
+              <text
+                v-for="(pt, idx) in detailedPoints"
+                v-show="
+                  detailedPoints.length <= 14 ||
+                  idx % Math.ceil(detailedPoints.length / 10) === 0 ||
+                  idx === detailedPoints.length - 1
+                "
+                :key="'daxis-' + pt.label + '-' + idx"
+                :x="pt.x"
+                :y="detailedChartHeight - 14"
+                text-anchor="middle"
+                class="fill-gray-400 text-[6.5px] font-medium tracking-wide uppercase select-none"
+              >
+                {{ pt.label }}
+              </text>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Subscription Financial & Retention Metrics (Top 3 Cards) -->
+        <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          <!-- Card 1: Profits (Dynamic: Shows Filtered Gain when date is selected) -->
+          <div
+            class="flex flex-col items-center justify-center rounded-xl border p-4 text-center transition"
+            :class="
+              modalProfitsFilter !== 'all'
+                ? 'border-emerald-200 bg-emerald-50/50 shadow-2xs'
+                : 'border-gray-100 bg-gray-50/70'
+            "
+          >
+            <div class="flex items-center gap-1.5">
+              <span class="text-[11px] font-semibold tracking-wider text-gray-500 uppercase">
+                {{ modalProfitsFilter !== 'all' ? 'Filtered Gain' : 'Total Profits' }}
+              </span>
+              <span
+                v-if="modalProfitsFilter !== 'all'"
+                class="inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-800 uppercase"
+              >
+                Filtered
+              </span>
+            </div>
+            <span class="my-1.5 block text-2xl font-black text-emerald-700 tabular-nums">
+              <span
+                v-if="isLoadingModalFilter"
+                class="inline-block animate-pulse text-gray-400"
+              >
+                ...
+              </span>
+              <span v-else>{{ displayedProfitsAmount }}</span>
+            </span>
+            <span class="block text-xs font-medium text-gray-500">
+              {{ displayedProfitsSubtitle }}
+            </span>
+            <span
+              v-if="modalProfitsFilter !== 'all'"
+              class="mt-1 block text-[10.5px] font-medium text-gray-400"
+            >
+              Lifetime: {{ formattedProfits }}
+            </span>
+          </div>
+
+          <!-- Card 2: Active Subscribers -->
           <div
             class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
           >
@@ -1290,6 +2199,7 @@
             </span>
           </div>
 
+          <!-- Card 3: Renewal Rate -->
           <div
             class="flex flex-col items-center justify-center rounded-xl border border-gray-100 bg-gray-50/70 p-4 text-center"
           >
@@ -1332,12 +2242,24 @@
           </div>
         </div>
 
-        <!-- Recent Invoices List -->
+        <!-- Invoices List (Filtered by Date or Recent All-Time) -->
         <div>
           <div class="mb-3 flex items-center justify-between">
-            <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
-              Recent Subscription Payments & Renewals
-            </h4>
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs font-bold tracking-wider text-gray-500 uppercase">
+                {{
+                  modalProfitsFilter !== 'all'
+                    ? 'Payments on Filtered Date'
+                    : 'Recent Subscription Payments & Renewals'
+                }}
+              </h4>
+              <span
+                v-if="modalProfitsFilter !== 'all'"
+                class="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20 ring-inset"
+              >
+                {{ displayedInvoices.length }} paid
+              </span>
+            </div>
             <NuxtLink
               to="/admin/subscriptions"
               class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
@@ -1347,11 +2269,11 @@
           </div>
 
           <div
-            v-if="dashboardStats?.subscription_profits?.recent_invoices?.length"
+            v-if="displayedInvoices.length"
             class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white"
           >
             <div
-              v-for="invoice in dashboardStats.subscription_profits.recent_invoices"
+              v-for="invoice in displayedInvoices"
               :key="invoice.id"
               class="flex items-center justify-between p-3.5 transition hover:bg-gray-50/80"
             >
@@ -1396,8 +2318,20 @@
               class="mx-auto h-8 w-8 text-gray-300"
             />
             <p class="mt-2 text-xs font-medium text-gray-500">
-              No subscription invoices recorded yet.
+              No subscription payments recorded for this date.
             </p>
+            <button
+              v-if="modalProfitsFilter !== 'all'"
+              type="button"
+              class="mt-2.5 inline-flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 transition hover:bg-gray-200"
+              @click="resetModalProfitsFilter"
+            >
+              <Icon
+                name="lucide:rotate-ccw"
+                class="h-3 w-3"
+              />
+              <span>View All Time</span>
+            </button>
           </div>
         </div>
       </div>
