@@ -869,14 +869,16 @@
   >
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs sm:p-6"
         @click.self="emit('close')"
       >
         <div
-          class="bg-card border-border flex max-h-[90vh] flex-col overflow-y-auto rounded-3xl border shadow-2xl lg:flex-row"
+          class="bg-card border-border relative flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border shadow-2xl lg:flex-row xl:max-w-6xl"
         >
           <!-- Left side: Calendar -->
-          <div class="p-6">
+          <div
+            class="flex flex-col justify-start border-b border-gray-100 bg-white p-4 sm:p-5 lg:w-[380px] lg:shrink-0 lg:border-r lg:border-b-0 xl:w-[400px]"
+          >
             <PatientSideComponentsCalendar
               :selected-date="selectedDate"
               :blocked-slots="blockedSlots"
@@ -889,34 +891,48 @@
 
           <!-- Right side: Time & Location -->
           <div
-            class="bg-foreground/5 flex w-[95vw] max-w-2xl flex-col justify-center p-8 lg:w-[34rem]"
+            class="custom-scrollbar relative flex flex-1 flex-col justify-start overflow-y-auto bg-gray-50/60 p-6 sm:p-8"
           >
-            <h3
-              class="text-2xl font-bold"
-              :class="
-                displayPatientName || (!props.appointmentUuid && props.patients?.length)
-                  ? 'mb-1'
-                  : 'mb-6'
-              "
-            >
-              {{ props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment' }}
-            </h3>
+            <!-- Header with Title, Patient, and Top-Right Close Button -->
+            <div class="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
+                  {{
+                    props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment'
+                  }}
+                </h3>
 
-            <!-- Patient identification / selector -->
-            <div
-              v-if="displayPatientName"
-              class="mb-4 flex items-center gap-1.5 text-xs font-bold text-indigo-600"
-            >
-              <Icon
-                name="heroicons:user-20-solid"
-                class="h-3.5 w-3.5"
-              />
-              <span>Patient: {{ displayPatientName }}</span>
+                <!-- Patient identification / selector -->
+                <div
+                  v-if="displayPatientName"
+                  class="mt-1 flex items-center gap-1.5 text-xs font-bold text-indigo-600"
+                >
+                  <Icon
+                    name="heroicons:user-20-solid"
+                    class="h-3.5 w-3.5"
+                  />
+                  <span>Patient: {{ displayPatientName }}</span>
+                </div>
+              </div>
+
+              <!-- Close Button -->
+              <button
+                type="button"
+                @click="emit('close')"
+                class="cursor-pointer rounded-full p-1.5 text-gray-400 transition-colors hover:bg-gray-200/60 hover:text-gray-700 active:scale-95"
+                title="Close"
+              >
+                <Icon
+                  name="material-symbols:close-rounded"
+                  class="text-2xl"
+                />
+              </button>
             </div>
 
+            <!-- Patient selector (when booking for patient without pre-assigned uuid) -->
             <div
-              v-else-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
-              class="mb-4"
+              v-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
+              class="mb-5"
             >
               <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase">
                 Select Patient *
@@ -945,7 +961,7 @@
             <!-- Patient Requested Schedule Banner -->
             <div
               v-if="patientRequestedScheduleFormatted"
-              class="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 shadow-2xs"
+              class="mb-5 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 shadow-2xs"
             >
               <div class="flex items-center gap-2">
                 <Icon
@@ -968,17 +984,26 @@
               </button>
             </div>
 
-            <div class="mb-4">
-              <label class="mb-2 block text-sm font-bold text-gray-500">Selected Date</label>
+            <!-- Selected Date Display -->
+            <div class="mb-5">
+              <label class="mb-1.5 block text-xs font-bold tracking-wider text-gray-500 uppercase">
+                Selected Date
+              </label>
               <div
-                class="rounded-xl border border-gray-200 bg-white p-3 font-semibold text-indigo-600"
+                class="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm font-bold text-indigo-600 shadow-2xs"
               >
-                {{ selectedDate || 'Please select a date from the calendar' }}
+                <Icon
+                  name="lucide:calendar"
+                  class="shrink-0 text-base text-indigo-500"
+                />
+                <span>{{
+                  selectedDateFormatted || selectedDate || 'Please select a date from the calendar'
+                }}</span>
               </div>
             </div>
 
             <!-- Start & End Time Fields (Time Slot Selection) -->
-            <div class="mb-4">
+            <div class="mb-5">
               <template v-if="!hasNoDutyOnDate">
                 <AppTimeRangePicker
                   v-model:start-time="scheduleTime"
@@ -1086,7 +1111,7 @@
               <!-- Off-duty empty state filling the space -->
               <div
                 v-else
-                class="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/90 bg-gray-50/60 p-8 text-center"
+                class="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200/90 bg-gray-50/60 p-8 text-center"
               >
                 <div
                   class="mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200/60 bg-amber-50 text-amber-600 shadow-xs"
@@ -1111,7 +1136,7 @@
             </div>
 
             <!-- Clinic / Location Selector -->
-            <div class="mb-8">
+            <div class="mb-6">
               <div class="mb-2 flex items-center justify-between">
                 <label class="block text-sm font-bold text-gray-500">Clinic / Location</label>
                 <span
@@ -1158,7 +1183,8 @@
               </div>
             </div>
 
-            <div class="mt-auto flex flex-col gap-3">
+            <!-- Action Buttons -->
+            <div class="mt-4 flex flex-col gap-2.5 pb-2">
               <AppButton
                 variant="solid"
                 class="bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50"

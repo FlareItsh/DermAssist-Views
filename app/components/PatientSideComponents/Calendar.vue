@@ -569,7 +569,7 @@
         {{ currentMonthName }} {{ currentYear }}
       </h2>
 
-      <div class="grid grid-cols-7 gap-y-4 text-center">
+      <div class="grid grid-cols-7 gap-x-1 gap-y-3.5 text-center sm:gap-x-1.5 sm:gap-y-4">
         <div
           v-for="day in daysOfWeek"
           :key="day"
@@ -589,7 +589,7 @@
           @click="selectDate(date)"
           @mouseenter="hoveredDate = dateStringFor(date)"
           @mouseleave="hoveredDate = null"
-          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-xs font-semibold transition-colors sm:h-9 sm:w-9 sm:text-sm"
+          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-xs font-semibold transition-colors sm:h-8.5 sm:w-8.5 sm:text-xs md:h-9 md:w-9 md:text-sm"
           :class="[
             isPast(date)
               ? 'pointer-events-none text-gray-300 line-through'
