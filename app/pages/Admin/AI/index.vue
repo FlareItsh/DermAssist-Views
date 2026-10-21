@@ -34,6 +34,8 @@
   const stats = ref<ModelStatsResponse | null>(null)
   const trainingStatus = ref<TrainingStatusResponse | null>(null)
   const showCancelConfirm = ref(false)
+  const showRollbackConfirm = ref(false)
+  const isRollingBack = ref(false)
   const showRetrainConfirm = ref(false)
   const showSyncConfirm = ref(false)
   const unsyncedScansCount = ref(0)
@@ -517,6 +519,48 @@
     }
   }
 
+  const openRollbackConfirm = () => {
+    if (isTrainingActive.value) {
+      toast.error('Cannot rollback model checkpoints while training is active.')
+      return
+    }
+    showRollbackConfirm.value = true
+  }
+
+  const handleRollbackWeights = async () => {
+    isRollingBack.value = true
+    try {
+      const res: any = await modelTrainingService.rollbackModel('ensemble')
+      toast.success(res?.message || 'Model checkpoints rolled back to backup weights.')
+
+      const pushLine = (line: string) => {
+        if (trainingStatus.value?.logs) {
+          trainingStatus.value.logs.push(line)
+        } else {
+          localSessionLogs.value.push(line)
+        }
+      }
+      pushLine('🔄 [ROLLBACK] Reverted model checkpoints to previous backup (.pth).')
+      if (res?.restored && Array.isArray(res.restored)) {
+        res.restored.forEach((f: string) => pushLine(`  • Restored: ${f}`))
+      }
+      await fetchStats()
+      await nextTick()
+      scrollToBottom()
+    } catch (err: any) {
+      const errorMsg =
+        err?.data?.message ||
+        err?.data?.error ||
+        err?.data?.detail ||
+        err?.message ||
+        'Failed to rollback model weights.'
+      toast.error(errorMsg)
+    } finally {
+      isRollingBack.value = false
+      showRollbackConfirm.value = false
+    }
+  }
+
   // Unified terminal display logs
   const displayedTerminalLogs = computed(() => {
     const backendLogs = trainingStatus.value?.logs || []
@@ -611,6 +655,7 @@
       pushLog('  device             Show compute hardware device (CPU/CUDA)')
       pushLog('  history            View loss and accuracy training progression')
       pushLog('  stats              Show gathered dataset counts & classes')
+      pushLog('  rollback           Roll back model checkpoints to previous backup')
       pushLog('  clear              Clear the terminal buffer')
       pushLog('=========================================================')
     } else if (cmd === 'train' || cmd === 'retrain') {
@@ -681,6 +726,13 @@
             ` ${i + 1}    |   ${hist.train_loss[i]}   |  ${hist.train_acc[i]}%  |  ${hist.val_loss[i]}  | ${hist.val_acc[i]}%`
           )
         }
+      }
+    } else if (cmd === 'rollback') {
+      if (isTrainingActive.value) {
+        pushLog('❌ Error: Cannot rollback model while a training pipeline is active.')
+      } else {
+        pushLog('🔄 Submitting rollback request to Python AI worker...')
+        await handleRollbackWeights()
       }
     } else {
       pushLog(`bash: command not found: ${cmd}. Type "help" for a list of valid commands.`)
@@ -2052,6 +2104,22 @@
                 />
               </button>
 
+              <!-- Rollback Model Weights Button -->
+              <button
+                type="button"
+                :disabled="isTrainingActive || isRollingBack"
+                title="Rollback Model Checkpoints to Previous Backup"
+                class="flex cursor-pointer items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-1.5 font-mono text-[11px] text-amber-400 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40 sm:px-2 sm:py-1"
+                @click="openRollbackConfirm"
+              >
+                <Icon
+                  :name="isRollingBack ? 'lucide:loader-2' : 'lucide:rotate-ccw'"
+                  size="12"
+                  :class="{ 'animate-spin': isRollingBack }"
+                />
+                <span class="hidden sm:inline">Rollback</span>
+              </button>
+
               <!-- Stop Training Button -->
               <button
                 v-if="isTrainingActive"
@@ -2192,7 +2260,7 @@
 
         <!-- Production Model Inventory -->
         <div class="bg-card border-border space-y-4 rounded-3xl border p-4 shadow-sm md:p-6">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-wrap items-center justify-between gap-2">
             <h4 class="text-foreground flex items-center gap-2 text-sm font-bold">
               <Icon
                 name="lucide:hard-drive"
@@ -2201,11 +2269,26 @@
               />
               Deployed Production Model Checkpoints
             </h4>
-            <AppBadge
-              color="gray"
-              size="sm"
-              >models/production/</AppBadge
-            >
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :disabled="isTrainingActive || isRollingBack"
+                class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-500 transition-colors hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-40"
+                @click="openRollbackConfirm"
+              >
+                <Icon
+                  :name="isRollingBack ? 'lucide:loader-2' : 'lucide:rotate-ccw'"
+                  size="13"
+                  :class="{ 'animate-spin': isRollingBack }"
+                />
+                Rollback Checkpoints
+              </button>
+              <AppBadge
+                color="gray"
+                size="sm"
+                >models/production/</AppBadge
+              >
+            </div>
           </div>
 
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -2251,6 +2334,20 @@
       confirm-variant="destructive"
       :loading="isCancelling"
       @confirm="handleExecuteCancel"
+    />
+
+    <!-- Confirmation Modal for Rolling Back Weights -->
+    <AppModalConfirmation
+      v-model="showRollbackConfirm"
+      title="Rollback Model Checkpoints?"
+      description="Are you sure you want to rollback active production models to their previous backup checkpoints? The restored weights will be immediately hot-reloaded into the inference engine."
+      icon="lucide:rotate-ccw"
+      icon-color="warning"
+      confirm-text="Rollback Model"
+      cancel-text="Keep Current"
+      confirm-variant="solid"
+      :loading="isRollingBack"
+      @confirm="handleRollbackWeights"
     />
 
     <!-- Retrain Confirmation Modal (With Un-synced Scans Warning) -->

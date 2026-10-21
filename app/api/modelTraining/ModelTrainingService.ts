@@ -165,6 +165,14 @@ export class ModelTrainingService extends BaseService {
       uuids && uuids.length > 0 ? { uuids } : {}
     )
   }
+
+  async rollbackModel(architecture?: string): Promise<any> {
+    return this.request(
+      '/admin/model/retrain/rollback',
+      'POST',
+      architecture ? { architecture } : {}
+    )
+  }
 }
 
 export const modelTrainingService = new ModelTrainingService()
