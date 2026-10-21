@@ -693,6 +693,7 @@
           :data="chartData"
           :size="140"
           :stroke-width="22"
+          :is-inconclusive="isInconclusiveState"
         />
       </div>
 
@@ -705,6 +706,7 @@
             align="end"
             :chart-data="chartData"
             :confidence="confidence"
+            :is-inconclusive="isInconclusiveState"
           />
         </div>
 

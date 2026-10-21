@@ -952,6 +952,35 @@
     return active ? active.value : displayChartData.value[0]?.value || 0
   })
 
+  const isInconclusive = computed(() => {
+    return (
+      props.conditionName === 'Inconclusive' ||
+      activeDisease.value === 'Inconclusive' ||
+      currentDiagnosis.value?.is_inconclusive === true ||
+      currentDiagnosis.value?.label === 'Inconclusive' ||
+      (currentDiagnosis.value?.confidence !== undefined &&
+        currentDiagnosis.value.confidence < 0.55 &&
+        currentDiagnosis.value.label !== 'None' &&
+        currentDiagnosis.value.label !== 'Clear')
+    )
+  })
+
+  const highlightedChartLabels = computed<string[]>(() => {
+    if (!displayChartData.value.length) return []
+    const valid = displayChartData.value.filter(d => typeof d.value === 'number')
+    if (!valid.length) return []
+    const sorted = [...valid].sort((a, b) => b.value - a.value)
+    const maxVal = sorted[0].value
+
+    if (isInconclusive.value) {
+      if (sorted.length <= 2) return sorted.map(d => d.label)
+      const secondVal = sorted[1].value
+      return sorted.filter(d => d.value >= secondVal).map(d => d.label)
+    }
+
+    return sorted.filter(d => d.value === maxVal).map(d => d.label)
+  })
+
   // ── Nearest doctor by proximity ───────────────────────────────────
   const nearestDoctor = ref<any | null>(null)
   const allNearbyDoctors = ref<any[]>([])
@@ -1373,6 +1402,7 @@
               :size="200"
               :stroke-width="38"
               :show-legend="false"
+              :is-inconclusive="isInconclusive"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
               <span class="text-foreground text-2xl font-bold sm:text-3xl"
@@ -1389,7 +1419,12 @@
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 transition-all sm:p-3"
+              :class="[
+                highlightedChartLabels.includes(entry.label)
+                  ? 'border-gray-200/90 bg-gray-50/60 shadow-2xs hover:border-gray-300'
+                  : 'border-transparent hover:border-gray-100 hover:bg-gray-50'
+              ]"
               @click="activeDisease = entry.label as DiseaseName"
             >
               <div class="flex items-center gap-2.5 sm:gap-3">
@@ -1397,17 +1432,47 @@
                   class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
-                <span
-                  class="text-xs font-semibold sm:text-sm"
-                  :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
-                >
-                  {{ entry.label }}
-                </span>
+                <div class="flex flex-col">
+                  <span
+                    class="text-xs font-semibold sm:text-sm"
+                    :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                  >
+                    {{ entry.label }}
+                  </span>
+                  <span
+                    v-if="highlightedChartLabels.includes(entry.label)"
+                    class="text-[9px] font-black tracking-wider uppercase"
+                    :style="{ color: entry.color }"
+                  >
+                    {{ isInconclusive ? 'Primary Contender' : 'Top Match' }}
+                  </span>
+                </div>
               </div>
               <div class="flex items-center gap-2.5 sm:gap-3">
-                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
-                  >{{ entry.value }}%</span
+                <!-- Highlighted Pill vs Secondary Gray Percentage -->
+                <span
+                  v-if="highlightedChartLabels.includes(entry.label)"
+                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-2xs ring-1 transition-all sm:text-sm"
+                  :style="{
+                    backgroundColor: `${entry.color}15`,
+                    borderColor: `${entry.color}45`,
+                    color: entry.color
+                  }"
                 >
+                  <Icon
+                    :name="
+                      isInconclusive ? 'heroicons:scale-20-solid' : 'heroicons:sparkles-20-solid'
+                    "
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>{{ entry.value }}%</span>
+                </span>
+                <span
+                  v-else
+                  class="px-2 py-0.5 text-xs font-semibold text-gray-400 sm:text-sm"
+                >
+                  {{ entry.value }}%
+                </span>
                 <div
                   class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
                   :class="
@@ -2100,6 +2165,7 @@
               :size="200"
               :stroke-width="38"
               :show-legend="false"
+              :is-inconclusive="isInconclusive"
             />
             <div class="absolute inset-0 flex flex-col items-center justify-center">
               <span class="text-foreground text-2xl font-bold sm:text-3xl"
@@ -2116,7 +2182,12 @@
             <div
               v-for="(entry, i) in displayChartData"
               :key="i"
-              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2.5 transition-all hover:border-gray-100 hover:bg-gray-50 sm:p-3"
+              class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 transition-all sm:p-3"
+              :class="[
+                highlightedChartLabels.includes(entry.label)
+                  ? 'border-gray-200/90 bg-gray-50/60 shadow-2xs hover:border-gray-300'
+                  : 'border-transparent hover:border-gray-100 hover:bg-gray-50'
+              ]"
               @click="activeDisease = entry.label as DiseaseName"
             >
               <div class="flex items-center gap-2.5 sm:gap-3">
@@ -2124,17 +2195,47 @@
                   class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
-                <span
-                  class="text-xs font-semibold sm:text-sm"
-                  :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
-                >
-                  {{ entry.label }}
-                </span>
+                <div class="flex flex-col">
+                  <span
+                    class="text-xs font-semibold sm:text-sm"
+                    :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                  >
+                    {{ entry.label }}
+                  </span>
+                  <span
+                    v-if="highlightedChartLabels.includes(entry.label)"
+                    class="text-[9px] font-black tracking-wider uppercase"
+                    :style="{ color: entry.color }"
+                  >
+                    {{ isInconclusive ? 'Primary Contender' : 'Top Match' }}
+                  </span>
+                </div>
               </div>
               <div class="flex items-center gap-2.5 sm:gap-3">
-                <span class="text-xs font-semibold text-gray-400 sm:text-sm"
-                  >{{ entry.value }}%</span
+                <!-- Highlighted Pill vs Secondary Gray Percentage -->
+                <span
+                  v-if="highlightedChartLabels.includes(entry.label)"
+                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-2xs ring-1 transition-all sm:text-sm"
+                  :style="{
+                    backgroundColor: `${entry.color}15`,
+                    borderColor: `${entry.color}45`,
+                    color: entry.color
+                  }"
                 >
+                  <Icon
+                    :name="
+                      isInconclusive ? 'heroicons:scale-20-solid' : 'heroicons:sparkles-20-solid'
+                    "
+                    class="h-3.5 w-3.5 shrink-0"
+                  />
+                  <span>{{ entry.value }}%</span>
+                </span>
+                <span
+                  v-else
+                  class="px-2 py-0.5 text-xs font-semibold text-gray-400 sm:text-sm"
+                >
+                  {{ entry.value }}%
+                </span>
                 <div
                   class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
                   :class="
