@@ -1,9 +1,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import { useRouter } from '#app'
-  import { toast } from 'vue-sonner'
   import { conversationService } from '~/api/conversation/ConversationService'
-  import { appointmentService } from '~/api/appointment/AppointmentService'
 
   const props = defineProps<{
     doctorId: string | number
@@ -14,8 +12,6 @@
 
   const router = useRouter()
   const isStartingConversation = ref(false)
-  const isBooking = ref(false)
-  const showConfirmBooking = ref(false)
   const imageError = ref(false)
 
   const handleImageError = () => {
@@ -42,29 +38,11 @@
     }
   }
 
-  const promptDirectBooking = () => {
-    showConfirmBooking.value = true
-  }
-
-  const confirmDirectBooking = async () => {
-    isBooking.value = true
-    try {
-      const res = await appointmentService.create({
-        doctor_id: props.doctorId,
-        source: 'direct'
-      })
-      toast.success(`Appointment request submitted to ${props.doctorName}!`)
-      showConfirmBooking.value = false
-      const convUuid = res?.conversation_uuid || res?.conversation?.uuid
-      if (convUuid) {
-        router.push(`/Patient/Messages/${convUuid}`)
-      }
-    } catch (err: any) {
-      console.error(err)
-      toast.error(err?.data?.message || err?.message || 'Failed to submit appointment request.')
-    } finally {
-      isBooking.value = false
-    }
+  const goToBooking = () => {
+    router.push({
+      path: '/patient/appointments',
+      query: { doctor: String(props.doctorId), book: 'true' }
+    })
   }
 </script>
 
@@ -111,20 +89,12 @@
         size="unstyled"
         rounded="unstyled"
         class="border-primary text-primary hover:bg-primary flex h-10 w-10 items-center justify-center rounded-full border-[2.5px] transition-all hover:text-white active:scale-95"
-        @click.stop="promptDirectBooking"
-        :disabled="isBooking"
+        @click.stop="goToBooking"
         title="Book Appointment"
       >
         <Icon
           name="material-symbols:calendar-add-on-rounded"
           size="20"
-          v-if="!isBooking"
-        />
-        <Icon
-          name="mingcute:loading-line"
-          size="20"
-          class="animate-spin"
-          v-else
         />
       </AppButton>
       <AppButton
@@ -149,21 +119,5 @@
         />
       </AppButton>
     </div>
-
-    <!-- Direct Booking Confirmation Modal -->
-    <AppModalConfirmation
-      v-if="showConfirmBooking"
-      v-model="showConfirmBooking"
-      title="Request Clinical Appointment"
-      :description="`Would you like to request an appointment with ${doctorName}? This submits a direct consultation request to the doctor's practice without attaching any skin scans.`"
-      confirm-text="Request Appointment"
-      cancel-text="Cancel"
-      icon="solar:calendar-add-bold"
-      icon-color="primary"
-      confirm-variant="solid"
-      :loading="isBooking"
-      @confirm="confirmDirectBooking"
-      @cancel="showConfirmBooking = false"
-    />
   </div>
 </template>

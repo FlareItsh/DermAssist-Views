@@ -63,12 +63,25 @@
           {{ title }}
         </h1>
       </div>
-      <span
-        v-if="searchQuery"
-        class="text-primary bg-primary/10 rounded-full px-3 py-1 text-xs font-bold italic"
-      >
-        Filtering by: "{{ searchQuery }}"
-      </span>
+      <div class="flex items-center gap-3">
+        <span
+          v-if="searchQuery"
+          class="text-primary bg-primary/10 rounded-full px-3 py-1 text-xs font-bold italic"
+        >
+          Filtering by: "{{ searchQuery }}"
+        </span>
+        <NuxtLink
+          v-if="role === 'doctor'"
+          to="/patient/appointments"
+          class="text-primary hover:text-primary/80 group inline-flex items-center gap-1.5 text-xs font-bold transition-all sm:text-sm"
+        >
+          <span>See More</span>
+          <Icon
+            name="solar:alt-arrow-right-linear"
+            class="text-base transition-transform duration-200 group-hover:translate-x-1"
+          />
+        </NuxtLink>
+      </div>
     </div>
 
     <div
