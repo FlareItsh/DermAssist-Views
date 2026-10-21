@@ -102,6 +102,7 @@
       blockedSlots.value = list.filter(
         (s: any) => Number(s.is_available) === 0 || s.is_available === false
       )
+      syncInitialTimeSlot()
     } catch (e) {
       console.error('Failed to load doctor availability:', e)
     } finally {
@@ -124,30 +125,63 @@
     isOpen => {
       if (isOpen && props.doctor) {
         selectedDate.value = getInitialDate()
-        selectedTime.value = '09:00'
+        selectedTime.value = ''
         fetchAvailability()
       }
     }
   )
 
   // Availability for selected date
-  const isDateWholeDayBlocked = computed(() => {
-    if (!selectedDate.value) return false
-    return blockedSlots.value.some(
-      s =>
-        s.available_date?.slice(0, 10) === selectedDate.value &&
-        (s.start_time <= '00:01' || s.start_time <= '00:01:00') &&
-        (s.end_time >= '23:58' || s.end_time >= '23:58:00')
-    )
-  })
+  const hasDutyRoster = computed(() => dutySlots.value.length > 0)
 
   const dutySlotsForDate = computed(() => {
     if (!selectedDate.value) return []
     return dutySlots.value.filter(s => s.available_date?.slice(0, 10) === selectedDate.value)
   })
 
+  const blockedSlotsForDate = computed(() => {
+    if (!selectedDate.value) return []
+    return blockedSlots.value.filter(s => s.available_date?.slice(0, 10) === selectedDate.value)
+  })
+
+  const isDateWholeDayBlocked = computed(() => {
+    if (!selectedDate.value) return false
+    return blockedSlotsForDate.value.some(
+      s =>
+        (s.start_time <= '00:01' || s.start_time <= '00:01:00') &&
+        (s.end_time >= '23:58' || s.end_time >= '23:58:00')
+    )
+  })
+
+  const isDateOffDuty = computed(() => {
+    if (!selectedDate.value) return false
+    if (isDateWholeDayBlocked.value) return false
+    return hasDutyRoster.value && dutySlotsForDate.value.length === 0
+  })
+
+  const isSlotBlocked = (slotTime: string): boolean => {
+    if (!selectedDate.value || !slotTime) return false
+    if (isDateWholeDayBlocked.value) return true
+    const [hStr, mStr] = slotTime.split(':')
+    const startH = parseInt(hStr, 10)
+    const endH = (startH + 1) % 24
+    const startTime = `${String(startH).padStart(2, '0')}:${mStr || '00'}:00`
+    const endTime = `${String(endH).padStart(2, '0')}:${mStr || '00'}:00`
+
+    return blockedSlotsForDate.value.some(s => {
+      const bStart = (s.start_time || '00:00:00').slice(0, 8)
+      const bEnd = (s.end_time || '23:59:59').slice(0, 8)
+      return startTime < bEnd && endTime > bStart
+    })
+  }
+
   // Generate 1-hour time slots
   const availableTimeSlots = computed(() => {
+    // If doctor is away for whole day or off-duty, no slots available
+    if (isDateWholeDayBlocked.value || isDateOffDuty.value) {
+      return []
+    }
+
     // If doctor has explicit duty slots on this date, generate intervals within duty slots
     if (dutySlotsForDate.value.length > 0) {
       const slots: string[] = []
@@ -161,13 +195,50 @@
       return Array.from(new Set(slots)).sort()
     }
 
-    // Default clinic hours: 09:00 - 17:00
+    // If doctor does not maintain a scheduled duty roster, fallback to standard clinic hours: 09:00 - 17:00
     const defaultSlots: string[] = []
     for (let h = 9; h <= 16; h++) {
       defaultSlots.push(`${String(h).padStart(2, '0')}:00`)
     }
     return defaultSlots
   })
+
+  const dutyRangesLabel = computed(() => {
+    if (!dutySlotsForDate.value.length) return ''
+    return dutySlotsForDate.value
+      .map(
+        s =>
+          `${formatTimeSlotDisplay(s.start_time.slice(0, 5))} – ${formatTimeSlotDisplay(s.end_time.slice(0, 5))}`
+      )
+      .join(', ')
+  })
+
+  const syncInitialTimeSlot = () => {
+    if (availableTimeSlots.value.length === 0) {
+      selectedTime.value = ''
+      return
+    }
+    if (
+      !selectedTime.value ||
+      !availableTimeSlots.value.includes(selectedTime.value) ||
+      isSlotBlocked(selectedTime.value)
+    ) {
+      const firstAvailable = availableTimeSlots.value.find(slot => !isSlotBlocked(slot))
+      selectedTime.value = firstAvailable || ''
+    }
+  }
+
+  watch(
+    () => selectedDate.value,
+    () => {
+      syncInitialTimeSlot()
+    }
+  )
+
+  const selectTimeSlot = (slot: string) => {
+    if (isSlotBlocked(slot)) return
+    selectedTime.value = slot
+  }
 
   const formatTimeSlotDisplay = (time24: string): string => {
     const [hStr, mStr] = time24.split(':')
@@ -188,12 +259,22 @@
       toast.error('Please select an appointment date.')
       return
     }
-    if (!selectedTime.value) {
-      toast.error('Please select an appointment time slot.')
-      return
-    }
     if (isDateWholeDayBlocked.value) {
       toast.error('The doctor is away on this date. Please select another date.')
+      return
+    }
+    if (isDateOffDuty.value) {
+      toast.error('The doctor has no scheduled clinic duty hours on this date.')
+      return
+    }
+    if (!selectedTime.value) {
+      toast.error('Please select an available consultation time slot.')
+      return
+    }
+    if (isSlotBlocked(selectedTime.value)) {
+      toast.error(
+        'The selected time slot overlaps with a doctor break or away period. Please select another slot.'
+      )
       return
     }
 
@@ -208,6 +289,17 @@
       const scheduledAt = `${selectedDate.value} ${selectedTime.value}:00`
       const scheduledEndAt = `${selectedDate.value} ${endTime}:00`
 
+      const activeDutyShift = dutySlotsForDate.value.find(shift => {
+        const sStart = shift.start_time.slice(0, 5)
+        const sEnd = shift.end_time.slice(0, 5)
+        return selectedTime.value >= sStart && selectedTime.value < sEnd
+      })
+      const resolvedLocation =
+        activeDutyShift?.clinic?.name ||
+        activeDutyShift?.location_name ||
+        doctorLocation.value ||
+        undefined
+
       const docId = props.doctor.id || props.doctor.uuid
       const payload: any = {
         doctor_id: docId,
@@ -215,7 +307,7 @@
         scheduled_end_at: scheduledEndAt,
         purpose: purpose.value || 'General Consultation',
         source: props.diagnosisUuid ? 'scan' : 'direct',
-        location: doctorLocation.value || undefined
+        location: resolvedLocation
       }
 
       if (props.diagnosisUuid) {
@@ -353,6 +445,21 @@
               </p>
             </div>
 
+            <!-- Off-duty notice -->
+            <div
+              v-else-if="isDateOffDuty"
+              class="flex items-start gap-2.5 rounded-2xl border border-dashed border-gray-300 bg-gray-50/90 p-3.5 text-xs font-medium text-gray-700 shadow-2xs"
+            >
+              <Icon
+                name="material-symbols:calendar-today-outline"
+                class="shrink-0 text-base text-gray-400"
+              />
+              <p>
+                Dr. {{ doctor?.last_name || 'Doctor' }} has no scheduled clinic duty hours on this
+                date. Please select an active duty date.
+              </p>
+            </div>
+
             <!-- Date Picker -->
             <div>
               <label class="mb-1.5 block text-xs font-bold tracking-wider text-gray-900 uppercase">
@@ -378,31 +485,85 @@
                   v-if="dutySlotsForDate.length > 0"
                   class="text-[11px] font-bold text-emerald-600"
                 >
-                  Doctor on duty
+                  Doctor on duty {{ dutyRangesLabel ? `(${dutyRangesLabel})` : '' }}
                 </span>
                 <span
-                  v-else
+                  v-else-if="!isDateWholeDayBlocked && !isDateOffDuty"
                   class="text-[11px] font-semibold text-gray-500"
                 >
                   Standard consultation hours
                 </span>
               </div>
 
-              <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              <!-- Case 1: Whole day blocked -->
+              <div
+                v-if="isDateWholeDayBlocked"
+                class="flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-center"
+              >
+                <Icon
+                  name="material-symbols:event-busy-rounded"
+                  class="mb-1 text-2xl text-amber-600"
+                />
+                <p class="text-xs font-bold text-amber-900">
+                  Doctor is Away / Blocked on this date
+                </p>
+                <p class="mt-0.5 text-[11px] text-amber-700">
+                  Please pick another date from the calendar to view available consultation slots.
+                </p>
+              </div>
+
+              <!-- Case 2: Off-duty date -->
+              <div
+                v-else-if="isDateOffDuty"
+                class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/80 p-4 text-center"
+              >
+                <Icon
+                  name="material-symbols:calendar-today-outline"
+                  class="mb-1 text-2xl text-gray-400"
+                />
+                <p class="text-xs font-bold text-gray-800">Doctor is Off-Duty on this date</p>
+                <p class="mt-0.5 text-[11px] text-gray-500">
+                  No clinic duty hours scheduled for Dr. {{ doctor?.last_name || 'Doctor' }} on this
+                  date.
+                </p>
+              </div>
+
+              <!-- Case 3: Available time slots grid -->
+              <div
+                v-else-if="availableTimeSlots.length > 0"
+                class="grid grid-cols-3 gap-2 sm:grid-cols-4"
+              >
                 <button
                   v-for="timeSlot in availableTimeSlots"
                   :key="timeSlot"
                   type="button"
-                  @click="selectedTime = timeSlot"
-                  class="flex items-center justify-center rounded-xl border py-2 text-xs font-bold shadow-2xs transition-all active:scale-95"
+                  :disabled="isSlotBlocked(timeSlot)"
+                  @click="selectTimeSlot(timeSlot)"
+                  class="relative flex flex-col items-center justify-center rounded-xl border py-2 text-xs font-bold shadow-2xs transition-all active:scale-95 disabled:pointer-events-none"
                   :class="[
-                    selectedTime === timeSlot
-                      ? 'border-primary bg-primary text-white shadow-xs'
-                      : 'hover:border-primary hover:bg-primary/5 hover:text-primary border-gray-300 bg-white text-gray-800'
+                    isSlotBlocked(timeSlot)
+                      ? 'cursor-not-allowed border-gray-200 bg-gray-100/90 text-gray-400 opacity-60'
+                      : selectedTime === timeSlot
+                        ? 'border-primary bg-primary text-white shadow-xs'
+                        : 'hover:border-primary hover:bg-primary/5 hover:text-primary border-gray-300 bg-white text-gray-800'
                   ]"
                 >
-                  {{ formatTimeSlotDisplay(timeSlot) }}
+                  <span>{{ formatTimeSlotDisplay(timeSlot) }}</span>
+                  <span
+                    v-if="isSlotBlocked(timeSlot)"
+                    class="mt-0.5 text-[9px] font-bold tracking-tight text-rose-500 uppercase"
+                  >
+                    Unavailable
+                  </span>
                 </button>
+              </div>
+
+              <!-- Case 4: No slots available -->
+              <div
+                v-else
+                class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500"
+              >
+                No consultation slots available on this date.
               </div>
             </div>
 
@@ -465,7 +626,13 @@
             <button
               type="button"
               @click="handleSubmit"
-              :disabled="isSubmitting || isDateWholeDayBlocked"
+              :disabled="
+                isSubmitting ||
+                isDateWholeDayBlocked ||
+                isDateOffDuty ||
+                !selectedTime ||
+                isSlotBlocked(selectedTime)
+              "
               class="bg-primary hover:bg-primary/90 flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-xs transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
             >
               <Icon
