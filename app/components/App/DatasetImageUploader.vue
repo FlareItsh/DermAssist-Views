@@ -25,7 +25,9 @@
   }>()
 
   const categories = computed(() => {
-    return props.mode === 'out_of_scope' ? OUT_OF_SCOPE_CATEGORIES : ['Acne', 'Eczema', 'Herpes']
+    return props.mode === 'out_of_scope'
+      ? OUT_OF_SCOPE_CATEGORIES
+      : ['Acne', 'Eczema', 'Herpes', 'Out of Scope']
   })
 
   const selectedCategory = ref(
@@ -172,16 +174,14 @@
 <template>
   <div class="space-y-5">
     <!-- Category Selection -->
-    <div>
-      <label
-        class="text-muted-foreground mb-2 block text-xs font-semibold tracking-wider uppercase"
-      >
+    <div class="space-y-1">
+      <label class="text-muted-foreground block text-[10px] font-bold tracking-wider uppercase">
         {{ mode === 'out_of_scope' ? 'Out-of-Scope Condition' : 'Target Disease Category' }}
       </label>
-      <div class="relative">
+      <div class="relative w-32">
         <select
           v-model="selectedCategory"
-          class="bg-background border-border text-foreground w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-medium focus:outline-none"
+          class="bg-background border-border text-foreground w-full cursor-pointer appearance-none rounded-xl border px-3 py-2 pr-7 text-xs font-semibold focus:outline-none"
           :class="
             mode === 'out_of_scope'
               ? 'focus:border-violet-500 focus:ring-2 focus:ring-violet-500/30'
@@ -197,11 +197,11 @@
           </option>
         </select>
         <div
-          class="text-muted-foreground pointer-events-none absolute top-1/2 right-4 -translate-y-1/2"
+          class="text-muted-foreground pointer-events-none absolute top-1/2 right-2 -translate-y-1/2"
         >
           <Icon
             name="lucide:chevron-down"
-            size="18"
+            size="14"
           />
         </div>
       </div>
