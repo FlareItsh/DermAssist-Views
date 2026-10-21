@@ -15,9 +15,58 @@
   const datasets = ref<DatasetCategory[]>([])
   const showUploadModal = ref(false)
 
+  // ── Per-Category Image Pagination ──────────────────────────────────
+  const IMAGES_PER_PAGE = 12 // 2 full rows on 6-col grid, 3 on 4-col, 4 on 3-col
+  const categoryPages = ref<Record<string, number>>({})
+
+  const getCategoryCurrentPage = (category: string) => {
+    return categoryPages.value[category] || 1
+  }
+
+  const setCategoryCurrentPage = (category: string, page: number) => {
+    categoryPages.value = {
+      ...categoryPages.value,
+      [category]: page
+    }
+  }
+
+  const getTotalCategoryPages = (dataset: DatasetCategory) => {
+    return Math.ceil((dataset.images?.length || 0) / IMAGES_PER_PAGE) || 1
+  }
+
+  const getPaginatedImages = (dataset: DatasetCategory) => {
+    const page = getCategoryCurrentPage(dataset.category)
+    const start = (page - 1) * IMAGES_PER_PAGE
+    return (dataset.images || []).slice(start, start + IMAGES_PER_PAGE)
+  }
+
+  const getPageNumbers = (totalPages: number, currentPage: number) => {
+    if (totalPages <= 5) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+    const pages: (number | string)[] = [1]
+    if (currentPage > 3) pages.push('...')
+    const start = Math.max(2, currentPage - 1)
+    const end = Math.min(totalPages - 1, currentPage + 1)
+    for (let i = start; i <= end; i++) {
+      pages.push(i)
+    }
+    if (currentPage < totalPages - 2) pages.push('...')
+    pages.push(totalPages)
+    return pages
+  }
+
   const totalImagesCount = computed(() => {
     return datasets.value.reduce((acc, cat) => acc + (cat.images?.length || 0), 0)
   })
+
+  const formatCategoryName = (category: string) => {
+    const norm = (category || '').toLowerCase().replace(/[\s-]+/g, '_')
+    if (norm === 'out_of_scope' || norm === 'outofscope') {
+      return 'Out of Scope'
+    }
+    return category.charAt(0).toUpperCase() + category.slice(1)
+  }
 
   const fetchDataset = async () => {
     isLoading.value = true
@@ -40,7 +89,9 @@
       link.href = url
       link.setAttribute(
         'download',
-        category ? `doctor_dataset_${category.toLowerCase()}.zip` : 'doctor_scans_all.zip'
+        category
+          ? `doctor_dataset_${category.toLowerCase().replace(/[\s-]+/g, '_')}.zip`
+          : 'doctor_scans_all.zip'
       )
       document.body.appendChild(link)
       link.click()
@@ -189,8 +240,8 @@
           class="bg-muted/40 border-border flex items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4"
         >
           <div class="flex items-center gap-2">
-            <h2 class="text-foreground text-base font-bold capitalize">
-              {{ dataset.category }}
+            <h2 class="text-foreground text-base font-bold">
+              {{ formatCategoryName(dataset.category) }}
             </h2>
             <AppBadge
               color="gray"
@@ -221,7 +272,7 @@
           class="grid grid-cols-2 gap-3.5 p-4 sm:grid-cols-3 sm:gap-4 sm:p-6 md:grid-cols-4 lg:grid-cols-6"
         >
           <div
-            v-for="(url, idx) in dataset.images"
+            v-for="(url, idx) in getPaginatedImages(dataset)"
             :key="idx"
             class="bg-muted border-border group relative aspect-square overflow-hidden rounded-2xl border"
           >
@@ -238,7 +289,101 @@
           v-else
           class="text-muted-foreground flex items-center justify-center py-10 text-center text-xs"
         >
-          <span>No {{ dataset.category }} scans contributed by your account yet.</span>
+          <span
+            >No {{ formatCategoryName(dataset.category) }} scans contributed by your account
+            yet.</span
+          >
+        </div>
+
+        <!-- Category Pagination Footer (Shown when category has more than IMAGES_PER_PAGE) -->
+        <div
+          v-if="dataset.images.length > IMAGES_PER_PAGE"
+          class="bg-muted/20 border-border/60 flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-6"
+        >
+          <p class="text-muted-foreground text-xs font-medium">
+            Showing
+            <span class="text-foreground font-bold">
+              {{ (getCategoryCurrentPage(dataset.category) - 1) * IMAGES_PER_PAGE + 1 }}
+            </span>
+            to
+            <span class="text-foreground font-bold">
+              {{
+                Math.min(
+                  getCategoryCurrentPage(dataset.category) * IMAGES_PER_PAGE,
+                  dataset.images.length
+                )
+              }}
+            </span>
+            of
+            <span class="text-foreground font-bold">{{ dataset.images.length }}</span>
+            scans
+          </p>
+
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              :disabled="getCategoryCurrentPage(dataset.category) <= 1"
+              @click="
+                setCategoryCurrentPage(
+                  dataset.category,
+                  getCategoryCurrentPage(dataset.category) - 1
+                )
+              "
+              class="border-border bg-card text-foreground hover:bg-muted/60 disabled:text-muted-foreground/40 disabled:border-border/40 inline-flex h-8 items-center gap-1 rounded-xl border px-2.5 text-xs font-semibold shadow-2xs transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Icon
+                name="lucide:chevron-left"
+                class="h-3.5 w-3.5"
+              />
+              <span class="hidden sm:inline">Prev</span>
+            </button>
+
+            <template
+              v-for="(p, pIdx) in getPageNumbers(
+                getTotalCategoryPages(dataset),
+                getCategoryCurrentPage(dataset.category)
+              )"
+              :key="pIdx"
+            >
+              <span
+                v-if="p === '...'"
+                class="text-muted-foreground px-1 text-xs"
+              >
+                ...
+              </span>
+              <button
+                v-else
+                type="button"
+                @click="setCategoryCurrentPage(dataset.category, Number(p))"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-xl text-xs font-bold shadow-2xs transition"
+                :class="
+                  getCategoryCurrentPage(dataset.category) === p
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'border-border bg-card text-foreground hover:bg-muted/60 border'
+                "
+              >
+                {{ p }}
+              </button>
+            </template>
+
+            <button
+              type="button"
+              :disabled="getCategoryCurrentPage(dataset.category) >= getTotalCategoryPages(dataset)"
+              @click="
+                setCategoryCurrentPage(
+                  dataset.category,
+                  getCategoryCurrentPage(dataset.category) + 1
+                )
+              "
+              class="border-border bg-card text-foreground hover:bg-muted/60 disabled:text-muted-foreground/40 disabled:border-border/40 inline-flex h-8 items-center gap-1 rounded-xl border px-2.5 text-xs font-semibold shadow-2xs transition disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span class="hidden sm:inline">Next</span>
+              <Icon
+                name="lucide:chevron-right"
+                class="h-3.5 w-3.5"
+              />
+            </button>
+          </div>
         </div>
       </div>
     </div>

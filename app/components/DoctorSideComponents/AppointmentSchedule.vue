@@ -206,7 +206,7 @@
     <div class="flex items-center justify-between gap-2">
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex flex-wrap items-center gap-2">
-          <h2 class="text-base font-bold tracking-tight text-sm text-white sm:text-xl">
+          <h2 class="text-base text-sm font-bold tracking-tight text-white sm:text-xl">
             Patients Appointment Schedule
           </h2>
           <span
@@ -299,13 +299,11 @@
               ? 'border border-red-900/40 bg-[#0a0f18] opacity-60'
               : isDayOverdue(d)
                 ? 'animate-pulse border-2 border-red-500/80 bg-amber-950/40 shadow-lg'
-                : isDayBlocked(d)
-                  ? 'border border-red-800/30 bg-[#0a1e33]/70'
-                  : getCount(d) > 0
-                    ? 'bg-primary border-navy/90 border-[5px]'
-                    : isToday(d)
-                      ? 'bg-navy/90 border-primary/50 border-[5px]'
-                      : 'border border-transparent bg-[#0a1e33]/50 hover:bg-[#0a1e33]'
+                : getCount(d) > 0
+                  ? 'bg-primary border-navy/90 border-[5px]'
+                  : isToday(d)
+                    ? 'bg-navy/90 border-primary/50 border-[5px]'
+                    : 'border border-transparent bg-[#0a1e33]/50 hover:bg-[#0a1e33]'
         ]"
       >
         <!-- Day name -->
@@ -318,13 +316,11 @@
                 ? 'text-red-400/70'
                 : isDayOverdue(d)
                   ? 'text-amber-400'
-                  : isDayBlocked(d)
-                    ? 'text-red-400/50'
-                    : getCount(d) > 0
-                      ? 'text-navy/60'
-                      : isToday(d)
-                        ? 'text-card/50'
-                        : 'text-card/30'
+                  : getCount(d) > 0
+                    ? 'text-navy/60'
+                    : isToday(d)
+                      ? 'text-card/50'
+                      : 'text-card/30'
           ]"
         >
           {{ dayName(d) }}
@@ -340,13 +336,11 @@
                 ? 'text-red-300/50'
                 : isDayOverdue(d)
                   ? 'text-amber-300'
-                  : isDayBlocked(d)
-                    ? 'text-card/40'
-                    : getCount(d) > 0
+                  : getCount(d) > 0
+                    ? 'text-card'
+                    : isToday(d)
                       ? 'text-card'
-                      : isToday(d)
-                        ? 'text-card'
-                        : 'text-card/70'
+                      : 'text-card/70'
           ]"
         >
           {{ dayNum(d) }}
@@ -371,6 +365,11 @@
           >
             {{ getCount(d) }}
           </div>
+          <span
+            v-else-if="isDayBlocked(d) && !isDayFullyBlocked(d)"
+            class="block h-1.5 w-1.5 rounded-full bg-amber-400/80 shadow-2xs"
+            :title="`Blocked hours: ${blockedLabel(d)}`"
+          />
           <span
             v-else
             class="block h-1.5 w-1.5 rounded-full bg-white opacity-80"
@@ -414,42 +413,69 @@
           </button>
         </div>
 
+        <!-- Blocked notice if this day has restrictions -->
+        <div
+          v-if="popoverBlockedSlots.length > 0"
+          class="mb-2.5 flex items-start gap-2.5 rounded-xl border px-3 py-2"
+          :class="
+            isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+              ? 'border-red-800/40 bg-red-900/30'
+              : 'border-amber-700/40 bg-amber-950/30'
+          "
+        >
+          <Icon
+            :name="
+              isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+                ? 'material-symbols:block-rounded'
+                : 'material-symbols:access-time-rounded'
+            "
+            class="mt-0.5 shrink-0 text-base"
+            :class="
+              isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+                ? 'text-red-400'
+                : 'text-amber-400'
+            "
+          />
+          <div>
+            <p
+              class="text-xs font-bold"
+              :class="
+                isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+                  ? 'text-red-200'
+                  : 'text-amber-200'
+              "
+            >
+              {{
+                isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+                  ? 'Fully Blocked / Away'
+                  : 'Partially Blocked Hours'
+              }}
+            </p>
+            <p
+              class="mt-0.5 text-[11px] font-semibold"
+              :class="
+                isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
+                  ? 'text-red-400/80'
+                  : 'text-amber-300/80'
+              "
+            >
+              {{ blockedLabel(new Date(popoverKey + 'T00:00:00')) }}
+            </p>
+          </div>
+        </div>
+
         <!-- Patient list -->
         <div class="custom-scrollbar flex max-h-48 flex-col gap-2 overflow-y-auto">
-          <!-- No appointments / Blocked notice -->
+          <!-- No appointments notice -->
           <div
             v-if="popoverAppointments.length === 0"
-            class="flex flex-col gap-2 py-3"
+            class="flex items-center justify-center gap-2 py-4 text-white/30"
           >
-            <!-- Blocked notice if this day has restrictions -->
-            <div
-              v-if="popoverBlockedSlots.length > 0"
-              class="flex items-start gap-2.5 rounded-xl border border-red-800/40 bg-red-900/30 px-3 py-2.5"
-            >
-              <Icon
-                name="material-symbols:block-rounded"
-                class="mt-0.5 shrink-0 text-base text-red-400"
-              />
-              <div>
-                <p class="text-xs font-bold text-red-200">
-                  {{
-                    isDayFullyBlocked(new Date(popoverKey + 'T00:00:00'))
-                      ? 'Fully Blocked / Away'
-                      : 'Partially Blocked'
-                  }}
-                </p>
-                <p class="mt-0.5 text-[11px] font-semibold text-red-400/80">
-                  {{ blockedLabel(new Date(popoverKey + 'T00:00:00')) }}
-                </p>
-              </div>
-            </div>
-            <div class="flex items-center justify-center gap-2 py-2 text-white/30">
-              <Icon
-                name="material-symbols:person-off-outline-rounded"
-                class="text-lg"
-              />
-              <span class="text-xs font-semibold">No appointments for this day</span>
-            </div>
+            <Icon
+              name="material-symbols:person-off-outline-rounded"
+              class="text-lg"
+            />
+            <span class="text-xs font-semibold">No appointments for this day</span>
           </div>
 
           <!-- Patient rows -->

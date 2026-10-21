@@ -225,6 +225,34 @@
   const isAddLoading = ref(false)
   const scheduleViewMode = ref<'cards' | 'timetable'>('cards')
 
+  // Sorted availabilities with the newest date on top
+  const sortedAvailabilities = computed(() => {
+    return [...(availabilities.value || [])].sort((a, b) => {
+      const dateA = (a.available_date || '').slice(0, 10)
+      const dateB = (b.available_date || '').slice(0, 10)
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA) // Descending: newest date at top!
+      }
+      return (b.start_time || '').localeCompare(a.start_time || '')
+    })
+  })
+
+  // Edit slot modal state for List Cards view
+  const showEditSlotModal = ref(false)
+  const slotToEdit = ref<any>(null)
+
+  const openEditSlotModal = (slot: any) => {
+    slotToEdit.value = slot
+    showEditSlotModal.value = true
+  }
+
+  const handleEditSlotSaved = async () => {
+    showEditSlotModal.value = false
+    slotToEdit.value = null
+    await fetchAvailabilities()
+    await fetchBlockedSlots()
+  }
+
   // Inner Sidebar Tabs
   type SettingsTab = 'profile' | 'clinics' | 'schedule' | 'subscription' | 'security'
   const activeTab = ref<SettingsTab>('profile')
@@ -290,7 +318,7 @@
   )
 
   // Clinic Management
-  const { clinics, fetchClinics, addClinic, removeClinic } = useDoctorClinics()
+  const { clinics, fetchClinics, addClinic, updateClinic, removeClinic } = useDoctorClinics()
   const showAddClinicModal = ref(false)
   const isClinicSubmitting = ref(false)
   const clinicForm = reactive({
@@ -300,6 +328,64 @@
     email: ''
   })
   const clinicError = ref('')
+
+  // Edit Clinic State & Handlers
+  const showEditClinicModal = ref(false)
+  const isEditClinicSubmitting = ref(false)
+  const editingClinic = ref<any>(null)
+  const editClinicError = ref('')
+  const editClinicForm = reactive({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    is_active: true
+  })
+
+  const openEditClinicModal = (clinic: any) => {
+    editingClinic.value = clinic
+    editClinicForm.name = clinic.name || ''
+    editClinicForm.address = clinic.address || ''
+    editClinicForm.phone = clinic.phone || ''
+    editClinicForm.email = clinic.email || ''
+    editClinicForm.is_active = clinic.is_active !== false
+    editClinicError.value = ''
+    showEditClinicModal.value = true
+  }
+
+  const closeEditClinicModal = () => {
+    showEditClinicModal.value = false
+    editingClinic.value = null
+    editClinicError.value = ''
+  }
+
+  const handleUpdateClinic = async () => {
+    if (!editClinicForm.name.trim()) {
+      editClinicError.value = 'Clinic name is required.'
+      return
+    }
+    if (!editingClinic.value) return
+
+    isEditClinicSubmitting.value = true
+    editClinicError.value = ''
+    try {
+      const targetUuid = editingClinic.value.uuid || editingClinic.value.id
+      await updateClinic(targetUuid, {
+        name: editClinicForm.name.trim(),
+        address: editClinicForm.address.trim() || null,
+        phone: editClinicForm.phone.trim() || null,
+        email: editClinicForm.email.trim() || null,
+        is_active: editClinicForm.is_active
+      })
+      toast.success(`Clinic "${editClinicForm.name.trim()}" updated successfully.`)
+      closeEditClinicModal()
+    } catch (err: any) {
+      editClinicError.value = err.data?.message || err.message || 'Failed to update clinic branch.'
+      toast.error(editClinicError.value)
+    } finally {
+      isEditClinicSubmitting.value = false
+    }
+  }
 
   const clinicToDelete = ref<any>(null)
   const showDeleteClinicModal = ref(false)
@@ -491,6 +577,165 @@
   const availSuccessMsg = ref('')
   const availErrorMsg = ref('')
 
+  // Present/Future Date Guard
+  const todayDateStr = computed(() => {
+    const today = new Date()
+    const y = today.getFullYear()
+    const m = String(today.getMonth() + 1).padStart(2, '0')
+    const d = String(today.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  })
+
+  const formatReadableDate = (dateStr: string) => {
+    if (!dateStr) return ''
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const dt = new Date(y, m - 1, d)
+    return dt.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  }
+
+  // Multi-day / Recurring Schedule State
+  const scheduleMode = ref<'single' | 'recurring'>('single')
+  const recurringDays = ref<number[]>([1, 3, 5]) // 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat, 0=Sun (default MWF)
+  const recurringStartDate = ref('')
+  const recurringEndDate = ref('')
+
+  const weekdayOptions = [
+    { label: 'Sun', day: 0 },
+    { label: 'Mon', day: 1 },
+    { label: 'Tue', day: 2 },
+    { label: 'Wed', day: 3 },
+    { label: 'Thu', day: 4 },
+    { label: 'Fri', day: 5 },
+    { label: 'Sat', day: 6 }
+  ]
+
+  const getWeekDateForDay = (day: number) => {
+    const baseStr = recurringStartDate.value || todayDateStr.value
+    const base = new Date(baseStr + 'T00:00:00')
+    const baseDay = isNaN(base.getTime()) ? 0 : base.getDay() // 0=Sun, 1=Mon... 6=Sat
+
+    // Sunday of the week containing base date
+    const sunday = new Date(base)
+    sunday.setDate(base.getDate() - baseDay)
+
+    // Target date for specified weekday (0=Sun to 6=Sat)
+    const target = new Date(sunday)
+    target.setDate(sunday.getDate() + day)
+
+    const y = target.getFullYear()
+    const m = String(target.getMonth() + 1).padStart(2, '0')
+    const d = String(target.getDate()).padStart(2, '0')
+    const dateStr = `${y}-${m}-${d}`
+    const isPast = dateStr < todayDateStr.value
+
+    return {
+      dateStr,
+      dateNum: target.getDate(),
+      monthName: target.toLocaleDateString(undefined, { month: 'short' }),
+      isPast
+    }
+  }
+
+  const recurringStartDayOfWeek = computed(() => {
+    if (!recurringStartDate.value) return null
+    try {
+      const d = new Date(recurringStartDate.value + 'T00:00:00')
+      return isNaN(d.getTime()) ? null : d.getDay()
+    } catch {
+      return null
+    }
+  })
+
+  const recurringStartWeekdayName = computed(() => {
+    if (!recurringStartDate.value) return ''
+    try {
+      const d = new Date(recurringStartDate.value + 'T00:00:00')
+      if (isNaN(d.getTime())) return ''
+      return d.toLocaleDateString(undefined, { weekday: 'long' })
+    } catch {
+      return ''
+    }
+  })
+
+  const isStartWeekday = (day: number): boolean => {
+    return recurringStartDayOfWeek.value === day
+  }
+
+  // Recalculate range dynamically to stay strictly within that whole week (never spills into next week)
+  const updateDynamicUntilDate = () => {
+    if (!recurringStartDate.value || recurringStartDate.value < todayDateStr.value) {
+      recurringStartDate.value = todayDateStr.value
+    }
+    if (!recurringDays.value.length) {
+      recurringEndDate.value = recurringStartDate.value
+      return
+    }
+
+    const start = new Date(recurringStartDate.value + 'T00:00:00')
+    const startDayOfWeek = start.getDay() // 0=Sun, 1=Mon... 6=Sat
+
+    // Find Sunday of this selected week
+    const sunday = new Date(start)
+    sunday.setDate(start.getDate() - startDayOfWeek)
+
+    const maxDay = Math.max(...recurringDays.value)
+    const targetEnd = new Date(sunday)
+    targetEnd.setDate(sunday.getDate() + maxDay)
+
+    // Format end date strictly within this week's bounds (never +7 into next week)
+    const yEnd = targetEnd.getFullYear()
+    const mEnd = String(targetEnd.getMonth() + 1).padStart(2, '0')
+    const dEnd = String(targetEnd.getDate()).padStart(2, '0')
+    let computedEndStr = `${yEnd}-${mEnd}-${dEnd}`
+
+    // Ensure Until Date is at least From Date
+    if (computedEndStr < recurringStartDate.value) {
+      computedEndStr = recurringStartDate.value
+    }
+    recurringEndDate.value = computedEndStr
+  }
+
+  const setWeekdayPreset = (preset: 'weekdays' | 'mwf' | 'tths' | 'everyday' | 'clear') => {
+    let days: number[] = []
+    if (preset === 'weekdays') days = [1, 2, 3, 4, 5]
+    else if (preset === 'mwf') days = [1, 3, 5]
+    else if (preset === 'tths') days = [2, 4, 6]
+    else if (preset === 'everyday') days = [0, 1, 2, 3, 4, 5, 6]
+    else if (preset === 'clear') days = []
+
+    // Strictly disallow past days in repeat on days
+    recurringDays.value = days.filter(d => !getWeekDateForDay(d).isPast)
+    updateDynamicUntilDate()
+  }
+
+  const toggleRecurringDay = (dayNum: number) => {
+    if (getWeekDateForDay(dayNum).isPast) {
+      toast.error('Cannot set schedule for past dates.')
+      return
+    }
+    if (recurringDays.value.includes(dayNum)) {
+      recurringDays.value = recurringDays.value.filter(d => d !== dayNum)
+    } else {
+      recurringDays.value = [...recurringDays.value, dayNum]
+    }
+    updateDynamicUntilDate()
+  }
+
+  watch(recurringStartDate, () => {
+    updateDynamicUntilDate()
+  })
+
+  watch(scheduleMode, mode => {
+    if (mode === 'recurring') {
+      updateDynamicUntilDate()
+    }
+  })
+
   watch(blockWholeDay, val => {
     if (val) {
       availForm.start_time = '00:00'
@@ -549,14 +794,247 @@
     }
   }
 
-  const addAvailability = async () => {
-    if (!doctorUuid) {
-      availErrorMsg.value = 'Unable to identify your doctor profile. Please sign in again.'
+  // ─── Recurring Schedule Blocked Dates & Redundancy State ────────
+  const showRecurringBlockedModal = ref(false)
+  const isResolvingRecurringConflict = ref(false)
+  const selectedBlockedResolutionOption = ref<'keep_blocked' | 'override_blocked' | null>(null)
+  const pendingRecurringDutyData = ref<{
+    targetDates: string[]
+    redundantDates: string[]
+    conflictingBlockedDates: string[]
+    startTime: string
+    endTime: string
+    locName: string | null
+    clinicId: number | null
+  } | null>(null)
+
+  const selectKeepBlockedOption = () => {
+    selectedBlockedResolutionOption.value = 'keep_blocked'
+  }
+
+  const selectOverrideBlockedOption = () => {
+    selectedBlockedResolutionOption.value = 'override_blocked'
+  }
+
+  const handleProceedRecurringResolution = async () => {
+    if (!selectedBlockedResolutionOption.value) return
+    if (selectedBlockedResolutionOption.value === 'keep_blocked') {
+      await executeRecurringKeepBlocked()
+    } else if (selectedBlockedResolutionOption.value === 'override_blocked') {
+      await executeRecurringOverrideBlocked()
+    }
+  }
+
+  const isSlotIdenticalToForm = (
+    slot: any,
+    dateStr: string,
+    startTime: string,
+    endTime: string,
+    clinicId: number | null
+  ) => {
+    const sDate = (slot.available_date || '').slice(0, 10)
+    if (sDate !== dateStr) return false
+    const isDuty = Number(slot.is_available) === 1 || slot.is_available === true
+    if (!isDuty) return false
+    const sStart = (slot.start_time || '').slice(0, 5)
+    const sEnd = (slot.end_time || '').slice(0, 5)
+    if (sStart !== startTime || sEnd !== endTime) return false
+    if (clinicId && slot.clinic_id && slot.clinic_id !== clinicId) return false
+    return true
+  }
+
+  const isSlotBlockedOnDate = (slot: any, dateStr: string) => {
+    const sDate = (slot.available_date || '').slice(0, 10)
+    if (sDate !== dateStr) return false
+    return Number(slot.is_available) === 0 || slot.is_available === false
+  }
+
+  const closeRecurringBlockedModal = () => {
+    showRecurringBlockedModal.value = false
+    selectedBlockedResolutionOption.value = null
+    pendingRecurringDutyData.value = null
+  }
+
+  const executeRecurringKeepBlocked = async () => {
+    if (!pendingRecurringDutyData.value || !doctorUuid) return
+    const {
+      targetDates,
+      conflictingBlockedDates,
+      redundantDates,
+      startTime,
+      endTime,
+      locName,
+      clinicId
+    } = pendingRecurringDutyData.value
+
+    const datesToCreate = targetDates.filter(
+      d => !conflictingBlockedDates.includes(d) && !redundantDates.includes(d)
+    )
+
+    if (!datesToCreate.length) {
+      toast.info(
+        'All selected days are currently marked as time-off or already have this schedule. No new duty hours were added.'
+      )
+      closeRecurringBlockedModal()
       return
     }
 
-    if (!availForm.available_date) {
-      availErrorMsg.value = 'Please select a date.'
+    isResolvingRecurringConflict.value = true
+    try {
+      let successCount = 0
+      for (const dateStr of datesToCreate) {
+        try {
+          await doctorAvailabilityService.createForDoctor(doctorUuid, {
+            available_date: dateStr,
+            start_time: startTime,
+            end_time: endTime,
+            is_available: 1,
+            clinic_id: clinicId,
+            location_name: locName,
+            overwrite: false
+          })
+          successCount++
+        } catch (slotErr) {
+          console.error(`Failed to create slot for ${dateStr}:`, slotErr)
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(
+          `Schedule set for ${successCount} day${successCount === 1 ? '' : 's'}! Your ${conflictingBlockedDates.length} blocked day${conflictingBlockedDates.length === 1 ? '' : 's'} remain protected.`
+        )
+      }
+      if (redundantDates.length > 0) {
+        toast.info(
+          `${redundantDates.length} day${redundantDates.length === 1 ? '' : 's'} already had this exact schedule and were skipped to avoid duplicates.`
+        )
+      }
+
+      closeRecurringBlockedModal()
+      await fetchAvailabilities()
+      await fetchBlockedSlots()
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to save schedule.')
+    } finally {
+      isResolvingRecurringConflict.value = false
+    }
+  }
+
+  const executeRecurringOverrideBlocked = async () => {
+    if (!pendingRecurringDutyData.value || !doctorUuid) return
+    const {
+      targetDates,
+      conflictingBlockedDates,
+      redundantDates,
+      startTime,
+      endTime,
+      locName,
+      clinicId
+    } = pendingRecurringDutyData.value
+
+    const datesToCreate = targetDates.filter(d => !redundantDates.includes(d))
+
+    if (!datesToCreate.length) {
+      toast.info('All selected days already have this exact schedule. No duplicates were added.')
+      closeRecurringBlockedModal()
+      return
+    }
+
+    isResolvingRecurringConflict.value = true
+    try {
+      let successCount = 0
+      for (const dateStr of datesToCreate) {
+        try {
+          await doctorAvailabilityService.createForDoctor(doctorUuid, {
+            available_date: dateStr,
+            start_time: startTime,
+            end_time: endTime,
+            is_available: 1,
+            clinic_id: clinicId,
+            location_name: locName,
+            overwrite: true
+          })
+          successCount++
+        } catch (slotErr) {
+          console.error(`Failed to create slot for ${dateStr}:`, slotErr)
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(
+          `Clinic hours scheduled across all ${successCount} day${successCount === 1 ? '' : 's'}! Previous time-off on conflicting dates was cancelled.`
+        )
+      }
+      if (redundantDates.length > 0) {
+        toast.info(
+          `${redundantDates.length} day${redundantDates.length === 1 ? '' : 's'} already had this exact schedule and were skipped to avoid duplicates.`
+        )
+      }
+
+      closeRecurringBlockedModal()
+      await fetchAvailabilities()
+      await fetchBlockedSlots()
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to override schedule.')
+    } finally {
+      isResolvingRecurringConflict.value = false
+    }
+  }
+
+  const getBlockedInfoForWeekday = (dayNum: number) => {
+    const slots = availabilities.value || []
+    const results: Array<{
+      date: string
+      formattedDate: string
+      title: string
+      time: string
+    }> = []
+
+    const startStr = recurringStartDate.value || todayDateStr.value
+    const endStr = recurringEndDate.value || recurringStartDate.value || todayDateStr.value
+    if (!startStr) return results
+
+    const startD = new Date(startStr + 'T00:00:00')
+    const endD = new Date(endStr + 'T00:00:00')
+    if (startD > endD) return results
+
+    const curr = new Date(startD)
+    while (curr <= endD) {
+      if (curr.getDay() === dayNum) {
+        const y = curr.getFullYear()
+        const m = String(curr.getMonth() + 1).padStart(2, '0')
+        const d = String(curr.getDate()).padStart(2, '0')
+        const dateIso = `${y}-${m}-${d}`
+
+        const blockedSlotsOnDate = slots.filter(s => {
+          const sDate = (s.available_date || '').slice(0, 10)
+          return sDate === dateIso && (Number(s.is_available) === 0 || s.is_available === false)
+        })
+
+        for (const b of blockedSlotsOnDate) {
+          const isAllDay =
+            (!b.start_time || b.start_time.slice(0, 5) <= '00:01') &&
+            (!b.end_time || b.end_time.slice(0, 5) >= '23:58')
+
+          results.push({
+            date: dateIso,
+            formattedDate: formatReadableDate(dateIso),
+            title: b.location_name || 'Time-Off / Blocked',
+            time: isAllDay
+              ? 'All Day Off'
+              : `${formatTime(b.start_time)} - ${formatTime(b.end_time)}`
+          })
+        }
+      }
+      curr.setDate(curr.getDate() + 1)
+    }
+
+    return results
+  }
+
+  const addAvailability = async () => {
+    if (!doctorUuid) {
+      availErrorMsg.value = 'Unable to identify your doctor profile. Please sign in again.'
       return
     }
 
@@ -574,63 +1052,287 @@
       return
     }
 
+    const isAvailable = scheduleType.value === 'duty'
+    let locName: string | null = null
+    if (isAvailable) {
+      const matched = clinics.value.find(c => c.id === selectedClinicId.value)
+      locName = matched ? matched.name : customLocation.value.trim() || 'Clinic Duty'
+    } else {
+      locName = 'Blocked / Away Period'
+    }
+
+    // ─── Mode A: Single Date ─────────────────────────────────────────
+    if (scheduleMode.value === 'single') {
+      if (!availForm.available_date) {
+        availErrorMsg.value = 'Please select a date.'
+        return
+      }
+      if (availForm.available_date < todayDateStr.value) {
+        availErrorMsg.value =
+          'Cannot set schedule for a past date. Please choose today or a future date.'
+        return
+      }
+
+      // Redundancy check: Prevent duplicate identical slot
+      if (isAvailable) {
+        const isAlreadyIdentical = (availabilities.value || []).some(s =>
+          isSlotIdenticalToForm(
+            s,
+            availForm.available_date,
+            startTime,
+            endTime,
+            selectedClinicId.value
+          )
+        )
+        if (isAlreadyIdentical) {
+          toast.info(
+            'This exact clinic duty schedule is already set for this date. No duplicate was created.'
+          )
+          return
+        }
+      }
+
+      isAddLoading.value = true
+      availErrorMsg.value = ''
+      availSuccessMsg.value = ''
+      try {
+        const payload = {
+          available_date: availForm.available_date,
+          start_time: startTime,
+          end_time: endTime,
+          is_available: isAvailable ? 1 : 0,
+          clinic_id: isAvailable ? selectedClinicId.value : null,
+          location_name: locName
+        }
+
+        await doctorAvailabilityService.createForDoctor(doctorUuid, payload)
+        availSuccessMsg.value = isAvailable
+          ? 'Clinic Duty Schedule added successfully!'
+          : 'Blocked / Away period added successfully!'
+        toast.success(availSuccessMsg.value)
+        availForm.available_date = ''
+        availForm.start_time = '09:00'
+        availForm.end_time = '17:00'
+        blockWholeDay.value = false
+        await fetchAvailabilities()
+        await fetchBlockedSlots()
+        setTimeout(() => {
+          availSuccessMsg.value = ''
+        }, 3000)
+      } catch (e: any) {
+        console.error('Failed to add availability:', e)
+        const errStatus = e.status || e.statusCode || e.response?.status
+        if (errStatus === 409 || e.data?.conflict) {
+          conflictData.value = e.data || {}
+          pendingAvailabilityPayload.value = {
+            available_date: availForm.available_date,
+            start_time: startTime,
+            end_time: endTime,
+            is_available: isAvailable ? 1 : 0,
+            clinic_id: isAvailable ? selectedClinicId.value : null,
+            location_name: locName
+          }
+          showConflictModal.value = true
+        } else {
+          availErrorMsg.value =
+            e.data?.message || e.message || 'Failed to add schedule. Please check the times.'
+          toast.error(availErrorMsg.value)
+        }
+      } finally {
+        isAddLoading.value = false
+      }
+      return
+    }
+
+    // ─── Mode B: Recurring Multi-Day Allocation ──────────────────────
+    if (!recurringDays.value.length) {
+      availErrorMsg.value = 'Please select at least one day of the week.'
+      return
+    }
+    if (!recurringStartDate.value || !recurringEndDate.value) {
+      availErrorMsg.value = 'Please select a valid date range.'
+      return
+    }
+    if (recurringStartDate.value < todayDateStr.value) {
+      availErrorMsg.value =
+        'Starting date cannot be in the past. Please select today or a future date.'
+      return
+    }
+
+    const start = new Date(recurringStartDate.value + 'T00:00:00')
+    const startDayOfWeek = isNaN(start.getTime()) ? 0 : start.getDay()
+    const sunday = new Date(start)
+    sunday.setDate(start.getDate() - startDayOfWeek)
+
+    const targetDates: string[] = []
+    for (const dayNum of recurringDays.value) {
+      const target = new Date(sunday)
+      target.setDate(sunday.getDate() + dayNum)
+      const y = target.getFullYear()
+      const m = String(target.getMonth() + 1).padStart(2, '0')
+      const d = String(target.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
+      if (dateStr >= todayDateStr.value && !targetDates.includes(dateStr)) {
+        targetDates.push(dateStr)
+      }
+    }
+    targetDates.sort()
+
+    if (!targetDates.length) {
+      availErrorMsg.value = 'No matching weekdays found in the selected date range.'
+      return
+    }
+
+    // If duty schedule, check for redundancies and blocked date conflicts
+    if (isAvailable) {
+      const allDoctorSlots = availabilities.value || []
+
+      // 1. Redundancy check (exact same clinic duty and hours already exist)
+      const redundantDates = targetDates.filter(d =>
+        allDoctorSlots.some(s =>
+          isSlotIdenticalToForm(s, d, startTime, endTime, selectedClinicId.value)
+        )
+      )
+
+      if (redundantDates.length === targetDates.length) {
+        toast.info(
+          'All selected days already have this exact schedule in place. No duplicate entries needed.'
+        )
+        return
+      }
+
+      // 2. Blocked dates check
+      const conflictingBlockedDates = targetDates.filter(d =>
+        allDoctorSlots.some(s => isSlotBlockedOnDate(s, d))
+      )
+
+      if (conflictingBlockedDates.length > 0) {
+        pendingRecurringDutyData.value = {
+          targetDates,
+          redundantDates,
+          conflictingBlockedDates,
+          startTime,
+          endTime,
+          locName,
+          clinicId: selectedClinicId.value
+        }
+        selectedBlockedResolutionOption.value = null
+        showRecurringBlockedModal.value = true
+        return
+      }
+
+      // If no blocked conflicts, create non-redundant dates
+      const datesToCreate = targetDates.filter(d => !redundantDates.includes(d))
+
+      isAddLoading.value = true
+      availErrorMsg.value = ''
+      availSuccessMsg.value = ''
+
+      try {
+        let successCount = 0
+        let conflictCount = 0
+        for (const dateStr of datesToCreate) {
+          try {
+            await doctorAvailabilityService.createForDoctor(doctorUuid, {
+              available_date: dateStr,
+              start_time: startTime,
+              end_time: endTime,
+              is_available: 1,
+              clinic_id: selectedClinicId.value,
+              location_name: locName,
+              overwrite: false
+            })
+            successCount++
+          } catch (slotErr: any) {
+            const sErrStatus = slotErr.status || slotErr.statusCode || slotErr.response?.status
+            if (sErrStatus === 409 || slotErr.data?.conflict) {
+              conflictCount++
+            }
+            console.error(`Failed to create slot for ${dateStr}:`, slotErr)
+          }
+        }
+
+        if (successCount > 0) {
+          toast.success(
+            `Successfully added schedule across ${successCount} day${successCount === 1 ? '' : 's'}!`
+          )
+          availSuccessMsg.value = `Schedule applied to ${successCount} day(s).`
+        }
+        if (redundantDates.length > 0) {
+          toast.info(
+            `${redundantDates.length} day${redundantDates.length === 1 ? '' : 's'} already had this exact schedule and were preserved.`
+          )
+        }
+        if (conflictCount > 0) {
+          toast.warning(
+            `${conflictCount} date(s) had conflicting schedules and were preserved intact.`
+          )
+        }
+
+        await fetchAvailabilities()
+        await fetchBlockedSlots()
+        setTimeout(() => {
+          availSuccessMsg.value = ''
+        }, 3000)
+      } catch (err: any) {
+        availErrorMsg.value =
+          err.data?.message || err.message || 'Failed to add recurring schedule.'
+        toast.error(availErrorMsg.value)
+      } finally {
+        isAddLoading.value = false
+      }
+      return
+    }
+
+    // Otherwise, scheduleType === 'away' (blocked periods)
     isAddLoading.value = true
     availErrorMsg.value = ''
     availSuccessMsg.value = ''
+
     try {
-      const isAvailable = scheduleType.value === 'duty'
-      let locName: string | null = null
-      if (isAvailable) {
-        const matched = clinics.value.find(c => c.id === selectedClinicId.value)
-        locName = matched ? matched.name : customLocation.value.trim() || 'Clinic Duty'
-      } else {
-        locName = 'Blocked / Away Period'
+      let successCount = 0
+      let conflictCount = 0
+      for (const dateStr of targetDates) {
+        try {
+          await doctorAvailabilityService.createForDoctor(doctorUuid, {
+            available_date: dateStr,
+            start_time: startTime,
+            end_time: endTime,
+            is_available: 0,
+            clinic_id: null,
+            location_name: locName,
+            overwrite: false
+          })
+          successCount++
+        } catch (slotErr: any) {
+          const sErrStatus = slotErr.status || slotErr.statusCode || slotErr.response?.status
+          if (sErrStatus === 409 || slotErr.data?.conflict) {
+            conflictCount++
+          }
+          console.error(`Failed to create slot for ${dateStr}:`, slotErr)
+        }
       }
 
-      const payload = {
-        available_date: availForm.available_date,
-        start_time: startTime,
-        end_time: endTime,
-        is_available: isAvailable ? 1 : 0,
-        clinic_id: isAvailable ? selectedClinicId.value : null,
-        location_name: locName
+      if (successCount > 0) {
+        toast.success(
+          `Successfully added blocked periods across ${successCount} day${successCount === 1 ? '' : 's'}!`
+        )
+        availSuccessMsg.value = `Blocked periods applied to ${successCount} day(s).`
+      }
+      if (conflictCount > 0) {
+        toast.warning(
+          `${conflictCount} date(s) had conflicting schedules and were preserved intact.`
+        )
       }
 
-      await doctorAvailabilityService.createForDoctor(doctorUuid, payload)
-      availSuccessMsg.value = isAvailable
-        ? 'Clinic Duty Schedule added successfully!'
-        : 'Blocked / Away period added successfully!'
-      availForm.available_date = ''
-      availForm.start_time = '09:00'
-      availForm.end_time = '17:00'
-      blockWholeDay.value = false
       await fetchAvailabilities()
       await fetchBlockedSlots()
       setTimeout(() => {
         availSuccessMsg.value = ''
       }, 3000)
-    } catch (e: any) {
-      console.error('Failed to add availability:', e)
-      const errStatus = e.status || e.statusCode || e.response?.status
-      if (errStatus === 409 || e.data?.conflict) {
-        conflictData.value = e.data || {}
-        pendingAvailabilityPayload.value = {
-          available_date: availForm.available_date,
-          start_time: startTime,
-          end_time: endTime,
-          is_available: scheduleType.value === 'duty' ? 1 : 0,
-          clinic_id: scheduleType.value === 'duty' ? selectedClinicId.value : null,
-          location_name:
-            scheduleType.value === 'duty'
-              ? clinics.value.find(c => c.id === selectedClinicId.value)?.name ||
-                customLocation.value.trim() ||
-                'Clinic Duty'
-              : 'Blocked / Away Period'
-        }
-        showConflictModal.value = true
-        return
-      }
-      availErrorMsg.value = e.data?.message || e.message || 'Failed to add availability.'
+    } catch (err: any) {
+      availErrorMsg.value = err.data?.message || err.message || 'Failed to add recurring schedule.'
+      toast.error(availErrorMsg.value)
     } finally {
       isAddLoading.value = false
     }
@@ -1797,19 +2499,34 @@
                   </div>
                 </div>
 
-                <!-- Delete Clinic Branch (ONLY FOR OWNER) -->
-                <button
+                <!-- Actions: Edit & Delete Clinic (ONLY FOR OWNER) -->
+                <div
                   v-if="clinic.is_owner !== false"
-                  type="button"
-                  @click="confirmDeleteClinic(clinic)"
-                  class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
-                  title="Remove Clinic"
+                  class="flex shrink-0 items-center gap-1"
                 >
-                  <Icon
-                    name="heroicons:trash"
-                    class="h-4 w-4"
-                  />
-                </button>
+                  <button
+                    type="button"
+                    @click="openEditClinicModal(clinic)"
+                    class="text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer rounded-xl p-1.5 transition"
+                    title="Edit Clinic Details"
+                  >
+                    <Icon
+                      name="heroicons:pencil-square"
+                      class="h-4 w-4"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    @click="confirmDeleteClinic(clinic)"
+                    class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
+                    title="Remove Clinic"
+                  >
+                    <Icon
+                      name="heroicons:trash"
+                      class="h-4 w-4"
+                    />
+                  </button>
+                </div>
                 <span
                   v-else
                   class="shrink-0 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold tracking-wider text-indigo-600 uppercase dark:text-indigo-400"
@@ -1821,17 +2538,36 @@
               <div
                 class="text-muted-foreground border-border/60 flex items-center justify-between border-t pt-3 text-xs"
               >
-                <span class="inline-flex items-center gap-1.5">
-                  <Icon
-                    name="heroicons:phone"
-                    class="text-primary h-3.5 w-3.5"
-                  />
-                  {{ clinic.phone || 'No phone set' }}
-                </span>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span class="inline-flex items-center gap-1.5">
+                    <Icon
+                      name="heroicons:phone"
+                      class="text-primary h-3.5 w-3.5"
+                    />
+                    {{ clinic.phone || 'No phone set' }}
+                  </span>
+                  <span
+                    v-if="clinic.email"
+                    class="inline-flex items-center gap-1.5"
+                  >
+                    <Icon
+                      name="heroicons:envelope"
+                      class="text-primary h-3.5 w-3.5"
+                    />
+                    {{ clinic.email }}
+                  </span>
+                </div>
                 <span
-                  class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700"
+                  v-if="clinic.is_active !== false"
+                  class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
                 >
                   Active
+                </span>
+                <span
+                  v-else
+                  class="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                >
+                  Inactive
                 </span>
               </div>
             </div>
@@ -2357,25 +3093,36 @@
                 >Select Clinic Location *</label
               >
               <div class="grid gap-3 sm:grid-cols-2">
-                <select
-                  v-if="clinics.length > 0"
-                  v-model="selectedClinicId"
-                  class="border-border bg-foreground/5 focus:border-primary w-full cursor-pointer rounded-2xl border px-4 py-3 text-sm font-semibold outline-none"
-                >
-                  <option
-                    :value="null"
-                    disabled
+                <div class="relative w-full">
+                  <select
+                    v-if="clinics.length > 0"
+                    v-model="selectedClinicId"
+                    class="border-border bg-foreground/5 focus:border-primary w-full cursor-pointer appearance-none rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold transition-all outline-none"
                   >
-                    -- Choose a registered clinic branch --
-                  </option>
-                  <option
-                    v-for="c in clinics"
-                    :key="c.id"
-                    :value="c.id"
+                    <option
+                      :value="null"
+                      disabled
+                    >
+                      -- Choose a registered clinic branch --
+                    </option>
+                    <option
+                      v-for="c in clinics"
+                      :key="c.id"
+                      :value="c.id"
+                    >
+                      {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
+                    </option>
+                  </select>
+                  <div
+                    v-if="clinics.length > 0"
+                    class="text-muted-foreground/60 pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5"
                   >
-                    {{ c.name }} {{ c.address ? `(${c.address})` : '' }}
-                  </option>
-                </select>
+                    <Icon
+                      name="heroicons:chevron-down-20-solid"
+                      class="h-4 w-4"
+                    />
+                  </div>
+                </div>
 
                 <input
                   v-if="clinics.length === 0 || !selectedClinicId"
@@ -2387,15 +3134,332 @@
               </div>
             </div>
 
+            <!-- Schedule Mode Toggle (Single Date vs Repeat on Days of Week) -->
+            <div
+              class="border-border/60 flex flex-col justify-between gap-3 border-b pt-1 pb-3 sm:flex-row sm:items-center"
+            >
+              <div>
+                <span class="text-foreground text-xs font-bold">Schedule Frequency</span>
+                <p class="text-muted-foreground text-[11px]">
+                  Apply schedule for a single date or recurring days of the week
+                </p>
+              </div>
+              <div
+                class="border-border/60 bg-foreground/5 inline-flex self-start rounded-xl border p-1 sm:self-auto"
+              >
+                <button
+                  type="button"
+                  @click="scheduleMode = 'single'"
+                  class="cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-all"
+                  :class="
+                    scheduleMode === 'single'
+                      ? 'bg-card text-foreground shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  "
+                >
+                  Single Date
+                </button>
+                <button
+                  type="button"
+                  @click="scheduleMode = 'recurring'"
+                  class="cursor-pointer rounded-lg px-3 py-1 text-xs font-bold transition-all"
+                  :class="
+                    scheduleMode === 'recurring'
+                      ? 'bg-card text-foreground shadow-2xs'
+                      : 'text-muted-foreground hover:text-foreground'
+                  "
+                >
+                  Repeat on Days
+                </button>
+              </div>
+            </div>
+
+            <!-- Recurring Weekdays Selection (Shown in Recurring Mode) -->
+            <div
+              v-if="scheduleMode === 'recurring'"
+              class="border-border/70 bg-foreground/[0.02] space-y-3 rounded-2xl border p-4"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="text-muted-foreground text-xs font-bold tracking-wider uppercase">
+                    Select Days of Week *
+                  </span>
+                  <span
+                    v-if="recurringStartWeekdayName"
+                    class="bg-primary/10 text-primary inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                  >
+                    <span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
+                    {{ recurringStartWeekdayName }} (Start)
+                  </span>
+                </div>
+                <div
+                  class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold"
+                >
+                  <span class="text-foreground/40">Presets:</span>
+                  <button
+                    type="button"
+                    @click="setWeekdayPreset('weekdays')"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    Weekdays
+                  </button>
+                  <button
+                    type="button"
+                    @click="setWeekdayPreset('mwf')"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    MWF
+                  </button>
+                  <button
+                    type="button"
+                    @click="setWeekdayPreset('tths')"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    TThS
+                  </button>
+                  <button
+                    type="button"
+                    @click="setWeekdayPreset('clear')"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <!-- Day Pill Buttons -->
+              <div class="grid grid-cols-7 gap-1.5 sm:gap-2">
+                <div
+                  v-for="opt in weekdayOptions"
+                  :key="opt.day"
+                  class="group/day relative"
+                >
+                  <button
+                    type="button"
+                    :disabled="getWeekDateForDay(opt.day).isPast"
+                    @click="toggleRecurringDay(opt.day)"
+                    class="relative flex min-h-[46px] w-full flex-col items-center justify-center rounded-xl border py-2 text-xs font-bold transition-all"
+                    :class="[
+                      getWeekDateForDay(opt.day).isPast
+                        ? 'border-border/40 bg-foreground/[0.02] text-muted-foreground/35 cursor-not-allowed opacity-50'
+                        : recurringDays.includes(opt.day)
+                          ? 'border-primary bg-primary text-primary-foreground cursor-pointer shadow-2xs'
+                          : 'border-border/60 bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground cursor-pointer',
+                      getBlockedInfoForWeekday(opt.day).length > 0 &&
+                      !recurringDays.includes(opt.day) &&
+                      !getWeekDateForDay(opt.day).isPast
+                        ? 'border-rose-400/50 dark:border-rose-500/40'
+                        : '',
+                      isStartWeekday(opt.day) &&
+                      !recurringDays.includes(opt.day) &&
+                      !getWeekDateForDay(opt.day).isPast
+                        ? 'border-primary/60 ring-primary/30 ring-2'
+                        : ''
+                    ]"
+                    :title="
+                      getWeekDateForDay(opt.day).isPast
+                        ? `Cannot schedule past date (${getWeekDateForDay(opt.day).dateStr})`
+                        : undefined
+                    "
+                  >
+                    <!-- Day Label + Date Number beside it -->
+                    <div class="flex items-center gap-1 leading-none">
+                      <span>{{ opt.label }}</span>
+                      <span
+                        class="text-[11px] font-extrabold"
+                        :class="
+                          getWeekDateForDay(opt.day).isPast
+                            ? 'opacity-40'
+                            : recurringDays.includes(opt.day)
+                              ? 'text-primary-foreground/90'
+                              : 'text-foreground/70'
+                        "
+                      >
+                        {{ getWeekDateForDay(opt.day).dateNum }}
+                      </span>
+                    </div>
+
+                    <!-- Dot indicator for selected From Date -->
+                    <span
+                      v-if="isStartWeekday(opt.day) && !getWeekDateForDay(opt.day).isPast"
+                      class="mt-1 flex h-1.5 w-1.5 items-center justify-center"
+                      :title="`Date Selected (${formatReadableDate(recurringStartDate)}) is on ${opt.label}`"
+                    >
+                      <span
+                        class="h-1.5 w-1.5 rounded-full transition-all"
+                        :class="
+                          recurringDays.includes(opt.day)
+                            ? 'bg-white shadow-xs'
+                            : 'bg-primary ring-primary/20 ring-2'
+                        "
+                      ></span>
+                    </span>
+                    <span
+                      v-else-if="getWeekDateForDay(opt.day).isPast"
+                      class="text-muted-foreground/50 mt-0.5 text-[8px] font-semibold tracking-wider uppercase"
+                    >
+                      Past
+                    </span>
+                    <span
+                      v-else
+                      class="mt-1 h-1.5 w-1.5 opacity-0"
+                    ></span>
+
+                    <!-- Blocked Indicator Pill / Dot (Only shown if not past) -->
+                    <span
+                      v-if="
+                        getBlockedInfoForWeekday(opt.day).length > 0 &&
+                        !getWeekDateForDay(opt.day).isPast
+                      "
+                      class="absolute -top-1.5 -right-1 flex h-4 items-center gap-0.5 rounded-full px-1 text-[8px] font-extrabold shadow-xs transition-transform group-hover/day:scale-110"
+                      :class="
+                        recurringDays.includes(opt.day)
+                          ? 'ring-primary bg-rose-500 text-white ring-2'
+                          : 'ring-card bg-rose-500 text-white ring-2'
+                      "
+                      title="Blocked date on this day"
+                    >
+                      <span class="h-1 w-1 animate-pulse rounded-full bg-white"></span>
+                      <span>Off</span>
+                    </span>
+                  </button>
+
+                  <!-- Tooltip / Popover on Hover showing what's in there -->
+                  <div
+                    v-if="getBlockedInfoForWeekday(opt.day).length > 0"
+                    class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-48 -translate-x-1/2 translate-y-1 opacity-0 transition-all duration-150 group-hover/day:translate-y-0 group-hover/day:opacity-100 sm:w-56"
+                  >
+                    <div
+                      class="border-border/90 bg-popover text-popover-foreground rounded-2xl border p-2.5 text-left shadow-xl"
+                    >
+                      <div
+                        class="border-border/60 mb-1.5 flex items-center gap-1.5 border-b pb-1.5"
+                      >
+                        <Icon
+                          name="heroicons:no-symbol-20-solid"
+                          class="h-3.5 w-3.5 shrink-0 text-rose-500"
+                        />
+                        <span class="text-foreground text-[11px] font-bold">
+                          Time Off on {{ opt.label }}
+                        </span>
+                      </div>
+
+                      <div class="max-h-32 space-y-1.5 overflow-y-auto">
+                        <div
+                          v-for="(item, idx) in getBlockedInfoForWeekday(opt.day)"
+                          :key="idx"
+                          class="rounded-lg border border-rose-500/20 bg-rose-500/10 p-1.5 text-[10px]"
+                        >
+                          <div
+                            class="flex items-center justify-between font-bold text-rose-600 dark:text-rose-400"
+                          >
+                            <span>{{ item.formattedDate }}</span>
+                            <span class="text-[9px] opacity-80">{{ item.time }}</span>
+                          </div>
+                          <p class="text-foreground/80 mt-0.5 truncate text-[10px] font-medium">
+                            {{ item.title }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p class="text-muted-foreground mt-1.5 text-[9px] leading-tight">
+                        Selecting this day will let you choose to keep or override your time off.
+                      </p>
+
+                      <!-- Tooltip arrow -->
+                      <div
+                        class="border-border/90 bg-popover absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Date Range -->
+              <div class="grid gap-3 pt-1 sm:grid-cols-2">
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between">
+                    <label
+                      class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase"
+                    >
+                      From Date *
+                    </label>
+                    <span
+                      v-if="recurringStartWeekdayName"
+                      class="text-primary inline-flex items-center gap-1 text-[10px] font-bold"
+                    >
+                      <span class="bg-primary h-1.5 w-1.5 rounded-full"></span>
+                      {{ recurringStartWeekdayName }}
+                    </span>
+                  </div>
+                  <input
+                    v-model="recurringStartDate"
+                    type="date"
+                    :min="todayDateStr"
+                    required
+                    class="border-border bg-card focus:border-primary w-full rounded-xl border px-3.5 py-2 text-sm font-medium outline-none"
+                  />
+                  <p
+                    v-if="recurringStartDate"
+                    class="text-muted-foreground flex items-center gap-1 text-[10px]"
+                  >
+                    <span class="bg-primary inline-block h-1 w-1 rounded-full"></span>
+                    Starts on {{ formatReadableDate(recurringStartDate) }} ({{
+                      recurringStartWeekdayName
+                    }})
+                  </p>
+                </div>
+                <div class="space-y-1">
+                  <div class="flex items-center justify-between">
+                    <label
+                      class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase"
+                    >
+                      Until Date
+                    </label>
+                    <span
+                      class="text-muted-foreground/70 inline-flex items-center gap-1 text-[10px] font-semibold"
+                    >
+                      <Icon
+                        name="heroicons:lock-closed"
+                        class="h-3 w-3"
+                      />
+                      Auto-calculated
+                    </span>
+                  </div>
+                  <input
+                    v-model="recurringEndDate"
+                    type="date"
+                    readonly
+                    disabled
+                    tabindex="-1"
+                    class="border-border bg-foreground/[0.04] text-muted-foreground w-full cursor-not-allowed rounded-xl border px-3.5 py-2 text-sm font-medium opacity-80 outline-none select-none"
+                  />
+                  <p
+                    v-if="recurringEndDate"
+                    class="text-muted-foreground text-[10px]"
+                  >
+                    Ends on {{ formatReadableDate(recurringEndDate) }} based on selected days
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <!-- Date and Times Row -->
-            <div class="grid gap-4 sm:grid-cols-3">
-              <div class="space-y-1.5">
+            <div
+              class="grid gap-4"
+              :class="scheduleMode === 'single' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'"
+            >
+              <div
+                v-if="scheduleMode === 'single'"
+                class="space-y-1.5"
+              >
                 <label class="text-xs font-bold tracking-wider text-gray-500 uppercase"
                   >Date *</label
                 >
                 <input
                   v-model="availForm.available_date"
                   type="date"
+                  :min="todayDateStr"
                   required
                   class="border-border bg-foreground/5 focus:border-primary w-full rounded-2xl border px-4 py-3 text-sm font-medium outline-none"
                 />
@@ -2566,7 +3630,7 @@
                 class="flex max-h-[350px] flex-col gap-3 overflow-y-auto pr-1"
               >
                 <div
-                  v-for="slot in availabilities"
+                  v-for="slot in sortedAvailabilities"
                   :key="slot.uuid"
                   class="border-border bg-foreground/[0.02] hover:bg-foreground/[0.04] flex items-center justify-between rounded-2xl border p-4 transition-all"
                 >
@@ -2624,10 +3688,22 @@
                     </div>
                   </div>
 
-                  <div class="flex items-center gap-3">
+                  <div class="flex items-center gap-1 sm:gap-2">
                     <button
+                      type="button"
+                      @click="openEditSlotModal(slot)"
+                      class="text-foreground/40 hover:bg-primary/10 hover:text-primary cursor-pointer rounded-xl p-2 transition-all"
+                      title="Edit Schedule Period"
+                    >
+                      <Icon
+                        name="heroicons:pencil-square"
+                        size="18"
+                      />
+                    </button>
+                    <button
+                      type="button"
                       @click="deleteAvailability(slot.uuid)"
-                      class="text-foreground/40 cursor-pointer rounded-xl p-2 transition-all hover:bg-red-500/5 hover:text-red-500"
+                      class="text-foreground/40 cursor-pointer rounded-xl p-2 transition-all hover:bg-red-500/10 hover:text-red-500"
                       title="Remove Period"
                     >
                       <Icon
@@ -3191,7 +4267,8 @@
     <Teleport to="body">
       <div
         v-if="showAddClinicModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="showAddClinicModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
@@ -3300,11 +4377,149 @@
       </div>
     </Teleport>
 
+    <!-- Edit Clinic Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showEditClinicModal"
+        @click.self="closeEditClinicModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+      >
+        <div
+          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
+              >
+                <Icon
+                  name="heroicons:pencil-square"
+                  class="h-5 w-5"
+                />
+              </div>
+              <div>
+                <h3 class="text-foreground text-lg font-bold">Edit Clinic Branch</h3>
+                <p class="text-muted-foreground text-xs">
+                  Update location and contact information for this clinic.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="closeEditClinicModal"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+            >
+              <Icon
+                name="heroicons:x-mark"
+                class="h-5 w-5"
+              />
+            </button>
+          </div>
+
+          <form
+            @submit.prevent="handleUpdateClinic"
+            class="space-y-4"
+          >
+            <div
+              v-if="editClinicError"
+              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+            >
+              {{ editClinicError }}
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
+              <input
+                v-model="editClinicForm.name"
+                type="text"
+                required
+                placeholder="e.g. St. Luke's Medical Center - Rm 402"
+                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
+              <input
+                v-model="editClinicForm.address"
+                type="text"
+                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
+                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+              />
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="space-y-1.5">
+                <label class="text-foreground text-xs font-bold">Contact Phone</label>
+                <input
+                  v-model="editClinicForm.phone"
+                  type="text"
+                  placeholder="e.g. +63 917 123 4567"
+                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-foreground text-xs font-bold">Clinic Email</label>
+                <input
+                  v-model="editClinicForm.email"
+                  type="email"
+                  placeholder="e.g. clinic@derma.com"
+                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+                />
+              </div>
+            </div>
+
+            <!-- Active Status Toggle -->
+            <div
+              class="border-border/60 bg-foreground/[0.02] flex items-center justify-between rounded-xl border p-3.5"
+            >
+              <div>
+                <div class="text-foreground text-xs font-bold">Active Practice Branch</div>
+                <div class="text-muted-foreground text-[11px]">
+                  Allow patient bookings and duty schedule allocation at this branch
+                </div>
+              </div>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  v-model="editClinicForm.is_active"
+                  class="peer sr-only"
+                />
+                <div
+                  class="peer bg-muted-foreground/20 after:border-border/40 peer-checked:bg-primary h-6 w-11 rounded-full transition-colors peer-focus:outline-hidden after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"
+                ></div>
+              </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <AppButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                @click="closeEditClinicModal"
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                type="submit"
+                variant="solid"
+                size="sm"
+                :loading="isEditClinicSubmitting"
+              >
+                Update Clinic
+              </AppButton>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Assign Doctor to Seat Modal -->
     <Teleport to="body">
       <div
         v-if="showAssignDoctorModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="showAssignDoctorModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
@@ -3626,6 +4841,282 @@
       </div>
     </AppModalConfirmation>
 
+    <!-- Recurring Schedule Blocked Dates Conflict Modal (Layman Terms) -->
+    <Teleport to="body">
+      <div
+        v-if="showRecurringBlockedModal && pendingRecurringDutyData"
+        @click.self="closeRecurringBlockedModal"
+        class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs duration-200"
+      >
+        <div
+          class="border-border bg-card text-foreground relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-6 shadow-2xl"
+        >
+          <!-- Warning Icon & Headline -->
+          <div class="flex items-start gap-4">
+            <div
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/10"
+            >
+              <Icon
+                name="heroicons:exclamation-triangle-20-solid"
+                class="h-6 w-6"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h3 class="text-foreground text-lg font-bold">Time-Off Conflict Detected</h3>
+              <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                You are setting a repeating clinic schedule, but
+                <span class="text-foreground font-bold">
+                  {{ pendingRecurringDutyData.conflictingBlockedDates.length }} day{{
+                    pendingRecurringDutyData.conflictingBlockedDates.length === 1 ? '' : 's'
+                  }}
+                </span>
+                during this period are already marked as your
+                <span class="font-semibold text-rose-500">Time-Off (Blocked)</span>.
+              </p>
+            </div>
+          </div>
+
+          <!-- List of Conflicting Blocked Dates -->
+          <div class="mt-4 space-y-2">
+            <p class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+              Affected Time-Off Dates
+            </p>
+            <div
+              class="border-border bg-foreground/[0.02] divide-border max-h-36 divide-y overflow-y-auto rounded-2xl border"
+            >
+              <div
+                v-for="dateStr in pendingRecurringDutyData.conflictingBlockedDates"
+                :key="dateStr"
+                class="flex items-center justify-between p-2.5 text-xs"
+              >
+                <div class="flex items-center gap-2">
+                  <Icon
+                    name="heroicons:calendar-days"
+                    class="text-muted-foreground h-4 w-4"
+                  />
+                  <span class="text-foreground font-semibold">
+                    {{ formatReadableDate(dateStr) }}
+                  </span>
+                </div>
+                <span
+                  class="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-500"
+                >
+                  Time Off / Blocked
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Redundant notice if some days are identical -->
+          <div
+            v-if="pendingRecurringDutyData.redundantDates.length > 0"
+            class="mt-3 flex items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-[11px] text-sky-700 dark:text-sky-300"
+          >
+            <Icon
+              name="heroicons:information-circle-20-solid"
+              class="h-4 w-4 shrink-0"
+            />
+            <span>
+              {{ pendingRecurringDutyData.redundantDates.length }} of the days already have this
+              exact clinic schedule and will not be duplicated.
+            </span>
+          </div>
+
+          <!-- Layman Decision Prompt -->
+          <div class="mt-4">
+            <p class="text-foreground text-xs font-bold">
+              Choose how you would like to handle your scheduled time-off:
+            </p>
+            <p class="text-muted-foreground mt-0.5 text-[11px]">
+              Select an option below to proceed. You must choose an option before confirming.
+            </p>
+          </div>
+
+          <!-- Selectable Options List -->
+          <div class="mt-3 space-y-2.5">
+            <!-- Option 1: Keep Time Off (Blocked Overrides) -->
+            <div
+              role="button"
+              tabindex="0"
+              @click="selectKeepBlockedOption"
+              class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
+              :class="[
+                selectedBlockedResolutionOption === 'keep_blocked'
+                  ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-2 ring-emerald-500/30'
+                  : 'border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/[0.03]'
+              ]"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex min-w-0 flex-1 items-start gap-3">
+                  <div
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
+                    :class="
+                      selectedBlockedResolutionOption === 'keep_blocked'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-emerald-500/10 text-emerald-600'
+                    "
+                  >
+                    <Icon
+                      name="heroicons:shield-check-20-solid"
+                      class="h-5 w-5"
+                    />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                      <p class="text-foreground text-xs font-bold">
+                        Keep My Time Off (Skip Blocked Days)
+                      </p>
+                      <span
+                        class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600"
+                      >
+                        Recommended
+                      </span>
+                    </div>
+                    <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                      Leave your time-off untouched. Clinic hours will only be scheduled on your
+                      free, unblocked days ({{
+                        pendingRecurringDutyData.targetDates.filter(
+                          d =>
+                            !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
+                            !pendingRecurringDutyData.redundantDates.includes(d)
+                        ).length
+                      }}
+                      open day{{
+                        pendingRecurringDutyData.targetDates.filter(
+                          d =>
+                            !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
+                            !pendingRecurringDutyData.redundantDates.includes(d)
+                        ).length === 1
+                          ? ''
+                          : 's'
+                      }}).
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Radio Check Indicator -->
+                <div class="shrink-0 pt-0.5">
+                  <div
+                    class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
+                    :class="
+                      selectedBlockedResolutionOption === 'keep_blocked'
+                        ? 'bg-emerald-500 text-white shadow-2xs'
+                        : 'border-border/80 border-2 group-hover:border-emerald-500/60'
+                    "
+                  >
+                    <Icon
+                      v-if="selectedBlockedResolutionOption === 'keep_blocked'"
+                      name="heroicons:check-20-solid"
+                      class="h-3.5 w-3.5"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Option 2: Schedule Overrides (Open Clinic on All Days) -->
+            <div
+              role="button"
+              tabindex="0"
+              @click="selectOverrideBlockedOption"
+              class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
+              :class="[
+                selectedBlockedResolutionOption === 'override_blocked'
+                  ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-2 ring-amber-500/30'
+                  : 'border-border bg-card hover:border-amber-500/50 hover:bg-amber-500/[0.03]'
+              ]"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div class="flex min-w-0 flex-1 items-start gap-3">
+                  <div
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
+                    :class="
+                      selectedBlockedResolutionOption === 'override_blocked'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-amber-500/10 text-amber-600'
+                    "
+                  >
+                    <Icon
+                      name="heroicons:arrow-path-rounded-square-20-solid"
+                      class="h-5 w-5"
+                    />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-foreground text-xs font-bold">
+                      Open Clinic on All Days (Cancel Time Off)
+                    </p>
+                    <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                      Cancel your time-off on those days. Clinic hours will be scheduled across all
+                      selected dates.
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Radio Check Indicator -->
+                <div class="shrink-0 pt-0.5">
+                  <div
+                    class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
+                    :class="
+                      selectedBlockedResolutionOption === 'override_blocked'
+                        ? 'bg-amber-500 text-white shadow-2xs'
+                        : 'border-border/80 border-2 group-hover:border-amber-500/60'
+                    "
+                  >
+                    <Icon
+                      v-if="selectedBlockedResolutionOption === 'override_blocked'"
+                      name="heroicons:check-20-solid"
+                      class="h-3.5 w-3.5"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="border-border/60 mt-5 flex items-center justify-between border-t pt-3.5">
+            <button
+              type="button"
+              :disabled="isResolvingRecurringConflict"
+              @click="closeRecurringBlockedModal"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition"
+            >
+              Cancel & Review
+            </button>
+
+            <button
+              type="button"
+              :disabled="!selectedBlockedResolutionOption || isResolvingRecurringConflict"
+              @click="handleProceedRecurringResolution"
+              class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all"
+              :class="[
+                !selectedBlockedResolutionOption || isResolvingRecurringConflict
+                  ? 'bg-foreground/10 text-muted-foreground/60 cursor-not-allowed opacity-60'
+                  : selectedBlockedResolutionOption === 'keep_blocked'
+                    ? 'cursor-pointer bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
+                    : 'cursor-pointer bg-amber-600 text-white shadow-sm hover:bg-amber-700'
+              ]"
+            >
+              <Icon
+                v-if="isResolvingRecurringConflict"
+                name="lucide:loader-2"
+                class="h-3.5 w-3.5 animate-spin"
+              />
+              <span>
+                {{
+                  selectedBlockedResolutionOption === 'keep_blocked'
+                    ? 'Confirm (Keep My Time Off)'
+                    : selectedBlockedResolutionOption === 'override_blocked'
+                      ? 'Confirm (Open Clinic on All Days)'
+                      : 'Choose an Option to Proceed'
+                }}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- Logout Modal -->
     <AppModalConfirmation
       v-if="isLogoutModalOpen"
@@ -3645,6 +5136,14 @@
       :loading="isUploadingAvatar"
       @crop="handleApplyCroppedAvatar"
       @cancel="rawAvatarSrc = ''"
+    />
+
+    <!-- Edit Availability Slot Modal (List Cards View) -->
+    <AppModalEditAvailability
+      v-model="showEditSlotModal"
+      :slot-data="slotToEdit"
+      :clinics="clinics"
+      @saved="handleEditSlotSaved"
     />
   </div>
 </template>
