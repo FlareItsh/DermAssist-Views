@@ -37,21 +37,20 @@
   const weekOffset = ref(0)
   const selectedClinicId = ref<number | 'all'>('all')
 
-  // Compute 7 days for the displayed week (Monday to Sunday)
+  // Compute 7 days for the displayed week (Sunday to Saturday)
   const weekDays = computed(() => {
     const now = new Date()
-    const currentDayOfWeek = now.getDay() // 0 is Sunday, 1 is Monday...
-    const distanceToMonday = (currentDayOfWeek + 6) % 7
-    const monday = new Date(now)
-    monday.setDate(now.getDate() - distanceToMonday + weekOffset.value * 7)
-    monday.setHours(0, 0, 0, 0)
+    const currentDayOfWeek = now.getDay() // 0 is Sunday, 1 is Monday... 6 is Saturday
+    const sunday = new Date(now)
+    sunday.setDate(now.getDate() - currentDayOfWeek + weekOffset.value * 7)
+    sunday.setHours(0, 0, 0, 0)
 
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
     const days = []
     for (let i = 0; i < 7; i++) {
-      const d = new Date(monday)
-      d.setDate(monday.getDate() + i)
+      const d = new Date(sunday)
+      d.setDate(sunday.getDate() + i)
       const y = d.getFullYear()
       const m = String(d.getMonth() + 1).padStart(2, '0')
       const day = String(d.getDate()).padStart(2, '0')
