@@ -325,7 +325,10 @@
         @click.self="close"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"></div>
+        <div
+          class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+          @click="close"
+        ></div>
 
         <!-- Modal Card -->
         <div

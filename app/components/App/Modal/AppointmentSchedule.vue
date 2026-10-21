@@ -805,7 +805,7 @@
   >
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
         @click.self="emit('close')"
       >
         <div

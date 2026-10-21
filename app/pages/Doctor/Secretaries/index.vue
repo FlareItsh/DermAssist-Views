@@ -398,8 +398,8 @@
         <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <h1 class="text-foreground text-2xl font-bold">Manage Secretaries</h1>
           <p class="text-muted-foreground mt-0.5 text-sm">
-          Register and manage secretary accounts linked to your clinic.
-        </p>
+            Register and manage secretary accounts linked to your clinic.
+          </p>
           <span
             v-if="canHaveSecretary"
             class="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold whitespace-nowrap"
@@ -783,7 +783,8 @@
     <Teleport to="body">
       <div
         v-if="showAddModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="showAddModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in relative w-full max-w-md rounded-2xl border p-6 shadow-xl duration-200"
@@ -982,7 +983,8 @@
     <Teleport to="body">
       <div
         v-if="showEditModal && editingSecretary"
-        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs"
+        @click.self="showEditModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-xs"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in relative my-8 w-full max-w-lg rounded-2xl border p-6 shadow-2xl duration-200"
@@ -1311,7 +1313,8 @@
     <Teleport to="body">
       <div
         v-if="showDeleteModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        @click.self="showDeleteModal = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in relative w-full max-w-sm rounded-2xl border p-6 text-center shadow-xl duration-200"
