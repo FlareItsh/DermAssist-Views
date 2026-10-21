@@ -666,7 +666,7 @@
     return recurringStartDayOfWeek.value === day
   }
 
-  // Recalculate Until Date dynamically based on selected days of the week and starting date
+  // Recalculate range dynamically to stay strictly within that whole week (never spills into next week)
   const updateDynamicUntilDate = () => {
     if (!recurringStartDate.value || recurringStartDate.value < todayDateStr.value) {
       recurringStartDate.value = todayDateStr.value
@@ -679,23 +679,34 @@
     const start = new Date(recurringStartDate.value + 'T00:00:00')
     const startDayOfWeek = start.getDay() // 0=Sun, 1=Mon... 6=Sat
 
-    // Find Sunday of this week
+    // Find Sunday of this selected week
     const sunday = new Date(start)
     sunday.setDate(start.getDate() - startDayOfWeek)
 
+    const minDay = Math.min(...recurringDays.value)
     const maxDay = Math.max(...recurringDays.value)
+
+    const targetStart = new Date(sunday)
+    targetStart.setDate(sunday.getDate() + minDay)
+
     const targetEnd = new Date(sunday)
     targetEnd.setDate(sunday.getDate() + maxDay)
 
-    // If targetEnd is before start date, advance to the next week cycle
-    if (targetEnd < start) {
-      targetEnd.setDate(targetEnd.getDate() + 7)
+    // Format start to earliest selected active day in this week if valid and not in past
+    const yStart = targetStart.getFullYear()
+    const mStart = String(targetStart.getMonth() + 1).padStart(2, '0')
+    const dStart = String(targetStart.getDate()).padStart(2, '0')
+    const targetStartStr = `${yStart}-${mStart}-${dStart}`
+
+    if (targetStartStr >= todayDateStr.value && targetStartStr < recurringStartDate.value) {
+      recurringStartDate.value = targetStartStr
     }
 
-    const y = targetEnd.getFullYear()
-    const m = String(targetEnd.getMonth() + 1).padStart(2, '0')
-    const d = String(targetEnd.getDate()).padStart(2, '0')
-    recurringEndDate.value = `${y}-${m}-${d}`
+    // Format end date strictly within this week's bounds (never +7 into next week)
+    const yEnd = targetEnd.getFullYear()
+    const mEnd = String(targetEnd.getMonth() + 1).padStart(2, '0')
+    const dEnd = String(targetEnd.getDate()).padStart(2, '0')
+    recurringEndDate.value = `${yEnd}-${mEnd}-${dEnd}`
   }
 
   const setWeekdayPreset = (preset: 'weekdays' | 'mwf' | 'tths' | 'everyday' | 'clear') => {
