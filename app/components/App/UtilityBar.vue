@@ -2,7 +2,6 @@
   import { ref, onMounted, onUnmounted } from 'vue'
   import { authService } from '~/api/auth/AuthService'
   import { userService } from '~/api/user/UserService'
-  import { appealService } from '~/api/appeal/AppealService'
   import type { AppNotification } from '~/composables/useAppNotifications'
   import { parseChatPreview, type ParsedChatPreview } from '~/composables/useChatPreview'
 
@@ -170,30 +169,6 @@
     navigateTo(`${messagesBasePath.value}/${conv.id}`)
   }
 
-  // Refresh on route change
-  watch(
-    () => route.fullPath,
-    () => {
-      refresh()
-      fetchPublishedPatchNotes?.(true)
-      if (userRole.value === 'admin') refreshAppeals()
-      if (
-        userRole.value === 'doctor' ||
-        userRole.value === 'patient' ||
-        userRole.value === 'secretary'
-      )
-        fetchAppointments()
-    }
-  )
-
-  const { data: appealsData, refresh: refreshAppeals } = appealService.useList(
-    {},
-    {
-      immediate: userRole.value === 'admin',
-      key: 'admin-appeals'
-    }
-  )
-
   const {
     notifications,
     unreadNotifications,
@@ -204,8 +179,18 @@
     isSecretaryProfileIncomplete,
     profileRoute,
     refreshProfile,
-    fetchPublishedPatchNotes
+    fetchPublishedPatchNotes,
+    pollAllNotifications
   } = useAppNotifications()
+
+  // Refresh on route change
+  watch(
+    () => route.fullPath,
+    () => {
+      refresh()
+      pollAllNotifications?.()
+    }
+  )
 
   const isProfileIncomplete = computed(
     () =>

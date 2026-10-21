@@ -18,6 +18,13 @@
   const selectedArch = ref<'swin_transformer' | 'resnet50' | 'efficientnet_v2'>('swin_transformer')
   const selectedEpochs = ref(3)
   const syncDataset = ref(false)
+  const epochPresets = [3, 5, 10, 15, 20, 30]
+
+  const adjustEpochs = (delta: number) => {
+    if (isTrainingActive.value) return
+    const current = Number(selectedEpochs.value) || 3
+    selectedEpochs.value = Math.max(1, Math.min(100, current + delta))
+  }
 
   // State
   const isLoadingStats = ref(false)
@@ -1087,32 +1094,42 @@
         </div>
       </div>
 
-      <!-- Completion Summary: Full 3-Model Outcome Breakdown -->
-      <div
-        v-if="trainingStatus?.status === 'completed'"
-        class="space-y-4 pt-2"
-      >
-        <div class="border-border flex items-center justify-between border-t pt-4">
+      <!-- Persistent 3-Model Baseline & Validation Guard Benchmark Section -->
+      <div class="space-y-4 pt-2">
+        <div
+          class="border-border flex flex-col items-start justify-between gap-2 border-t pt-4 sm:flex-row sm:items-center"
+        >
           <div class="flex items-center gap-2">
             <Icon
-              name="lucide:clipboard-check"
+              name="lucide:shield-check"
               size="18"
               class="text-primary"
             />
-            <h4 class="text-foreground text-sm font-bold">
-              Retraining Results & Validation Guard Summary
-            </h4>
+            <div>
+              <h4 class="text-foreground text-sm font-bold">
+                Preserved Model Baselines & Validation Guard Benchmarks
+              </h4>
+              <p class="text-muted-foreground text-[11px]">
+                Active production checkpoints safeguarded against accuracy regression.
+              </p>
+            </div>
           </div>
-          <AppBadge
-            :color="trainingStatus.model_promoted ? 'success' : 'gray'"
-            size="sm"
-          >
-            {{
-              trainingStatus.model_promoted
-                ? 'Production Models Updated'
-                : 'Historical Baselines Protected'
-            }}
-          </AppBadge>
+          <div class="flex items-center gap-2">
+            <AppBadge
+              :color="
+                trainingStatus?.model_promoted ? 'success' : isTrainingActive ? 'primary' : 'gray'
+              "
+              size="sm"
+            >
+              {{
+                isTrainingActive
+                  ? 'Live Benchmark Running'
+                  : trainingStatus?.model_promoted
+                    ? 'Production Models Promoted'
+                    : 'Historical Baselines Protected'
+              }}
+            </AppBadge>
+          </div>
         </div>
 
         <!-- 3-Model Results Cards Grid -->
@@ -1121,40 +1138,65 @@
             v-for="res in parsedEnsembleResults"
             :key="res.id"
             class="rounded-2xl border p-4 transition-all"
-            :class="
+            :class="[
               res.promoted
                 ? 'border-emerald-500/30 bg-emerald-500/10'
-                : 'bg-background border-border'
-            "
+                : 'bg-background border-border',
+              selectedArch === res.id && selectedTrainingMode === 'quick'
+                ? 'ring-1 ring-amber-500/40'
+                : ''
+            ]"
           >
             <div class="flex items-start justify-between gap-2">
               <div>
-                <h5 class="text-foreground text-sm font-bold">{{ res.name }}</h5>
+                <div class="flex items-center gap-1.5">
+                  <h5 class="text-foreground text-sm font-bold">{{ res.name }}</h5>
+                  <span
+                    v-if="selectedArch === res.id && selectedTrainingMode === 'quick'"
+                    class="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400"
+                  >
+                    Focus
+                  </span>
+                </div>
                 <p class="text-muted-foreground font-mono text-[11px]">{{ res.weights }}</p>
               </div>
               <AppBadge
-                :color="res.promoted ? 'success' : 'gray'"
+                :color="
+                  res.promoted
+                    ? 'success'
+                    : isTrainingActive && getEnsembleModelStatus(res.id) === 'active'
+                      ? 'primary'
+                      : 'gray'
+                "
                 size="sm"
               >
-                {{ res.promoted ? 'Promoted' : 'Preserved' }}
+                {{
+                  res.promoted
+                    ? 'Promoted'
+                    : isTrainingActive && getEnsembleModelStatus(res.id) === 'active'
+                      ? 'Tuning'
+                      : 'Preserved'
+                }}
               </AppBadge>
             </div>
 
             <div class="border-border/60 mt-3 grid grid-cols-2 gap-2 border-t pt-3 text-xs">
               <div>
-                <span class="text-muted-foreground block text-[11px]">Baseline Acc</span>
+                <span class="text-muted-foreground block text-[11px]">Preserved Baseline</span>
                 <span class="text-foreground font-mono font-bold"
                   >{{ res.baseline.toFixed(2) }}%</span
                 >
               </div>
               <div>
-                <span class="text-muted-foreground block text-[11px]">Achieved Acc</span>
+                <span class="text-muted-foreground block text-[11px]">Last Retrain Achieved</span>
                 <span
                   class="font-mono font-bold"
                   :class="
-                    res.achieved >= res.baseline
+                    res.achieved > res.baseline
                       ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
+                      : res.achieved < res.baseline
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-foreground'
                   "
                 >
                   {{ res.achieved.toFixed(2) }}%
@@ -1165,18 +1207,34 @@
             <div
               class="border-border/40 mt-2.5 flex items-center justify-between border-t pt-2 text-[11px]"
             >
-              <span class="text-muted-foreground">Guard Decision</span>
+              <span class="text-muted-foreground">Guard Difference</span>
               <span
                 class="flex items-center gap-1 font-semibold"
                 :class="
-                  res.promoted ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'
+                  res.promoted || res.achieved > res.baseline
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : res.achieved < res.baseline
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-muted-foreground'
                 "
               >
                 <Icon
-                  :name="res.promoted ? 'lucide:badge-check' : 'lucide:shield-check'"
+                  :name="
+                    res.promoted || res.achieved > res.baseline
+                      ? 'lucide:trending-up'
+                      : res.achieved < res.baseline
+                        ? 'lucide:shield-alert'
+                        : 'lucide:shield-check'
+                  "
                   size="13"
                 />
-                {{ res.promoted ? 'New Weights Deployed' : 'Baseline Preserved' }}
+                {{
+                  res.achieved > res.baseline
+                    ? `+${(res.achieved - res.baseline).toFixed(2)}% (Passed)`
+                    : res.achieved < res.baseline
+                      ? `${(res.achieved - res.baseline).toFixed(2)}% (Protected)`
+                      : '±0.00% (Baseline Match)'
+                }}
               </span>
             </div>
           </div>
@@ -1417,29 +1475,110 @@
             </p>
           </div>
 
-          <!-- Epoch Selection -->
+          <!-- Custom Editable Epoch Selection with Stepper & Presets -->
           <div
-            class="space-y-2 pt-1"
+            class="space-y-3 pt-1"
             :class="{ 'opacity-60': isTrainingActive }"
           >
-            <label
-              class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
-            >
-              Training Epochs (Per Model)
-            </label>
-            <select
-              v-model="selectedEpochs"
-              :disabled="isTrainingActive"
-              class="bg-background border-border text-foreground focus:ring-primary w-full rounded-xl border px-3.5 py-2.5 text-sm focus:ring-2 focus:outline-none disabled:cursor-not-allowed"
-            >
-              <option :value="1">1 Epoch / Model (Testing & Fast Verification)</option>
-              <option :value="3">3 Epochs / Model (Recommended — Fast & Balanced)</option>
-              <option :value="5">5 Epochs / Model (Standard fine-tuning)</option>
-              <option :value="10">10 Epochs / Model (Deep convergence)</option>
-            </select>
-            <p class="text-muted-foreground text-[11px]">
-              Fine-tuning starts from existing weights using Cosine Annealing learning rate
-              schedule.
+            <div class="flex items-center justify-between">
+              <label
+                class="text-muted-foreground block text-xs font-semibold tracking-wider uppercase"
+              >
+                Training Epochs (Per Model)
+              </label>
+              <span class="font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                {{ Number(selectedEpochs) || 3 }}
+                {{ Number(selectedEpochs) === 1 ? 'Epoch' : 'Epochs' }} / Model
+              </span>
+            </div>
+
+            <!-- Custom Number Input with Stepper Buttons -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :disabled="isTrainingActive || selectedEpochs <= 1"
+                class="bg-background border-border text-foreground hover:bg-muted flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                @click="adjustEpochs(-1)"
+              >
+                <Icon
+                  name="lucide:minus"
+                  size="16"
+                />
+              </button>
+
+              <div class="relative flex-1">
+                <input
+                  v-model.number="selectedEpochs"
+                  type="number"
+                  min="1"
+                  max="100"
+                  :disabled="isTrainingActive"
+                  class="bg-background border-border text-foreground w-full [appearance:textfield] rounded-xl border px-4 py-2 text-center font-mono text-base font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:cursor-not-allowed [&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none"
+                  placeholder="Custom Epochs (1 - 100)"
+                />
+                <span
+                  class="text-muted-foreground pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-medium"
+                >
+                  epochs
+                </span>
+              </div>
+
+              <button
+                type="button"
+                :disabled="isTrainingActive || selectedEpochs >= 100"
+                class="bg-background border-border text-foreground hover:bg-muted flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                @click="adjustEpochs(1)"
+              >
+                <Icon
+                  name="lucide:plus"
+                  size="16"
+                />
+              </button>
+            </div>
+
+            <!-- Quick Preset Pills -->
+            <div class="space-y-1.5 pt-0.5">
+              <span class="text-muted-foreground text-[11px] font-semibold">Quick Presets:</span>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="ep in epochPresets"
+                  :key="ep"
+                  type="button"
+                  :disabled="isTrainingActive"
+                  class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                  :class="[
+                    Number(selectedEpochs) === ep
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-muted/70 hover:bg-muted text-foreground border-border/80 border',
+                    isTrainingActive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                  ]"
+                  @click="selectedEpochs = ep"
+                >
+                  {{ ep }} Epochs
+                </button>
+              </div>
+            </div>
+
+            <p class="text-muted-foreground text-[11px] leading-relaxed">
+              <template v-if="selectedTrainingMode === 'quick'">
+                The selected focus model (
+                <strong class="text-foreground font-semibold">{{ selectedArchData.name }}</strong>
+                ) will train its classification head for
+                <strong class="text-foreground font-semibold"
+                  >{{ Number(selectedEpochs) || 3 }} epoch(s)</strong
+                >
+                (~20s).
+              </template>
+              <template v-else>
+                All 3 ensemble backbones (Swin, ResNet50, EfficientNet-V2) will each run for
+                <strong class="text-foreground font-semibold"
+                  >{{ Number(selectedEpochs) || 3 }} epochs</strong
+                >
+                (total:
+                <strong class="text-foreground font-semibold"
+                  >{{ (Number(selectedEpochs) || 3) * 3 }} full passes</strong
+                >) with Cosine Annealing learning rate schedule.
+              </template>
             </p>
           </div>
 
@@ -2672,3 +2811,16 @@
     </AppModal>
   </div>
 </template>
+
+<style scoped>
+  /* Suppress browser native spinner arrows on number inputs */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+</style>

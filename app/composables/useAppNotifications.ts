@@ -101,13 +101,26 @@ export const useAppNotifications = () => {
     }
   )
 
-  const { data: appealsData, refresh: refreshAppeals } = appealService.useList(
-    {},
-    {
-      immediate: userRole.value === 'admin',
-      key: 'admin-appeals'
+  const doctorAppeals = useState<any[]>('app-doctor-appeals', () => [])
+  const adminAppeals = useState<any[]>('app-admin-appeals', () => [])
+
+  const fetchAppeals = async () => {
+    const currentRole = (userRole.value || useCookie('user_role').value || '')
+      ?.toString()
+      .toLowerCase()
+
+    try {
+      if (currentRole === 'doctor') {
+        const res = await appealService.list({ status: 'all' })
+        doctorAppeals.value = res?.data ?? (Array.isArray(res) ? res : [])
+      } else if (currentRole === 'admin') {
+        const res = await appealService.list({ status: 'pending' })
+        adminAppeals.value = res?.data ?? (Array.isArray(res) ? res : [])
+      }
+    } catch {
+      // silent catch for unauthenticated or network hiccup
     }
-  )
+  }
 
   const pollAllNotifications = async () => {
     if (isPollingActive || !userUuid.value) return
@@ -154,9 +167,11 @@ export const useAppNotifications = () => {
       // 5. Conversations & unread messages for all roles
       tasks.push(fetchConversations())
 
-      // 6. Admin appeals, verifications, and payments
+      // 6. Admin & Doctor appeals, verifications, and payments
+      if (currentRole === 'admin' || currentRole === 'doctor') {
+        tasks.push(fetchAppeals())
+      }
       if (currentRole === 'admin') {
-        tasks.push(refreshAppeals())
         tasks.push(
           verificationService
             .list({ status: 'pending' })
@@ -209,11 +224,19 @@ export const useAppNotifications = () => {
             .listen('.DoctorVerificationStatusUpdated', () => {
               refreshProfile()
             })
-
-          if (userRole.value === 'admin') {
-            echo.private('admin.moderation').listen('.DoctorVerificationStatusUpdated', () => {
+            .listen('.ScanAppealUpdated', () => {
               pollAllNotifications()
             })
+
+          if (userRole.value === 'admin') {
+            echo
+              .private('admin.moderation')
+              .listen('.DoctorVerificationStatusUpdated', () => {
+                pollAllNotifications()
+              })
+              .listen('.ScanAppealUpdated', () => {
+                pollAllNotifications()
+              })
           }
         }
       }
@@ -829,19 +852,55 @@ export const useAppNotifications = () => {
       })
     }
 
-    if (userRole.value === 'admin' && appealsData.value?.data) {
-      appealsData.value.data.forEach((appeal: any) => {
-        list.push({
-          id: `appeal-${appeal.uuid}`,
-          type: 'admin',
-          title: 'New Medical Appeal',
-          description: `Dr. ${appeal.user.last_name} suggested "${appeal.suggested_label}" instead of "${appeal.diagnosis_label}". Reason: ${appeal.description}`,
-          time: appeal.created_at ? formatRelativeTime(appeal.created_at) : 'New',
-          icon: 'material-symbols:report-outline',
-          color: 'text-red-500',
-          to: '/admin/moderation/verification'
+    if (userRole.value === 'admin' && adminAppeals.value && adminAppeals.value.length > 0) {
+      adminAppeals.value
+        .filter((appeal: any) => appeal.status === 'pending')
+        .forEach((appeal: any) => {
+          list.push({
+            id: `appeal-${appeal.uuid}`,
+            type: 'admin',
+            title: 'New Medical Appeal',
+            description: `Dr. ${appeal.user?.last_name || 'Doctor'} suggested "${appeal.suggested_label}" instead of "${appeal.diagnosis_label}". Reason: ${appeal.description || 'Clinical re-assessment'}`,
+            time: appeal.created_at ? formatRelativeTime(appeal.created_at) : 'New',
+            icon: 'material-symbols:report-outline',
+            color: 'text-red-500',
+            to: '/admin/appeals'
+          })
         })
-      })
+    }
+
+    if (userRole.value === 'doctor' && doctorAppeals.value && doctorAppeals.value.length > 0) {
+      doctorAppeals.value
+        .filter((appeal: any) => !appeal.user?.uuid || appeal.user.uuid === userUuid.value)
+        .forEach((appeal: any) => {
+          if (appeal.status === 'rejected') {
+            list.push({
+              id: `doctor-appeal-rejected-${appeal.uuid}`,
+              type: 'admin',
+              title: 'Scan Appeal Rejected',
+              description: appeal.resolution_notes
+                ? `Your appeal for "${appeal.suggested_label}" was rejected by moderation: "${appeal.resolution_notes}". You may review or file a new appeal.`
+                : `Your appeal for "${appeal.suggested_label}" was rejected by moderation. You may review and re-appeal if desired.`,
+              time: appeal.resolved_at ? formatRelativeTime(appeal.resolved_at) : 'Recently',
+              icon: 'lucide:x-circle',
+              color: 'text-rose-500',
+              to: `/Doctor/Records?search=${encodeURIComponent(appeal.suggested_label || '')}&diagnosis_uuid=${appeal.diagnosis?.uuid || ''}`,
+              data: appeal
+            })
+          } else if (appeal.status === 'resolved') {
+            list.push({
+              id: `doctor-appeal-resolved-${appeal.uuid}`,
+              type: 'admin',
+              title: 'Scan Appeal Approved',
+              description: `Your appeal for "${appeal.suggested_label}" was approved by moderation and ingested for AI retraining.`,
+              time: appeal.resolved_at ? formatRelativeTime(appeal.resolved_at) : 'Recently',
+              icon: 'lucide:check-circle-2',
+              color: 'text-green-500',
+              to: `/Doctor/Records?search=${encodeURIComponent(appeal.suggested_label || '')}&diagnosis_uuid=${appeal.diagnosis?.uuid || ''}`,
+              data: appeal
+            })
+          }
+        })
     }
 
     if (userRole.value === 'admin' && adminPendingVerifications.value > 0) {
@@ -937,7 +996,10 @@ export const useAppNotifications = () => {
     readNotifs,
     userProfile,
     refreshProfile,
-    refreshAppeals,
+    refreshAppeals: fetchAppeals,
+    fetchAppeals,
+    doctorAppeals,
+    adminAppeals,
     publishedPatchNotes,
     latestPatchNote,
     hasUnseenUpdate,

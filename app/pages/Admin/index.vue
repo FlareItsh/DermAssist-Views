@@ -33,7 +33,15 @@
   const patientCount = ref(0)
   const doctorCount = ref(0)
   const usersForUsage = ref<any[]>([])
-  const { sortedAppeals, isLoadingAppeals, fetchAppeals } = useAdminAppeals()
+  const {
+    appeals,
+    sortedAppeals,
+    allSortedAppeals,
+    pendingCount,
+    totalCount,
+    isLoadingAppeals,
+    fetchAppeals
+  } = useAdminAppeals()
   const usageRange = ref<'week' | 'month' | 'year'>('year')
   const hoveredUsagePoint = ref<any | null>(null)
 
@@ -64,7 +72,7 @@
     })
   }
 
-  const recentAppeals = computed(() => sortedAppeals.value.slice(0, 4))
+  const recentAppeals = computed(() => allSortedAppeals.value.slice(0, 4))
 
   const patientTrend = computed(() => {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -127,7 +135,7 @@
         type: 'Pending verifications',
         date: item.created_at || item.updated_at
       })),
-      ...sortedAppeals.value.map(item => ({
+      ...appeals.value.map(item => ({
         type: 'Scan appeals',
         date: item.created_at || item.updated_at
       }))
@@ -614,9 +622,9 @@
 
       <AdminSideComponentsMetricCard
         label="Scan Appeals"
-        :value="sortedAppeals.length"
+        :value="totalCount"
         detail="Doctor diagnostic appeal cases"
-        :badge="sortedAppeals.length > 0 ? `${sortedAppeals.length} Action Req.` : 'All Clear'"
+        :badge="pendingCount > 0 ? `${pendingCount} Action Req.` : 'All Clear'"
         to="/admin/appeals"
         :loading="isLoadingAppeals"
       />
@@ -1150,9 +1158,29 @@
           class="group grid gap-2 px-4 py-3 transition hover:bg-gray-50 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_auto] md:gap-4 md:px-5 md:py-4"
         >
           <div class="min-w-0">
-            <p class="group-hover:text-primary truncate text-sm font-bold text-gray-900">
-              Dr. {{ getAppealDoctorName(appeal) }}
-            </p>
+            <div class="flex items-center gap-2">
+              <p class="group-hover:text-primary truncate text-sm font-bold text-gray-900">
+                Dr. {{ getAppealDoctorName(appeal) }}
+              </p>
+              <span
+                v-if="appeal.status === 'resolved'"
+                class="inline-flex items-center rounded-md bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700 ring-1 ring-green-600/20 ring-inset"
+              >
+                Resolved
+              </span>
+              <span
+                v-else-if="appeal.status === 'rejected'"
+                class="inline-flex items-center rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 ring-1 ring-rose-600/20 ring-inset"
+              >
+                Rejected
+              </span>
+              <span
+                v-else
+                class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-600/20 ring-inset"
+              >
+                Pending
+              </span>
+            </div>
             <p class="mt-1 truncate text-xs font-medium text-gray-400">
               {{ formatAppealDate(appeal.created_at || appeal.updated_at) }}
             </p>

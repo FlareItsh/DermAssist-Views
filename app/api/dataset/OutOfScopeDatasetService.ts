@@ -86,6 +86,23 @@ export class OutOfScopeDatasetService extends BaseService {
     return this.request('/out-of-scope-dataset/bulk', 'DELETE', { urls })
   }
 
+  async transferImages(
+    urls: string[],
+    targetCategory: string,
+    isStandard?: boolean
+  ): Promise<{
+    message: string
+    transferred_count: number
+    target_category: string
+    is_standard?: boolean
+  }> {
+    return this.request('/out-of-scope-dataset/transfer', 'POST', {
+      urls,
+      target_category: targetCategory,
+      is_standard: isStandard
+    })
+  }
+
   async downloadDataset(category?: string): Promise<Blob> {
     const query = category ? `?category=${encodeURIComponent(category)}` : ''
     return $api<Blob>(`/out-of-scope-dataset/download${query}`, {
