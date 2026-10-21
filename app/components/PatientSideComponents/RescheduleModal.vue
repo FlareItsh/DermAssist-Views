@@ -565,31 +565,30 @@
     try {
       const apptId = props.appointment.id || (props.appointment as any).uuid
 
+      const [hStr, mStr] = selectedTime.value.split(':')
+      const h = parseInt(hStr, 10)
+      const m = parseInt(mStr, 10)
+      const endH = (h + 1) % 24
+      const endTime = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+
+      const dateTime = `${selectedDate.value} ${selectedTime.value}:00`
+      const endDateTime = `${selectedDate.value} ${endTime}:00`
+      const location = selectedDateClinic.value?.name || props.appointment.location || 'Clinic Duty'
+
       if (isDoctorOrSecretary.value) {
-        const [hStr, mStr] = selectedTime.value.split(':')
-        const h = parseInt(hStr, 10)
-        const m = parseInt(mStr, 10)
-        const endH = (h + 1) % 24
-        const endTime = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-
-        const dateTime = `${selectedDate.value} ${selectedTime.value}:00`
-        const endDateTime = `${selectedDate.value} ${endTime}:00`
-        const location =
-          selectedDateClinic.value?.name || props.appointment.location || 'Clinic Duty'
-
-        await appointmentService.proposeReschedule(apptId, {
+        await appointmentService.createRescheduleProposal(apptId, {
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
           location
         })
         toast.success('Reschedule proposal sent to patient.')
       } else {
-        await appointmentService.update(apptId, {
-          status: 'reschedule_requested',
-          requested_reschedule_date: selectedDate.value,
-          requested_reschedule_time: selectedTime.value
+        await appointmentService.createRescheduleProposal(apptId, {
+          scheduled_at: dateTime,
+          scheduled_end_at: endDateTime,
+          location
         })
-        toast.success('Reschedule request sent to your doctor.')
+        toast.success('Reschedule proposal sent to your doctor.')
       }
       emit('requested')
       emit('close')

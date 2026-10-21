@@ -154,6 +154,9 @@
     return convData.value.patient?.user_id || convData.value.patient?.id || otherPersonUuid.value
   })
 
+  const showPatientDirectBookingModal = ref(false)
+  const isDirectBooking = ref(false)
+
   const openScheduleFromSidebar = () => {
     if (pendingAppointmentForConversation.value) {
       openScheduleModalFromPending(pendingAppointmentForConversation.value)
@@ -169,8 +172,35 @@
         showScheduleModal.value = true
         showUserDetails.value = false
       } else {
-        navigateTo('/Patient/Scan/SelectDoctor')
+        showPatientDirectBookingModal.value = true
+        showUserDetails.value = false
       }
+    }
+  }
+
+  const confirmPatientDirectBooking = async () => {
+    const doctorId =
+      convData.value?.doctor?.uuid || convData.value?.doctor?.user_id || convData.value?.doctor?.id
+    if (!doctorId) {
+      toast.error('Unable to find doctor information to request appointment.')
+      return
+    }
+    isDirectBooking.value = true
+    try {
+      await appointmentService.create({
+        doctor_id: doctorId,
+        source: 'direct',
+        message: 'I would like to schedule an appointment for a clinical consultation.'
+      })
+      toast.success('Appointment request sent successfully!')
+      showPatientDirectBookingModal.value = false
+      await fetchAppointments()
+      await fetchMessages(1)
+    } catch (e: any) {
+      console.error('Failed to book direct appointment:', e)
+      toast.error(e?.data?.message || 'Failed to submit appointment request.')
+    } finally {
+      isDirectBooking.value = false
     }
   }
 
@@ -3340,6 +3370,21 @@
         :loading="isAcceptingReschedule"
         @confirm="confirmAcceptReschedule"
         @cancel="closeAcceptModal"
+      />
+
+      <!-- Patient Direct Booking Confirmation Modal -->
+      <AppModalConfirmation
+        v-model="showPatientDirectBookingModal"
+        title="Request Clinical Appointment"
+        :description="`Would you like to request an appointment with ${otherPersonName}? This submits a consultation booking request directly without attaching any skin scans.`"
+        confirm-text="Request Appointment"
+        cancel-text="Cancel"
+        confirm-variant="solid"
+        icon="solar:calendar-add-bold"
+        icon-color="primary"
+        :loading="isDirectBooking"
+        @confirm="confirmPatientDirectBooking"
+        @cancel="showPatientDirectBookingModal = false"
       />
 
       <!-- In-Chat Patient Records Modal -->

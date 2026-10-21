@@ -129,15 +129,43 @@
       return
     }
 
-    selectDoctor(doc.uuid)
-    navigateTo('/Patient/Scan/Results')
+    if (isSubmitting.value) return
+    isSubmitting.value = true
+    try {
+      const docId = doc.id || doc.uuid
+      if (actionType.value === 'chat') {
+        const convRes = await conversationService.create({ doctor_id: docId })
+        const convUuid = convRes?.data?.id || convRes?.id
+        if (convUuid) {
+          await navigateTo(`/Patient/Messages/${convUuid}`)
+          return
+        }
+      } else {
+        const res = await appointmentService.create({
+          doctor_id: docId,
+          source: 'direct'
+        })
+        toast.success(`Appointment request submitted to Dr. ${doc.last_name || 'Doctor'}!`)
+        if (res?.conversation_uuid) {
+          await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
+          return
+        }
+        await navigateTo('/Patient/Messages')
+        return
+      }
+    } catch (err: any) {
+      console.error('Failed to dispatch direct doctor booking:', err)
+      toast.error(err?.data?.message || err?.message || 'Could not process booking request.')
+    } finally {
+      isSubmitting.value = false
+    }
   }
 
   const handleBack = () => {
     if (diagnosisUuid.value) {
       router.back()
     } else {
-      navigateTo('/Patient/Scan/Results')
+      navigateTo('/Patient')
     }
   }
 

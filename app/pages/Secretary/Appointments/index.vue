@@ -9,7 +9,11 @@
 
   const {
     appointments,
+    pendingAppointments,
+    declinedAppointments,
     completedAppointments,
+    noShowAppointments,
+    cancelledAppointments,
     rescheduleRequests,
     rescheduleRequestsCount,
     todayAppointments,
@@ -21,7 +25,7 @@
   const { searchQuery } = useSearch()
 
   const showScheduleModal = ref(false)
-  const activeTab = ref<'today' | 'upcoming' | 'reschedule' | 'history'>('upcoming')
+  const activeTab = ref<'today' | 'upcoming' | 'pending' | 'reschedule' | 'history'>('upcoming')
   const viewMode = ref<'list' | 'timetable'>('list')
 
   // Direct action modals
@@ -56,6 +60,229 @@
     pendingAcceptAppt.value = null
   }
 
+  // Pending Booking Actions (Accept / Reject)
+  const isProcessingBooking = ref(false)
+  const showBookingModal = ref(false)
+  const bookingActionType = ref<'accept' | 'reject'>('accept')
+  const pendingBookingAppt = ref<any | null>(null)
+  const bookingRejectReason = ref('Slot unavailable')
+
+  const promptAcceptBooking = (appt: any) => {
+    pendingBookingAppt.value = appt
+    bookingActionType.value = 'accept'
+    showBookingModal.value = true
+  }
+
+  const promptRejectBooking = (appt: any) => {
+    pendingBookingAppt.value = appt
+    bookingActionType.value = 'reject'
+    bookingRejectReason.value = 'Slot unavailable or schedule conflict'
+    showBookingModal.value = true
+  }
+
+  const confirmBookingAction = async () => {
+    if (!pendingBookingAppt.value) return
+    isProcessingBooking.value = true
+    try {
+      if (bookingActionType.value === 'accept') {
+        await appointmentService.accept(pendingBookingAppt.value.id)
+        toast.success('Appointment booking confirmed successfully.')
+      } else {
+        await appointmentService.reject(pendingBookingAppt.value.id, {
+          reason: bookingRejectReason.value || 'Booking declined by practice'
+        })
+        toast.success('Appointment booking request rejected.')
+      }
+      showBookingModal.value = false
+      pendingBookingAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      const msg = e?.response?._data?.message || e?.message || 'Operation failed.'
+      if (e?.response?.status === 409 || msg.includes('SLOT_')) {
+        toast.error('Slot Conflict: This time slot is no longer available.')
+      } else {
+        toast.error(msg)
+      }
+    } finally {
+      isProcessingBooking.value = false
+    }
+  }
+
+  const closeBookingModal = () => {
+    showBookingModal.value = false
+    pendingBookingAppt.value = null
+  }
+
+  // Attendance Controls (Check-in / No-Show)
+  const isProcessingAttendance = ref(false)
+  const showCheckInModal = ref(false)
+  const pendingAttendanceAppt = ref<any | null>(null)
+
+  const promptCheckIn = (appt: any) => {
+    pendingAttendanceAppt.value = appt
+    showCheckInModal.value = true
+  }
+
+  const confirmCheckIn = async () => {
+    if (!pendingAttendanceAppt.value) return
+    isProcessingAttendance.value = true
+    try {
+      await appointmentService.checkIn(pendingAttendanceAppt.value.id)
+      toast.success('Patient attendance checked in.')
+      showCheckInModal.value = false
+      pendingAttendanceAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to record check-in.')
+    } finally {
+      isProcessingAttendance.value = false
+    }
+  }
+
+  const closeCheckInModal = () => {
+    showCheckInModal.value = false
+    pendingAttendanceAppt.value = null
+  }
+
+  // No-Show Modal
+  const showNoShowModal = ref(false)
+  const pendingNoShowAppt = ref<any | null>(null)
+  const noShowReason = ref('patient_not_present')
+
+  const promptMarkNoShow = (appt: any) => {
+    pendingNoShowAppt.value = appt
+    noShowReason.value = 'patient_not_present'
+    showNoShowModal.value = true
+  }
+
+  const confirmMarkNoShow = async () => {
+    if (!pendingNoShowAppt.value) return
+    isProcessingAttendance.value = true
+    try {
+      await appointmentService.markNoShow(pendingNoShowAppt.value.id, {
+        reason: noShowReason.value || 'patient_not_present'
+      })
+      toast.success('Appointment marked as no-show.')
+      showNoShowModal.value = false
+      pendingNoShowAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to mark no-show.')
+    } finally {
+      isProcessingAttendance.value = false
+    }
+  }
+
+  const closeNoShowModal = () => {
+    showNoShowModal.value = false
+    pendingNoShowAppt.value = null
+  }
+
+  // Cancel Appointment Modal
+  const isCancelling = ref(false)
+  const showCancelModal = ref(false)
+  const pendingCancelAppt = ref<any | null>(null)
+  const cancelReason = ref('Clinic schedule change')
+
+  const promptCancelAppointment = (appt: any) => {
+    pendingCancelAppt.value = appt
+    cancelReason.value = 'Clinic schedule change'
+    showCancelModal.value = true
+  }
+
+  const confirmCancelAppointment = async () => {
+    if (!pendingCancelAppt.value) return
+    isCancelling.value = true
+    try {
+      await appointmentService.cancel(pendingCancelAppt.value.id, {
+        cancellation_reason: cancelReason.value || 'Cancelled by staff'
+      })
+      toast.success('Appointment cancelled.')
+      showCancelModal.value = false
+      pendingCancelAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to cancel appointment.')
+    } finally {
+      isCancelling.value = false
+    }
+  }
+
+  const closeCancelModal = () => {
+    showCancelModal.value = false
+    pendingCancelAppt.value = null
+  }
+
+  // Reschedule Proposal Decline / Withdraw Modals
+  const isProcessingReschedule = ref(false)
+  const showDeclineModal = ref(false)
+  const pendingDeclineAppt = ref<any | null>(null)
+  const declineReason = ref('Schedule conflict with clinic operating hours')
+
+  const promptDeclineProposal = (appt: any) => {
+    pendingDeclineAppt.value = appt
+    declineReason.value = 'Schedule conflict with clinic operating hours'
+    showDeclineModal.value = true
+  }
+
+  const confirmDeclineProposal = async () => {
+    if (!pendingDeclineAppt.value) return
+    isProcessingReschedule.value = true
+    try {
+      await appointmentService.decline(pendingDeclineAppt.value.id, {
+        reason: declineReason.value
+      })
+      toast.success('Reschedule proposal declined.')
+      showDeclineModal.value = false
+      pendingDeclineAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to decline proposal.')
+    } finally {
+      isProcessingReschedule.value = false
+    }
+  }
+
+  const closeDeclineModal = () => {
+    showDeclineModal.value = false
+    pendingDeclineAppt.value = null
+  }
+
+  const showWithdrawModal = ref(false)
+  const pendingWithdrawAppt = ref<any | null>(null)
+
+  const promptWithdrawProposal = (appt: any) => {
+    pendingWithdrawAppt.value = appt
+    showWithdrawModal.value = true
+  }
+
+  const confirmWithdrawProposal = async () => {
+    if (!pendingWithdrawAppt.value) return
+    isProcessingReschedule.value = true
+    try {
+      await appointmentService.withdraw(pendingWithdrawAppt.value.id)
+      toast.success('Reschedule proposal withdrawn.')
+      showWithdrawModal.value = false
+      pendingWithdrawAppt.value = null
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to withdraw proposal.')
+    } finally {
+      isProcessingReschedule.value = false
+    }
+  }
+
+  const closeWithdrawModal = () => {
+    showWithdrawModal.value = false
+    pendingWithdrawAppt.value = null
+  }
+
   // Doctor reschedule proposal modal
   const rescheduleModalAppt = ref<any | null>(null)
   const promptProposeDate = (appt: any) => {
@@ -76,16 +303,25 @@
   }
 
   const filteredAppointments = computed(() => {
-    let sourceList = appointments.value
+    let sourceList: any[] = []
 
-    if (activeTab.value === 'today') {
+    if (activeTab.value === 'pending') {
+      sourceList = pendingAppointments.value
+    } else if (activeTab.value === 'today') {
       sourceList = todayAppointments.value
     } else if (activeTab.value === 'upcoming') {
-      sourceList = appointments.value.filter(a => a.status === 'scheduled')
+      sourceList = appointments.value.filter(
+        a => a.status === 'confirmed' || a.status === 'scheduled' || a.status === 'checked_in'
+      )
     } else if (activeTab.value === 'reschedule') {
       sourceList = rescheduleRequests.value
     } else if (activeTab.value === 'history') {
-      sourceList = completedAppointments.value
+      sourceList = [
+        ...completedAppointments.value,
+        ...noShowAppointments.value,
+        ...cancelledAppointments.value,
+        ...declinedAppointments.value
+      ]
     }
 
     const list = sourceList.map(a => {
@@ -271,7 +507,41 @@
     <!-- List View Controls & KPI Triage (Only in List Mode) -->
     <template v-if="viewMode === 'list'">
       <!-- Clinical Overview / KPI Triage Cards -->
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <!-- Card 0: Pending Requests -->
+        <button
+          type="button"
+          @click="activeTab = 'pending'"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
+          :class="
+            activeTab === 'pending'
+              ? 'border-amber-500 bg-amber-50/60 ring-2 ring-amber-500/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
+          "
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Pending</span>
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-100 text-amber-700 transition-colors group-hover:bg-amber-500 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:clock"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span class="text-2xl font-black text-gray-900">{{ pendingAppointments.length }}</span>
+            <span
+              v-if="pendingAppointments.length > 0"
+              class="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800"
+            >
+              Needs Action
+            </span>
+          </div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Patient requests</div>
+        </button>
+
         <!-- Card 1: Today's Appointments -->
         <button
           type="button"
@@ -298,7 +568,40 @@
           <div class="mt-0.5 text-[11px] font-medium text-gray-500">{{ todayLabel }}</div>
         </button>
 
-        <!-- Card 2: Reschedule Requests -->
+        <!-- Card 2: Upcoming Consultations -->
+        <button
+          type="button"
+          @click="activeTab = 'upcoming'"
+          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
+          :class="
+            activeTab === 'upcoming'
+              ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
+              : 'border-gray-200/80 bg-white hover:border-gray-300'
+          "
+        >
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Upcoming</span>
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
+            >
+              <Icon
+                name="lucide:calendar-days"
+                class="text-lg"
+              />
+            </div>
+          </div>
+          <div class="mt-2 text-2xl font-black text-gray-900">
+            {{
+              appointments.filter(
+                a =>
+                  a.status === 'confirmed' || a.status === 'scheduled' || a.status === 'checked_in'
+              ).length
+            }}
+          </div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Future bookings</div>
+        </button>
+
+        <!-- Card 3: Reschedule Requests -->
         <button
           type="button"
           @click="activeTab = 'reschedule'"
@@ -331,35 +634,7 @@
               Needs Action
             </span>
           </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Patient requests</div>
-        </button>
-
-        <!-- Card 3: Upcoming Consultations -->
-        <button
-          type="button"
-          @click="activeTab = 'upcoming'"
-          class="group flex cursor-pointer flex-col rounded-2xl border p-4 text-left transition-all hover:shadow-md"
-          :class="
-            activeTab === 'upcoming'
-              ? 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-600/20'
-              : 'border-gray-200/80 bg-white hover:border-gray-300'
-          "
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-bold tracking-wider text-gray-500 uppercase">Upcoming</span>
-            <div
-              class="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-100 text-blue-700 transition-colors group-hover:bg-blue-600 group-hover:text-white"
-            >
-              <Icon
-                name="lucide:calendar-days"
-                class="text-lg"
-              />
-            </div>
-          </div>
-          <div class="mt-2 text-2xl font-black text-gray-900">
-            {{ appointments.filter(a => a.status === 'scheduled').length }}
-          </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Future bookings</div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Negotiation</div>
         </button>
 
         <!-- Card 4: History / Completed -->
@@ -385,9 +660,14 @@
             </div>
           </div>
           <div class="mt-2 text-2xl font-black text-gray-900">
-            {{ completedAppointments.length }}
+            {{
+              completedAppointments.length +
+              noShowAppointments.length +
+              cancelledAppointments.length +
+              declinedAppointments.length
+            }}
           </div>
-          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Completed consultations</div>
+          <div class="mt-0.5 text-[11px] font-medium text-gray-500">Past records</div>
         </button>
       </div>
 
@@ -397,6 +677,28 @@
       >
         <!-- Tab Navigation -->
         <div class="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            @click="activeTab = 'pending'"
+            class="flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all"
+            :class="
+              activeTab === 'pending'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            "
+          >
+            Pending Requests
+            <span
+              v-if="pendingAppointments.length > 0"
+              class="inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black"
+              :class="
+                activeTab === 'pending' ? 'bg-white text-amber-700' : 'bg-amber-600 text-white'
+              "
+            >
+              {{ pendingAppointments.length }}
+            </span>
+          </button>
+
           <button
             type="button"
             @click="activeTab = 'today'"
@@ -501,7 +803,10 @@
         </div>
         <h3 class="text-base font-bold text-gray-800">No appointments found</h3>
         <p class="mt-1 max-w-sm text-xs text-gray-500">
-          <template v-if="activeTab === 'today'">
+          <template v-if="activeTab === 'pending'">
+            There are no pending booking requests awaiting practice review.
+          </template>
+          <template v-else-if="activeTab === 'today'">
             You have no consultations scheduled for today.
           </template>
           <template v-else-if="activeTab === 'reschedule'">
@@ -539,21 +844,69 @@
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
             <!-- Time Badge -->
             <div
-              class="flex shrink-0 flex-row items-center justify-between gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3 sm:w-32 sm:flex-col sm:justify-center"
+              class="flex shrink-0 flex-row items-center justify-between gap-3 rounded-2xl border p-3 sm:w-32 sm:flex-col sm:justify-center"
+              :class="
+                appt.status === 'pending'
+                  ? 'border-amber-200 bg-amber-50/70'
+                  : appt.status === 'checked_in'
+                    ? 'border-emerald-200 bg-emerald-50/70'
+                    : appt.status === 'no_show'
+                      ? 'border-rose-200 bg-rose-50/70'
+                      : 'border-indigo-100 bg-indigo-50/60'
+              "
             >
               <div class="text-center">
-                <span class="text-base font-black text-indigo-900 sm:text-lg">{{ appt.time }}</span>
+                <span
+                  class="text-base font-black sm:text-lg"
+                  :class="
+                    appt.status === 'pending'
+                      ? 'text-amber-900'
+                      : appt.status === 'checked_in'
+                        ? 'text-emerald-900'
+                        : appt.status === 'no_show'
+                          ? 'text-rose-900'
+                          : 'text-indigo-900'
+                  "
+                >
+                  {{ appt.time }}
+                </span>
                 <span
                   v-if="appt.endTime"
-                  class="hidden text-[10px] font-semibold text-indigo-700/80 sm:block"
+                  class="hidden text-[10px] font-semibold sm:block"
+                  :class="
+                    appt.status === 'pending'
+                      ? 'text-amber-700/80'
+                      : appt.status === 'checked_in'
+                        ? 'text-emerald-700/80'
+                        : appt.status === 'no_show'
+                          ? 'text-rose-700/80'
+                          : 'text-indigo-700/80'
+                  "
                 >
                   until {{ appt.endTime }}
                 </span>
               </div>
               <span
-                class="rounded-lg bg-indigo-200/60 px-2 py-0.5 text-[9px] font-extrabold tracking-wider text-indigo-800 uppercase"
+                class="rounded-lg px-2 py-0.5 text-[9px] font-extrabold tracking-wider uppercase"
+                :class="
+                  appt.status === 'pending'
+                    ? 'bg-amber-200/70 text-amber-900'
+                    : appt.status === 'checked_in'
+                      ? 'bg-emerald-200/70 text-emerald-900'
+                      : appt.status === 'no_show'
+                        ? 'bg-rose-200/70 text-rose-900'
+                        : 'bg-indigo-200/60 text-indigo-800'
+                "
               >
-                {{ appt.type }}
+                {{
+                  appt.status === 'pending'
+                    ? 'Request'
+                    : appt.status === 'checked_in'
+                      ? 'Checked In'
+                      : appt.status === 'no_show'
+                        ? 'No-Show'
+                        : appt.type
+                }}
               </span>
             </div>
 
@@ -623,9 +976,42 @@
                   </span>
                 </div>
 
-                <!-- Reschedule Request Banner inside card -->
+                <!-- Banners inside card -->
+
+                <!-- Case A: Pending Booking Request -->
                 <div
-                  v-if="appt.status === 'reschedule_requested'"
+                  v-if="appt.status === 'pending'"
+                  class="mt-2.5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-bold text-amber-900"
+                >
+                  <Icon
+                    name="lucide:clock"
+                    class="shrink-0 text-base text-amber-600"
+                  />
+                  <span>
+                    Pending Booking Request: Scheduled slot
+                    <strong>{{ appt.date }} at {{ appt.time }}</strong> — Slot not reserved until
+                    accepted.
+                  </span>
+                </div>
+
+                <!-- Case B: Awaiting Attendance Review (Grace Period Passed) -->
+                <div
+                  v-else-if="appt.is_awaiting_attendance_review"
+                  class="mt-2.5 flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-900"
+                >
+                  <Icon
+                    name="lucide:alert-circle"
+                    class="shrink-0 text-base text-rose-600"
+                  />
+                  <span>
+                    Awaiting Attendance Review: 15-minute grace period elapsed. Review patient
+                    attendance.
+                  </span>
+                </div>
+
+                <!-- Case C: Reschedule Request by Patient -->
+                <div
+                  v-else-if="appt.status === 'reschedule_requested'"
                   class="mt-2.5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-1.5 text-xs font-bold text-amber-900"
                 >
                   <Icon
@@ -640,10 +1026,13 @@
                     <template v-if="appt.requested_reschedule_time">
                       at <strong>{{ appt.requested_reschedule_time }}</strong>
                     </template>
+                    <span class="ml-1 font-normal text-gray-500">
+                      (Current slot remains: {{ appt.date }} at {{ appt.time }})
+                    </span>
                   </span>
                 </div>
 
-                <!-- Reschedule Proposed by Doctor Banner -->
+                <!-- Case D: Reschedule Proposed by Staff -->
                 <div
                   v-else-if="appt.status === 'reschedule_proposed'"
                   class="mt-2.5 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 px-3 py-1.5 text-xs font-bold text-blue-900"
@@ -654,14 +1043,86 @@
                   />
                   <span>Waiting for patient to confirm proposed date</span>
                 </div>
+
+                <!-- Case E: No-Show Confirmed -->
+                <div
+                  v-else-if="appt.status === 'no_show'"
+                  class="mt-2.5 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50/70 px-3 py-1.5 text-xs font-medium text-rose-800"
+                >
+                  <Icon
+                    name="lucide:user-x"
+                    class="shrink-0 text-base text-rose-600"
+                  />
+                  <span
+                    >No-Show Recorded (Reason:
+                    {{ appt.no_show_reason || 'patient_not_present' }})</span
+                  >
+                </div>
+
+                <!-- Case F: Cancelled -->
+                <div
+                  v-else-if="appt.status === 'cancelled'"
+                  class="mt-2.5 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-700"
+                >
+                  <Icon
+                    name="lucide:ban"
+                    class="shrink-0 text-base text-gray-500"
+                  />
+                  <span
+                    >Cancelled (Reason:
+                    {{ appt.cancellation_reason || 'Cancelled by staff' }})</span
+                  >
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Right Column: Direct Clinical Action Buttons -->
           <div class="flex flex-wrap items-center gap-2 lg:shrink-0">
-            <!-- Case 1: Reschedule Requested (Needs Decision) -->
-            <template v-if="appt.status === 'reschedule_requested'">
+            <!-- Case 1: Pending Booking Requests -->
+            <template v-if="appt.status === 'pending'">
+              <button
+                type="button"
+                :disabled="isProcessingBooking"
+                @click="promptAcceptBooking(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+              >
+                <Icon
+                  name="material-symbols:check-circle-rounded"
+                  class="text-sm"
+                />
+                Accept Booking
+              </button>
+
+              <button
+                type="button"
+                :disabled="isProcessingBooking"
+                @click="promptRejectBooking(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-100 active:scale-95 disabled:opacity-50"
+              >
+                <Icon
+                  name="lucide:x-circle"
+                  class="text-sm"
+                />
+                Reject
+              </button>
+
+              <button
+                type="button"
+                @click="goToChat(appt.conversation_uuid)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 active:scale-95"
+                title="Message Patient"
+              >
+                <Icon
+                  name="lets-icons:message-light"
+                  class="text-lg text-gray-600"
+                />
+                <span class="hidden sm:inline">Message</span>
+              </button>
+            </template>
+
+            <!-- Case 2: Reschedule Requested (Patient proposed) -->
+            <template v-else-if="appt.status === 'reschedule_requested'">
               <button
                 type="button"
                 :disabled="isAccepting"
@@ -679,6 +1140,18 @@
                   class="text-sm"
                 />
                 Accept Request
+              </button>
+
+              <button
+                type="button"
+                @click="promptDeclineProposal(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-100 active:scale-95"
+              >
+                <Icon
+                  name="lucide:x-circle"
+                  class="text-sm"
+                />
+                Decline
               </button>
 
               <button
@@ -707,18 +1180,18 @@
               </button>
             </template>
 
-            <!-- Case 2: Standard Scheduled or Today (Clinical Consultation) -->
-            <template v-else-if="appt.status === 'scheduled'">
+            <!-- Case 3: Reschedule Proposed (Waiting for patient) -->
+            <template v-else-if="appt.status === 'reschedule_proposed'">
               <button
                 type="button"
-                @click="goToConsultation(appt.id)"
-                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                @click="promptWithdrawProposal(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 text-xs font-bold text-amber-800 shadow-xs transition hover:bg-amber-100 active:scale-95"
               >
                 <Icon
-                  name="material-symbols:edit-document-outline"
+                  name="lucide:undo-2"
                   class="text-sm"
                 />
-                Clinical Consultation
+                Withdraw Proposal
               </button>
 
               <button
@@ -734,7 +1207,94 @@
               </button>
             </template>
 
-            <!-- Case 3: Completed Consultations (History) -->
+            <!-- Case 4: Confirmed / Scheduled / Checked-In -->
+            <template
+              v-else-if="
+                appt.status === 'confirmed' ||
+                appt.status === 'scheduled' ||
+                appt.status === 'checked_in'
+              "
+            >
+              <!-- Attendance Buttons -->
+              <template v-if="appt.is_awaiting_attendance_review">
+                <button
+                  type="button"
+                  @click="promptCheckIn(appt)"
+                  class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-95"
+                >
+                  <Icon
+                    name="lucide:user-check"
+                    class="text-sm"
+                  />
+                  Check In
+                </button>
+
+                <button
+                  type="button"
+                  @click="promptMarkNoShow(appt)"
+                  class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-100 active:scale-95"
+                >
+                  <Icon
+                    name="lucide:user-x"
+                    class="text-sm"
+                  />
+                  Mark No-Show
+                </button>
+              </template>
+
+              <template v-else-if="appt.status !== 'checked_in'">
+                <button
+                  type="button"
+                  @click="promptCheckIn(appt)"
+                  class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-bold text-emerald-700 shadow-xs transition hover:bg-emerald-100 active:scale-95"
+                >
+                  <Icon
+                    name="lucide:user-check"
+                    class="text-sm"
+                  />
+                  Check In
+                </button>
+              </template>
+
+              <button
+                type="button"
+                @click="goToConsultation(appt.id)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+              >
+                <Icon
+                  name="material-symbols:edit-document-outline"
+                  class="text-sm"
+                />
+                Appointment Details
+              </button>
+
+              <button
+                type="button"
+                @click="promptCancelAppointment(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 text-xs font-bold text-gray-600 shadow-xs transition hover:bg-gray-50 active:scale-95"
+                title="Cancel Appointment"
+              >
+                <Icon
+                  name="lucide:x"
+                  class="text-sm text-gray-400"
+                />
+                <span class="hidden sm:inline">Cancel</span>
+              </button>
+
+              <button
+                type="button"
+                @click="goToChat(appt.conversation_uuid)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 active:scale-95"
+              >
+                <Icon
+                  name="lets-icons:message-light"
+                  class="text-lg text-gray-600"
+                />
+                <span class="hidden sm:inline">Message</span>
+              </button>
+            </template>
+
+            <!-- Case 5: Completed Consultations (History) -->
             <template v-else-if="appt.status === 'completed'">
               <button
                 type="button"
@@ -745,7 +1305,7 @@
                   name="lucide:file-text"
                   class="text-sm text-indigo-600"
                 />
-                View Clinical Note
+                View Details
               </button>
 
               <button
@@ -761,18 +1321,18 @@
               </button>
             </template>
 
-            <!-- Case 4: Other / Reschedule Proposed -->
+            <!-- Case 6: Other / Terminal -->
             <template v-else>
               <button
                 type="button"
                 @click="goToChat(appt.conversation_uuid)"
-                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 text-xs font-bold text-gray-700 shadow-xs transition hover:bg-gray-50 active:scale-95"
               >
                 <Icon
                   name="lets-icons:message-light"
                   class="text-base"
                 />
-                Chat in Consultation
+                Chat
               </button>
             </template>
           </div>
@@ -805,6 +1365,106 @@
       :loading="isAccepting"
       @confirm="confirmAcceptRequest"
       @cancel="closeAcceptModal"
+    />
+
+    <!-- 1b. Accept / Reject Pending Booking Modal -->
+    <AppModalConfirmation
+      v-model="showBookingModal"
+      :title="
+        bookingActionType === 'accept' ? 'Accept Booking Request?' : 'Decline Booking Request?'
+      "
+      :description="
+        bookingActionType === 'accept'
+          ? 'Confirm and lock this consultation slot. Availability will be atomically checked.'
+          : 'Are you sure you want to decline this booking request? The patient will be notified.'
+      "
+      :confirm-text="
+        bookingActionType === 'accept' ? 'Yes, Confirm Booking' : 'Yes, Decline Request'
+      "
+      cancel-text="Go Back"
+      confirm-variant="solid"
+      :icon="
+        bookingActionType === 'accept' ? 'material-symbols:check-circle-rounded' : 'lucide:x-circle'
+      "
+      :icon-color="bookingActionType === 'accept' ? 'primary' : 'error'"
+      :loading="isProcessingBooking"
+      @confirm="confirmBookingAction"
+      @cancel="closeBookingModal"
+    />
+
+    <!-- 1c. Record Check-In Modal -->
+    <AppModalConfirmation
+      v-model="showCheckInModal"
+      title="Record Patient Check-In?"
+      description="Confirm that the patient has arrived at the clinic or connected for consultation."
+      confirm-text="Yes, Check In"
+      cancel-text="Cancel"
+      confirm-variant="solid"
+      icon="lucide:user-check"
+      icon-color="primary"
+      :loading="isProcessingAttendance"
+      @confirm="confirmCheckIn"
+      @cancel="closeCheckInModal"
+    />
+
+    <!-- 1d. Mark No-Show Modal -->
+    <AppModalConfirmation
+      v-model="showNoShowModal"
+      title="Confirm Patient No-Show?"
+      description="Confirm that the patient was absent after the configured grace period. This records a missed consultation and closes the appointment."
+      confirm-text="Confirm No-Show"
+      cancel-text="Go Back"
+      confirm-variant="solid"
+      icon="lucide:user-x"
+      icon-color="error"
+      :loading="isProcessingAttendance"
+      @confirm="confirmMarkNoShow"
+      @cancel="closeNoShowModal"
+    />
+
+    <!-- 1e. Cancel Appointment Modal -->
+    <AppModalConfirmation
+      v-model="showCancelModal"
+      title="Cancel Consultation?"
+      description="Are you sure you want to cancel this scheduled appointment? Any pending proposals will be closed."
+      confirm-text="Yes, Cancel Appointment"
+      cancel-text="Go Back"
+      confirm-variant="solid"
+      icon="lucide:ban"
+      icon-color="error"
+      :loading="isCancelling"
+      @confirm="confirmCancelAppointment"
+      @cancel="closeCancelModal"
+    />
+
+    <!-- 1f. Decline Reschedule Proposal Modal -->
+    <AppModalConfirmation
+      v-model="showDeclineModal"
+      title="Decline Reschedule Proposal?"
+      description="Decline the patient's proposed reschedule date. The appointment remains confirmed at its current slot."
+      confirm-text="Decline Proposal"
+      cancel-text="Go Back"
+      confirm-variant="solid"
+      icon="lucide:x-circle"
+      icon-color="error"
+      :loading="isProcessingReschedule"
+      @confirm="confirmDeclineProposal"
+      @cancel="closeDeclineModal"
+    />
+
+    <!-- 1g. Withdraw Reschedule Proposal Modal -->
+    <AppModalConfirmation
+      v-model="showWithdrawModal"
+      title="Withdraw Reschedule Proposal?"
+      description="Withdraw the proposed reschedule. The appointment will remain scheduled at its current time."
+      confirm-text="Withdraw Proposal"
+      cancel-text="Go Back"
+      confirm-variant="solid"
+      icon="lucide:undo-2"
+      icon-color="primary"
+      :loading="isProcessingReschedule"
+      @confirm="confirmWithdrawProposal"
+      @cancel="closeWithdrawModal"
     />
 
     <!-- 2. Propose Another Date Modal (Doctor Reschedule) -->
