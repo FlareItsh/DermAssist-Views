@@ -108,16 +108,14 @@
             return
           }
         } else {
-          const res = await appointmentService.create({
-            doctor_id: docId,
-            diagnosis_uuid: diagnosisUuid.value
+          await navigateTo({
+            path: '/Patient/Appointments',
+            query: {
+              doctor: String(docId),
+              book: 'true',
+              diagnosis_uuid: diagnosisUuid.value
+            }
           })
-          toast.success('Appointment request submitted with scan attached!')
-          if (res?.conversation_uuid) {
-            await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
-            return
-          }
-          await navigateTo('/Patient/Messages')
           return
         }
       } catch (err: any) {
@@ -141,16 +139,13 @@
           return
         }
       } else {
-        const res = await appointmentService.create({
-          doctor_id: docId,
-          source: 'direct'
+        await navigateTo({
+          path: '/Patient/Appointments',
+          query: {
+            doctor: String(docId),
+            book: 'true'
+          }
         })
-        toast.success(`Appointment request submitted to Dr. ${doc.last_name || 'Doctor'}!`)
-        if (res?.conversation_uuid) {
-          await navigateTo(`/Patient/Messages/${res.conversation_uuid}`)
-          return
-        }
-        await navigateTo('/Patient/Messages')
         return
       }
     } catch (err: any) {

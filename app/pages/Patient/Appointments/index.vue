@@ -179,9 +179,11 @@
   // ── Booking Modal & Auto-Open Flow ───────────────────────────────────────────
   const showBookModal = ref(false)
   const selectedDoctorToBook = ref<any | null>(null)
+  const selectedDiagnosisToBook = ref<string>('')
 
-  const openBookingForDoctor = (doctor: any) => {
+  const openBookingForDoctor = (doctor: any, diagnosisUuid?: string) => {
     selectedDoctorToBook.value = doctor
+    selectedDiagnosisToBook.value = diagnosisUuid || ''
     showBookModal.value = true
   }
 
@@ -201,6 +203,9 @@
   const checkAutoOpenFromQuery = async () => {
     const doctorParam = route.query.doctor
     const shouldBook = route.query.book === 'true'
+    const diagnosisParam = (route.query.diagnosis_uuid || route.query.diagnosis) as
+      | string
+      | undefined
 
     if (doctorParam && shouldBook) {
       // Find doctor in current list
@@ -208,14 +213,14 @@
         d => String(d.id) === String(doctorParam) || d.uuid === doctorParam
       )
       if (doc) {
-        openBookingForDoctor(doc)
+        openBookingForDoctor(doc, diagnosisParam)
       } else {
         // Fetch doctor directly
         try {
           const res = await userService.show(String(doctorParam))
           const fetchedDoc = (res as any)?.data ?? res
           if (fetchedDoc) {
-            openBookingForDoctor(fetchedDoc)
+            openBookingForDoctor(fetchedDoc, diagnosisParam)
           }
         } catch (e) {
           console.warn('Could not auto-open booking for doctor query param:', doctorParam)
@@ -870,6 +875,7 @@
     <PatientSideComponentsBookAppointmentModal
       v-model="showBookModal"
       :doctor="selectedDoctorToBook"
+      :diagnosis-uuid="selectedDiagnosisToBook"
       @booked="onAppointmentBooked"
     />
 

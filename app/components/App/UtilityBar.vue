@@ -127,7 +127,7 @@
   const stripSystemTags = (message: string): string => {
     return message
       .replace(
-        /\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY|APPOINTMENT_SCHEDULED|APPOINTMENT_DECLINED|APPOINTMENT_COMPLETED|SCAN_RESULT):[^\]]+\]/g,
+        /\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY|APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED|APPOINTMENT_DECLINED|APPOINTMENT_COMPLETED|SCAN_RESULT):[^\]]+\]/g,
         ''
       )
       .replace(/<[^>]*>/g, '')

@@ -245,6 +245,17 @@
           } else if (appt.scheduled_at) {
             const p = parseAppointmentDateTime(appt.scheduled_at)
             selectedDate.value = p.date
+            scheduleTime.value = `${p.startH}:${p.startM}`
+            if (appt.scheduled_end_at) {
+              const pEnd = parseAppointmentDateTime(appt.scheduled_end_at)
+              scheduleEndTime.value = `${pEnd.startH}:${pEnd.startM}`
+            } else {
+              const endHour = (Number(p.startH) + 1) % 24
+              scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${p.startM}`
+            }
+            if (appt.location) {
+              scheduleLocation.value = appt.location
+            }
           } else if (!selectedDate.value) {
             selectedDate.value = getTodayStr()
           }
@@ -267,10 +278,39 @@
     }
 
     if (selectedDate.value) {
-      if (!props.prefillTime) {
+      if (!props.prefillTime && !currentAppointmentData.value?.scheduled_at) {
         handleDateSelected(selectedDate.value)
       }
     }
+  })
+
+  const resetToPatientRequestedSlot = () => {
+    if (!currentAppointmentData.value?.scheduled_at) return
+    const p = parseAppointmentDateTime(currentAppointmentData.value.scheduled_at)
+    selectedDate.value = p.date
+    scheduleTime.value = `${p.startH}:${p.startM}`
+    if (currentAppointmentData.value.scheduled_end_at) {
+      const pEnd = parseAppointmentDateTime(currentAppointmentData.value.scheduled_end_at)
+      scheduleEndTime.value = `${pEnd.startH}:${pEnd.startM}`
+    } else {
+      const endHour = (Number(p.startH) + 1) % 24
+      scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${p.startM}`
+    }
+    if (currentAppointmentData.value.location) {
+      scheduleLocation.value = currentAppointmentData.value.location
+    }
+    toast.info("Prefilled patient's requested schedule.")
+  }
+
+  const patientRequestedScheduleFormatted = computed(() => {
+    if (!currentAppointmentData.value?.scheduled_at) return null
+    const p = parseAppointmentDateTime(currentAppointmentData.value.scheduled_at)
+    let text = `${p.date} at ${p.time}`
+    if (currentAppointmentData.value.scheduled_end_at) {
+      const pEnd = parseAppointmentDateTime(currentAppointmentData.value.scheduled_end_at)
+      text += ` - ${pEnd.time}`
+    }
+    return text
   })
 
   watch(scheduleTime, newStart => {
@@ -543,6 +583,30 @@
 
     <!-- Scrollable configuration body -->
     <div class="flex flex-col gap-4 p-4 pb-28">
+      <!-- Patient Requested Schedule Banner (if patient requested a specific slot) -->
+      <div
+        v-if="patientRequestedScheduleFormatted"
+        class="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-2xs"
+      >
+        <div class="flex items-center gap-2">
+          <Icon
+            name="material-symbols:event-available-rounded"
+            class="shrink-0 text-lg text-amber-600"
+          />
+          <div>
+            <span class="font-bold">Patient Requested: </span>
+            <span class="font-semibold">{{ patientRequestedScheduleFormatted }}</span>
+          </div>
+        </div>
+        <button
+          type="button"
+          @click="resetToPatientRequestedSlot"
+          class="shrink-0 cursor-pointer rounded-lg bg-amber-600 px-2.5 py-1 text-[11px] font-bold text-white transition hover:bg-amber-700 active:scale-95"
+        >
+          Reset to Slot
+        </button>
+      </div>
+
       <!-- Selected Date Banner -->
       <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5">
         <div class="flex items-center justify-between">
@@ -876,6 +940,32 @@
                   ({{ pat.email || pat.id }})
                 </option>
               </select>
+            </div>
+
+            <!-- Patient Requested Schedule Banner -->
+            <div
+              v-if="patientRequestedScheduleFormatted"
+              class="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 shadow-2xs"
+            >
+              <div class="flex items-center gap-2">
+                <Icon
+                  name="material-symbols:event-available-rounded"
+                  class="shrink-0 text-lg text-amber-600"
+                />
+                <div>
+                  <div class="font-bold text-amber-800">Patient's Preferred Schedule:</div>
+                  <div class="font-semibold text-gray-900">
+                    {{ patientRequestedScheduleFormatted }}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                @click="resetToPatientRequestedSlot"
+                class="shrink-0 cursor-pointer rounded-xl bg-amber-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700 active:scale-95"
+              >
+                Reset to Slot
+              </button>
             </div>
 
             <div class="mb-4">

@@ -80,9 +80,9 @@ export const parseChatPreview = (
   }
 
   // 4. Appointment Confirmed / Scheduled
-  if (str.includes('[APPOINTMENT_SCHEDULED:')) {
+  if (str.includes('[APPOINTMENT_SCHEDULED:') || str.includes('[APPOINTMENT_CONFIRMED:')) {
     const cleanNote = str
-      .replace(/\[APPOINTMENT_SCHEDULED:[^\]]+\]/gi, '')
+      .replace(/\[(APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED):[^\]]+\]/gi, '')
       .replace(/<[^>]*>/g, '')
       .trim()
 

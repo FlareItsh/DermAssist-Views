@@ -461,11 +461,11 @@
   const cleanClinicalFindings = (message: string): string => {
     return (
       message
-        .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
+        .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):[^\]]+\]/g, '')
         .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
         .trim() ||
       (message.includes('[APPOINTMENT_REQUEST:')
-        ? 'A diagnosis was shared.'
+        ? 'Appointment consultation requested.'
         : 'Additional findings shared.')
     )
   }
@@ -584,10 +584,10 @@
     return match ? match[2] : ''
   }
 
-  /** Extract UUID from an APPOINTMENT_SCHEDULED system message. */
+  /** Extract UUID from an APPOINTMENT_SCHEDULED or APPOINTMENT_CONFIRMED system message. */
   const extractScheduledAppointmentUuid = (message: string): string => {
-    const match = message.match(/\[APPOINTMENT_SCHEDULED:([a-f0-9-]+)\]/)
-    return match ? match[1] : ''
+    const match = message.match(/\[(APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED):([a-f0-9-]+)\]/)
+    return match ? match[2] : ''
   }
 
   /** Returns true when the patient can request a reschedule directly from the chat bubble. */
@@ -722,6 +722,62 @@
     showScheduleModal.value = true
   }
 
+  const isAcceptingBookingDirect = ref<string | null>(null)
+  const acceptAppointmentDirectly = async (message: string) => {
+    const uuid = extractAppointmentUuid(message, 'REQUEST')
+    if (!uuid || isAcceptingBookingDirect.value) return
+    isAcceptingBookingDirect.value = uuid
+    try {
+      await appointmentService.accept(uuid)
+      toast.success('Appointment booking confirmed successfully.')
+      await fetchMessages(1)
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      const errorMsg =
+        e?.response?._data?.message ||
+        e?.data?.message ||
+        e?.message ||
+        'Failed to accept appointment.'
+      if (e?.response?.status === 409 || errorMsg.includes('SLOT_')) {
+        toast.error('Slot Conflict: Requested time slot is no longer available.')
+      } else {
+        toast.error(errorMsg)
+      }
+    } finally {
+      isAcceptingBookingDirect.value = null
+    }
+  }
+
+  const getAppointmentScheduleFromMsg = (msg: any): string | null => {
+    if (msg.appointment_data?.scheduled_at_formatted) {
+      return msg.appointment_data.scheduled_at_formatted
+    }
+    if (msg.appointment_data?.scheduled_at) {
+      const p = parseAppointmentDateTime(msg.appointment_data.scheduled_at)
+      let str = `${p.date} at ${p.time}`
+      if (msg.appointment_data.scheduled_end_at) {
+        const pEnd = parseAppointmentDateTime(msg.appointment_data.scheduled_end_at)
+        str += ` - ${pEnd.time}`
+      }
+      return str
+    }
+    const apptUuid = extractAppointmentUuid(msg.message, 'REQUEST')
+    if (apptUuid) {
+      const found = appointments.value.find(a => a.id === apptUuid || a.uuid === apptUuid)
+      if (found?.raw_scheduled_at || found?.date) {
+        let str = found.date
+        if (found.time) str += ` at ${found.time}`
+        return str
+      }
+    }
+    const scheduleMatch = msg.message.match(/Requested schedule:\s*([^\.\n]+)/i)
+    if (scheduleMatch) {
+      return scheduleMatch[1].trim()
+    }
+    return null
+  }
+
   const decliningApptUuids = ref<Set<string>>(new Set())
 
   const declineAppointment = async (message: string) => {
@@ -742,9 +798,14 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return true
     if (decliningApptUuids.value.has(uuid)) return true
+    const apptInStore = appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    if (apptInStore && apptInStore.status !== 'pending') {
+      return true
+    }
     return allMessages.value.some(
       m =>
         m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_CONFIRMED:${uuid}]`) ||
         m.message.includes(`[APPOINTMENT_DECLINED:${uuid}]`) ||
         m.message.includes(`[APPOINTMENT_CANCELLED:${uuid}]`)
     )
@@ -2235,9 +2296,47 @@
                       ></p>
                     </div>
 
+                    <!-- Requested Schedule Information Card -->
+                    <div
+                      v-if="getAppointmentScheduleFromMsg(msg)"
+                      class="mt-3 rounded-2xl border p-3.5 shadow-xs"
+                      :class="[
+                        msg.sender?.id === effectiveUserUuid
+                          ? 'border-white/20 bg-white text-gray-900 shadow-md'
+                          : 'bg-card/70 border-border/60 text-foreground backdrop-blur-sm'
+                      ]"
+                    >
+                      <div class="flex items-start gap-3">
+                        <div
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs"
+                        >
+                          <Icon
+                            name="material-symbols:event-available-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p
+                            class="text-[10px] font-black tracking-wider text-indigo-600 uppercase"
+                          >
+                            Requested Consultation Schedule
+                          </p>
+                          <p class="text-sm leading-tight font-black text-gray-900 dark:text-white">
+                            {{ getAppointmentScheduleFromMsg(msg) }}
+                          </p>
+                          <p
+                            v-if="msg.appointment_data?.purpose"
+                            class="mt-1 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                          >
+                            Purpose: {{ msg.appointment_data.purpose }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- Diagnosis Details -->
                     <div
-                      v-if="msg.appointment_data"
+                      v-if="msg.appointment_data && msg.appointment_data.diagnosis"
                       class="mt-3 rounded-2xl border p-4 shadow-sm"
                       :class="[
                         msg.sender?.id === effectiveUserUuid
@@ -2305,27 +2404,66 @@
                     <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
                     <div
                       v-if="
-                        userRole?.toLowerCase() === 'doctor' &&
+                        (userRole?.toLowerCase() === 'doctor' ||
+                          userRole?.toLowerCase() === 'secretary') &&
                         msg.message.includes('[APPOINTMENT_REQUEST:') &&
                         !isAppointmentHandled(msg.message)
                       "
-                      class="mt-4 flex gap-2"
+                      class="mt-4 flex flex-wrap gap-2"
                     >
                       <button
-                        @click.prevent="openScheduleModal(msg.message)"
-                        class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
+                        v-if="getAppointmentScheduleFromMsg(msg)"
+                        type="button"
+                        :disabled="
+                          isAcceptingBookingDirect ===
+                          extractAppointmentUuid(msg.message, 'REQUEST')
+                        "
+                        @click.prevent="acceptAppointmentDirectly(msg.message)"
+                        class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                       >
-                        Accept & Schedule
+                        <Icon
+                          v-if="
+                            isAcceptingBookingDirect ===
+                            extractAppointmentUuid(msg.message, 'REQUEST')
+                          "
+                          name="svg-spinners:ring-resize"
+                          class="text-sm"
+                        />
+                        <Icon
+                          v-else
+                          name="material-symbols:check-circle-rounded"
+                          class="text-sm"
+                        />
+                        <span>Accept Request</span>
                       </button>
+
                       <button
+                        type="button"
+                        @click.prevent="openScheduleModal(msg.message)"
+                        class="cursor-pointer rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
+                      >
+                        {{
+                          getAppointmentScheduleFromMsg(msg)
+                            ? 'Adjust Schedule'
+                            : 'Accept & Schedule'
+                        }}
+                      </button>
+
+                      <button
+                        type="button"
                         @click.prevent="declineAppointment(msg.message)"
-                        class="bg-foreground/10 hover:bg-foreground/20 rounded-xl px-5 py-2 text-sm font-bold transition-all active:scale-95"
+                        class="bg-foreground/10 hover:bg-foreground/20 cursor-pointer rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
                       >
                         Decline
                       </button>
                     </div>
                   </div>
-                  <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
+                  <div
+                    v-else-if="
+                      msg.message.includes('[APPOINTMENT_SCHEDULED:') ||
+                      msg.message.includes('[APPOINTMENT_CONFIRMED:')
+                    "
+                  >
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
@@ -2354,7 +2492,11 @@
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
-                        v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"
+                        v-html="
+                          msg.message
+                            .replace(/\[(APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED):.*?\]/g, '')
+                            .trim()
+                        "
                       ></p>
                       <button
                         v-if="canPatientRequestReschedule(msg.message)"

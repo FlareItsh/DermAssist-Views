@@ -8,10 +8,12 @@
     defineProps<{
       modelValue: boolean
       doctor: any | null
+      diagnosisUuid?: string
     }>(),
     {
       modelValue: false,
-      doctor: null
+      doctor: null,
+      diagnosisUuid: ''
     }
   )
 
@@ -206,12 +208,18 @@
       const scheduledAt = `${selectedDate.value} ${selectedTime.value}:00`
       const scheduledEndAt = `${selectedDate.value} ${endTime}:00`
 
-      const payload = {
-        doctor_id: props.doctor.id,
+      const docId = props.doctor.id || props.doctor.uuid
+      const payload: any = {
+        doctor_id: docId,
         scheduled_at: scheduledAt,
         scheduled_end_at: scheduledEndAt,
         purpose: purpose.value || 'General Consultation',
-        source: 'direct'
+        source: props.diagnosisUuid ? 'scan' : 'direct',
+        location: doctorLocation.value || undefined
+      }
+
+      if (props.diagnosisUuid) {
+        payload.diagnosis_uuid = props.diagnosisUuid
       }
 
       const res = await appointmentService.create(payload)

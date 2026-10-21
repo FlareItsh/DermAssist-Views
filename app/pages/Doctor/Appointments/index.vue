@@ -1278,8 +1278,12 @@
       "
       :description="
         bookingActionType === 'accept'
-          ? 'Confirm and lock this consultation slot. Availability will be atomically checked.'
-          : 'Are you sure you want to decline this booking request? The patient will be notified.'
+          ? pendingBookingAppt?.date && pendingBookingAppt?.time
+            ? `Confirm and lock consultation slot for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}.`
+            : 'Confirm and lock this consultation slot. Availability will be atomically checked.'
+          : pendingBookingAppt?.date && pendingBookingAppt?.time
+            ? `Are you sure you want to decline the booking request for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}? The patient will be notified.`
+            : 'Are you sure you want to decline this booking request? The patient will be notified.'
       "
       :confirm-text="
         bookingActionType === 'accept' ? 'Yes, Confirm Booking' : 'Yes, Decline Request'
