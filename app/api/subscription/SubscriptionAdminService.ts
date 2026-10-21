@@ -68,8 +68,8 @@ export interface Coupon {
 }
 
 class SubscriptionAdminService extends BaseService {
-  async getDashboardStats() {
-    return this.request<any>('/admin/dashboard-stats', 'GET')
+  async getDashboardStats(params?: { date?: string; start_date?: string; end_date?: string }) {
+    return this.request<any>('/admin/dashboard-stats', 'GET', params)
   }
 
   async getDashboard() {
