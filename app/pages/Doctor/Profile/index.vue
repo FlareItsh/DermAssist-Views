@@ -290,7 +290,7 @@
   )
 
   // Clinic Management
-  const { clinics, fetchClinics, addClinic, removeClinic } = useDoctorClinics()
+  const { clinics, fetchClinics, addClinic, updateClinic, removeClinic } = useDoctorClinics()
   const showAddClinicModal = ref(false)
   const isClinicSubmitting = ref(false)
   const clinicForm = reactive({
@@ -300,6 +300,64 @@
     email: ''
   })
   const clinicError = ref('')
+
+  // Edit Clinic State & Handlers
+  const showEditClinicModal = ref(false)
+  const isEditClinicSubmitting = ref(false)
+  const editingClinic = ref<any>(null)
+  const editClinicError = ref('')
+  const editClinicForm = reactive({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    is_active: true
+  })
+
+  const openEditClinicModal = (clinic: any) => {
+    editingClinic.value = clinic
+    editClinicForm.name = clinic.name || ''
+    editClinicForm.address = clinic.address || ''
+    editClinicForm.phone = clinic.phone || ''
+    editClinicForm.email = clinic.email || ''
+    editClinicForm.is_active = clinic.is_active !== false
+    editClinicError.value = ''
+    showEditClinicModal.value = true
+  }
+
+  const closeEditClinicModal = () => {
+    showEditClinicModal.value = false
+    editingClinic.value = null
+    editClinicError.value = ''
+  }
+
+  const handleUpdateClinic = async () => {
+    if (!editClinicForm.name.trim()) {
+      editClinicError.value = 'Clinic name is required.'
+      return
+    }
+    if (!editingClinic.value) return
+
+    isEditClinicSubmitting.value = true
+    editClinicError.value = ''
+    try {
+      const targetUuid = editingClinic.value.uuid || editingClinic.value.id
+      await updateClinic(targetUuid, {
+        name: editClinicForm.name.trim(),
+        address: editClinicForm.address.trim() || null,
+        phone: editClinicForm.phone.trim() || null,
+        email: editClinicForm.email.trim() || null,
+        is_active: editClinicForm.is_active
+      })
+      toast.success(`Clinic "${editClinicForm.name.trim()}" updated successfully.`)
+      closeEditClinicModal()
+    } catch (err: any) {
+      editClinicError.value = err.data?.message || err.message || 'Failed to update clinic branch.'
+      toast.error(editClinicError.value)
+    } finally {
+      isEditClinicSubmitting.value = false
+    }
+  }
 
   const clinicToDelete = ref<any>(null)
   const showDeleteClinicModal = ref(false)
@@ -1797,19 +1855,34 @@
                   </div>
                 </div>
 
-                <!-- Delete Clinic Branch (ONLY FOR OWNER) -->
-                <button
+                <!-- Actions: Edit & Delete Clinic (ONLY FOR OWNER) -->
+                <div
                   v-if="clinic.is_owner !== false"
-                  type="button"
-                  @click="confirmDeleteClinic(clinic)"
-                  class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
-                  title="Remove Clinic"
+                  class="flex shrink-0 items-center gap-1"
                 >
-                  <Icon
-                    name="heroicons:trash"
-                    class="h-4 w-4"
-                  />
-                </button>
+                  <button
+                    type="button"
+                    @click="openEditClinicModal(clinic)"
+                    class="text-muted-foreground hover:bg-primary/10 hover:text-primary cursor-pointer rounded-xl p-1.5 transition"
+                    title="Edit Clinic Details"
+                  >
+                    <Icon
+                      name="heroicons:pencil-square"
+                      class="h-4 w-4"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    @click="confirmDeleteClinic(clinic)"
+                    class="text-muted-foreground shrink-0 cursor-pointer rounded-xl p-1.5 transition hover:bg-red-500/10 hover:text-red-500"
+                    title="Remove Clinic"
+                  >
+                    <Icon
+                      name="heroicons:trash"
+                      class="h-4 w-4"
+                    />
+                  </button>
+                </div>
                 <span
                   v-else
                   class="shrink-0 rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold tracking-wider text-indigo-600 uppercase dark:text-indigo-400"
@@ -1821,17 +1894,36 @@
               <div
                 class="text-muted-foreground border-border/60 flex items-center justify-between border-t pt-3 text-xs"
               >
-                <span class="inline-flex items-center gap-1.5">
-                  <Icon
-                    name="heroicons:phone"
-                    class="text-primary h-3.5 w-3.5"
-                  />
-                  {{ clinic.phone || 'No phone set' }}
-                </span>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <span class="inline-flex items-center gap-1.5">
+                    <Icon
+                      name="heroicons:phone"
+                      class="text-primary h-3.5 w-3.5"
+                    />
+                    {{ clinic.phone || 'No phone set' }}
+                  </span>
+                  <span
+                    v-if="clinic.email"
+                    class="inline-flex items-center gap-1.5"
+                  >
+                    <Icon
+                      name="heroicons:envelope"
+                      class="text-primary h-3.5 w-3.5"
+                    />
+                    {{ clinic.email }}
+                  </span>
+                </div>
                 <span
-                  class="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700"
+                  v-if="clinic.is_active !== false"
+                  class="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400"
                 >
                   Active
+                </span>
+                <span
+                  v-else
+                  class="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                >
+                  Inactive
                 </span>
               </div>
             </div>
@@ -3293,6 +3385,142 @@
                 :loading="isClinicSubmitting"
               >
                 Save Clinic
+              </AppButton>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- Edit Clinic Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showEditClinicModal"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      >
+        <div
+          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
+        >
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
+              >
+                <Icon
+                  name="heroicons:pencil-square"
+                  class="h-5 w-5"
+                />
+              </div>
+              <div>
+                <h3 class="text-foreground text-lg font-bold">Edit Clinic Branch</h3>
+                <p class="text-muted-foreground text-xs">
+                  Update location and contact information for this clinic.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="closeEditClinicModal"
+              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+            >
+              <Icon
+                name="heroicons:x-mark"
+                class="h-5 w-5"
+              />
+            </button>
+          </div>
+
+          <form
+            @submit.prevent="handleUpdateClinic"
+            class="space-y-4"
+          >
+            <div
+              v-if="editClinicError"
+              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+            >
+              {{ editClinicError }}
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
+              <input
+                v-model="editClinicForm.name"
+                type="text"
+                required
+                placeholder="e.g. St. Luke's Medical Center - Rm 402"
+                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+              />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
+              <input
+                v-model="editClinicForm.address"
+                type="text"
+                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
+                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+              />
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div class="space-y-1.5">
+                <label class="text-foreground text-xs font-bold">Contact Phone</label>
+                <input
+                  v-model="editClinicForm.phone"
+                  type="text"
+                  placeholder="e.g. +63 917 123 4567"
+                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-foreground text-xs font-bold">Clinic Email</label>
+                <input
+                  v-model="editClinicForm.email"
+                  type="email"
+                  placeholder="e.g. clinic@derma.com"
+                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
+                />
+              </div>
+            </div>
+
+            <!-- Active Status Toggle -->
+            <div
+              class="border-border/60 bg-foreground/[0.02] flex items-center justify-between rounded-xl border p-3.5"
+            >
+              <div>
+                <div class="text-foreground text-xs font-bold">Active Practice Branch</div>
+                <div class="text-muted-foreground text-[11px]">
+                  Allow patient bookings and duty schedule allocation at this branch
+                </div>
+              </div>
+              <label class="relative inline-flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  v-model="editClinicForm.is_active"
+                  class="peer sr-only"
+                />
+                <div
+                  class="peer bg-muted-foreground/20 after:border-border/40 peer-checked:bg-primary h-6 w-11 rounded-full transition-colors peer-focus:outline-hidden after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"
+                ></div>
+              </label>
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-2">
+              <AppButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                @click="closeEditClinicModal"
+              >
+                Cancel
+              </AppButton>
+              <AppButton
+                type="submit"
+                variant="solid"
+                size="sm"
+                :loading="isEditClinicSubmitting"
+              >
+                Update Clinic
               </AppButton>
             </div>
           </form>
