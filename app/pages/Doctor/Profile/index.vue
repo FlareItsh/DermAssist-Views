@@ -683,30 +683,21 @@
     const sunday = new Date(start)
     sunday.setDate(start.getDate() - startDayOfWeek)
 
-    const minDay = Math.min(...recurringDays.value)
     const maxDay = Math.max(...recurringDays.value)
-
-    const targetStart = new Date(sunday)
-    targetStart.setDate(sunday.getDate() + minDay)
-
     const targetEnd = new Date(sunday)
     targetEnd.setDate(sunday.getDate() + maxDay)
-
-    // Format start to earliest selected active day in this week if valid and not in past
-    const yStart = targetStart.getFullYear()
-    const mStart = String(targetStart.getMonth() + 1).padStart(2, '0')
-    const dStart = String(targetStart.getDate()).padStart(2, '0')
-    const targetStartStr = `${yStart}-${mStart}-${dStart}`
-
-    if (targetStartStr >= todayDateStr.value && targetStartStr < recurringStartDate.value) {
-      recurringStartDate.value = targetStartStr
-    }
 
     // Format end date strictly within this week's bounds (never +7 into next week)
     const yEnd = targetEnd.getFullYear()
     const mEnd = String(targetEnd.getMonth() + 1).padStart(2, '0')
     const dEnd = String(targetEnd.getDate()).padStart(2, '0')
-    recurringEndDate.value = `${yEnd}-${mEnd}-${dEnd}`
+    let computedEndStr = `${yEnd}-${mEnd}-${dEnd}`
+
+    // Ensure Until Date is at least From Date
+    if (computedEndStr < recurringStartDate.value) {
+      computedEndStr = recurringStartDate.value
+    }
+    recurringEndDate.value = computedEndStr
   }
 
   const setWeekdayPreset = (preset: 'weekdays' | 'mwf' | 'tths' | 'everyday' | 'clear') => {
@@ -1168,28 +1159,24 @@
       return
     }
 
-    const startD = new Date(recurringStartDate.value + 'T00:00:00')
-    const endD = new Date(recurringEndDate.value + 'T00:00:00')
-    if (startD > endD) {
-      availErrorMsg.value = 'Start date must be on or before end date.'
-      return
-    }
+    const start = new Date(recurringStartDate.value + 'T00:00:00')
+    const startDayOfWeek = isNaN(start.getTime()) ? 0 : start.getDay()
+    const sunday = new Date(start)
+    sunday.setDate(start.getDate() - startDayOfWeek)
 
     const targetDates: string[] = []
-    const curr = new Date(startD)
-    while (curr <= endD) {
-      if (recurringDays.value.includes(curr.getDay())) {
-        const y = curr.getFullYear()
-        const m = String(curr.getMonth() + 1).padStart(2, '0')
-        const d = String(curr.getDate()).padStart(2, '0')
-        const dateStr = `${y}-${m}-${d}`
-        // Strictly disallow past dates in repeat on days
-        if (dateStr >= todayDateStr.value) {
-          targetDates.push(dateStr)
-        }
+    for (const dayNum of recurringDays.value) {
+      const target = new Date(sunday)
+      target.setDate(sunday.getDate() + dayNum)
+      const y = target.getFullYear()
+      const m = String(target.getMonth() + 1).padStart(2, '0')
+      const d = String(target.getDate()).padStart(2, '0')
+      const dateStr = `${y}-${m}-${d}`
+      if (dateStr >= todayDateStr.value && !targetDates.includes(dateStr)) {
+        targetDates.push(dateStr)
       }
-      curr.setDate(curr.getDate() + 1)
     }
+    targetDates.sort()
 
     if (!targetDates.length) {
       availErrorMsg.value = 'No matching weekdays found in the selected date range.'
