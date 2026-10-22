@@ -704,8 +704,8 @@
           </span>
         </div>
         <p class="mt-1 text-xs font-semibold text-indigo-700">
-          {{ currentApptParsed.date || 'Date set' }}
-          <span v-if="currentApptParsed.time"> at {{ currentApptParsed.time }}</span>
+          {{ currentApptParsed?.date || 'Pending Schedule' }}
+          <span v-if="currentApptParsed?.time"> at {{ currentApptParsed.time }}</span>
           <span v-if="appointment.location"> ({{ appointment.location }})</span>
         </p>
       </div>

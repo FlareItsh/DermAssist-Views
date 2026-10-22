@@ -203,20 +203,6 @@
 
   const showPatientBookModal = ref(false)
 
-  const openScheduleFromHeader = () => {
-    if (isDoctorUser.value) {
-      if (pendingAppointmentForConversation.value) {
-        openScheduleModalFromPending(pendingAppointmentForConversation.value)
-      } else {
-        schedulingAppointmentUuid.value = ''
-        scheduleMode.value = 'schedule'
-        showScheduleModal.value = true
-      }
-    } else {
-      showPatientBookModal.value = true
-    }
-  }
-
   const handlePatientBookedFromChat = async () => {
     showPatientBookModal.value = false
     await fetchAppointments()
@@ -652,12 +638,16 @@
     return match ? match[2] : ''
   }
 
-  /** Returns true when the patient can request a reschedule directly from the chat bubble. */
-  const canPatientRequestReschedule = (message: string): boolean => {
-    if (userRole.value?.toLowerCase() !== 'patient') return false
+  /** Returns true when either party can request/propose a reschedule directly from the chat bubble. */
+  const canRequestReschedule = (message: string): boolean => {
     const uuid = extractScheduledAppointmentUuid(message)
     if (!uuid) return false
-    return activeAppointment.value?.id === uuid && activeAppointment.value?.status === 'scheduled'
+    const appt =
+      activeAppointment.value?.id === uuid || activeAppointment.value?.uuid === uuid
+        ? activeAppointment.value
+        : appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    if (!appt) return false
+    return ['scheduled', 'confirmed'].includes(appt.status)
   }
 
   // --- Rebook Appointment (Patient Side) ---
@@ -882,6 +872,7 @@
       a =>
         a.conversation_uuid === props.conversationUuid &&
         (a.status === 'scheduled' ||
+          a.status === 'confirmed' ||
           a.status === 'reschedule_proposed' ||
           a.status === 'reschedule_requested')
     )
@@ -918,7 +909,8 @@
     const targetUuid = typeof uuid === 'string' && uuid ? uuid : activeAppointment.value?.id
     if (!targetUuid) return
     const found =
-      appointments.value.find(a => a.id === targetUuid) ||
+      appointments.value.find(a => a.id === targetUuid || a.uuid === targetUuid) ||
+      pendingAppointments.value.find(a => a.id === targetUuid || a.uuid === targetUuid) ||
       (activeAppointment.value?.id === targetUuid ? activeAppointment.value : null)
     if (found) {
       rescheduleModalAppt.value = found
@@ -1664,22 +1656,6 @@
 
       <!-- Header actions menu -->
       <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
-        <!-- Schedule / Request Schedule Action Button -->
-        <button
-          type="button"
-          @click="openScheduleFromHeader"
-          class="border-primary/20 bg-primary/10 text-primary hover:bg-primary flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border px-2.5 text-xs font-bold shadow-2xs transition-all duration-200 hover:text-white active:scale-95 sm:h-10 sm:rounded-2xl sm:px-3"
-          :title="isDoctorUser ? 'Schedule Consultation' : 'Request Schedule'"
-        >
-          <Icon
-            name="solar:calendar-date-bold"
-            class="text-base sm:text-lg"
-          />
-          <span class="hidden sm:inline">
-            {{ isDoctorUser ? 'Schedule' : 'Request Schedule' }}
-          </span>
-        </button>
-
         <!-- Search in chat button -->
         <button
           type="button"
@@ -2045,7 +2021,9 @@
             </div>
             <div
               v-else-if="
-                userRole?.toLowerCase() === 'patient' && activeAppointment.status === 'scheduled'
+                userRole?.toLowerCase() === 'patient' &&
+                (activeAppointment.status === 'scheduled' ||
+                  activeAppointment.status === 'confirmed')
               "
               class="items-center gap-2"
               :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
@@ -2550,6 +2528,30 @@
                         Decline
                       </button>
                     </div>
+
+                    <!-- Patient actions for pending requests -->
+                    <div
+                      v-if="
+                        userRole?.toLowerCase() === 'patient' &&
+                        msg.message.includes('[APPOINTMENT_REQUEST:') &&
+                        !isAppointmentHandled(msg.message)
+                      "
+                      class="mt-4 flex flex-wrap gap-2"
+                    >
+                      <button
+                        type="button"
+                        @click.prevent="
+                          requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                        "
+                        class="text-primary ring-primary/20 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95"
+                      >
+                        <Icon
+                          name="material-symbols:edit-calendar-rounded"
+                          class="text-sm"
+                        />
+                        Request Reschedule
+                      </button>
+                    </div>
                   </div>
                   <div
                     v-else-if="
@@ -2592,7 +2594,7 @@
                         "
                       ></p>
                       <button
-                        v-if="canPatientRequestReschedule(msg.message)"
+                        v-if="canRequestReschedule(msg.message)"
                         type="button"
                         @click.prevent="
                           requestReschedule(extractScheduledAppointmentUuid(msg.message))
@@ -2603,7 +2605,7 @@
                           name="material-symbols:edit-calendar-rounded"
                           class="text-sm"
                         />
-                        Request Reschedule
+                        {{ isDoctorUser ? 'Reschedule' : 'Request Reschedule' }}
                       </button>
                     </div>
                   </div>
