@@ -46,7 +46,7 @@
     return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   })
 
-  const goToChat = (conversationUuid: string | undefined) => {
+  const goToChat = async (conversationUuid: string | undefined) => {
     if (!conversationUuid) return
     selectedDate.value = null
     await navigateTo(`/patient/messages/${conversationUuid}`)
