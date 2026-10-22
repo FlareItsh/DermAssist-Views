@@ -1019,6 +1019,10 @@
       ) {
         formData.append('patient_uuid', patientUuid.value)
       }
+      if (appointmentUuid.value) {
+        formData.append('appointment_uuid', appointmentUuid.value)
+      }
+      formData.append('scan_type', 'in_clinic')
 
       const response = await diagnosisService.create(formData, {
         headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {}

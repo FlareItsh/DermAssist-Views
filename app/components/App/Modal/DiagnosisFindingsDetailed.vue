@@ -825,13 +825,18 @@
     appealSuccess.value = false
 
     try {
-      await appealService.create({
+      const payload: any = {
         user_uuid: userUuid.value,
         diagnosis_uuid: targetDiagnosisUuid.value,
         diagnosis_label: activeDisease.value,
         suggested_label: suggestedLabel.value,
         description: appealDescription.value
-      })
+      }
+      if (activeAppeal.value?.uuid && activeAppeal.value?.status === 'rejected') {
+        payload.parent_appeal_uuid = activeAppeal.value.uuid
+      }
+
+      await appealService.create(payload)
       appealSuccess.value = true
 
       // Immediately apply doctor's clinical override to the active view
@@ -1280,6 +1285,35 @@
     } finally {
       isSending.value = false
     }
+  }
+
+  const showBookAppointmentModal = ref(false)
+
+  const handleDoctorAction = () => {
+    if (!nearestDoctor.value || isSending.value) return
+    if (hasActiveAppointment.value) {
+      sendDiagnosis()
+    } else {
+      showBookAppointmentModal.value = true
+    }
+  }
+
+  const goToSelectDoctor = () => {
+    navigateTo({
+      path: '/Patient/Scan/SelectDoctor',
+      query: { diagnosis_uuid: targetDiagnosisUuid.value }
+    })
+  }
+
+  const handleAppointmentBooked = async (apptOrRes: any) => {
+    showBookAppointmentModal.value = false
+    const convUuid = apptOrRes?.conversation_uuid || apptOrRes?.appointment?.conversation_uuid
+    if (convUuid) {
+      await navigateTo(`/Patient/Messages/${convUuid}`)
+    } else {
+      await navigateTo('/Patient/Appointments')
+    }
+    emit('close')
   }
 
   const doctorCardRef = ref<HTMLElement | null>(null)
@@ -2419,6 +2453,12 @@
                       Previous Appeal Rejected
                     </h4>
                     <span
+                      v-if="activeAppeal.resubmission_count"
+                      class="rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 shadow-xs"
+                    >
+                      Round {{ activeAppeal.resubmission_count + 1 }}
+                    </span>
+                    <span
                       class="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700 shadow-xs"
                     >
                       Suggested: {{ activeAppeal.suggested_label }}
@@ -2955,7 +2995,7 @@
               v-if="!isDoctorRegistered"
               variant="outline"
               size="md"
-              @click="navigateTo('/Patient/Scan/SelectDoctor')"
+              @click="goToSelectDoctor"
               class="h-11 flex-1 rounded-xl text-xs font-bold"
             >
               <Icon
@@ -2967,7 +3007,7 @@
 
             <AppButton
               size="md"
-              @click="sendDiagnosis"
+              @click="handleDoctorAction"
               :disabled="isSending || !nearestDoctor"
               class="bg-primary flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-center text-xs font-bold text-white shadow-md transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"
               :class="isDoctorRegistered ? 'w-full' : ''"
@@ -2990,9 +3030,7 @@
                       ? 'Send Findings'
                       : hasDeclinedAppointment
                         ? 'Rebook Appointment'
-                        : isDoctorRegistered
-                          ? 'Proceed'
-                          : 'Select Doctor'
+                        : 'Book Consultation'
                 }}
               </span>
             </AppButton>
@@ -3009,15 +3047,14 @@
             />
             <div class="text-warning-text flex-1 text-xs leading-relaxed">
               <span class="font-black">Existing appointment found.</span>
-              This will send your new findings to the same doctor in your current conversation. Go
-              to
-              <NuxtLink
-                :to="`/Patient/Messages`"
-                @click="emit('close')"
-                class="hover:text-warning-text font-bold underline"
-                >Messages</NuxtLink
+              This will send your new findings to the same doctor in your current conversation.
+              <button
+                type="button"
+                @click="showBookAppointmentModal = true"
+                class="hover:text-warning-text ml-1 cursor-pointer font-bold underline"
               >
-              to check the status or send additional findings.
+                Or request a new consultation slot
+              </button>
             </div>
           </div>
 
@@ -3472,5 +3509,13 @@
         </div>
       </template>
     </AppModal>
+
+    <!-- Direct Booking Modal for Home Scan Referral -->
+    <PatientSideComponentsBookAppointmentModal
+      v-model="showBookAppointmentModal"
+      :doctor="nearestDoctor"
+      :diagnosis-uuid="targetDiagnosisUuid"
+      @booked="handleAppointmentBooked"
+    />
   </div>
 </template>

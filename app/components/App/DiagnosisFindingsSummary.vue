@@ -67,22 +67,35 @@
       !!pendingPatientRegistration.value
   )
 
+  const isTechnicalFailure = computed(() => {
+    return !!(currentDiagnosis.value as any)?.is_technical_failure
+  })
+
   const errorMessage = computed(() => {
     if (showScanReminder.value) return 'Scan required to proceed'
     if (!isScanned.value) return 'Please scan the image first'
+    if (isTechnicalFailure.value) {
+      return (
+        (currentDiagnosis.value as any)?.technical_failure_reason ||
+        'Technical scan capture failure: Image quality unusable. Please rescan.'
+      )
+    }
     if (isNoneState.value) return 'Non-skin image detected. Scan skin to proceed.'
-    if (isHealthyState.value) return 'Healthy skin detected. No disease present.'
+    if (props.role !== 'doctor' && isHealthyState.value) {
+      return 'Healthy skin detected. No disease present.'
+    }
     if (props.role === 'doctor' && !hasPatient.value) return 'Please select or register a patient'
     return null
   })
 
   const canProceed = computed(() => {
-    const validScan =
-      !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && !isNoneState.value
+    if (isTechnicalFailure.value) return false
+    if (!currentDiagnosis.value || !isScanned.value || isNoneState.value) return false
+
     if (props.role === 'doctor') {
-      return validScan && hasPatient.value
+      return hasPatient.value
     }
-    return validScan
+    return !isHealthyState.value
   })
 
   const showDiscardModal = ref(false)
@@ -1602,25 +1615,36 @@
             <p
               class="text-md font-bold"
               :class="{
-                'text-gray-500': isHealthyState || isNoneState,
-                'text-purple-600 dark:text-purple-400': isOutOfScopeState,
-                'text-warning': isInconclusiveState && !isOutOfScopeState,
-                'text-primary': !isHealthyState && !isInconclusiveState && !isNoneState
+                'text-rose-600': isTechnicalFailure,
+                'text-gray-500': !isTechnicalFailure && (isHealthyState || isNoneState),
+                'text-purple-600 dark:text-purple-400': !isTechnicalFailure && isOutOfScopeState,
+                'text-warning': !isTechnicalFailure && isInconclusiveState && !isOutOfScopeState,
+                'text-primary':
+                  !isTechnicalFailure && !isHealthyState && !isInconclusiveState && !isNoneState
               }"
             >
               {{
-                isNoneState
-                  ? 'Non-Skin Image Detected'
-                  : isOutOfScopeState
-                    ? 'Out-of-Scope Condition'
-                    : isInconclusiveState
-                      ? 'Inconclusive Finding'
-                      : isHealthyState
-                        ? 'No skin disease detected'
-                        : currentDiagnosis?.label || 'Waiting...'
+                isTechnicalFailure
+                  ? 'Technical Scan Failure'
+                  : isNoneState
+                    ? 'Non-Skin Image Detected'
+                    : isOutOfScopeState
+                      ? 'Out-of-Scope Condition'
+                      : isInconclusiveState
+                        ? 'Inconclusive Finding'
+                        : isHealthyState
+                          ? 'No skin disease detected'
+                          : currentDiagnosis?.label || 'Waiting...'
               }}
             </p>
-            <template v-if="isOutOfScopeState">
+            <AppBadge
+              v-if="isTechnicalFailure"
+              color="danger"
+              size="sm"
+            >
+              Capture Failed
+            </AppBadge>
+            <template v-else-if="isOutOfScopeState">
               <AppBadge
                 color="purple"
                 size="sm"
@@ -1651,6 +1675,35 @@
             >
               Non-Skin
             </AppBadge>
+          </div>
+
+          <!-- Technical Failure Advisory Card -->
+          <div
+            v-if="isTechnicalFailure"
+            class="my-2 space-y-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 shadow-xs"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600"
+              >
+                <Icon
+                  name="lucide:alert-circle"
+                  size="18"
+                />
+              </div>
+              <div class="space-y-1">
+                <h4 class="text-xs font-bold text-rose-950 sm:text-sm">Scan Quality Unusable</h4>
+                <p class="text-xs text-rose-800">
+                  {{
+                    (currentDiagnosis as any)?.technical_failure_reason ||
+                    'Image is blurry, out-of-focus, or corrupted. No valid inference could be produced.'
+                  }}
+                </p>
+                <p class="text-[11px] text-rose-700/80">
+                  Please retake the scan with adequate lighting and focus.
+                </p>
+              </div>
+            </div>
           </div>
 
           <!-- Out-of-Scope Dedicated Advisory Banner -->

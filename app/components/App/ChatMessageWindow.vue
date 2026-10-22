@@ -463,6 +463,7 @@
       message
         .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):[^\]]+\]/g, '')
         .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
+        .replace(/Requested schedule:\s*[^\.\n]+\.?/gi, '')
         .trim() ||
       (message.includes('[APPOINTMENT_REQUEST:')
         ? 'Appointment consultation requested.'
@@ -764,7 +765,9 @@
     }
     const apptUuid = extractAppointmentUuid(msg.message, 'REQUEST')
     if (apptUuid) {
-      const found = appointments.value.find(a => a.id === apptUuid || a.uuid === apptUuid)
+      const found = [...appointments.value, ...pendingAppointments.value].find(
+        a => a.id === apptUuid || a.uuid === apptUuid
+      )
       if (found?.raw_scheduled_at || found?.date) {
         let str = found.date
         if (found.time) str += ` at ${found.time}`
@@ -2321,12 +2324,24 @@
                           >
                             Requested Consultation Schedule
                           </p>
-                          <p class="text-sm leading-tight font-black text-gray-900 dark:text-white">
+                          <p
+                            class="text-sm leading-tight font-black"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-900'
+                                : 'text-foreground'
+                            "
+                          >
                             {{ getAppointmentScheduleFromMsg(msg) }}
                           </p>
                           <p
                             v-if="msg.appointment_data?.purpose"
-                            class="mt-1 text-xs font-semibold text-gray-600 dark:text-gray-300"
+                            class="mt-1 text-xs font-semibold"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-600'
+                                : 'text-muted-foreground'
+                            "
                           >
                             Purpose: {{ msg.appointment_data.purpose }}
                           </p>
@@ -2352,12 +2367,13 @@
                         />
                         <div class="flex min-w-0 flex-col justify-center gap-0.5">
                           <p
-                            class="text-[10px] font-black tracking-widest uppercase"
-                            :class="
-                              msg.sender?.id === effectiveUserUuid ? 'text-primary' : 'text-primary'
-                            "
+                            class="text-[10px] font-black tracking-widest uppercase text-primary"
                           >
-                            Clinical Findings
+                            {{
+                              msg.appointment_data?.diagnosis?.scan_type === 'in_clinic'
+                                ? 'Clinical Findings'
+                                : 'AI Scan Result (Home Self-Assessment)'
+                            }}
                           </p>
                           <h4
                             class="truncate text-lg leading-tight font-black"

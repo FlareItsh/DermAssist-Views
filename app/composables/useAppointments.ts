@@ -14,6 +14,16 @@ export interface Appointment {
   patient_id: number
   info: string
   diagnosis_image?: string
+  diagnosis_id?: number
+  diagnosis_uuid?: string
+  diagnosis?: any
+  in_clinic_diagnosis_id?: number | null
+  in_clinic_diagnosis?: any
+  scan_exception_reason?: string | null
+  scan_exception_category?: string | null
+  scan_exception_granted_at?: string | null
+  scan_exception_doctor?: any
+  has_satisfied_consultation_scan?: boolean
   location?: string
   purpose?: string
   status: string
@@ -156,7 +166,25 @@ export const useAppointments = () => {
       created_at: appt.created_at,
       info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
       diagnosis_id: appt.diagnosis_id || appt.diagnosis?.id,
+      diagnosis_uuid: appt.diagnosis?.uuid,
+      diagnosis: appt.diagnosis,
       diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
+      in_clinic_diagnosis_id:
+        appt.in_clinic_diagnosis_id ||
+        appt.in_clinic_diagnosis?.id ||
+        appt.inClinicDiagnosis?.id ||
+        null,
+      in_clinic_diagnosis: appt.in_clinic_diagnosis || appt.inClinicDiagnosis || null,
+      scan_exception_reason: appt.scan_exception_reason || null,
+      scan_exception_category: appt.scan_exception_category || null,
+      scan_exception_granted_at: appt.scan_exception_granted_at || null,
+      scan_exception_doctor: appt.scan_exception_doctor || appt.scanExceptionDoctor || null,
+      has_satisfied_consultation_scan: !!(
+        appt.in_clinic_diagnosis_id ||
+        appt.in_clinic_diagnosis ||
+        appt.inClinicDiagnosis ||
+        appt.scan_exception_reason
+      ),
       location: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
       clinic_name: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
       purpose: appt.purpose || 'Consultation',

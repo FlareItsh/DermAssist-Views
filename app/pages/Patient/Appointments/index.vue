@@ -330,8 +330,12 @@
     }
   }
 
-  const onAppointmentBooked = async () => {
+  const onAppointmentBooked = async (apptOrRes?: any) => {
     await fetchAppointments()
+    const convUuid = apptOrRes?.conversation_uuid || apptOrRes?.appointment?.conversation_uuid
+    if (convUuid && selectedDiagnosisToBook.value) {
+      await router.push(`/Patient/Messages/${convUuid}`)
+    }
   }
 
   const formatProposalTime = (proposal: any) => {

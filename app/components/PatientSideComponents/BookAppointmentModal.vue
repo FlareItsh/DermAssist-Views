@@ -3,6 +3,7 @@
   import { toast } from 'vue-sonner'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
 
   const props = withDefaults(
     defineProps<{
@@ -28,6 +29,10 @@
   const isLoadingAvailability = ref(false)
   const dutySlots = ref<any[]>([])
   const blockedSlots = ref<any[]>([])
+  const bookedAppointments = ref<any[]>([])
+  const isLoadingBookedAppointments = ref(false)
+  const diagnosisData = ref<any | null>(null)
+  const isLoadingDiagnosis = ref(false)
 
   // Date selection (defaults to tomorrow)
   const getInitialDate = () => {
@@ -89,6 +94,47 @@
     return ''
   })
 
+  // Load diagnosis details if booking from a scan
+  const fetchDiagnosis = async () => {
+    if (!props.diagnosisUuid) {
+      diagnosisData.value = null
+      return
+    }
+    isLoadingDiagnosis.value = true
+    try {
+      const res = await diagnosisService.show(props.diagnosisUuid)
+      const diag = (res as any)?.data ?? res
+      diagnosisData.value = diag
+      if (diag?.label) {
+        purpose.value = `AI Scan Assessment: ${diag.label}`
+      }
+    } catch (e) {
+      console.error('Failed to load diagnosis details:', e)
+    } finally {
+      isLoadingDiagnosis.value = false
+    }
+  }
+
+  // Load doctor booked appointments to verify calendar conflicts
+  const fetchDoctorAppointments = async () => {
+    if (!props.doctor?.uuid && !props.doctor?.id) {
+      bookedAppointments.value = []
+      return
+    }
+    isLoadingBookedAppointments.value = true
+    try {
+      const docIdentifier = props.doctor.uuid || props.doctor.id
+      const res = await appointmentService.list({ doctor_uuid: docIdentifier })
+      const list = (res as any)?.data ?? (Array.isArray(res) ? res : [])
+      bookedAppointments.value = list
+      syncInitialTimeSlot()
+    } catch (e) {
+      console.error('Failed to load doctor appointments:', e)
+    } finally {
+      isLoadingBookedAppointments.value = false
+    }
+  }
+
   // Load doctor availability when doctor changes
   const fetchAvailability = async () => {
     if (!props.doctor?.uuid) return
@@ -102,6 +148,7 @@
       blockedSlots.value = list.filter(
         (s: any) => Number(s.is_available) === 0 || s.is_available === false
       )
+      await fetchDoctorAppointments()
       syncInitialTimeSlot()
     } catch (e) {
       console.error('Failed to load doctor availability:', e)
@@ -115,6 +162,20 @@
     newDoc => {
       if (newDoc && props.modelValue) {
         fetchAvailability()
+        fetchDoctorAppointments()
+      }
+    },
+    { immediate: true }
+  )
+
+  watch(
+    () => props.diagnosisUuid,
+    newUuid => {
+      if (newUuid && props.modelValue) {
+        fetchDiagnosis()
+      } else if (!newUuid) {
+        diagnosisData.value = null
+        purpose.value = 'General Dermatological Consultation'
       }
     },
     { immediate: true }
@@ -127,6 +188,10 @@
         selectedDate.value = getInitialDate()
         selectedTime.value = ''
         fetchAvailability()
+        fetchDoctorAppointments()
+        if (props.diagnosisUuid) {
+          fetchDiagnosis()
+        }
       }
     }
   )
@@ -172,6 +237,56 @@
       const bStart = (s.start_time || '00:00:00').slice(0, 8)
       const bEnd = (s.end_time || '23:59:59').slice(0, 8)
       return startTime < bEnd && endTime > bStart
+    })
+  }
+
+  const parseDateTimeToMs = (str: string): number => {
+    if (!str) return 0
+    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
+    if (match) {
+      const [, y, m, d, h, min] = match
+      return new Date(
+        parseInt(y, 10),
+        parseInt(m, 10) - 1,
+        parseInt(d, 10),
+        parseInt(h, 10),
+        parseInt(min, 10)
+      ).getTime()
+    }
+    return new Date(str).getTime()
+  }
+
+  const isSlotBooked = (slotTime: string): boolean => {
+    if (!selectedDate.value || !slotTime || !bookedAppointments.value.length) return false
+    const [yearStr, monthStr, dayStr] = selectedDate.value.split('-')
+    const [hStr, mStr] = slotTime.split(':')
+    const y = parseInt(yearStr, 10)
+    const mo = parseInt(monthStr, 10) - 1
+    const d = parseInt(dayStr, 10)
+    const startH = parseInt(hStr, 10)
+    const startM = parseInt(mStr || '0', 10)
+
+    const slotStart = new Date(y, mo, d, startH, startM).getTime()
+    const slotEnd = new Date(y, mo, d, startH + 1, startM).getTime()
+
+    return bookedAppointments.value.some((appt: any) => {
+      if (!appt.scheduled_at) return false
+      const activeStatuses = [
+        'confirmed',
+        'scheduled',
+        'checked_in',
+        'in_consultation',
+        'reschedule_proposed'
+      ]
+      if (!activeStatuses.includes((appt.status || '').toLowerCase())) return false
+
+      const apptStart = parseDateTimeToMs(appt.scheduled_at)
+      if (!apptStart) return false
+      const apptEnd = appt.scheduled_end_at
+        ? parseDateTimeToMs(appt.scheduled_end_at)
+        : apptStart + 3600000
+
+      return slotStart < apptEnd && slotEnd > apptStart
     })
   }
 
@@ -221,9 +336,12 @@
     if (
       !selectedTime.value ||
       !availableTimeSlots.value.includes(selectedTime.value) ||
-      isSlotBlocked(selectedTime.value)
+      isSlotBlocked(selectedTime.value) ||
+      isSlotBooked(selectedTime.value)
     ) {
-      const firstAvailable = availableTimeSlots.value.find(slot => !isSlotBlocked(slot))
+      const firstAvailable = availableTimeSlots.value.find(
+        slot => !isSlotBlocked(slot) && !isSlotBooked(slot)
+      )
       selectedTime.value = firstAvailable || ''
     }
   }
@@ -236,7 +354,7 @@
   )
 
   const selectTimeSlot = (slot: string) => {
-    if (isSlotBlocked(slot)) return
+    if (isSlotBlocked(slot) || isSlotBooked(slot)) return
     selectedTime.value = slot
   }
 
@@ -277,6 +395,12 @@
       )
       return
     }
+    if (isSlotBooked(selectedTime.value)) {
+      toast.error(
+        'The selected time slot has already been booked. Please choose an available time slot.'
+      )
+      return
+    }
 
     isSubmitting.value = true
     try {
@@ -301,11 +425,17 @@
         undefined
 
       const docId = props.doctor.id || props.doctor.uuid
+      const effectivePurpose = props.diagnosisUuid
+        ? diagnosisData.value?.label
+          ? `AI Scan Assessment: ${diagnosisData.value.label}`
+          : 'AI Scan Assessment'
+        : purpose.value || 'General Consultation'
+
       const payload: any = {
         doctor_id: docId,
         scheduled_at: scheduledAt,
         scheduled_end_at: scheduledEndAt,
-        purpose: purpose.value || 'General Consultation',
+        purpose: effectivePurpose,
         source: props.diagnosisUuid ? 'scan' : 'direct',
         location: resolvedLocation
       }
@@ -316,8 +446,11 @@
 
       const res = await appointmentService.create(payload)
 
-      toast.success(`Appointment request sent to ${doctorDisplayName.value}!`)
-      emit('booked', res?.appointment || res)
+      const bookedData = {
+        ...(res?.appointment || res || {}),
+        conversation_uuid: res?.conversation_uuid || res?.appointment?.conversation_uuid
+      }
+      emit('booked', bookedData)
       emit('update:modelValue', false)
     } catch (e: any) {
       console.error('Failed to submit appointment request:', e)
@@ -537,21 +670,29 @@
                   v-for="timeSlot in availableTimeSlots"
                   :key="timeSlot"
                   type="button"
-                  :disabled="isSlotBlocked(timeSlot)"
+                  :disabled="isSlotBlocked(timeSlot) || isSlotBooked(timeSlot)"
                   @click="selectTimeSlot(timeSlot)"
                   class="relative flex flex-col items-center justify-center rounded-xl border py-2 text-xs font-bold shadow-2xs transition-all active:scale-95 disabled:pointer-events-none"
                   :class="[
-                    isSlotBlocked(timeSlot)
-                      ? 'cursor-not-allowed border-gray-200 bg-gray-100/90 text-gray-400 opacity-60'
-                      : selectedTime === timeSlot
-                        ? 'border-primary bg-primary text-white shadow-xs'
-                        : 'hover:border-primary hover:bg-primary/5 hover:text-primary border-gray-300 bg-white text-gray-800'
+                    isSlotBooked(timeSlot)
+                      ? 'cursor-not-allowed border-rose-200 bg-rose-50/80 text-rose-500 opacity-70'
+                      : isSlotBlocked(timeSlot)
+                        ? 'cursor-not-allowed border-gray-200 bg-gray-100/90 text-gray-400 opacity-60'
+                        : selectedTime === timeSlot
+                          ? 'border-primary bg-primary text-white shadow-xs'
+                          : 'hover:border-primary hover:bg-primary/5 hover:text-primary border-gray-300 bg-white text-gray-800'
                   ]"
                 >
                   <span>{{ formatTimeSlotDisplay(timeSlot) }}</span>
                   <span
-                    v-if="isSlotBlocked(timeSlot)"
-                    class="mt-0.5 text-[9px] font-bold tracking-tight text-rose-500 uppercase"
+                    v-if="isSlotBooked(timeSlot)"
+                    class="mt-0.5 text-[9px] font-bold tracking-tight text-rose-600 uppercase"
+                  >
+                    Booked
+                  </span>
+                  <span
+                    v-else-if="isSlotBlocked(timeSlot)"
+                    class="mt-0.5 text-[9px] font-bold tracking-tight text-amber-600 uppercase"
                   >
                     Unavailable
                   </span>
@@ -567,8 +708,90 @@
               </div>
             </div>
 
-            <!-- Consultation Purpose -->
-            <div>
+            <!-- Attached AI Scan Result Card (When Booking From Scan) -->
+            <div
+              v-if="props.diagnosisUuid"
+              class="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/40 p-4 shadow-2xs"
+            >
+              <div class="mb-2.5 flex items-center justify-between">
+                <span class="text-[11px] font-bold tracking-wider text-blue-900 uppercase">
+                  Attached AI Scan Result
+                </span>
+                <span
+                  class="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 ring-1 ring-blue-700/10"
+                >
+                  Home Self-Assessment
+                </span>
+              </div>
+
+              <div
+                v-if="isLoadingDiagnosis"
+                class="flex items-center justify-center py-4 text-xs text-gray-500"
+              >
+                <Icon
+                  name="svg-spinners:ring-resize"
+                  class="text-primary mr-2 text-base"
+                />
+                Loading scan details...
+              </div>
+
+              <div
+                v-else
+                class="flex items-center gap-3.5"
+              >
+                <div
+                  class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xs"
+                >
+                  <img
+                    v-if="diagnosisData?.image_path"
+                    :src="getStorageUrl(diagnosisData.image_path)"
+                    :alt="diagnosisData?.label || 'Scan Image'"
+                    class="h-full w-full object-cover"
+                  />
+                  <div
+                    v-else
+                    class="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400"
+                  >
+                    <Icon
+                      name="material-symbols:image-outline"
+                      class="text-xl"
+                    />
+                  </div>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <h5 class="truncate text-sm font-bold text-gray-900">
+                    {{ diagnosisData?.label || 'Skin Assessment' }}
+                  </h5>
+                  <div class="mt-1 flex items-center gap-2">
+                    <span
+                      v-if="diagnosisData?.confidence_score || diagnosisData?.confidence"
+                      class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20"
+                    >
+                      {{
+                        (
+                          Number(diagnosisData.confidence_score || diagnosisData.confidence || 0) *
+                          100
+                        ).toFixed(1)
+                      }}% Confidence
+                    </span>
+                    <span class="truncate text-[11px] text-gray-500">
+                      {{
+                        diagnosisData?.created_at
+                          ? new Date(diagnosisData.created_at).toLocaleDateString()
+                          : 'Recent Scan'
+                      }}
+                    </span>
+                  </div>
+                  <p class="mt-1 text-[11px] text-gray-600">
+                    This image and analysis will be shared directly with the doctor.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Consultation Purpose (Shown ONLY for Direct Booking, NOT from Scan) -->
+            <div v-else>
               <label class="mb-1.5 block text-xs font-bold tracking-wider text-gray-900 uppercase">
                 Consultation Reason / Notes
               </label>
@@ -607,8 +830,15 @@
                 class="mt-0.5 shrink-0 text-base text-blue-600"
               />
               <p class="leading-relaxed text-blue-950">
-                This request will be sent to the doctor for confirmation. You will be notified once
-                the doctor accepts your appointment slot.
+                <template v-if="props.diagnosisUuid">
+                  This request will be sent to Dr. {{ doctor?.last_name || 'Doctor' }} along with
+                  your AI scan image and self-assessment results for clinical confirmation. You will
+                  be notified once the doctor accepts or suggests another schedule.
+                </template>
+                <template v-else>
+                  This request will be sent to the doctor for confirmation. You will be notified
+                  once the doctor accepts your appointment slot.
+                </template>
               </p>
             </div>
           </div>
@@ -631,7 +861,8 @@
                 isDateWholeDayBlocked ||
                 isDateOffDuty ||
                 !selectedTime ||
-                isSlotBlocked(selectedTime)
+                isSlotBlocked(selectedTime) ||
+                isSlotBooked(selectedTime)
               "
               class="bg-primary hover:bg-primary/90 flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-xs transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
             >

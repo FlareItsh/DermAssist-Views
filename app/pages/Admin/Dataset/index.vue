@@ -84,6 +84,20 @@
     }
   }
 
+  const isApprovingDiagnosis = ref(false)
+  const handleApproveDiagnosis = async (diagnosisUuid: string) => {
+    isApprovingDiagnosis.value = true
+    try {
+      await datasetService.adminApproveDiagnosis(diagnosisUuid)
+      toast.success('Clinical scan approved by admin for AI retraining dataset.')
+      await fetchDataset()
+    } catch (err: any) {
+      toast.error(err?.data?.message || err?.message || 'Failed to approve diagnosis for dataset.')
+    } finally {
+      isApprovingDiagnosis.value = false
+    }
+  }
+
   // ── Multi-Select & Bulk Delete State ──────────────────────────────────
   const selectedPriorityUrls = ref<Set<string>>(new Set())
   const selectedOosUrls = ref<Set<string>>(new Set())
@@ -1216,6 +1230,18 @@
                       </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-1.5">
+                      <button
+                        v-if="item.diagnosis_uuid"
+                        type="button"
+                        class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs backdrop-blur-xs transition-transform hover:scale-110 hover:bg-emerald-600 hover:text-white"
+                        title="Authorize / Verify for Dataset Retraining"
+                        @click.stop="handleApproveDiagnosis(item.diagnosis_uuid)"
+                      >
+                        <Icon
+                          name="lucide:check-circle"
+                          size="13"
+                        />
+                      </button>
                       <button
                         type="button"
                         class="hover:bg-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs backdrop-blur-xs transition-transform hover:scale-110 hover:text-white"

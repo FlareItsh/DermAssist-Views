@@ -671,8 +671,17 @@
       if (props.isFinishMode && targetAppointmentUuid) {
         try {
           await appointmentService.update(targetAppointmentUuid, { status: 'completed' })
-        } catch (statusErr) {
+        } catch (statusErr: any) {
           console.error('Failed to mark appointment as completed:', statusErr)
+          if (
+            statusErr?.data?.code === 'IN_CLINIC_SCAN_REQUIRED' ||
+            statusErr?.statusCode === 422
+          ) {
+            toast.warning(
+              statusErr.data?.message ||
+                'Consultation scan requirement not met. Please capture an in-clinic scan or document a clinical exception.'
+            )
+          }
         }
       }
 

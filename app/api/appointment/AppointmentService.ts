@@ -96,6 +96,19 @@ export class AppointmentService extends BaseService {
   async restore(uuid: string): Promise<any> {
     return await this.request(`${this.resource}/${uuid}/restore`, 'POST')
   }
+
+  async attachInClinicScan(uuid: string, diagnosisId: number | string): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/attach-in-clinic-scan`, 'POST', {
+      diagnosis_id: diagnosisId
+    })
+  }
+
+  async recordScanException(
+    uuid: string,
+    payload: { reason: string; category?: string }
+  ): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/scan-exception`, 'POST', payload)
+  }
 }
 
 export const appointmentService = new AppointmentService()
