@@ -8,7 +8,7 @@ const apiCandidates = [
   join(currentDir, '../api/storage/app/public'),
   join(currentDir, '../DermAssist-API/storage/app/public')
 ]
-const apiStoragePath = apiCandidates.find(p => existsSync(p)) || apiCandidates[0]
+const apiStoragePath = apiCandidates.find(p => existsSync(p))
 
 // Dynamically extract the host from NUXT_PUBLIC_STORAGE_BASE so @nuxt/image
 // always allows the configured backend domain (ngrok, localhost, LAN IP, etc.)
@@ -64,12 +64,16 @@ export default defineNuxtConfig({
     domains: ['localhost', '127.0.0.1', ...imageDomainsFromEnv]
   },
   nitro: {
-    publicAssets: [
-      {
-        dir: apiStoragePath,
-        baseURL: '/storage'
-      }
-    ]
+    ...(apiStoragePath
+      ? {
+          publicAssets: [
+            {
+              dir: apiStoragePath,
+              baseURL: '/storage'
+            }
+          ]
+        }
+      : {})
   },
   icon: {
     clientBundle: {

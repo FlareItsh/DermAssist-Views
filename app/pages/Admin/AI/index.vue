@@ -360,7 +360,12 @@
       logContainer.value.scrollTop = logContainer.value.scrollHeight
     }
 
-    if (res.status === 'completed' || res.status === 'failed' || res.status === 'cancelled') {
+    if (
+      res.status === 'completed' ||
+      res.status === 'failed' ||
+      res.status === 'cancelled' ||
+      res.status === 'idle'
+    ) {
       stopPolling()
       if (res.status === 'completed') {
         try {
