@@ -49,7 +49,7 @@
   const goToChat = (conversationUuid: string | undefined) => {
     if (!conversationUuid) return
     selectedDate.value = null
-    router.push(`/Patient/Messages/${conversationUuid}`)
+    await navigateTo(`/patient/messages/${conversationUuid}`)
   }
 
   const weekDays = computed(() => {

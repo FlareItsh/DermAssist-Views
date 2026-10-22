@@ -53,13 +53,20 @@
       const res = await conversationService.create({ doctor_id: doctorId })
       const uuid = res?.data?.id || res?.id || res?.data?.uuid || res?.uuid
       if (uuid) {
-        router.push(`/Patient/Messages/${uuid}`)
+        await navigateTo(`/patient/messages/${uuid}`)
       }
     } catch (e) {
       console.error(e)
     } finally {
       activeStartingDoctorId.value = null
     }
+  }
+
+  const goToBooking = (doctorId: string | number) => {
+    router.push({
+      path: '/patient/appointments',
+      query: { doctor: String(doctorId), book: 'true' }
+    })
   }
 </script>
 
@@ -71,12 +78,24 @@
         <div class="bg-secondary h-5 w-1 shrink-0 rounded-full"></div>
         <h3 class="text-foreground text-base font-bold">Doctors Nearby</h3>
       </div>
-      <span
-        v-if="searchQuery"
-        class="text-primary bg-primary/10 rounded-full px-2.5 py-0.5 text-[10px] font-bold italic"
-      >
-        Filtering
-      </span>
+      <div class="flex items-center gap-2">
+        <span
+          v-if="searchQuery"
+          class="text-primary bg-primary/10 rounded-full px-2.5 py-0.5 text-[10px] font-bold italic"
+        >
+          Filtering
+        </span>
+        <NuxtLink
+          to="/patient/appointments"
+          class="text-primary hover:text-primary/80 group inline-flex items-center gap-1 text-xs font-bold transition-all"
+        >
+          <span>See More</span>
+          <Icon
+            name="solar:alt-arrow-right-linear"
+            class="text-sm transition-transform duration-200 group-hover:translate-x-0.5"
+          />
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -138,21 +157,32 @@
           </h4>
         </div>
 
-        <!-- Chat bubble Action button -->
-        <div class="mt-3.5 flex w-full justify-end">
+        <!-- Action buttons (Booking + Chat) -->
+        <div class="mt-3.5 flex w-full items-center justify-end gap-2">
+          <button
+            @click="goToBooking(userItem.id)"
+            class="border-primary text-primary hover:bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all hover:text-white active:scale-90"
+            title="Book Appointment"
+          >
+            <Icon
+              name="material-symbols:calendar-add-on-rounded"
+              size="15"
+            />
+          </button>
           <button
             @click="startConversation(userItem.id)"
             :disabled="activeStartingDoctorId !== null"
             class="border-primary text-primary hover:bg-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-all hover:text-white active:scale-90"
+            title="Send Message"
           >
             <Icon
               name="mingcute:message-4-line"
-              size="16"
+              size="15"
               v-if="activeStartingDoctorId !== userItem.id"
             />
             <Icon
               name="mingcute:loading-line"
-              size="14"
+              size="13"
               class="animate-spin"
               v-else
             />

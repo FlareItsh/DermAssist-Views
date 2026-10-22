@@ -29,13 +29,20 @@
       const res = await conversationService.create({ doctor_id: props.doctorId })
       const uuid = res?.data?.id || res?.id || res?.data?.uuid || res?.uuid
       if (uuid) {
-        router.push(`/Patient/Messages/${uuid}`)
+        await navigateTo(`/patient/messages/${uuid}`)
       }
     } catch (e) {
       console.error(e)
     } finally {
       isStartingConversation.value = false
     }
+  }
+
+  const goToBooking = () => {
+    router.push({
+      path: '/patient/appointments',
+      query: { doctor: String(props.doctorId), book: 'true' }
+    })
   }
 </script>
 
@@ -76,31 +83,37 @@
       </h1>
     </div>
 
-    <div class="text-secondary mt-8 flex w-full justify-end gap-3">
-      <!-- <AppButton variant="unstyled" size="unstyled" rounded="unstyled"
-        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px]"
-      >
-        <Icon
-          name="famicons:call"
-          size="22"
-        />
-      </AppButton> -->
+    <div class="text-secondary mt-8 flex w-full items-center justify-end gap-2.5">
       <AppButton
         variant="unstyled"
         size="unstyled"
         rounded="unstyled"
-        class="border-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[3px]"
+        class="border-primary text-primary hover:bg-primary flex h-10 w-10 items-center justify-center rounded-full border-[2.5px] transition-all hover:text-white active:scale-95"
+        @click.stop="goToBooking"
+        title="Book Appointment"
+      >
+        <Icon
+          name="material-symbols:calendar-add-on-rounded"
+          size="20"
+        />
+      </AppButton>
+      <AppButton
+        variant="unstyled"
+        size="unstyled"
+        rounded="unstyled"
+        class="border-primary text-primary hover:bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full border-[2.5px] transition-all active:scale-95"
         @click="startConversation"
         :disabled="isStartingConversation"
+        title="Send Message"
       >
         <Icon
           name="mingcute:message-4-line"
-          size="22"
+          size="20"
           v-if="!isStartingConversation"
         />
         <Icon
           name="mingcute:loading-line"
-          size="22"
+          size="20"
           class="animate-spin"
           v-else
         />

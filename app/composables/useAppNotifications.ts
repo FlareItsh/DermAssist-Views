@@ -795,16 +795,32 @@ export const useAppNotifications = () => {
       recentRecords.forEach(rec => {
         const recordTitle = rec.title || rec.label || 'Medical Record'
         const isDiagnosis = rec.type === 'doctor_diagnosis'
+        const isAmended = !!(
+          rec.original_ai_label && rec.original_ai_label !== (rec.label || rec.title)
+        )
+        const title = isAmended
+          ? 'Clinical Diagnosis Amended'
+          : isDiagnosis
+            ? 'New Clinical Consultation Record'
+            : 'New Diagnostic Scan Saved'
+        const description = isAmended
+          ? `Dr. ${rec.doctor?.last_name || 'Your attending doctor'} updated your clinical diagnosis to "${recordTitle}". Tap to view details.`
+          : isDiagnosis
+            ? `Dr. ${rec.doctor?.last_name || 'Your doctor'} added a clinical note for "${recordTitle}". Tap to view in your health history.`
+            : `AI diagnostic scan "${recordTitle}" has been saved to your health history.`
+
         list.push({
           id: `patient-record-${rec.id || rec.uuid}`,
           type: 'records',
-          title: isDiagnosis ? 'New Clinical Consultation Record' : 'New Diagnostic Scan Saved',
-          description: isDiagnosis
-            ? `Dr. ${rec.doctor?.last_name || 'Your doctor'} added a clinical note for "${recordTitle}". Tap to view in your health history.`
-            : `AI diagnostic scan "${recordTitle}" has been saved to your health history.`,
+          title,
+          description,
           time: rec.created_at ? formatRelativeTime(rec.created_at) : 'Recent',
-          icon: isDiagnosis ? 'solar:document-medicine-bold' : 'solar:scanner-bold',
-          color: isDiagnosis ? 'text-teal-500' : 'text-primary',
+          icon: isAmended
+            ? 'solar:check-circle-bold'
+            : isDiagnosis
+              ? 'solar:document-medicine-bold'
+              : 'solar:scanner-bold',
+          color: isAmended ? 'text-indigo-500' : isDiagnosis ? 'text-teal-500' : 'text-primary',
           to: '/patient/records',
           data: rec
         })

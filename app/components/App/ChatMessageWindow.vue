@@ -154,23 +154,100 @@
     return convData.value.patient?.user_id || convData.value.patient?.id || otherPersonUuid.value
   })
 
+  const showPatientDirectBookingModal = ref(false)
+  const isDirectBooking = ref(false)
+
+  const isDoctorUser = computed(() => {
+    return (
+      userRole.value === 'doctor' ||
+      userRole.value === 'secretary' ||
+      route.path.toLowerCase().startsWith('/doctor') ||
+      route.path.toLowerCase().startsWith('/secretary')
+    )
+  })
+
+  const chatPartnerDoctor = computed(() => {
+    const doc = convData.value?.doctor
+    if (doc) {
+      return {
+        ...doc,
+        id: doc.id,
+        uuid: doc.uuid || doc.id,
+        name: doc.name || doc.user?.name || props.otherPersonName,
+        first_name: doc.first_name,
+        last_name: doc.last_name,
+        specialty: doc.specialty || 'Dermatologist',
+        profile_photo_url:
+          doc.avatar_url ||
+          doc.avatar ||
+          doc.profile_photo_url ||
+          doc.user?.profile_photo_url ||
+          props.otherPersonAvatar ||
+          null,
+        avatar_path: doc.avatar_path || null,
+        clinics: doc.clinics || []
+      }
+    }
+    if (!isDoctorUser.value) {
+      return {
+        id: conversationDoctorUuid.value || undefined,
+        uuid: conversationDoctorUuid.value || undefined,
+        name: props.otherPersonName,
+        specialty: 'Dermatologist',
+        profile_photo_url: props.otherPersonAvatar || null,
+        clinics: []
+      }
+    }
+    return null
+  })
+
+  const showPatientBookModal = ref(false)
+
+  const handlePatientBookedFromChat = async () => {
+    showPatientBookModal.value = false
+    await fetchAppointments()
+    await fetchMessages(1)
+  }
+
   const openScheduleFromSidebar = () => {
-    if (pendingAppointmentForConversation.value) {
-      openScheduleModalFromPending(pendingAppointmentForConversation.value)
-    } else {
-      const isDoc =
-        userRole.value === 'doctor' ||
-        userRole.value === 'secretary' ||
-        route.path.toLowerCase().startsWith('/doctor') ||
-        route.path.toLowerCase().startsWith('/secretary')
-      if (isDoc) {
+    if (isDoctorUser.value) {
+      if (pendingAppointmentForConversation.value) {
+        openScheduleModalFromPending(pendingAppointmentForConversation.value)
+      } else {
         schedulingAppointmentUuid.value = ''
         scheduleMode.value = 'schedule'
         showScheduleModal.value = true
-        showUserDetails.value = false
-      } else {
-        navigateTo('/Patient/Scan/SelectDoctor')
       }
+      showUserDetails.value = false
+    } else {
+      showPatientBookModal.value = true
+      showUserDetails.value = false
+    }
+  }
+
+  const confirmPatientDirectBooking = async () => {
+    const doctorId =
+      convData.value?.doctor?.uuid || convData.value?.doctor?.user_id || convData.value?.doctor?.id
+    if (!doctorId) {
+      toast.error('Unable to find doctor information to request appointment.')
+      return
+    }
+    isDirectBooking.value = true
+    try {
+      await appointmentService.create({
+        doctor_id: doctorId,
+        source: 'direct',
+        message: 'I would like to schedule an appointment for a clinical consultation.'
+      })
+      toast.success('Appointment request sent successfully!')
+      showPatientDirectBookingModal.value = false
+      await fetchAppointments()
+      await fetchMessages(1)
+    } catch (e: any) {
+      console.error('Failed to book direct appointment:', e)
+      toast.error(e?.data?.message || 'Failed to submit appointment request.')
+    } finally {
+      isDirectBooking.value = false
     }
   }
 
@@ -431,11 +508,12 @@
   const cleanClinicalFindings = (message: string): string => {
     return (
       message
-        .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):.*?:.*?\]/g, '')
+        .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):[^\]]+\]/g, '')
         .replace(/\[SCAN_RESULT:[a-f0-9-]+\]/g, '')
+        .replace(/Requested schedule:\s*[^\.\n]+\.?/gi, '')
         .trim() ||
       (message.includes('[APPOINTMENT_REQUEST:')
-        ? 'A diagnosis was shared.'
+        ? 'Appointment consultation requested.'
         : 'Additional findings shared.')
     )
   }
@@ -554,18 +632,22 @@
     return match ? match[2] : ''
   }
 
-  /** Extract UUID from an APPOINTMENT_SCHEDULED system message. */
+  /** Extract UUID from an APPOINTMENT_SCHEDULED or APPOINTMENT_CONFIRMED system message. */
   const extractScheduledAppointmentUuid = (message: string): string => {
-    const match = message.match(/\[APPOINTMENT_SCHEDULED:([a-f0-9-]+)\]/)
-    return match ? match[1] : ''
+    const match = message.match(/\[(APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED):([a-f0-9-]+)\]/)
+    return match ? match[2] : ''
   }
 
-  /** Returns true when the patient can request a reschedule directly from the chat bubble. */
-  const canPatientRequestReschedule = (message: string): boolean => {
-    if (userRole.value?.toLowerCase() !== 'patient') return false
+  /** Returns true when either party can request/propose a reschedule directly from the chat bubble. */
+  const canRequestReschedule = (message: string): boolean => {
     const uuid = extractScheduledAppointmentUuid(message)
     if (!uuid) return false
-    return activeAppointment.value?.id === uuid && activeAppointment.value?.status === 'scheduled'
+    const appt =
+      activeAppointment.value?.id === uuid || activeAppointment.value?.uuid === uuid
+        ? activeAppointment.value
+        : appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    if (!appt) return false
+    return ['scheduled', 'confirmed'].includes(appt.status)
   }
 
   // --- Rebook Appointment (Patient Side) ---
@@ -692,6 +774,64 @@
     showScheduleModal.value = true
   }
 
+  const isAcceptingBookingDirect = ref<string | null>(null)
+  const acceptAppointmentDirectly = async (message: string) => {
+    const uuid = extractAppointmentUuid(message, 'REQUEST')
+    if (!uuid || isAcceptingBookingDirect.value) return
+    isAcceptingBookingDirect.value = uuid
+    try {
+      await appointmentService.accept(uuid)
+      toast.success('Appointment booking confirmed successfully.')
+      await fetchMessages(1)
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      const errorMsg =
+        e?.response?._data?.message ||
+        e?.data?.message ||
+        e?.message ||
+        'Failed to accept appointment.'
+      if (e?.response?.status === 409 || errorMsg.includes('SLOT_')) {
+        toast.error('Slot Conflict: Requested time slot is no longer available.')
+      } else {
+        toast.error(errorMsg)
+      }
+    } finally {
+      isAcceptingBookingDirect.value = null
+    }
+  }
+
+  const getAppointmentScheduleFromMsg = (msg: any): string | null => {
+    if (msg.appointment_data?.scheduled_at_formatted) {
+      return msg.appointment_data.scheduled_at_formatted
+    }
+    if (msg.appointment_data?.scheduled_at) {
+      const p = parseAppointmentDateTime(msg.appointment_data.scheduled_at)
+      let str = `${p.date} at ${p.time}`
+      if (msg.appointment_data.scheduled_end_at) {
+        const pEnd = parseAppointmentDateTime(msg.appointment_data.scheduled_end_at)
+        str += ` - ${pEnd.time}`
+      }
+      return str
+    }
+    const apptUuid = extractAppointmentUuid(msg.message, 'REQUEST')
+    if (apptUuid) {
+      const found = [...appointments.value, ...pendingAppointments.value].find(
+        a => a.id === apptUuid || a.uuid === apptUuid
+      )
+      if (found?.raw_scheduled_at || found?.date) {
+        let str = found.date
+        if (found.time) str += ` at ${found.time}`
+        return str
+      }
+    }
+    const scheduleMatch = msg.message.match(/Requested schedule:\s*([^\.\n]+)/i)
+    if (scheduleMatch) {
+      return scheduleMatch[1].trim()
+    }
+    return null
+  }
+
   const decliningApptUuids = ref<Set<string>>(new Set())
 
   const declineAppointment = async (message: string) => {
@@ -712,9 +852,14 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return true
     if (decliningApptUuids.value.has(uuid)) return true
+    const apptInStore = appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    if (apptInStore && apptInStore.status !== 'pending') {
+      return true
+    }
     return allMessages.value.some(
       m =>
         m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_CONFIRMED:${uuid}]`) ||
         m.message.includes(`[APPOINTMENT_DECLINED:${uuid}]`) ||
         m.message.includes(`[APPOINTMENT_CANCELLED:${uuid}]`)
     )
@@ -723,10 +868,13 @@
   // --- Active Appointment (Top Bar) ---
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const activeAppointment = computed(() => {
+    if (!props.conversationUuid) return null
     return appointments.value.find(
       a =>
+        Boolean(a.conversation_uuid) &&
         a.conversation_uuid === props.conversationUuid &&
         (a.status === 'scheduled' ||
+          a.status === 'confirmed' ||
           a.status === 'reschedule_proposed' ||
           a.status === 'reschedule_requested')
     )
@@ -737,8 +885,11 @@
    * Shown to the doctor as a top-of-window banner.
    */
   const pendingAppointmentForConversation = computed(() => {
+    if (!props.conversationUuid) return null
     return (
-      pendingAppointments.value.find(a => a.conversation_uuid === props.conversationUuid) ?? null
+      pendingAppointments.value.find(
+        a => Boolean(a.conversation_uuid) && a.conversation_uuid === props.conversationUuid
+      ) ?? null
     )
   })
 
@@ -757,12 +908,30 @@
     showScheduleModal.value = true
   }
 
+  const rescheduleModalAppt = ref<any | null>(null)
+
   const openRescheduleModal = (uuid?: string) => {
-    const targetUuid = typeof uuid === 'string' ? uuid : activeAppointment.value?.id
+    const targetUuid = typeof uuid === 'string' && uuid ? uuid : activeAppointment.value?.id
     if (!targetUuid) return
-    const found = appointments.value.find(a => a.id === targetUuid) || activeAppointment.value
+    const found =
+      appointments.value.find(a => a.id === targetUuid || a.uuid === targetUuid) ||
+      pendingAppointments.value.find(a => a.id === targetUuid || a.uuid === targetUuid) ||
+      (activeAppointment.value?.id === targetUuid ? activeAppointment.value : null)
     if (found) {
       rescheduleModalAppt.value = found
+    } else {
+      rescheduleModalAppt.value = {
+        id: targetUuid,
+        doctor_uuid:
+          convData.value?.doctor?.uuid || convData.value?.doctor?.id || doctorInfo.value?.uuid,
+        doctor_id: convData.value?.doctor?.id || doctorInfo.value?.id,
+        doctor: doctorInfo.value
+          ? doctorInfo.value.name?.startsWith('Dr.')
+            ? doctorInfo.value.name
+            : `Dr. ${doctorInfo.value.name}`
+          : 'Doctor',
+        info: 'Consultation'
+      }
     }
   }
 
@@ -837,23 +1006,8 @@
     promptCancelAppointment(uuid)
   }
 
-  const rescheduleModalAppt = ref<any | null>(null)
-
   const requestReschedule = (uuid: string) => {
-    const found = appointments.value.find(a => a.id === uuid) || activeAppointment.value
-    if (found) {
-      rescheduleModalAppt.value = found
-    } else {
-      rescheduleModalAppt.value = {
-        id: uuid,
-        doctor_uuid: activeConversation.value?.doctor?.uuid,
-        doctor_id: activeConversation.value?.doctor?.id,
-        doctor: activeConversation.value?.doctor
-          ? `Dr. ${activeConversation.value.doctor.first_name} ${activeConversation.value.doctor.last_name}`
-          : 'Doctor',
-        info: 'Consultation'
-      }
-    }
+    openRescheduleModal(uuid)
   }
 
   const onRescheduleRequested = () => {
@@ -1727,7 +1881,12 @@
 
         <!-- Active Appointment Bar (scheduled appointment or reschedule in progress) -->
         <div
-          v-if="activeAppointment"
+          v-if="
+            activeAppointment &&
+            ['scheduled', 'confirmed', 'reschedule_proposed', 'reschedule_requested'].includes(
+              activeAppointment.status
+            )
+          "
           class="flex flex-col border-b px-3.5 py-2.5 transition-all sm:p-4"
           :class="[
             activeAppointment.status === 'reschedule_requested' ||
@@ -1742,7 +1901,9 @@
         >
           <!-- Row 1: Active Scheduled Appointment Details (HIDDEN when reschedule is requested or proposed) -->
           <div
-            v-if="activeAppointment.status === 'scheduled'"
+            v-if="
+              activeAppointment.status === 'scheduled' || activeAppointment.status === 'confirmed'
+            "
             class="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="flex items-center justify-between gap-3">
@@ -1872,7 +2033,9 @@
             </div>
             <div
               v-else-if="
-                userRole?.toLowerCase() === 'patient' && activeAppointment.status === 'scheduled'
+                userRole?.toLowerCase() === 'patient' &&
+                (activeAppointment.status === 'scheduled' ||
+                  activeAppointment.status === 'confirmed')
               "
               class="items-center gap-2"
               :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
@@ -2205,9 +2368,59 @@
                       ></p>
                     </div>
 
+                    <!-- Requested Schedule Information Card -->
+                    <div
+                      v-if="getAppointmentScheduleFromMsg(msg)"
+                      class="mt-3 rounded-2xl border p-3.5 shadow-xs"
+                      :class="[
+                        msg.sender?.id === effectiveUserUuid
+                          ? 'border-white/20 bg-white text-gray-900 shadow-md'
+                          : 'bg-card/70 border-border/60 text-foreground backdrop-blur-sm'
+                      ]"
+                    >
+                      <div class="flex items-start gap-3">
+                        <div
+                          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs"
+                        >
+                          <Icon
+                            name="material-symbols:event-available-rounded"
+                            class="text-xl"
+                          />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p
+                            class="text-[10px] font-black tracking-wider text-indigo-600 uppercase"
+                          >
+                            Requested Consultation Schedule
+                          </p>
+                          <p
+                            class="text-sm leading-tight font-black"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-900'
+                                : 'text-foreground'
+                            "
+                          >
+                            {{ getAppointmentScheduleFromMsg(msg) }}
+                          </p>
+                          <p
+                            v-if="msg.appointment_data?.purpose"
+                            class="mt-1 text-xs font-semibold"
+                            :class="
+                              msg.sender?.id === effectiveUserUuid
+                                ? 'text-gray-600'
+                                : 'text-muted-foreground'
+                            "
+                          >
+                            Purpose: {{ msg.appointment_data.purpose }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <!-- Diagnosis Details -->
                     <div
-                      v-if="msg.appointment_data"
+                      v-if="msg.appointment_data && msg.appointment_data.diagnosis"
                       class="mt-3 rounded-2xl border p-4 shadow-sm"
                       :class="[
                         msg.sender?.id === effectiveUserUuid
@@ -2222,13 +2435,12 @@
                           alt="Diagnosis scan"
                         />
                         <div class="flex min-w-0 flex-col justify-center gap-0.5">
-                          <p
-                            class="text-[10px] font-black tracking-widest uppercase"
-                            :class="
-                              msg.sender?.id === effectiveUserUuid ? 'text-primary' : 'text-primary'
-                            "
-                          >
-                            Clinical Findings
+                          <p class="text-primary text-[10px] font-black tracking-widest uppercase">
+                            {{
+                              msg.appointment_data?.diagnosis?.scan_type === 'in_clinic'
+                                ? 'Clinical Findings'
+                                : 'AI Scan Result (Home Self-Assessment)'
+                            }}
                           </p>
                           <h4
                             class="truncate text-lg leading-tight font-black"
@@ -2275,27 +2487,90 @@
                     <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
                     <div
                       v-if="
-                        userRole?.toLowerCase() === 'doctor' &&
+                        (userRole?.toLowerCase() === 'doctor' ||
+                          userRole?.toLowerCase() === 'secretary') &&
                         msg.message.includes('[APPOINTMENT_REQUEST:') &&
                         !isAppointmentHandled(msg.message)
                       "
-                      class="mt-4 flex gap-2"
+                      class="mt-4 flex flex-wrap gap-2"
                     >
                       <button
-                        @click.prevent="openScheduleModal(msg.message)"
-                        class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
+                        v-if="getAppointmentScheduleFromMsg(msg)"
+                        type="button"
+                        :disabled="
+                          isAcceptingBookingDirect ===
+                          extractAppointmentUuid(msg.message, 'REQUEST')
+                        "
+                        @click.prevent="acceptAppointmentDirectly(msg.message)"
+                        class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                       >
-                        Accept & Schedule
+                        <Icon
+                          v-if="
+                            isAcceptingBookingDirect ===
+                            extractAppointmentUuid(msg.message, 'REQUEST')
+                          "
+                          name="svg-spinners:ring-resize"
+                          class="text-sm"
+                        />
+                        <Icon
+                          v-else
+                          name="material-symbols:check-circle-rounded"
+                          class="text-sm"
+                        />
+                        <span>Accept Request</span>
                       </button>
+
                       <button
+                        type="button"
+                        @click.prevent="openScheduleModal(msg.message)"
+                        class="cursor-pointer rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95"
+                      >
+                        {{
+                          getAppointmentScheduleFromMsg(msg)
+                            ? 'Adjust Schedule'
+                            : 'Accept & Schedule'
+                        }}
+                      </button>
+
+                      <button
+                        type="button"
                         @click.prevent="declineAppointment(msg.message)"
-                        class="bg-foreground/10 hover:bg-foreground/20 rounded-xl px-5 py-2 text-sm font-bold transition-all active:scale-95"
+                        class="bg-foreground/10 hover:bg-foreground/20 cursor-pointer rounded-xl px-4 py-2 text-xs font-bold transition-all active:scale-95"
                       >
                         Decline
                       </button>
                     </div>
+
+                    <!-- Patient actions for pending requests -->
+                    <div
+                      v-if="
+                        userRole?.toLowerCase() === 'patient' &&
+                        msg.message.includes('[APPOINTMENT_REQUEST:') &&
+                        !isAppointmentHandled(msg.message)
+                      "
+                      class="mt-4 flex flex-wrap gap-2"
+                    >
+                      <button
+                        type="button"
+                        @click.prevent="
+                          requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                        "
+                        class="text-primary ring-primary/20 inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95"
+                      >
+                        <Icon
+                          name="material-symbols:edit-calendar-rounded"
+                          class="text-sm"
+                        />
+                        Request Reschedule
+                      </button>
+                    </div>
                   </div>
-                  <div v-else-if="msg.message.includes('[APPOINTMENT_SCHEDULED:')">
+                  <div
+                    v-else-if="
+                      msg.message.includes('[APPOINTMENT_SCHEDULED:') ||
+                      msg.message.includes('[APPOINTMENT_CONFIRMED:')
+                    "
+                  >
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
@@ -2324,10 +2599,14 @@
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
-                        v-html="msg.message.replace(/\[APPOINTMENT_SCHEDULED:.*?\]/g, '').trim()"
+                        v-html="
+                          msg.message
+                            .replace(/\[(APPOINTMENT_SCHEDULED|APPOINTMENT_CONFIRMED):.*?\]/g, '')
+                            .trim()
+                        "
                       ></p>
                       <button
-                        v-if="canPatientRequestReschedule(msg.message)"
+                        v-if="canRequestReschedule(msg.message)"
                         type="button"
                         @click.prevent="
                           requestReschedule(extractScheduledAppointmentUuid(msg.message))
@@ -2338,7 +2617,7 @@
                           name="material-symbols:edit-calendar-rounded"
                           class="text-sm"
                         />
-                        Request Reschedule
+                        {{ isDoctorUser ? 'Reschedule' : 'Request Reschedule' }}
                       </button>
                     </div>
                   </div>
@@ -3327,6 +3606,14 @@
         @requested="onRescheduleRequested"
       />
 
+      <!-- Patient Consultation Booking Modal -->
+      <PatientSideComponentsBookAppointmentModal
+        v-if="!isDoctorUser"
+        v-model="showPatientBookModal"
+        :doctor="chatPartnerDoctor"
+        @booked="handlePatientBookedFromChat"
+      />
+
       <!-- Reschedule Accept Confirmation Modal -->
       <AppModalConfirmation
         v-model="showAcceptConfirmModal"
@@ -3340,6 +3627,21 @@
         :loading="isAcceptingReschedule"
         @confirm="confirmAcceptReschedule"
         @cancel="closeAcceptModal"
+      />
+
+      <!-- Patient Direct Booking Confirmation Modal -->
+      <AppModalConfirmation
+        v-model="showPatientDirectBookingModal"
+        title="Request Clinical Appointment"
+        :description="`Would you like to request an appointment with ${otherPersonName}? This submits a consultation booking request directly without attaching any skin scans.`"
+        confirm-text="Request Appointment"
+        cancel-text="Cancel"
+        confirm-variant="solid"
+        icon="solar:calendar-add-bold"
+        icon-color="primary"
+        :loading="isDirectBooking"
+        @confirm="confirmPatientDirectBooking"
+        @cancel="showPatientDirectBookingModal = false"
       />
 
       <!-- In-Chat Patient Records Modal -->

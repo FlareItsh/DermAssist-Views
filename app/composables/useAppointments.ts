@@ -14,6 +14,16 @@ export interface Appointment {
   patient_id: number
   info: string
   diagnosis_image?: string
+  diagnosis_id?: number
+  diagnosis_uuid?: string
+  diagnosis?: any
+  in_clinic_diagnosis_id?: number | null
+  in_clinic_diagnosis?: any
+  scan_exception_reason?: string | null
+  scan_exception_category?: string | null
+  scan_exception_granted_at?: string | null
+  scan_exception_doctor?: any
+  has_satisfied_consultation_scan?: boolean
   location?: string
   purpose?: string
   status: string
@@ -21,6 +31,20 @@ export interface Appointment {
   requested_reschedule_time?: string
   conversation_uuid?: string
   completed_at?: string
+  confirmed_at?: string
+  accepted_by?: any
+  cancelled_at?: string
+  cancelled_by?: any
+  cancellation_reason?: string
+  no_show_at?: string
+  no_show_by?: any
+  no_show_reason?: string
+  checked_in_at?: string
+  consultation_started_at?: string
+  is_awaiting_attendance_review?: boolean
+  active_reschedule_proposal?: any
+  reschedule_proposals?: any[]
+  events?: any[]
 }
 
 export const parseAppointmentDateTime = (
@@ -79,6 +103,11 @@ export const useAppointments = () => {
     'shared_completed_appointments_list',
     () => []
   )
+  const noShowAppointments = useState<Appointment[]>('shared_no_show_appointments_list', () => [])
+  const cancelledAppointments = useState<Appointment[]>(
+    'shared_cancelled_appointments_list',
+    () => []
+  )
   const selectedDate = useState<string | null>('appointments_selected_date', () => {
     return new Date().toISOString().split('T')[0]
   })
@@ -105,6 +134,18 @@ export const useAppointments = () => {
       date = p.date
       time = p.time
     }
+
+    const isAwaitingAttendanceReview = (() => {
+      const st = appt.status
+      if (st !== 'confirmed' && st !== 'scheduled') return false
+      if (appt.checked_in_at) return false
+      if (!appt.scheduled_at) return false
+      const apptStartMs = new Date(appt.scheduled_at).getTime()
+      if (isNaN(apptStartMs)) return false
+      const graceMs = 15 * 60 * 1000 // 15 mins default
+      return Date.now() >= apptStartMs + graceMs
+    })()
+
     return {
       id: appt.uuid,
       uuid: appt.uuid,
@@ -125,7 +166,25 @@ export const useAppointments = () => {
       created_at: appt.created_at,
       info: appt.diagnosis?.label || appt.clinical_note?.diagnosis?.label || 'General Appointment',
       diagnosis_id: appt.diagnosis_id || appt.diagnosis?.id,
+      diagnosis_uuid: appt.diagnosis?.uuid,
+      diagnosis: appt.diagnosis,
       diagnosis_image: appt.diagnosis?.image_path || appt.clinical_note?.diagnosis?.image_path,
+      in_clinic_diagnosis_id:
+        appt.in_clinic_diagnosis_id ||
+        appt.in_clinic_diagnosis?.id ||
+        appt.inClinicDiagnosis?.id ||
+        null,
+      in_clinic_diagnosis: appt.in_clinic_diagnosis || appt.inClinicDiagnosis || null,
+      scan_exception_reason: appt.scan_exception_reason || null,
+      scan_exception_category: appt.scan_exception_category || null,
+      scan_exception_granted_at: appt.scan_exception_granted_at || null,
+      scan_exception_doctor: appt.scan_exception_doctor || appt.scanExceptionDoctor || null,
+      has_satisfied_consultation_scan: !!(
+        appt.in_clinic_diagnosis_id ||
+        appt.in_clinic_diagnosis ||
+        appt.inClinicDiagnosis ||
+        appt.scan_exception_reason
+      ),
       location: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
       clinic_name: appt.clinic?.name || appt.location || 'Cruz Skin Clinic',
       purpose: appt.purpose || 'Consultation',
@@ -133,7 +192,21 @@ export const useAppointments = () => {
       requested_reschedule_date: appt.requested_reschedule_date,
       requested_reschedule_time: appt.requested_reschedule_time,
       conversation_uuid: appt.conversation_uuid,
-      completed_at: appt.completed_at || appt.updated_at
+      completed_at: appt.completed_at || appt.updated_at,
+      confirmed_at: appt.confirmed_at,
+      accepted_by: appt.accepted_by || appt.acceptedBy,
+      cancelled_at: appt.cancelled_at,
+      cancelled_by: appt.cancelled_by || appt.cancelledBy,
+      cancellation_reason: appt.cancellation_reason,
+      no_show_at: appt.no_show_at,
+      no_show_by: appt.no_show_by || appt.noShowBy,
+      no_show_reason: appt.no_show_reason,
+      checked_in_at: appt.checked_in_at,
+      consultation_started_at: appt.consultation_started_at,
+      is_awaiting_attendance_review: isAwaitingAttendanceReview,
+      active_reschedule_proposal: appt.active_reschedule_proposal || appt.activeRescheduleProposal,
+      reschedule_proposals: appt.reschedule_proposals || appt.rescheduleProposals || [],
+      events: appt.events || []
     }
   }
 
@@ -143,6 +216,8 @@ export const useAppointments = () => {
       pendingAppointments.value = []
       declinedAppointments.value = []
       completedAppointments.value = []
+      noShowAppointments.value = []
+      cancelledAppointments.value = []
       selectedDate.value = new Date().toISOString().split('T')[0]
       return
     }
@@ -158,7 +233,10 @@ export const useAppointments = () => {
           appointments.value = res
             .filter(
               (appt: any) =>
+                appt.status === 'confirmed' ||
                 appt.status === 'scheduled' ||
+                appt.status === 'checked_in' ||
+                appt.status === 'in_consultation' ||
                 appt.status === 'reschedule_proposed' ||
                 appt.status === 'reschedule_requested'
             )
@@ -169,11 +247,19 @@ export const useAppointments = () => {
             .map(mapAppt)
 
           declinedAppointments.value = res
-            .filter((appt: any) => appt.status === 'declined')
+            .filter((appt: any) => appt.status === 'declined' || appt.status === 'rejected')
             .map(mapAppt)
 
           completedAppointments.value = res
             .filter((appt: any) => appt.status === 'completed')
+            .map(mapAppt)
+
+          noShowAppointments.value = res
+            .filter((appt: any) => appt.status === 'no_show')
+            .map(mapAppt)
+
+          cancelledAppointments.value = res
+            .filter((appt: any) => appt.status === 'cancelled')
             .map(mapAppt)
         }
       } catch (e) {
@@ -201,7 +287,10 @@ export const useAppointments = () => {
         return res
           .filter(
             (appt: any) =>
+              appt.status === 'confirmed' ||
               appt.status === 'scheduled' ||
+              appt.status === 'checked_in' ||
+              appt.status === 'in_consultation' ||
               appt.status === 'reschedule_proposed' ||
               appt.status === 'reschedule_requested'
           )
@@ -260,6 +349,8 @@ export const useAppointments = () => {
     pendingAppointments.value = []
     declinedAppointments.value = []
     completedAppointments.value = []
+    noShowAppointments.value = []
+    cancelledAppointments.value = []
     selectedDate.value = new Date().toISOString().split('T')[0]
     localUserUuid.value = userUuid.value
     fetchAppointments()
@@ -274,6 +365,8 @@ export const useAppointments = () => {
         pendingAppointments.value = []
         declinedAppointments.value = []
         completedAppointments.value = []
+        noShowAppointments.value = []
+        cancelledAppointments.value = []
         selectedDate.value = new Date().toISOString().split('T')[0]
         if (newUuid) fetchAppointments()
       }
@@ -334,6 +427,8 @@ export const useAppointments = () => {
     pendingAppointments,
     declinedAppointments,
     completedAppointments,
+    noShowAppointments,
+    cancelledAppointments,
     rescheduleRequests,
     rescheduleRequestsCount,
     todayAppointments,

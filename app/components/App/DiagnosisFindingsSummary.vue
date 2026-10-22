@@ -3,6 +3,7 @@
   import { DISEASE_DATABASE, type PendingPatientRegistration } from '~/composables/useDiagnosis'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { appointmentService } from '~/api/appointment/AppointmentService'
   import { userService } from '~/api/user/UserService'
   import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
@@ -67,22 +68,35 @@
       !!pendingPatientRegistration.value
   )
 
+  const isTechnicalFailure = computed(() => {
+    return !!(currentDiagnosis.value as any)?.is_technical_failure
+  })
+
   const errorMessage = computed(() => {
     if (showScanReminder.value) return 'Scan required to proceed'
     if (!isScanned.value) return 'Please scan the image first'
+    if (isTechnicalFailure.value) {
+      return (
+        (currentDiagnosis.value as any)?.technical_failure_reason ||
+        'Technical scan capture failure: Image quality unusable. Please rescan.'
+      )
+    }
     if (isNoneState.value) return 'Non-skin image detected. Scan skin to proceed.'
-    if (isHealthyState.value) return 'Healthy skin detected. No disease present.'
+    if (props.role !== 'doctor' && isHealthyState.value) {
+      return 'Healthy skin detected. No disease present.'
+    }
     if (props.role === 'doctor' && !hasPatient.value) return 'Please select or register a patient'
     return null
   })
 
   const canProceed = computed(() => {
-    const validScan =
-      !!currentDiagnosis.value && isScanned.value && !isHealthyState.value && !isNoneState.value
+    if (isTechnicalFailure.value) return false
+    if (!currentDiagnosis.value || !isScanned.value || isNoneState.value) return false
+
     if (props.role === 'doctor') {
-      return validScan && hasPatient.value
+      return hasPatient.value
     }
-    return validScan
+    return !isHealthyState.value
   })
 
   const showDiscardModal = ref(false)
@@ -131,6 +145,14 @@
               patientUuid.value !== 'walk_in_guest'
             ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
+            }
+
+            if (isValidUuid(appointmentUuid.value)) {
+              try {
+                await appointmentService.attachInClinicScan(appointmentUuid.value, uuid)
+              } catch (attachErr) {
+                console.error('Failed to attach in-clinic scan to appointment', attachErr)
+              }
             }
           }
         } catch (e) {
@@ -279,6 +301,15 @@
     const list: any[] = []
 
     for (const appt of all) {
+      // Exclude non-active / completed / cancelled appointments
+      if (
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+          appt.status?.toLowerCase()
+        )
+      ) {
+        continue
+      }
+
       // Strictly require a scheduled date (never fall back to created_at)
       const rawDateStr = appt.raw_scheduled_at || appt.scheduled_at || appt.date
       if (!rawDateStr) continue
@@ -441,25 +472,41 @@
     { immediate: true }
   )
 
-  // Watch patientUuid and loaded lists to re-hydrate assignedName & appointment after navigation
+  // Watch patientUuid and appointmentUuid with loaded lists to re-hydrate assignedName & appointment after navigation
   watch(
-    [patientUuid, doctorRegisteredPatients, availableAppointments],
-    ([uuid, patients, appts]) => {
-      if (uuid && !assignedName.value && !pendingPatientRegistration.value) {
+    [patientUuid, appointmentUuid, doctorRegisteredPatients, availableAppointments],
+    ([uuid, apptUuid, patients, appts]) => {
+      if ((uuid || apptUuid) && !assignedName.value && !pendingPatientRegistration.value) {
         if (uuid === 'walk_in_guest' && walkInPatientInfo.value) {
           assignedName.value = `${walkInPatientInfo.value.firstName} ${walkInPatientInfo.value.lastName}`
           if (!userName.value) userName.value = assignedName.value
           return
         }
-        const reg = patients.find((p: any) => p.uuid === uuid)
+        if (apptUuid) {
+          const apptByUuid = (appts || []).find(
+            (a: any) => a.id === apptUuid || a.uuid === apptUuid
+          )
+          if (apptByUuid) {
+            assignedName.value = apptByUuid.patientName
+            assignedAppointment.value = apptByUuid
+            if (!userName.value) userName.value = apptByUuid.patientName
+            if (!patientUuid.value && apptByUuid.patient_uuid) {
+              patientUuid.value = apptByUuid.patient_uuid
+            }
+            return
+          }
+        }
+        const reg = (patients || []).find((p: any) => p.uuid === uuid)
         if (reg) {
           assignedName.value = `${reg.first_name} ${reg.last_name}`
+          if (!userName.value) userName.value = assignedName.value
           return
         }
-        const appt = appts.find((a: any) => a.patient_uuid === uuid)
+        const appt = (appts || []).find((a: any) => a.patient_uuid === uuid)
         if (appt) {
           assignedName.value = appt.patientName
           assignedAppointment.value = appt
+          if (!userName.value) userName.value = appt.patientName
         }
       }
     },
@@ -1602,25 +1649,36 @@
             <p
               class="text-md font-bold"
               :class="{
-                'text-gray-500': isHealthyState || isNoneState,
-                'text-purple-600 dark:text-purple-400': isOutOfScopeState,
-                'text-warning': isInconclusiveState && !isOutOfScopeState,
-                'text-primary': !isHealthyState && !isInconclusiveState && !isNoneState
+                'text-rose-600': isTechnicalFailure,
+                'text-gray-500': !isTechnicalFailure && (isHealthyState || isNoneState),
+                'text-purple-600 dark:text-purple-400': !isTechnicalFailure && isOutOfScopeState,
+                'text-warning': !isTechnicalFailure && isInconclusiveState && !isOutOfScopeState,
+                'text-primary':
+                  !isTechnicalFailure && !isHealthyState && !isInconclusiveState && !isNoneState
               }"
             >
               {{
-                isNoneState
-                  ? 'Non-Skin Image Detected'
-                  : isOutOfScopeState
-                    ? 'Out-of-Scope Condition'
-                    : isInconclusiveState
-                      ? 'Inconclusive Finding'
-                      : isHealthyState
-                        ? 'No skin disease detected'
-                        : currentDiagnosis?.label || 'Waiting...'
+                isTechnicalFailure
+                  ? 'Technical Scan Failure'
+                  : isNoneState
+                    ? 'Non-Skin Image Detected'
+                    : isOutOfScopeState
+                      ? 'Out-of-Scope Condition'
+                      : isInconclusiveState
+                        ? 'Inconclusive Finding'
+                        : isHealthyState
+                          ? 'No skin disease detected'
+                          : currentDiagnosis?.label || 'Waiting...'
               }}
             </p>
-            <template v-if="isOutOfScopeState">
+            <AppBadge
+              v-if="isTechnicalFailure"
+              color="danger"
+              size="sm"
+            >
+              Capture Failed
+            </AppBadge>
+            <template v-else-if="isOutOfScopeState">
               <AppBadge
                 color="purple"
                 size="sm"
@@ -1651,6 +1709,35 @@
             >
               Non-Skin
             </AppBadge>
+          </div>
+
+          <!-- Technical Failure Advisory Card -->
+          <div
+            v-if="isTechnicalFailure"
+            class="my-2 space-y-2.5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 shadow-xs"
+          >
+            <div class="flex items-start gap-3">
+              <div
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600"
+              >
+                <Icon
+                  name="lucide:alert-circle"
+                  size="18"
+                />
+              </div>
+              <div class="space-y-1">
+                <h4 class="text-xs font-bold text-rose-950 sm:text-sm">Scan Quality Unusable</h4>
+                <p class="text-xs text-rose-800">
+                  {{
+                    (currentDiagnosis as any)?.technical_failure_reason ||
+                    'Image is blurry, out-of-focus, or corrupted. No valid inference could be produced.'
+                  }}
+                </p>
+                <p class="text-[11px] text-rose-700/80">
+                  Please retake the scan with adequate lighting and focus.
+                </p>
+              </div>
+            </div>
           </div>
 
           <!-- Out-of-Scope Dedicated Advisory Banner -->

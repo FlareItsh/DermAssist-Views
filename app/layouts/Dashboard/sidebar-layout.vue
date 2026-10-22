@@ -158,6 +158,13 @@
         to: '/patient/scan'
       },
       {
+        icon: 'lucide:calendar',
+        label: 'Appointments',
+        to: '/patient/appointments',
+        description:
+          'Schedule consultations, choose preferred doctors, and view appointment histories.'
+      },
+      {
         icon: 'lucide:message-square',
         label: 'Message',
         to: '/patient/messages',

@@ -145,8 +145,11 @@
       const currentRole = (userRole.value || '').toLowerCase()
       const doctorUuid =
         props.appointment.doctor_uuid ||
+        props.appointment.doctor?.uuid ||
+        props.appointment.doctor?.id ||
         (currentRole === 'doctor' ? (userUuid.value as string) : (doctorUuidCookie.value as string))
-      const doctorId = props.appointment.doctor_id
+      const doctorId =
+        props.appointment.doctor_id || props.appointment.doctor?.id || props.appointment.doctor_uuid
 
       if (doctorUuid) {
         const res = await doctorAvailabilityService.listForDoctor(doctorUuid)
@@ -181,6 +184,31 @@
         }
       } else if (isDoctorOrSecretary.value && appointments.value?.length) {
         doctorAppointmentsList.value = appointments.value
+      }
+
+      // Automatically default to the earliest selectable date (e.g. tomorrow or nearest duty date)
+      if (!selectedDate.value) {
+        const d = new Date()
+        d.setDate(d.getDate() + 1)
+        for (let i = 0; i < 30; i++) {
+          const testDay = d.getDate()
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const dayStr = String(testDay).padStart(2, '0')
+          const testDateStr = `${y}-${m}-${dayStr}`
+          const isDaySelectable =
+            !doctorBlockedDates.value.includes(testDateStr) &&
+            (!hasAnyDutyConfigured.value ||
+              doctorDutySlots.value.some(
+                (s: any) => s.available_date?.slice(0, 10) === testDateStr
+              ))
+          if (isDaySelectable) {
+            selectedDate.value = testDateStr
+            currentDate.value = new Date(d.getFullYear(), d.getMonth(), 1)
+            break
+          }
+          d.setDate(d.getDate() + 1)
+        }
       }
     } catch (e) {
       console.error('Failed to load doctor availability:', e)
@@ -565,31 +593,30 @@
     try {
       const apptId = props.appointment.id || (props.appointment as any).uuid
 
+      const [hStr, mStr] = selectedTime.value.split(':')
+      const h = parseInt(hStr, 10)
+      const m = parseInt(mStr, 10)
+      const endH = (h + 1) % 24
+      const endTime = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+
+      const dateTime = `${selectedDate.value} ${selectedTime.value}:00`
+      const endDateTime = `${selectedDate.value} ${endTime}:00`
+      const location = selectedDateClinic.value?.name || props.appointment.location || 'Clinic Duty'
+
       if (isDoctorOrSecretary.value) {
-        const [hStr, mStr] = selectedTime.value.split(':')
-        const h = parseInt(hStr, 10)
-        const m = parseInt(mStr, 10)
-        const endH = (h + 1) % 24
-        const endTime = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-
-        const dateTime = `${selectedDate.value} ${selectedTime.value}:00`
-        const endDateTime = `${selectedDate.value} ${endTime}:00`
-        const location =
-          selectedDateClinic.value?.name || props.appointment.location || 'Clinic Duty'
-
-        await appointmentService.proposeReschedule(apptId, {
+        await appointmentService.createRescheduleProposal(apptId, {
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
           location
         })
         toast.success('Reschedule proposal sent to patient.')
       } else {
-        await appointmentService.update(apptId, {
-          status: 'reschedule_requested',
-          requested_reschedule_date: selectedDate.value,
-          requested_reschedule_time: selectedTime.value
+        await appointmentService.createRescheduleProposal(apptId, {
+          scheduled_at: dateTime,
+          scheduled_end_at: endDateTime,
+          location
         })
-        toast.success('Reschedule request sent to your doctor.')
+        toast.success('Reschedule proposal sent to your doctor.')
       }
       emit('requested')
       emit('close')
@@ -611,7 +638,11 @@
   <!-- Mobile View Mode: Full-window component covering chat with back button -->
   <div
     v-if="isInlineMode"
-    class="bg-card flex h-full w-full flex-1 flex-col overflow-hidden"
+    :class="
+      props.inline
+        ? 'bg-card flex h-full w-full flex-1 flex-col overflow-hidden'
+        : 'bg-card fixed inset-0 z-[1000] flex h-full w-full flex-col overflow-hidden'
+    "
   >
     <!-- Mobile Top Header with Back Button and Identity -->
     <div
@@ -673,8 +704,8 @@
           </span>
         </div>
         <p class="mt-1 text-xs font-semibold text-indigo-700">
-          {{ currentApptParsed.date || 'Date set' }}
-          <span v-if="currentApptParsed.time"> at {{ currentApptParsed.time }}</span>
+          {{ currentApptParsed?.date || 'Pending Schedule' }}
+          <span v-if="currentApptParsed?.time"> at {{ currentApptParsed.time }}</span>
           <span v-if="appointment.location"> ({{ appointment.location }})</span>
         </p>
       </div>

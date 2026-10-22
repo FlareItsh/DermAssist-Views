@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import { onClickOutside } from '@vueuse/core'
+  import { toast } from 'vue-sonner'
 
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
@@ -253,8 +254,8 @@
     router.push('/Doctor/profile#blocked-dates')
   }
 
-  const goToChat = (conversationUuid: string) => {
-    router.push(`/Patient/Messages/${conversationUuid}`)
+  const goToChat = async (conversationUuid: string) => {
+    await navigateTo(`/patient/messages/${conversationUuid}`)
   }
 
   const rescheduleModalAppt = ref<any | null>(null)
@@ -265,6 +266,69 @@
 
   const onRescheduleRequested = () => {
     fetchAppointments()
+  }
+
+  const isProcessingProposal = ref(false)
+
+  const formatProposalDateTime = (proposal: any) => {
+    if (!proposal?.proposed_start_at) return ''
+    const p = parseAppointmentDateTime(proposal.proposed_start_at)
+    return `${p.date} at ${p.time}`
+  }
+
+  const handleAcceptProposal = async (appt: any) => {
+    if (!appt.active_reschedule_proposal) return
+    isProcessingProposal.value = true
+    try {
+      await appointmentService.acceptRescheduleProposal(
+        appt.id || appt.uuid,
+        appt.active_reschedule_proposal.id || appt.active_reschedule_proposal.uuid
+      )
+      toast.success('Reschedule proposal accepted.')
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to accept proposal.')
+    } finally {
+      isProcessingProposal.value = false
+    }
+  }
+
+  const handleDeclineProposal = async (appt: any) => {
+    if (!appt.active_reschedule_proposal) return
+    isProcessingProposal.value = true
+    try {
+      await appointmentService.declineRescheduleProposal(
+        appt.id || appt.uuid,
+        appt.active_reschedule_proposal.id || appt.active_reschedule_proposal.uuid,
+        { reason: 'Declined by patient' }
+      )
+      toast.success('Reschedule proposal declined.')
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to decline proposal.')
+    } finally {
+      isProcessingProposal.value = false
+    }
+  }
+
+  const handleWithdrawProposal = async (appt: any) => {
+    if (!appt.active_reschedule_proposal) return
+    isProcessingProposal.value = true
+    try {
+      await appointmentService.withdrawRescheduleProposal(
+        appt.id || appt.uuid,
+        appt.active_reschedule_proposal.id || appt.active_reschedule_proposal.uuid
+      )
+      toast.success('Reschedule proposal withdrawn.')
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error(e)
+      toast.error(e?.response?._data?.message || 'Failed to withdraw proposal.')
+    } finally {
+      isProcessingProposal.value = false
+    }
   }
 </script>
 
@@ -357,6 +421,71 @@
                 </div>
               </div>
 
+              <!-- Active Reschedule Proposal Banner -->
+              <div
+                v-if="appt.active_reschedule_proposal"
+                class="rounded-xl border border-amber-200 bg-amber-50/90 p-2 text-xs"
+              >
+                <div class="flex items-center gap-1 font-bold text-amber-900">
+                  <Icon
+                    name="material-symbols:pending-actions-rounded"
+                    class="text-sm text-amber-600"
+                  />
+                  <span>Reschedule Proposed</span>
+                </div>
+                <p class="mt-0.5 text-[11px] text-amber-800">
+                  New Time:
+                  <strong>{{ formatProposalDateTime(appt.active_reschedule_proposal) }}</strong>
+                </p>
+                <p
+                  v-if="appt.active_reschedule_proposal.reason"
+                  class="mt-0.5 text-[10px] text-amber-700 italic"
+                >
+                  "{{ appt.active_reschedule_proposal.reason }}"
+                </p>
+
+                <!-- If proposed by practice: Patient can accept or decline -->
+                <div
+                  v-if="appt.active_reschedule_proposal.proposer_party === 'practice'"
+                  class="mt-2 flex gap-1.5"
+                >
+                  <button
+                    type="button"
+                    @click="handleAcceptProposal(appt)"
+                    :disabled="isProcessingProposal"
+                    class="flex-1 rounded-lg bg-emerald-600 py-1 text-center text-[11px] font-bold text-white shadow-xs transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    type="button"
+                    @click="handleDeclineProposal(appt)"
+                    :disabled="isProcessingProposal"
+                    class="flex-1 rounded-lg border border-red-200 bg-white py-1 text-center text-[11px] font-bold text-red-600 shadow-xs transition-colors hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Decline
+                  </button>
+                </div>
+
+                <!-- If proposed by patient: Can withdraw -->
+                <div
+                  v-else
+                  class="mt-2 flex items-center justify-between"
+                >
+                  <span class="text-[10px] font-semibold text-amber-800"
+                    >Awaiting doctor review</span
+                  >
+                  <button
+                    type="button"
+                    @click="handleWithdrawProposal(appt)"
+                    :disabled="isProcessingProposal"
+                    class="rounded-md border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    Withdraw
+                  </button>
+                </div>
+              </div>
+
               <!-- Go to chat & Request Reschedule -->
               <div class="mt-1 flex flex-col gap-1.5">
                 <button
@@ -372,7 +501,10 @@
                   Go to Chat
                 </button>
                 <button
-                  v-if="appt.status === 'scheduled' || appt.status === 'reschedule_proposed'"
+                  v-if="
+                    !appt.active_reschedule_proposal &&
+                    (appt.status === 'confirmed' || appt.status === 'scheduled')
+                  "
                   type="button"
                   @click="openRescheduleModal(appt)"
                   class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white text-xs font-bold text-indigo-700 shadow-sm transition-all hover:bg-indigo-50 active:scale-95"
@@ -437,7 +569,7 @@
         {{ currentMonthName }} {{ currentYear }}
       </h2>
 
-      <div class="grid grid-cols-7 gap-y-4 text-center">
+      <div class="grid grid-cols-7 gap-x-1 gap-y-3.5 text-center sm:gap-x-1.5 sm:gap-y-4">
         <div
           v-for="day in daysOfWeek"
           :key="day"
@@ -457,7 +589,7 @@
           @click="selectDate(date)"
           @mouseenter="hoveredDate = dateStringFor(date)"
           @mouseleave="hoveredDate = null"
-          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-xs font-semibold transition-colors sm:h-9 sm:w-9 sm:text-sm"
+          class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-xs font-semibold transition-colors sm:h-8.5 sm:w-8.5 sm:text-xs md:h-9 md:w-9 md:text-sm"
           :class="[
             isPast(date)
               ? 'pointer-events-none text-gray-300 line-through'

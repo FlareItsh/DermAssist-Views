@@ -237,6 +237,7 @@
             <AppModalRecord
               v-if="selectedRecord"
               :record="selectedRecord"
+              role="patient"
               @close="isOpen = false"
             />
           </div>

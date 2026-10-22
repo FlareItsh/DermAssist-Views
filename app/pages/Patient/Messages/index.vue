@@ -1,6 +1,7 @@
 <script setup lang="ts">
   definePageMeta({
-    layout: 'dashboard-sidebar-layout'
+    layout: 'dashboard-sidebar-layout',
+    alias: ['/patient/messages', '/Patient/Messages']
   })
 </script>
 

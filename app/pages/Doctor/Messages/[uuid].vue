@@ -1,6 +1,7 @@
 <script setup lang="ts">
   definePageMeta({
-    layout: 'dashboard-sidebar-layout'
+    layout: 'dashboard-sidebar-layout',
+    alias: ['/doctor/messages/:uuid', '/Doctor/Messages/:uuid']
   })
 
   import { conversationService } from '~/api/conversation/ConversationService'

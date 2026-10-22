@@ -239,10 +239,29 @@
                   Doctor Scan Appeal Inspection
                 </h2>
                 <AppBadge
-                  :color="props.appeal.status === 'resolved' ? 'success' : 'danger'"
+                  :color="
+                    props.appeal.status === 'resolved'
+                      ? 'success'
+                      : props.appeal.status === 'rejected'
+                        ? 'danger'
+                        : 'amber'
+                  "
                   size="xs"
                 >
-                  {{ props.appeal.status === 'resolved' ? 'Resolved' : 'Pending Review' }}
+                  {{
+                    props.appeal.status === 'resolved'
+                      ? 'Resolved'
+                      : props.appeal.status === 'rejected'
+                        ? 'Rejected'
+                        : 'Pending Review'
+                  }}
+                </AppBadge>
+                <AppBadge
+                  v-if="(props.appeal as any).resubmission_count"
+                  color="purple"
+                  size="xs"
+                >
+                  Round {{ (props.appeal as any).resubmission_count + 1 }}
                 </AppBadge>
               </div>
               <p class="text-xs text-gray-500">
@@ -476,6 +495,126 @@
                         'No specific clinical description was provided.'
                       }}"
                     </p>
+                  </div>
+                </div>
+
+                <!-- Three-Gate Compliance & Dual-Consent Card -->
+                <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-5">
+                  <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                    AI Retraining Ingestion Gates (Dual-Consent & Admin Verification)
+                  </span>
+                  <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div
+                      class="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50/60 p-2.5"
+                    >
+                      <Icon
+                        :name="
+                          props.appeal.diagnosis?.patient_consent
+                            ? 'lucide:check-circle-2'
+                            : 'lucide:alert-circle'
+                        "
+                        :class="
+                          props.appeal.diagnosis?.patient_consent
+                            ? 'text-emerald-500'
+                            : 'text-amber-500'
+                        "
+                        size="18"
+                      />
+                      <div class="flex flex-col">
+                        <span class="text-[10px] font-semibold text-gray-400">Gate 1: Patient</span>
+                        <span
+                          class="text-xs font-bold"
+                          :class="
+                            props.appeal.diagnosis?.patient_consent
+                              ? 'text-emerald-700'
+                              : 'text-amber-700'
+                          "
+                        >
+                          {{
+                            props.appeal.diagnosis?.patient_consent
+                              ? 'Research Consented'
+                              : 'No Consent'
+                          }}
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50/60 p-2.5"
+                    >
+                      <Icon
+                        name="lucide:check-circle-2"
+                        class="text-emerald-500"
+                        size="18"
+                      />
+                      <div class="flex flex-col">
+                        <span class="text-[10px] font-semibold text-gray-400">Gate 2: Doctor</span>
+                        <span class="text-xs font-bold text-emerald-700">
+                          Authorized (Appeal)
+                        </span>
+                      </div>
+                    </div>
+                    <div
+                      class="flex items-center gap-2.5 rounded-xl border border-gray-100 bg-gray-50/60 p-2.5"
+                    >
+                      <Icon
+                        :name="
+                          props.appeal.status === 'resolved'
+                            ? 'lucide:check-circle-2'
+                            : props.appeal.status === 'rejected'
+                              ? 'lucide:x-circle'
+                              : 'lucide:clock'
+                        "
+                        :class="
+                          props.appeal.status === 'resolved'
+                            ? 'text-emerald-500'
+                            : props.appeal.status === 'rejected'
+                              ? 'text-rose-500'
+                              : 'text-amber-500'
+                        "
+                        size="18"
+                      />
+                      <div class="flex flex-col">
+                        <span class="text-[10px] font-semibold text-gray-400">Gate 3: Admin</span>
+                        <span
+                          class="text-xs font-bold"
+                          :class="
+                            props.appeal.status === 'resolved'
+                              ? 'text-emerald-700'
+                              : props.appeal.status === 'rejected'
+                                ? 'text-rose-700'
+                                : 'text-amber-700'
+                          "
+                        >
+                          {{
+                            props.appeal.status === 'resolved'
+                              ? 'Approved'
+                              : props.appeal.status === 'rejected'
+                                ? 'Rejected'
+                                : 'Pending'
+                          }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Resubmission Predecessor Note -->
+                <div
+                  v-if="(props.appeal as any).parent_appeal_uuid"
+                  class="rounded-xl border border-purple-200/60 bg-purple-50/50 p-3 text-xs text-purple-900"
+                >
+                  <div class="flex items-center gap-2">
+                    <Icon
+                      name="lucide:rotate-ccw"
+                      class="text-purple-600"
+                      size="14"
+                    />
+                    <span class="font-bold">Resubmission History:</span>
+                    <span class="text-purple-700">
+                      Revision of rejected predecessor appeal #{{
+                        (props.appeal as any).parent_appeal_uuid.slice(0, 8)
+                      }}.
+                    </span>
                   </div>
                 </div>
 

@@ -530,6 +530,15 @@
     const list: any[] = []
 
     for (const appt of all) {
+      // Exclude non-active / completed / cancelled appointments
+      if (
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+          appt.status?.toLowerCase()
+        )
+      ) {
+        continue
+      }
+
       const rawDateStr = appt.raw_scheduled_at || appt.scheduled_at || appt.date
       if (!rawDateStr) continue
 
@@ -1019,6 +1028,10 @@
       ) {
         formData.append('patient_uuid', patientUuid.value)
       }
+      if (appointmentUuid.value) {
+        formData.append('appointment_uuid', appointmentUuid.value)
+      }
+      formData.append('scan_type', 'in_clinic')
 
       const response = await diagnosisService.create(formData, {
         headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {}

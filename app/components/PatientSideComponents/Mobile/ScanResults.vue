@@ -346,6 +346,34 @@
     }
   }
 
+  const showBookModal = ref(false)
+
+  const handleDoctorAction = () => {
+    if (!nearestDoctor.value || isSending.value || isHealthyState.value || isNoneState.value) return
+    if (hasActiveAppointment.value) {
+      sendDiagnosis()
+    } else {
+      showBookModal.value = true
+    }
+  }
+
+  const goToSelectDoctor = () => {
+    navigateTo({
+      path: '/Patient/Scan/SelectDoctor',
+      query: { diagnosis_uuid: currentDiagnosis.value?.uuid }
+    })
+  }
+
+  const handleAppointmentBooked = async (apptOrRes: any) => {
+    showBookModal.value = false
+    const convUuid = apptOrRes?.conversation_uuid || apptOrRes?.appointment?.conversation_uuid
+    if (convUuid) {
+      await navigateTo(`/Patient/Messages/${convUuid}`)
+    } else {
+      await navigateTo('/Patient/Appointments')
+    }
+  }
+
   onMounted(() => {
     if (isHealthyState.value || isNoneState.value) {
       navigateTo('/Patient/Scan')
@@ -802,7 +830,7 @@
     <div :class="isDoctorRegistered ? 'mt-1 flex' : 'mt-1 grid grid-cols-2 gap-2.5'">
       <button
         v-if="!isDoctorRegistered"
-        @click="navigateTo('/Patient/Scan/SelectDoctor')"
+        @click="goToSelectDoctor"
         class="flex h-12 w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200/80 bg-white px-2 text-xs font-bold text-gray-700 shadow-xs transition-all hover:bg-gray-50 active:scale-95"
       >
         <Icon
@@ -813,7 +841,7 @@
         <span class="truncate">Other Doctors</span>
       </button>
       <button
-        @click="sendDiagnosis"
+        @click="handleDoctorAction"
         :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
         class="bg-primary hover:bg-primary/95 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
@@ -836,11 +864,17 @@
               ? 'Sending...'
               : hasActiveAppointment
                 ? 'Send Findings'
-                : isDoctorRegistered
-                  ? 'Proceed'
-                  : 'Send Message'
+                : 'Book Consultation'
         }}</span>
       </button>
     </div>
+
+    <!-- Book Appointment Modal -->
+    <PatientSideComponentsBookAppointmentModal
+      v-model="showBookModal"
+      :doctor="nearestDoctor"
+      :diagnosis-uuid="currentDiagnosis?.uuid || ''"
+      @booked="handleAppointmentBooked"
+    />
   </div>
 </template>

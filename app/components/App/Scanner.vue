@@ -13,9 +13,11 @@
     previewImage,
     selectedFile,
     patientUuid,
+    appointmentUuid,
     pendingPatientRegistration
   } = useDiagnosis()
   const userUuid = useCookie('user_uuid')
+  const userRole = useCookie('user_role')
   const videoRef = ref<HTMLVideoElement | null>(null)
   const canvasRef = ref<HTMLCanvasElement | null>(null)
   const errorMessage = ref('')
@@ -514,6 +516,13 @@
       ) {
         formData.append('patient_uuid', patientUuid.value)
       }
+      if (appointmentUuid.value) {
+        formData.append('appointment_uuid', appointmentUuid.value)
+      }
+      formData.append(
+        'scan_type',
+        userRole.value === 'doctor' || userRole.value === 'secretary' ? 'in_clinic' : 'home'
+      )
 
       const response = await diagnosisService.create(formData, {
         headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {}

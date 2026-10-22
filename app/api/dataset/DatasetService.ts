@@ -89,6 +89,12 @@ export class DatasetService extends BaseService {
       responseType: 'blob'
     })
   }
+
+  async adminApproveDiagnosis(diagnosisUuid: string): Promise<any> {
+    return $api(`/dataset/diagnoses/${diagnosisUuid}/approve`, {
+      method: 'PATCH'
+    })
+  }
 }
 
 export const datasetService = new DatasetService()
