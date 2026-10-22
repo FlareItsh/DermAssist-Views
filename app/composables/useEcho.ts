@@ -39,6 +39,8 @@ export const useEcho = () => {
     let host = config.public.reverbHost || 'localhost'
     if (typeof window !== 'undefined') {
       const currentHost = window.location.hostname
+      const isVercelHost = currentHost.endsWith('.vercel.app') || currentHost.endsWith('.now.sh')
+
       if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
         if (
           !host ||
@@ -46,7 +48,9 @@ export const useEcho = () => {
           host === '127.0.0.1' ||
           /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(host)
         ) {
-          host = currentHost
+          if (!isVercelHost) {
+            host = currentHost
+          }
         }
       } else if (
         host !== 'localhost' &&
@@ -55,9 +59,17 @@ export const useEcho = () => {
       ) {
         host = 'localhost'
       }
+
+      // If running on Vercel without a configured remote Reverb host, do not attempt invalid connection
+      if (isVercelHost && (host === 'localhost' || host === '127.0.0.1' || host === currentHost)) {
+        return null
+      }
     }
-    const port = Number(config.public.reverbPort) || 8080
-    const scheme = config.public.reverbScheme || 'http'
+
+    const scheme =
+      config.public.reverbScheme ||
+      (typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https' : 'http')
+    const port = Number(config.public.reverbPort) || (scheme === 'https' ? 443 : 8080)
     const key = config.public.reverbKey || 'k2sz1zlx9d0xc6plrtoy'
 
     const apiBase = resolveApiBase(config.public.apiBase)
