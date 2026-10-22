@@ -868,8 +868,10 @@
   // --- Active Appointment (Top Bar) ---
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const activeAppointment = computed(() => {
+    if (!props.conversationUuid) return null
     return appointments.value.find(
       a =>
+        Boolean(a.conversation_uuid) &&
         a.conversation_uuid === props.conversationUuid &&
         (a.status === 'scheduled' ||
           a.status === 'confirmed' ||
@@ -883,8 +885,11 @@
    * Shown to the doctor as a top-of-window banner.
    */
   const pendingAppointmentForConversation = computed(() => {
+    if (!props.conversationUuid) return null
     return (
-      pendingAppointments.value.find(a => a.conversation_uuid === props.conversationUuid) ?? null
+      pendingAppointments.value.find(
+        a => Boolean(a.conversation_uuid) && a.conversation_uuid === props.conversationUuid
+      ) ?? null
     )
   })
 
@@ -1876,7 +1881,12 @@
 
         <!-- Active Appointment Bar (scheduled appointment or reschedule in progress) -->
         <div
-          v-if="activeAppointment"
+          v-if="
+            activeAppointment &&
+            ['scheduled', 'confirmed', 'reschedule_proposed', 'reschedule_requested'].includes(
+              activeAppointment.status
+            )
+          "
           class="flex flex-col border-b px-3.5 py-2.5 transition-all sm:p-4"
           :class="[
             activeAppointment.status === 'reschedule_requested' ||
@@ -1891,7 +1901,9 @@
         >
           <!-- Row 1: Active Scheduled Appointment Details (HIDDEN when reschedule is requested or proposed) -->
           <div
-            v-if="activeAppointment.status === 'scheduled'"
+            v-if="
+              activeAppointment.status === 'scheduled' || activeAppointment.status === 'confirmed'
+            "
             class="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="flex items-center justify-between gap-3">

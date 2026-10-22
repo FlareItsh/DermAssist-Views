@@ -154,8 +154,14 @@
     if (diagnosisAppointmentUuid.value) return diagnosisAppointmentUuid.value
     if (!patientUuid.value) return null
     const allAppointments = [...appointments.value, ...pendingAppointments.value]
-    const match = allAppointments.find(a => a.patient_uuid === patientUuid.value)
-    return match ? match.id : null
+    const match = allAppointments.find(
+      a =>
+        a.patient_uuid === patientUuid.value &&
+        !['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+          a.status?.toLowerCase()
+        )
+    )
+    return match ? match.uuid || match.id : null
   })
 
   definePageMeta({

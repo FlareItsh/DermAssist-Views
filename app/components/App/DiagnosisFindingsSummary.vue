@@ -3,6 +3,7 @@
   import { DISEASE_DATABASE, type PendingPatientRegistration } from '~/composables/useDiagnosis'
   import { datasetService } from '~/api/dataset/DatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { appointmentService } from '~/api/appointment/AppointmentService'
   import { userService } from '~/api/user/UserService'
   import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
@@ -144,6 +145,14 @@
               patientUuid.value !== 'walk_in_guest'
             ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
+            }
+
+            if (isValidUuid(appointmentUuid.value)) {
+              try {
+                await appointmentService.attachInClinicScan(appointmentUuid.value, uuid)
+              } catch (attachErr) {
+                console.error('Failed to attach in-clinic scan to appointment', attachErr)
+              }
             }
           }
         } catch (e) {
@@ -292,6 +301,15 @@
     const list: any[] = []
 
     for (const appt of all) {
+      // Exclude non-active / completed / cancelled appointments
+      if (
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+          appt.status?.toLowerCase()
+        )
+      ) {
+        continue
+      }
+
       // Strictly require a scheduled date (never fall back to created_at)
       const rawDateStr = appt.raw_scheduled_at || appt.scheduled_at || appt.date
       if (!rawDateStr) continue

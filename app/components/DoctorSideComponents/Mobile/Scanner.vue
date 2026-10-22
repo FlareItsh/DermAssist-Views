@@ -530,6 +530,15 @@
     const list: any[] = []
 
     for (const appt of all) {
+      // Exclude non-active / completed / cancelled appointments
+      if (
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+          appt.status?.toLowerCase()
+        )
+      ) {
+        continue
+      }
+
       const rawDateStr = appt.raw_scheduled_at || appt.scheduled_at || appt.date
       if (!rawDateStr) continue
 

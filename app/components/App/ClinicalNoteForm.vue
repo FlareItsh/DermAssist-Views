@@ -637,6 +637,10 @@
 
       if (props.diagnosisUuid) {
         ;(note.value as any).diagnosis_uuid = props.diagnosisUuid
+        ;(note.value as any).in_clinic_diagnosis_uuid = props.diagnosisUuid
+      }
+      if (props.isFinishMode) {
+        ;(note.value as any).status = 'completed'
       }
 
       // Determine target active appointment
@@ -649,9 +653,15 @@
               a =>
                 (a.patient_uuid === patientUuid.value ||
                   (a as any).patient?.uuid === patientUuid.value) &&
-                ['scheduled', 'pending', 'reschedule_proposed', 'reschedule_requested'].includes(
-                  a.status
-                )
+                [
+                  'confirmed',
+                  'scheduled',
+                  'checked_in',
+                  'in_consultation',
+                  'pending',
+                  'reschedule_proposed',
+                  'reschedule_requested'
+                ].includes(a.status)
             )?.id
           : null)
 
