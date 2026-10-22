@@ -424,183 +424,204 @@
         <!-- Case A: In-Clinic Scan Attached -->
         <div
           v-if="hasInClinicScan"
-          class="rounded-3xl border border-emerald-200/80 bg-emerald-50/50 p-6 shadow-sm"
+          class="relative overflow-hidden rounded-3xl border border-emerald-100 bg-linear-to-br from-emerald-50/70 via-white to-teal-50/30 p-5 shadow-xs transition-all sm:p-6"
         >
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex items-start gap-4">
-              <div
-                v-if="appointment.in_clinic_diagnosis?.image_path"
-                class="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-emerald-200 bg-white"
-              >
-                <img
-                  :src="getStorageUrl(appointment.in_clinic_diagnosis.image_path)"
-                  class="h-full w-full object-cover"
-                />
-              </div>
-              <div
-                v-else
-                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700"
-              >
-                <Icon
-                  name="lucide:check-circle-2"
-                  class="text-2xl"
-                />
-              </div>
-              <div class="space-y-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="text-base font-bold text-emerald-950">
-                    In-Clinic Consultation Scan Verified
-                  </h3>
-                  <AppBadge
-                    color="success"
-                    size="sm"
-                  >
-                    Official Consultation Scan
-                  </AppBadge>
-                </div>
-                <p class="text-xs text-emerald-800">
-                  Clinical scan captured during face-to-face consultation. Verified diagnosis:
-                  <span class="font-bold">{{
-                    appointment.in_clinic_diagnosis?.label || appointment.info
-                  }}</span
-                  >.
-                </p>
-              </div>
+          <div class="relative flex items-start gap-3.5 sm:gap-4">
+            <div
+              v-if="appointment.in_clinic_diagnosis?.image_path"
+              class="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border-2 border-emerald-200/80 bg-white shadow-2xs sm:h-16 sm:w-16"
+            >
+              <img
+                :src="getStorageUrl(appointment.in_clinic_diagnosis.image_path)"
+                class="h-full w-full object-cover"
+              />
             </div>
-            <AppButton
-              variant="outline"
-              size="sm"
-              class="rounded-xl border-emerald-300 bg-white text-xs font-bold text-emerald-800 shadow-xs hover:bg-emerald-50"
-              @click="handleStartInClinicScan"
+            <div
+              v-else
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/80 bg-emerald-100/80 text-emerald-700 shadow-2xs sm:h-12 sm:w-12"
             >
               <Icon
-                name="lucide:camera"
-                class="mr-1.5"
-                size="14"
+                name="lucide:check-circle-2"
+                class="text-xl sm:text-2xl"
               />
-              Capture Additional Scan
-            </AppButton>
+            </div>
+
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-bold tracking-tight text-gray-900 sm:text-base">
+                  In-Clinic Consultation Scan Verified
+                </h3>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-emerald-700 uppercase"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                  Official Consultation Scan
+                </span>
+              </div>
+
+              <p class="text-xs leading-relaxed text-gray-600 sm:text-[13px]">
+                Clinical scan captured during face-to-face consultation. Verified diagnosis:
+                <strong class="font-bold text-gray-900">{{
+                  appointment.in_clinic_diagnosis?.label || appointment.info
+                }}</strong
+                >.
+              </p>
+
+              <div class="pt-1">
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-emerald-200/90 bg-white px-3.5 py-1.5 text-xs font-bold text-emerald-800 shadow-2xs transition-all hover:bg-emerald-50 active:scale-95"
+                  @click="handleStartInClinicScan"
+                >
+                  <Icon
+                    name="lucide:camera"
+                    class="text-sm text-emerald-600"
+                  />
+                  <span>Capture Additional Scan</span>
+                </AppButton>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Case B: Clinical Scan Exception Documented -->
         <div
           v-else-if="hasScanException"
-          class="rounded-3xl border border-amber-200/80 bg-amber-50/60 p-6 shadow-sm"
+          class="relative overflow-hidden rounded-3xl border border-amber-100 bg-linear-to-br from-amber-50/70 via-white to-orange-50/30 p-5 shadow-xs transition-all sm:p-6"
         >
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-start gap-4">
-              <div
-                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"
-              >
-                <Icon
-                  name="lucide:shield-alert"
-                  class="text-2xl"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="text-base font-bold text-amber-950">
-                    Clinical Scan Exception Documented
-                  </h3>
-                  <AppBadge
-                    color="amber"
-                    size="sm"
-                  >
-                    {{ formatExceptionCategory(appointment.scan_exception_category) }}
-                  </AppBadge>
-                </div>
-                <p class="text-xs leading-relaxed text-amber-900">
-                  <span class="font-bold">Authorized Rationale:</span>
-                  "{{ appointment.scan_exception_reason }}"
-                </p>
-                <p class="text-[11px] text-amber-700/80">
-                  Exception granted per protocol. Consultation can proceed to completion without
-                  fabricating scan results.
-                </p>
-              </div>
-            </div>
-            <AppButton
-              variant="outline"
-              size="sm"
-              class="rounded-xl border-amber-300 bg-white text-xs font-bold text-amber-800 shadow-xs hover:bg-amber-50"
-              @click="handleStartInClinicScan"
+          <div class="relative flex items-start gap-3.5 sm:gap-4">
+            <div
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-amber-200/80 bg-amber-100/80 text-amber-700 shadow-2xs sm:h-12 sm:w-12"
             >
               <Icon
-                name="lucide:camera"
-                class="mr-1.5"
-                size="14"
+                name="lucide:shield-alert"
+                class="text-xl sm:text-2xl"
               />
-              Perform In-Clinic Scan Now
-            </AppButton>
+            </div>
+
+            <div class="min-w-0 flex-1 space-y-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-bold tracking-tight text-gray-900 sm:text-base">
+                  Clinical Scan Exception Documented
+                </h3>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-amber-800 uppercase"
+                >
+                  <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                  {{ formatExceptionCategory(appointment.scan_exception_category) }}
+                </span>
+              </div>
+
+              <p class="text-xs leading-relaxed text-gray-700 sm:text-[13px]">
+                <span class="font-bold text-gray-900">Authorized Rationale:</span>
+                "{{ appointment.scan_exception_reason }}"
+              </p>
+
+              <div class="pt-1">
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  class="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-amber-200/90 bg-white px-3.5 py-1.5 text-xs font-bold text-amber-800 shadow-2xs transition-all hover:bg-amber-50 active:scale-95"
+                  @click="handleStartInClinicScan"
+                >
+                  <Icon
+                    name="lucide:camera"
+                    class="text-sm text-amber-600"
+                  />
+                  <span>Perform In-Clinic Scan Now</span>
+                </AppButton>
+              </div>
+
+              <p class="text-[11px] font-medium text-gray-400">
+                Exception granted per protocol. Consultation can proceed to completion.
+              </p>
+            </div>
           </div>
         </div>
 
         <!-- Case C: Mandatory In-Clinic Scan Required -->
         <div
           v-else
-          class="rounded-3xl border border-rose-200/80 bg-rose-50/50 p-6 shadow-sm"
+          class="relative overflow-hidden rounded-3xl border border-rose-100 bg-linear-to-br from-rose-50/70 via-white to-amber-50/30 p-5 shadow-xs transition-all sm:p-6"
         >
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex items-start gap-4">
-              <div
-                class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 text-rose-600"
-              >
-                <Icon
-                  name="lucide:alert-triangle"
-                  class="text-2xl"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="text-base font-bold text-rose-950">
-                    Mandatory In-Clinic Scan Required
-                  </h3>
-                  <AppBadge
-                    color="danger"
-                    size="sm"
-                  >
-                    Action Required
-                  </AppBadge>
-                </div>
-                <p class="text-xs leading-relaxed text-rose-900/90">
-                  Every face-to-face consultation requires a verified in-clinic scan before the
-                  consultation can be completed. Pre-consultation home scans provide historical
-                  context only and cannot substitute for an in-clinic examination.
-                </p>
-                <p class="text-[11px] text-rose-700/80">
-                  If the patient declines, lesion is inaccessible, or equipment is unavailable,
-                  document a clinical scan exception.
-                </p>
-              </div>
+          <!-- Subtle decorative ambient glow -->
+          <div
+            class="pointer-events-none absolute -top-12 -right-12 h-36 w-36 rounded-full bg-rose-200/20 blur-2xl"
+          ></div>
+
+          <div class="relative flex items-start gap-3.5 sm:gap-4">
+            <!-- Icon Squircle -->
+            <div
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-rose-200/80 bg-rose-100/80 text-rose-600 shadow-2xs sm:h-12 sm:w-12"
+            >
+              <Icon
+                name="lucide:scan-face"
+                class="text-xl sm:text-2xl"
+              />
             </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <AppButton
-                variant="solid"
-                size="sm"
-                class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl font-bold shadow-xs"
-                @click="handleStartInClinicScan"
-              >
-                <Icon
-                  name="lucide:camera"
-                  class="mr-1.5"
-                  size="14"
-                />
-                Capture In-Clinic Scan
-              </AppButton>
-              <AppButton
-                variant="outline"
-                size="sm"
-                class="rounded-xl border-rose-200 bg-white text-xs font-bold text-rose-700 shadow-xs hover:bg-rose-50"
-                @click="handleOpenExceptionModal"
-              >
-                <Icon
-                  name="lucide:file-text"
-                  class="mr-1.5"
-                  size="14"
-                />
-                Document Exception
-              </AppButton>
+
+            <div class="min-w-0 flex-1 space-y-2">
+              <!-- Header Row -->
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-sm font-bold tracking-tight text-gray-900 sm:text-base">
+                  In-Clinic Consultation Scan Required
+                </h3>
+                <span
+                  class="inline-flex items-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold tracking-wide text-rose-700 uppercase"
+                >
+                  <span class="relative flex h-1.5 w-1.5">
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"
+                    ></span>
+                    <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                  </span>
+                  Action Required
+                </span>
+              </div>
+
+              <!-- Body Description -->
+              <p class="text-xs leading-relaxed text-gray-600 sm:text-[13px]">
+                Every face-to-face consultation requires a verified in-clinic scan prior to
+                completion. Pre-consultation home scans provide historical context only.
+              </p>
+
+              <!-- Actions: Positioned naturally under text -->
+              <div class="flex flex-wrap items-center gap-2.5 pt-1">
+                <AppButton
+                  variant="solid"
+                  size="sm"
+                  class="bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20 flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold shadow-sm transition-all hover:shadow-md active:scale-95"
+                  @click="handleStartInClinicScan"
+                >
+                  <Icon
+                    name="lucide:camera"
+                    class="text-sm"
+                  />
+                  <span>Capture In-Clinic Scan</span>
+                </AppButton>
+
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  class="flex cursor-pointer items-center gap-1.5 rounded-xl border border-gray-200/90 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-2xs transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 active:scale-95"
+                  @click="handleOpenExceptionModal"
+                >
+                  <Icon
+                    name="lucide:file-text"
+                    class="text-sm text-gray-500"
+                  />
+                  <span>Document Exception</span>
+                </AppButton>
+              </div>
+
+              <p class="text-[11px] font-medium text-gray-400">
+                If the patient declines or scanning is clinically infeasible, document an authorized
+                exception above.
+              </p>
             </div>
           </div>
         </div>
