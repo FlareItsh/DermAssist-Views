@@ -1,11 +1,15 @@
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
+  const route = useRoute()
   const {
     currentDiagnosis,
     isScanned,
     isProceededToResults,
     pendingPatientRegistration,
     pendingPatientName,
+    appointmentUuid,
+    patientUuid,
+    saveActiveDiagnosisState,
     resetScanner
   } = useDiagnosis()
   const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
@@ -22,6 +26,15 @@
 
   onMounted(async () => {
     await fetchSubscription()
+    if (route.query.appointment_uuid) {
+      appointmentUuid.value = String(route.query.appointment_uuid)
+    }
+    if (route.query.patient_uuid) {
+      patientUuid.value = String(route.query.patient_uuid)
+    }
+    if (route.query.appointment_uuid || route.query.patient_uuid) {
+      saveActiveDiagnosisState()
+    }
   })
 
   const discardAndStartNew = () => {

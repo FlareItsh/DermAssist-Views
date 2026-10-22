@@ -454,25 +454,41 @@
     { immediate: true }
   )
 
-  // Watch patientUuid and loaded lists to re-hydrate assignedName & appointment after navigation
+  // Watch patientUuid and appointmentUuid with loaded lists to re-hydrate assignedName & appointment after navigation
   watch(
-    [patientUuid, doctorRegisteredPatients, availableAppointments],
-    ([uuid, patients, appts]) => {
-      if (uuid && !assignedName.value && !pendingPatientRegistration.value) {
+    [patientUuid, appointmentUuid, doctorRegisteredPatients, availableAppointments],
+    ([uuid, apptUuid, patients, appts]) => {
+      if ((uuid || apptUuid) && !assignedName.value && !pendingPatientRegistration.value) {
         if (uuid === 'walk_in_guest' && walkInPatientInfo.value) {
           assignedName.value = `${walkInPatientInfo.value.firstName} ${walkInPatientInfo.value.lastName}`
           if (!userName.value) userName.value = assignedName.value
           return
         }
-        const reg = patients.find((p: any) => p.uuid === uuid)
+        if (apptUuid) {
+          const apptByUuid = (appts || []).find(
+            (a: any) => a.id === apptUuid || a.uuid === apptUuid
+          )
+          if (apptByUuid) {
+            assignedName.value = apptByUuid.patientName
+            assignedAppointment.value = apptByUuid
+            if (!userName.value) userName.value = apptByUuid.patientName
+            if (!patientUuid.value && apptByUuid.patient_uuid) {
+              patientUuid.value = apptByUuid.patient_uuid
+            }
+            return
+          }
+        }
+        const reg = (patients || []).find((p: any) => p.uuid === uuid)
         if (reg) {
           assignedName.value = `${reg.first_name} ${reg.last_name}`
+          if (!userName.value) userName.value = assignedName.value
           return
         }
-        const appt = appts.find((a: any) => a.patient_uuid === uuid)
+        const appt = (appts || []).find((a: any) => a.patient_uuid === uuid)
         if (appt) {
           assignedName.value = appt.patientName
           assignedAppointment.value = appt
+          if (!userName.value) userName.value = appt.patientName
         }
       }
     },

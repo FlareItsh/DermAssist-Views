@@ -1,20 +1,23 @@
 <script setup lang="ts">
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
   import { toast } from 'vue-sonner'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { parseAppointmentDateTime } from '~/composables/useAppointments'
 
   const props = withDefaults(
     defineProps<{
       modelValue: boolean
       doctor: any | null
       diagnosisUuid?: string
+      inline?: boolean
     }>(),
     {
       modelValue: false,
       doctor: null,
-      diagnosisUuid: ''
+      diagnosisUuid: '',
+      inline: false
     }
   )
 
@@ -25,35 +28,37 @@
 
   const { getStorageUrl } = useStorage()
 
+  const isMobile = ref(false)
+  const updateIsMobile = () => {
+    if (typeof window !== 'undefined') {
+      isMobile.value = window.innerWidth < 768
+    }
+  }
+
+  onMounted(() => {
+    updateIsMobile()
+    window.addEventListener('resize', updateIsMobile)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateIsMobile)
+  })
+
+  const isInlineMode = computed(() => Boolean(props.inline || isMobile.value))
+
+  // ── State ────────────────────────────────────────────────────────────────────
   const isSubmitting = ref(false)
-  const isLoadingAvailability = ref(false)
-  const dutySlots = ref<any[]>([])
-  const blockedSlots = ref<any[]>([])
-  const bookedAppointments = ref<any[]>([])
-  const isLoadingBookedAppointments = ref(false)
+  const isLoading = ref(true)
+  const doctorDutySlots = ref<any[]>([])
+  const doctorBlockedSlots = ref<any[]>([])
+  const doctorBlockedDates = ref<string[]>([])
+  const doctorAppointmentsList = ref<any[]>([])
+
   const diagnosisData = ref<any | null>(null)
   const isLoadingDiagnosis = ref(false)
 
-  // Date selection (defaults to tomorrow)
-  const getInitialDate = () => {
-    const d = new Date()
-    d.setDate(d.getDate() + 1)
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  }
-
-  const minDate = computed(() => {
-    const d = new Date()
-    const year = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
-  })
-
-  const selectedDate = ref<string>(getInitialDate())
-  const selectedTime = ref<string>('09:00')
+  const selectedDate = ref<string>('')
+  const selectedTime = ref<string>('')
   const purpose = ref<string>('General Dermatological Consultation')
 
   const presetPurposes = [
@@ -68,7 +73,7 @@
     purpose.value = preset
   }
 
-  // Doctor details helpers
+  // ── Doctor details helpers ───────────────────────────────────────────────────
   const doctorDisplayName = computed(() => {
     if (!props.doctor) return 'Doctor'
     if (props.doctor.first_name || props.doctor.last_name) {
@@ -94,7 +99,7 @@
     return ''
   })
 
-  // Load diagnosis details if booking from a scan
+  // ── Load diagnosis details ───────────────────────────────────────────────────
   const fetchDiagnosis = async () => {
     if (!props.diagnosisUuid) {
       diagnosisData.value = null
@@ -115,255 +120,410 @@
     }
   }
 
-  // Load doctor booked appointments to verify calendar conflicts
-  const fetchDoctorAppointments = async () => {
-    if (!props.doctor?.uuid && !props.doctor?.id) {
-      bookedAppointments.value = []
-      return
-    }
-    isLoadingBookedAppointments.value = true
-    try {
-      const docIdentifier = props.doctor.uuid || props.doctor.id
-      const res = await appointmentService.list({ doctor_uuid: docIdentifier })
-      const list = (res as any)?.data ?? (Array.isArray(res) ? res : [])
-      bookedAppointments.value = list
-      syncInitialTimeSlot()
-    } catch (e) {
-      console.error('Failed to load doctor appointments:', e)
-    } finally {
-      isLoadingBookedAppointments.value = false
-    }
+  // ── Calendar logic ───────────────────────────────────────────────────────────
+  const today = (() => {
+    const d = new Date()
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  })()
+
+  const currentDate = ref(new Date())
+  const hoveredDate = ref<string | null>(null)
+  const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+
+  const currentMonthName = computed(() =>
+    currentDate.value.toLocaleString('default', { month: 'long' })
+  )
+  const currentYear = computed(() => currentDate.value.getFullYear())
+
+  const daysInMonth = computed(() =>
+    new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + 1, 0).getDate()
+  )
+
+  const startingDayOffset = computed(() =>
+    new Date(currentDate.value.getFullYear(), currentDate.value.getMonth(), 1).getDay()
+  )
+
+  const isPrevMonthDisabled = computed(() => {
+    const min = new Date(today)
+    return (
+      currentDate.value.getFullYear() < min.getFullYear() ||
+      (currentDate.value.getFullYear() === min.getFullYear() &&
+        currentDate.value.getMonth() <= min.getMonth())
+    )
+  })
+
+  const dateStringFor = (day: number): string => {
+    const year = currentDate.value.getFullYear()
+    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0')
+    return `${year}-${month}-${String(day).padStart(2, '0')}`
   }
 
-  // Load doctor availability when doctor changes
-  const fetchAvailability = async () => {
-    if (!props.doctor?.uuid) return
-    isLoadingAvailability.value = true
+  const isPast = (day: number): boolean => dateStringFor(day) < today
+  const isToday = (day: number): boolean => dateStringFor(day) === today
+
+  const toMins = (t: string): number => {
+    if (!t) return 0
+    const [h, m] = t.slice(0, 5).split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
+  }
+
+  const formatTime12H = (t: string): string => {
+    if (!t) return ''
+    const [hStr, mStr] = t.split(':')
+    const h = parseInt(hStr, 10)
+    const m = parseInt(mStr || '0', 10)
+    if (isNaN(h)) return ''
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    const hour12 = h % 12 || 12
+    return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`
+  }
+
+  const getDutyForDate = (dateStr: string) => {
+    return doctorDutySlots.value.filter((s: any) => s.available_date?.slice(0, 10) === dateStr)
+  }
+
+  const getBlockedForDate = (dateStr: string) => {
+    return doctorBlockedSlots.value.filter((s: any) => s.available_date?.slice(0, 10) === dateStr)
+  }
+
+  const isDoctorOnDuty = (day: number): boolean => {
+    return getDutyForDate(dateStringFor(day)).length > 0
+  }
+
+  const hasAnyDutyConfigured = computed(() => doctorDutySlots.value.length > 0)
+
+  const hasAvailableSlotOnDate = (day: number): boolean => {
+    const dateStr = dateStringFor(day)
+    const dayDuties = getDutyForDate(dateStr)
+    if (!dayDuties.length) return false
+
+    const dayBlocked = getBlockedForDate(dateStr)
+    const DURATION_MINS = 60
+
+    const dayBookedAppts = doctorAppointmentsList.value.filter((a: any) => {
+      const apptDate = a.date || a.raw_scheduled_at?.slice(0, 10)
+      return apptDate === dateStr && a.status !== 'declined'
+    })
+
+    for (const duty of dayDuties) {
+      const dutyStart = toMins(duty.start_time)
+      const dutyEnd = toMins(duty.end_time)
+
+      for (let m = dutyStart; m + DURATION_MINS <= dutyEnd; m += 30) {
+        const endM = m + DURATION_MINS
+
+        const isBlocked = dayBlocked.some((b: any) => {
+          const bStart = toMins(b.start_time)
+          const bEnd = toMins(b.end_time)
+          return m < bEnd && endM > bStart
+        })
+        if (isBlocked) continue
+
+        const isBooked = dayBookedAppts.some((a: any) => {
+          if (a.raw_scheduled_at) {
+            const p = parseAppointmentDateTime(a.raw_scheduled_at)
+            const apptStart = parseInt(p.startH, 10) * 60 + parseInt(p.startM, 10)
+            let apptEnd = apptStart + DURATION_MINS
+            if (a.raw_scheduled_end_at) {
+              const pEnd = parseAppointmentDateTime(a.raw_scheduled_end_at)
+              const parsedEnd = parseInt(pEnd.startH, 10) * 60 + parseInt(pEnd.startM, 10)
+              if (parsedEnd > apptStart) apptEnd = parsedEnd
+            }
+            return m < apptEnd && endM > apptStart
+          }
+          return false
+        })
+        if (isBooked) continue
+
+        return true
+      }
+    }
+
+    return false
+  }
+
+  const isUnavailable = (day: number): boolean => {
+    const dateStr = dateStringFor(day)
+    if (doctorBlockedDates.value.includes(dateStr)) {
+      return true
+    }
+    if (isDoctorOnDuty(day)) {
+      return !hasAvailableSlotOnDate(day)
+    }
+    return false
+  }
+
+  const isDateSelectable = (day: number): boolean => {
+    if (isPast(day)) return false
+    if (isUnavailable(day)) return false
+    if (hasAnyDutyConfigured.value && !isDoctorOnDuty(day)) return false
+    return true
+  }
+
+  const prevMonth = () => {
+    if (isPrevMonthDisabled.value) return
+    currentDate.value = new Date(
+      currentDate.value.getFullYear(),
+      currentDate.value.getMonth() - 1,
+      1
+    )
+  }
+
+  const nextMonth = () => {
+    currentDate.value = new Date(
+      currentDate.value.getFullYear(),
+      currentDate.value.getMonth() + 1,
+      1
+    )
+  }
+
+  const timeSlotsSection = ref<HTMLElement | null>(null)
+  const scrollContainer = ref<HTMLElement | null>(null)
+
+  const selectDate = async (day: number) => {
+    if (!isDateSelectable(day)) return
+    const dateStr = dateStringFor(day)
+    if (selectedDate.value !== dateStr) {
+      selectedDate.value = dateStr
+      selectedTime.value = ''
+    }
+
+    await nextTick()
+    setTimeout(() => {
+      if (timeSlotsSection.value) {
+        timeSlotsSection.value.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      } else if (scrollContainer.value) {
+        scrollContainer.value.scrollTo({
+          top: scrollContainer.value.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
+    }, 50)
+  }
+
+  const selectedDateLabel = computed(() => {
+    if (!selectedDate.value) return ''
+    const d = new Date(selectedDate.value + 'T00:00:00')
+    return d.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    })
+  })
+
+  // ── Load Availability & Appointments ─────────────────────────────────────────
+  const fetchAvailabilityAndAppointments = async () => {
+    if (!props.doctor) return
+    isLoading.value = true
     try {
-      const res = await doctorAvailabilityService.listForDoctor(props.doctor.uuid)
-      const list = (res as any)?.data ?? (Array.isArray(res) ? res : [])
-      dutySlots.value = list.filter(
-        (s: any) => Number(s.is_available) === 1 || s.is_available === true
-      )
-      blockedSlots.value = list.filter(
-        (s: any) => Number(s.is_available) === 0 || s.is_available === false
-      )
-      await fetchDoctorAppointments()
-      syncInitialTimeSlot()
+      const docIdentifier = props.doctor.uuid || props.doctor.id
+      if (docIdentifier) {
+        const res = await doctorAvailabilityService.listForDoctor(docIdentifier)
+        const list = (res as any)?.data ?? (Array.isArray(res) ? res : [])
+
+        doctorBlockedSlots.value = list.filter(
+          (s: any) => Number(s.is_available) === 0 || s.is_available === false
+        )
+        doctorBlockedDates.value = doctorBlockedSlots.value
+          .filter((s: any) => {
+            const isWholeDay =
+              (s.start_time <= '00:01:00' || s.start_time <= '00:01') &&
+              (s.end_time >= '23:58:00' || s.end_time >= '23:58')
+            const loc = (s.location_name || '').toLowerCase()
+            const isRestDay =
+              loc.includes('rest day') || loc.includes('weekend') || loc.includes('off-duty')
+            return isWholeDay && !isRestDay
+          })
+          .map((s: any) => s.available_date?.slice(0, 10))
+          .filter(Boolean)
+
+        doctorDutySlots.value = list.filter(
+          (s: any) => Number(s.is_available) === 1 || s.is_available === true
+        )
+
+        const apptRes = await appointmentService.list({ doctor_uuid: docIdentifier })
+        const apptList = (apptRes as any)?.data ?? (Array.isArray(apptRes) ? apptRes : [])
+        doctorAppointmentsList.value = apptList
+      }
+
+      // Automatically default to the earliest selectable date (e.g. tomorrow or nearest duty date)
+      if (!selectedDate.value) {
+        const d = new Date()
+        d.setDate(d.getDate() + 1)
+        for (let i = 0; i < 30; i++) {
+          const testDay = d.getDate()
+          const y = d.getFullYear()
+          const m = String(d.getMonth() + 1).padStart(2, '0')
+          const dayStr = `${y}-${m}-${String(testDay).padStart(2, '0')}`
+          const isDuty = getDutyForDate(dayStr).length > 0
+          const isBlocked = doctorBlockedDates.value.includes(dayStr)
+
+          if ((!hasAnyDutyConfigured.value || isDuty) && !isBlocked) {
+            selectedDate.value = dayStr
+            currentDate.value = new Date(d)
+            break
+          }
+          d.setDate(d.getDate() + 1)
+        }
+      }
     } catch (e) {
       console.error('Failed to load doctor availability:', e)
     } finally {
-      isLoadingAvailability.value = false
+      isLoading.value = false
     }
   }
 
   watch(
-    () => props.doctor,
-    newDoc => {
-      if (newDoc && props.modelValue) {
-        fetchAvailability()
-        fetchDoctorAppointments()
-      }
-    },
-    { immediate: true }
-  )
-
-  watch(
-    () => props.diagnosisUuid,
-    newUuid => {
-      if (newUuid && props.modelValue) {
-        fetchDiagnosis()
-      } else if (!newUuid) {
-        diagnosisData.value = null
-        purpose.value = 'General Dermatological Consultation'
-      }
-    },
-    { immediate: true }
-  )
-
-  watch(
-    () => props.modelValue,
-    isOpen => {
-      if (isOpen && props.doctor) {
-        selectedDate.value = getInitialDate()
+    [() => props.doctor, () => props.modelValue],
+    ([newDoc, isOpen]) => {
+      if (isOpen && newDoc) {
         selectedTime.value = ''
-        fetchAvailability()
-        fetchDoctorAppointments()
+        fetchAvailabilityAndAppointments()
         if (props.diagnosisUuid) {
           fetchDiagnosis()
         }
       }
-    }
+    },
+    { immediate: true }
   )
 
-  // Availability for selected date
-  const hasDutyRoster = computed(() => dutySlots.value.length > 0)
+  // ── Time Slots Generation (30-Minute Interval Scope) ─────────────────────────
+  interface TimeSlotOption {
+    time24: string
+    endTime24: string
+    label: string
+    endLabel: string
+    durationLabel: string
+    isAvailable: boolean
+    clinicName?: string
+  }
 
-  const dutySlotsForDate = computed(() => {
-    if (!selectedDate.value) return []
-    return dutySlots.value.filter(s => s.available_date?.slice(0, 10) === selectedDate.value)
+  const selectedDateClinic = computed(() => {
+    if (!selectedDate.value) return null
+    const duties = getDutyForDate(selectedDate.value)
+    if (!duties.length) return null
+    const firstDuty = duties[0]
+    return {
+      name: firstDuty.clinic?.name || firstDuty.location_name || 'Clinic Duty',
+      address: firstDuty.clinic?.address || null,
+      phone: firstDuty.clinic?.phone || null,
+      dutyHours: duties
+        .map((d: any) => `${formatTime12H(d.start_time)} – ${formatTime12H(d.end_time)}`)
+        .join(', ')
+    }
   })
 
-  const blockedSlotsForDate = computed(() => {
+  const availableTimeSlots = computed<TimeSlotOption[]>(() => {
     if (!selectedDate.value) return []
-    return blockedSlots.value.filter(s => s.available_date?.slice(0, 10) === selectedDate.value)
-  })
 
-  const isDateWholeDayBlocked = computed(() => {
-    if (!selectedDate.value) return false
-    return blockedSlotsForDate.value.some(
-      s =>
-        (s.start_time <= '00:01' || s.start_time <= '00:01:00') &&
-        (s.end_time >= '23:58' || s.end_time >= '23:58:00')
+    const dateStr = selectedDate.value
+    const dayDuties = doctorDutySlots.value.filter(
+      (s: any) => s.available_date?.slice(0, 10) === dateStr
     )
-  })
-
-  const isDateOffDuty = computed(() => {
-    if (!selectedDate.value) return false
-    if (isDateWholeDayBlocked.value) return false
-    return hasDutyRoster.value && dutySlotsForDate.value.length === 0
-  })
-
-  const isSlotBlocked = (slotTime: string): boolean => {
-    if (!selectedDate.value || !slotTime) return false
-    if (isDateWholeDayBlocked.value) return true
-    const [hStr, mStr] = slotTime.split(':')
-    const startH = parseInt(hStr, 10)
-    const endH = (startH + 1) % 24
-    const startTime = `${String(startH).padStart(2, '0')}:${mStr || '00'}:00`
-    const endTime = `${String(endH).padStart(2, '0')}:${mStr || '00'}:00`
-
-    return blockedSlotsForDate.value.some(s => {
-      const bStart = (s.start_time || '00:00:00').slice(0, 8)
-      const bEnd = (s.end_time || '23:59:59').slice(0, 8)
-      return startTime < bEnd && endTime > bStart
+    const dayBlocked = doctorBlockedSlots.value.filter(
+      (s: any) => s.available_date?.slice(0, 10) === dateStr
+    )
+    const dayBookedAppts = doctorAppointmentsList.value.filter((a: any) => {
+      const apptDate = a.date || a.raw_scheduled_at?.slice(0, 10)
+      return apptDate === dateStr && a.status !== 'declined'
     })
-  }
 
-  const parseDateTimeToMs = (str: string): number => {
-    if (!str) return 0
-    const match = str.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/)
-    if (match) {
-      const [, y, m, d, h, min] = match
-      return new Date(
-        parseInt(y, 10),
-        parseInt(m, 10) - 1,
-        parseInt(d, 10),
-        parseInt(h, 10),
-        parseInt(min, 10)
-      ).getTime()
-    }
-    return new Date(str).getTime()
-  }
+    const DURATION_MINS = 60 // 1-hour consultation standard
 
-  const isSlotBooked = (slotTime: string): boolean => {
-    if (!selectedDate.value || !slotTime || !bookedAppointments.value.length) return false
-    const [yearStr, monthStr, dayStr] = selectedDate.value.split('-')
-    const [hStr, mStr] = slotTime.split(':')
-    const y = parseInt(yearStr, 10)
-    const mo = parseInt(monthStr, 10) - 1
-    const d = parseInt(dayStr, 10)
-    const startH = parseInt(hStr, 10)
-    const startM = parseInt(mStr || '0', 10)
-
-    const slotStart = new Date(y, mo, d, startH, startM).getTime()
-    const slotEnd = new Date(y, mo, d, startH + 1, startM).getTime()
-
-    return bookedAppointments.value.some((appt: any) => {
-      if (!appt.scheduled_at) return false
-      const activeStatuses = [
-        'confirmed',
-        'scheduled',
-        'checked_in',
-        'in_consultation',
-        'reschedule_proposed'
-      ]
-      if (!activeStatuses.includes((appt.status || '').toLowerCase())) return false
-
-      const apptStart = parseDateTimeToMs(appt.scheduled_at)
-      if (!apptStart) return false
-      const apptEnd = appt.scheduled_end_at
-        ? parseDateTimeToMs(appt.scheduled_end_at)
-        : apptStart + 3600000
-
-      return slotStart < apptEnd && slotEnd > apptStart
-    })
-  }
-
-  // Generate 1-hour time slots
-  const availableTimeSlots = computed(() => {
-    // If doctor is away for whole day or off-duty, no slots available
-    if (isDateWholeDayBlocked.value || isDateOffDuty.value) {
-      return []
+    const isSlotBlocked = (startM: number) => {
+      const endM = startM + DURATION_MINS
+      return dayBlocked.some((b: any) => {
+        const bStart = toMins(b.start_time)
+        const bEnd = toMins(b.end_time)
+        return startM < bEnd && endM > bStart
+      })
     }
 
-    // If doctor has explicit duty slots on this date, generate intervals within duty slots
-    if (dutySlotsForDate.value.length > 0) {
-      const slots: string[] = []
-      dutySlotsForDate.value.forEach(shift => {
-        const startH = parseInt(shift.start_time?.slice(0, 2) || '9', 10)
-        const endH = parseInt(shift.end_time?.slice(0, 2) || '17', 10)
-        for (let h = startH; h < endH; h++) {
-          slots.push(`${String(h).padStart(2, '0')}:00`)
+    const isSlotBooked = (startM: number) => {
+      const endM = startM + DURATION_MINS
+      return dayBookedAppts.some((a: any) => {
+        if (a.raw_scheduled_at) {
+          const p = parseAppointmentDateTime(a.raw_scheduled_at)
+          const apptStart = parseInt(p.startH, 10) * 60 + parseInt(p.startM, 10)
+          let apptEnd = apptStart + DURATION_MINS
+          if (a.raw_scheduled_end_at) {
+            const pEnd = parseAppointmentDateTime(a.raw_scheduled_end_at)
+            const parsedEnd = parseInt(pEnd.startH, 10) * 60 + parseInt(pEnd.startM, 10)
+            if (parsedEnd > apptStart) apptEnd = parsedEnd
+          }
+          return startM < apptEnd && endM > apptStart
+        }
+        return false
+      })
+    }
+
+    const slots: TimeSlotOption[] = []
+
+    if (dayDuties.length > 0) {
+      dayDuties.forEach((duty: any) => {
+        const dutyStart = toMins(duty.start_time)
+        const dutyEnd = toMins(duty.end_time)
+        const clinicName = duty.clinic?.name || duty.location_name || 'Clinic Duty'
+
+        // 30-minute scope interval
+        for (let m = dutyStart; m + DURATION_MINS <= dutyEnd; m += 30) {
+          const hh = String(Math.floor(m / 60)).padStart(2, '0')
+          const mm = String(m % 60).padStart(2, '0')
+          const time24 = `${hh}:${mm}`
+
+          const endM = m + DURATION_MINS
+          const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+          const endMm = String(endM % 60).padStart(2, '0')
+          const endTime24 = `${endHh}:${endMm}`
+
+          const isAvail = !isSlotBlocked(m) && !isSlotBooked(m)
+
+          slots.push({
+            time24,
+            endTime24,
+            label: formatTime12H(time24),
+            endLabel: formatTime12H(endTime24),
+            durationLabel: '1 hr',
+            isAvailable: isAvail,
+            clinicName
+          })
         }
       })
-      return Array.from(new Set(slots)).sort()
+    } else {
+      // Standard 8:00 AM - 6:00 PM if no duty schedule configured
+      for (let m = 8 * 60; m + DURATION_MINS <= 18 * 60; m += 30) {
+        const hh = String(Math.floor(m / 60)).padStart(2, '0')
+        const mm = String(m % 60).padStart(2, '0')
+        const time24 = `${hh}:${mm}`
+
+        const endM = m + DURATION_MINS
+        const endHh = String(Math.floor(endM / 60)).padStart(2, '0')
+        const endMm = String(endM % 60).padStart(2, '0')
+        const endTime24 = `${endHh}:${endMm}`
+
+        const isAvail = !isSlotBlocked(m) && !isSlotBooked(m)
+
+        slots.push({
+          time24,
+          endTime24,
+          label: formatTime12H(time24),
+          endLabel: formatTime12H(endTime24),
+          durationLabel: '1 hr',
+          isAvailable: isAvail
+        })
+      }
     }
 
-    // If doctor does not maintain a scheduled duty roster, fallback to standard clinic hours: 09:00 - 17:00
-    const defaultSlots: string[] = []
-    for (let h = 9; h <= 16; h++) {
-      defaultSlots.push(`${String(h).padStart(2, '0')}:00`)
-    }
-    return defaultSlots
+    return slots
   })
 
-  const dutyRangesLabel = computed(() => {
-    if (!dutySlotsForDate.value.length) return ''
-    return dutySlotsForDate.value
-      .map(
-        s =>
-          `${formatTimeSlotDisplay(s.start_time.slice(0, 5))} – ${formatTimeSlotDisplay(s.end_time.slice(0, 5))}`
-      )
-      .join(', ')
-  })
-
-  const syncInitialTimeSlot = () => {
-    if (availableTimeSlots.value.length === 0) {
-      selectedTime.value = ''
-      return
-    }
-    if (
-      !selectedTime.value ||
-      !availableTimeSlots.value.includes(selectedTime.value) ||
-      isSlotBlocked(selectedTime.value) ||
-      isSlotBooked(selectedTime.value)
-    ) {
-      const firstAvailable = availableTimeSlots.value.find(
-        slot => !isSlotBlocked(slot) && !isSlotBooked(slot)
-      )
-      selectedTime.value = firstAvailable || ''
-    }
-  }
-
-  watch(
-    () => selectedDate.value,
-    () => {
-      syncInitialTimeSlot()
-    }
-  )
-
-  const selectTimeSlot = (slot: string) => {
-    if (isSlotBlocked(slot) || isSlotBooked(slot)) return
-    selectedTime.value = slot
-  }
-
-  const formatTimeSlotDisplay = (time24: string): string => {
-    const [hStr, mStr] = time24.split(':')
-    const h = parseInt(hStr, 10)
-    const ampm = h >= 12 ? 'PM' : 'AM'
-    const h12 = h % 12 || 12
-    return `${h12}:${mStr} ${ampm}`
+  const selectTimeSlot = (slot: TimeSlotOption) => {
+    if (!slot.isAvailable) return
+    selectedTime.value = slot.time24
   }
 
   const closeModal = () => {
@@ -371,34 +531,20 @@
     emit('update:modelValue', false)
   }
 
+  // ── Submit Request ───────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!props.doctor) return
     if (!selectedDate.value) {
       toast.error('Please select an appointment date.')
       return
     }
-    if (isDateWholeDayBlocked.value) {
-      toast.error('The doctor is away on this date. Please select another date.')
-      return
-    }
-    if (isDateOffDuty.value) {
-      toast.error('The doctor has no scheduled clinic duty hours on this date.')
+    const day = Number(selectedDate.value.slice(8, 10))
+    if (!isDateSelectable(day)) {
+      toast.error('Please select an available date within the doctor duty schedule.')
       return
     }
     if (!selectedTime.value) {
       toast.error('Please select an available consultation time slot.')
-      return
-    }
-    if (isSlotBlocked(selectedTime.value)) {
-      toast.error(
-        'The selected time slot overlaps with a doctor break or away period. Please select another slot.'
-      )
-      return
-    }
-    if (isSlotBooked(selectedTime.value)) {
-      toast.error(
-        'The selected time slot has already been booked. Please choose an available time slot.'
-      )
       return
     }
 
@@ -412,24 +558,15 @@
 
       const scheduledAt = `${selectedDate.value} ${selectedTime.value}:00`
       const scheduledEndAt = `${selectedDate.value} ${endTime}:00`
-
-      const activeDutyShift = dutySlotsForDate.value.find(shift => {
-        const sStart = shift.start_time.slice(0, 5)
-        const sEnd = shift.end_time.slice(0, 5)
-        return selectedTime.value >= sStart && selectedTime.value < sEnd
-      })
       const resolvedLocation =
-        activeDutyShift?.clinic?.name ||
-        activeDutyShift?.location_name ||
-        doctorLocation.value ||
-        undefined
+        selectedDateClinic.value?.name || doctorLocation.value || 'Clinic Duty'
 
       const docId = props.doctor.id || props.doctor.uuid
       const effectivePurpose = props.diagnosisUuid
         ? diagnosisData.value?.label
           ? `AI Scan Assessment: ${diagnosisData.value.label}`
           : 'AI Scan Assessment'
-        : purpose.value || 'General Consultation'
+        : purpose.value || 'General Dermatological Consultation'
 
       const payload: any = {
         doctor_id: docId,
@@ -445,6 +582,7 @@
       }
 
       const res = await appointmentService.create(payload)
+      toast.success('Appointment request submitted successfully!')
 
       const bookedData = {
         ...(res?.appointment || res || {}),
@@ -467,420 +605,935 @@
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition
-      enter-active-class="transition duration-200 ease-out"
-      enter-from-class="opacity-0"
-      enter-to-class="opacity-100"
-      leave-active-class="transition duration-150 ease-in"
-      leave-from-class="opacity-100"
-      leave-to-class="opacity-0"
+  <div v-if="modelValue">
+    <!-- Mobile View Mode: Full-window component covering screen with back button -->
+    <div
+      v-if="isInlineMode"
+      class="bg-card fixed inset-0 z-[1000] flex h-full w-full flex-col overflow-hidden"
     >
+      <!-- Mobile Top Header with Back Button and Identity -->
       <div
-        v-if="modelValue && doctor"
-        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5"
+        class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3 py-3 shadow-sm"
       >
-        <!-- Backdrop -->
-        <div
-          class="fixed inset-0 bg-black/50 backdrop-blur-xs"
-          @click="closeModal"
-        ></div>
-
-        <!-- Modal Card -->
-        <div
-          class="bg-card relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 shadow-2xl transition-all"
-        >
-          <!-- Header -->
-          <div
-            class="from-primary to-primary/90 flex items-center justify-between border-b bg-gradient-to-r px-5 py-4 text-white"
+        <div class="flex min-w-0 flex-1 items-center gap-2">
+          <!-- Back Button -->
+          <button
+            type="button"
+            @click="closeModal"
+            class="text-foreground/70 hover:text-foreground hover:bg-foreground/5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors active:scale-95"
+            aria-label="Back"
           >
-            <div class="flex items-center gap-3">
-              <div
-                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/20 shadow-xs backdrop-blur-xs"
+            <Icon
+              name="heroicons:arrow-left-20-solid"
+              class="text-2xl"
+            />
+          </button>
+
+          <!-- Doctor Avatar & Name -->
+          <div class="flex min-w-0 flex-1 items-center gap-2.5">
+            <div
+              class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full"
+            >
+              <img
+                v-if="doctorAvatar"
+                :src="doctorAvatar"
+                :alt="doctorDisplayName"
+                class="h-full w-full object-cover"
+              />
+              <Icon
+                v-else
+                name="lucide:stethoscope"
+                class="text-primary text-base"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h2 class="text-foreground truncate text-sm font-bold">
+                {{ doctorDisplayName }}
+              </h2>
+              <p class="truncate text-[11px] font-semibold text-indigo-600">Request Consultation</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action badge -->
+        <span
+          class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
+        >
+          Consultation
+        </span>
+      </div>
+
+      <!-- Scrollable content -->
+      <div class="custom-scrollbar flex flex-1 flex-col gap-4 overflow-y-auto p-4 pb-24">
+        <!-- Diagnosis context if available -->
+        <div
+          v-if="diagnosisData"
+          class="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5"
+        >
+          <img
+            v-if="diagnosisData.image_path"
+            :src="getStorageUrl(diagnosisData.image_path)"
+            class="h-12 w-12 rounded-xl object-cover"
+            alt="Scan thumbnail"
+          />
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black tracking-wider text-indigo-600 uppercase">
+              Referral Scan
+            </p>
+            <p class="truncate text-xs font-black text-indigo-950">
+              {{ diagnosisData.label || 'AI Skin Scan' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Calendar Selection Card -->
+        <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+          <!-- Month navigation -->
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-foreground flex items-center gap-2 text-sm font-bold">
+              <Icon
+                name="lucide:calendar"
+                class="text-primary text-base"
+              />
+              {{ currentMonthName }} {{ currentYear }}
+            </h2>
+            <div class="flex gap-1">
+              <AppButton
+                variant="unstyled"
+                size="unstyled"
+                rounded="unstyled"
+                :disabled="isPrevMonthDisabled"
+                class="flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+                :class="
+                  isPrevMonthDisabled ? 'cursor-not-allowed opacity-25' : 'hover:bg-primary/10'
+                "
+                @click="prevMonth"
               >
                 <Icon
-                  name="material-symbols:calendar-add-on-rounded"
-                  class="text-2xl text-white"
+                  name="lucide:chevron-left"
+                  class="text-base"
                 />
-              </div>
-              <div>
-                <h3 class="text-base font-bold text-white">Request Consultation</h3>
-                <p class="text-xs text-white/80">Choose your preferred consultation schedule</p>
-              </div>
+              </AppButton>
+              <AppButton
+                variant="unstyled"
+                size="unstyled"
+                rounded="unstyled"
+                class="hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+                @click="nextMonth"
+              >
+                <Icon
+                  name="lucide:chevron-right"
+                  class="text-base"
+                />
+              </AppButton>
             </div>
+          </div>
 
-            <button
-              type="button"
-              @click="closeModal"
-              class="rounded-full p-1 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
+          <!-- Day names header -->
+          <div class="mb-1 grid grid-cols-7 text-center">
+            <span
+              v-for="d in daysOfWeek"
+              :key="d"
+              class="text-muted-foreground text-[11px] font-bold"
             >
-              <Icon
-                name="material-symbols:close-rounded"
-                class="text-xl"
+              {{ d }}
+            </span>
+          </div>
+
+          <!-- Calendar grid -->
+          <div class="grid grid-cols-7 gap-y-1 text-center">
+            <div
+              v-for="empty in startingDayOffset"
+              :key="'m-empty-' + empty"
+            ></div>
+
+            <div
+              v-for="date in daysInMonth"
+              :key="'m-date-' + date"
+              @click="selectDate(date)"
+              class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-[13px] font-semibold transition-all select-none"
+              :class="[
+                isPast(date)
+                  ? 'text-muted-foreground/40 pointer-events-none cursor-not-allowed line-through'
+                  : selectedDate === dateStringFor(date)
+                    ? 'bg-secondary z-10 scale-110 cursor-pointer font-bold text-white shadow-md'
+                    : isUnavailable(date)
+                      ? 'cursor-not-allowed bg-red-50 text-red-400 opacity-80 ring-1 ring-red-200'
+                      : isDoctorOnDuty(date)
+                        ? 'cursor-pointer bg-emerald-50 font-bold text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-100'
+                        : hasAnyDutyConfigured
+                          ? 'text-muted-foreground/40 cursor-not-allowed bg-gray-50/60 ring-1 ring-gray-100'
+                          : isToday(date)
+                            ? 'text-primary ring-primary/40 hover:bg-primary/10 cursor-pointer ring-2'
+                            : 'text-foreground hover:bg-primary/10 cursor-pointer'
+              ]"
+            >
+              {{ date }}
+
+              <!-- Indicator Dots -->
+              <div
+                v-if="selectedDate === dateStringFor(date)"
+                class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-white"
               />
+              <div
+                v-else-if="isUnavailable(date) && !isPast(date)"
+                class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-red-400"
+              />
+              <div
+                v-else-if="isDoctorOnDuty(date) && !isPast(date)"
+                class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-emerald-500"
+              />
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div
+            class="border-border mt-3 flex flex-wrap items-center justify-center gap-3 border-t pt-2.5 text-[10px] font-medium text-slate-500"
+          >
+            <span class="flex items-center gap-1">
+              <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+              Doctor Available
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="h-2 w-2 rounded-full bg-gray-300"></span>
+              Off-Duty
+            </span>
+            <span class="flex items-center gap-1">
+              <span class="h-2 w-2 rounded-full bg-red-400"></span>
+              Unavailable
+            </span>
+          </div>
+        </div>
+
+        <!-- Preferred Time Slot section -->
+        <div
+          v-if="selectedDate"
+          class="border-border bg-card rounded-2xl border p-4 shadow-sm"
+        >
+          <!-- Clinic Location for selected date -->
+          <div
+            v-if="selectedDateClinic"
+            class="border-primary/20 bg-primary/5 mb-3 rounded-xl border p-3"
+          >
+            <p class="text-[10px] font-bold text-indigo-600 uppercase">Practice Location</p>
+            <p class="text-foreground text-xs font-bold">{{ selectedDateClinic.name }}</p>
+            <p
+              v-if="selectedDateClinic.dutyHours"
+              class="text-muted-foreground mt-0.5 text-[10px]"
+            >
+              Hours: {{ selectedDateClinic.dutyHours }}
+            </p>
+          </div>
+
+          <div class="mb-3 flex items-center justify-between">
+            <h3 class="text-foreground text-xs font-bold tracking-wider uppercase">
+              Choose Time Slot (:30 min Scope)
+            </h3>
+            <span
+              v-if="availableTimeSlots.length"
+              class="text-muted-foreground text-[10px]"
+            >
+              {{ availableTimeSlots.filter(s => s.isAvailable).length }} slots
+            </span>
+          </div>
+
+          <div
+            v-if="availableTimeSlots.length"
+            class="grid grid-cols-2 gap-2"
+          >
+            <button
+              v-for="slot in availableTimeSlots"
+              :key="slot.time24"
+              type="button"
+              :disabled="!slot.isAvailable"
+              @click="selectTimeSlot(slot)"
+              class="relative flex flex-col items-start rounded-xl p-2.5 text-left transition-all"
+              :class="[
+                !slot.isAvailable
+                  ? 'bg-muted/40 text-muted-foreground/40 cursor-not-allowed line-through'
+                  : selectedTime === slot.time24
+                    ? 'bg-secondary ring-secondary/30 scale-[1.02] font-bold text-white shadow-md ring-2'
+                    : 'bg-card text-foreground hover:bg-primary/10 border-border/70 border shadow-xs'
+              ]"
+            >
+              <div class="flex w-full items-center justify-between">
+                <span class="text-xs font-bold">{{ slot.label }}</span>
+                <span class="text-[9px] opacity-75">1 hr</span>
+              </div>
+              <span
+                class="text-[9px]"
+                :class="selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'"
+              >
+                until {{ slot.endLabel }}
+              </span>
             </button>
           </div>
-
-          <!-- Doctor Banner -->
-          <div class="border-b border-gray-200 bg-gray-50/80 p-4">
-            <div class="flex items-center gap-3.5">
-              <div
-                class="relative h-13 w-13 shrink-0 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xs"
-              >
-                <img
-                  v-if="doctorAvatar"
-                  :src="doctorAvatar"
-                  :alt="doctorDisplayName"
-                  class="h-full w-full object-cover"
-                />
-                <div
-                  v-else
-                  class="from-primary/10 to-primary/20 text-primary flex h-full w-full items-center justify-center bg-gradient-to-br"
-                >
-                  <Icon
-                    name="solar:user-bold-duotone"
-                    class="text-2xl"
-                  />
-                </div>
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <h4 class="truncate text-base font-bold text-gray-900">
-                    {{ doctorDisplayName }}
-                  </h4>
-                  <span
-                    class="inline-flex shrink-0 items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20"
-                  >
-                    Verified
-                  </span>
-                </div>
-                <p class="truncate text-xs font-medium text-gray-600">
-                  {{ doctorLocation }}
-                </p>
-              </div>
-            </div>
+          <div
+            v-else
+            class="text-muted-foreground py-4 text-center text-xs"
+          >
+            No slots available on this date.
           </div>
+        </div>
 
-          <!-- Body Form -->
-          <div class="custom-scrollbar flex-1 space-y-4 overflow-y-auto p-5">
-            <!-- Whole day blocked notice -->
-            <div
-              v-if="isDateWholeDayBlocked"
-              class="flex items-start gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 p-3.5 text-xs font-medium text-amber-950 shadow-2xs"
+        <!-- Consultation Notes & Presets -->
+        <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
+          <label class="text-foreground mb-1 block text-xs font-bold">
+            Consultation Reason / Notes
+          </label>
+          <input
+            v-model="purpose"
+            type="text"
+            placeholder="e.g. General consultation or skin check"
+            class="border-border bg-background text-foreground mb-2 w-full rounded-xl border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              v-for="preset in presetPurposes"
+              :key="preset"
+              type="button"
+              @click="setPurposePreset(preset)"
+              class="rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all active:scale-95"
+              :class="
+                purpose === preset
+                  ? 'bg-primary/10 text-primary border-primary/30 font-bold'
+                  : 'bg-muted/40 text-muted-foreground hover:bg-muted border-border'
+              "
             >
-              <Icon
-                name="material-symbols:warning-rounded"
-                class="shrink-0 text-base text-amber-600"
-              />
-              <p>
-                Dr. {{ doctor?.last_name || 'Doctor' }} is not available on this date. Please pick
-                another date.
-              </p>
-            </div>
+              {{ preset }}
+            </button>
+          </div>
+        </div>
+      </div>
 
-            <!-- Off-duty notice -->
-            <div
-              v-else-if="isDateOffDuty"
-              class="flex items-start gap-2.5 rounded-2xl border border-dashed border-gray-300 bg-gray-50/90 p-3.5 text-xs font-medium text-gray-700 shadow-2xs"
+      <!-- Mobile Bottom Footer -->
+      <div
+        class="border-border bg-card fixed right-0 bottom-0 left-0 z-50 flex items-center justify-between border-t p-3 shadow-lg"
+      >
+        <div class="min-w-0 flex-1 pr-3">
+          <p class="text-muted-foreground text-[10px]">Preferred Consultation</p>
+          <p class="text-foreground truncate text-xs font-bold">
+            <span v-if="selectedDate">
+              {{ selectedDate }}
+              <span v-if="selectedTime">at {{ formatTime12H(selectedTime) }}</span>
+            </span>
+            <span
+              v-else
+              class="text-muted-foreground font-normal"
             >
-              <Icon
-                name="material-symbols:calendar-today-outline"
-                class="shrink-0 text-base text-gray-400"
-              />
-              <p>
-                Dr. {{ doctor?.last_name || 'Doctor' }} has no scheduled clinic duty hours on this
-                date. Please select an active duty date.
-              </p>
-            </div>
+              Pick date &amp; time
+            </span>
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            @click="closeModal"
+            class="border-border text-foreground rounded-xl border px-3 py-2 text-xs font-bold"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            :disabled="!selectedDate || !selectedTime || isSubmitting"
+            @click="handleSubmit"
+            class="bg-primary flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md disabled:opacity-50"
+          >
+            <Icon
+              v-if="isSubmitting"
+              name="svg-spinners:ring-resize"
+              class="text-sm"
+            />
+            <Icon
+              v-else
+              name="solar:calendar-add-bold"
+              class="text-sm"
+            />
+            <span>Send Request</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
-            <!-- Date Picker -->
-            <div>
-              <label class="mb-1.5 block text-xs font-bold tracking-wider text-gray-900 uppercase">
-                Preferred Date
-              </label>
-              <div class="relative">
-                <input
-                  v-model="selectedDate"
-                  type="date"
-                  :min="minDate"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-2xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-gray-900 shadow-2xs transition-colors focus:ring-2 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Time Slot Selection -->
-            <div>
-              <div class="mb-1.5 flex items-center justify-between">
-                <label class="block text-xs font-bold tracking-wider text-gray-900 uppercase">
-                  Select Time Slot
-                </label>
-                <span
-                  v-if="dutySlotsForDate.length > 0"
-                  class="text-[11px] font-bold text-emerald-600"
-                >
-                  Doctor on duty {{ dutyRangesLabel ? `(${dutyRangesLabel})` : '' }}
-                </span>
-                <span
-                  v-else-if="!isDateWholeDayBlocked && !isDateOffDuty"
-                  class="text-[11px] font-semibold text-gray-500"
-                >
-                  Standard consultation hours
-                </span>
-              </div>
-
-              <!-- Case 1: Whole day blocked -->
-              <div
-                v-if="isDateWholeDayBlocked"
-                class="flex flex-col items-center justify-center rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-center"
-              >
-                <Icon
-                  name="material-symbols:event-busy-rounded"
-                  class="mb-1 text-2xl text-amber-600"
-                />
-                <p class="text-xs font-bold text-amber-900">
-                  Doctor is Away / Blocked on this date
-                </p>
-                <p class="mt-0.5 text-[11px] text-amber-700">
-                  Please pick another date from the calendar to view available consultation slots.
-                </p>
-              </div>
-
-              <!-- Case 2: Off-duty date -->
-              <div
-                v-else-if="isDateOffDuty"
-                class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/80 p-4 text-center"
-              >
-                <Icon
-                  name="material-symbols:calendar-today-outline"
-                  class="mb-1 text-2xl text-gray-400"
-                />
-                <p class="text-xs font-bold text-gray-800">Doctor is Off-Duty on this date</p>
-                <p class="mt-0.5 text-[11px] text-gray-500">
-                  No clinic duty hours scheduled for Dr. {{ doctor?.last_name || 'Doctor' }} on this
-                  date.
-                </p>
-              </div>
-
-              <!-- Case 3: Available time slots grid -->
-              <div
-                v-else-if="availableTimeSlots.length > 0"
-                class="grid grid-cols-3 gap-2 sm:grid-cols-4"
-              >
-                <button
-                  v-for="timeSlot in availableTimeSlots"
-                  :key="timeSlot"
-                  type="button"
-                  :disabled="isSlotBlocked(timeSlot) || isSlotBooked(timeSlot)"
-                  @click="selectTimeSlot(timeSlot)"
-                  class="relative flex flex-col items-center justify-center rounded-xl border py-2 text-xs font-bold shadow-2xs transition-all active:scale-95 disabled:pointer-events-none"
-                  :class="[
-                    isSlotBooked(timeSlot)
-                      ? 'cursor-not-allowed border-rose-200 bg-rose-50/80 text-rose-500 opacity-70'
-                      : isSlotBlocked(timeSlot)
-                        ? 'cursor-not-allowed border-gray-200 bg-gray-100/90 text-gray-400 opacity-60'
-                        : selectedTime === timeSlot
-                          ? 'border-primary bg-primary text-white shadow-xs'
-                          : 'hover:border-primary hover:bg-primary/5 hover:text-primary border-gray-300 bg-white text-gray-800'
-                  ]"
-                >
-                  <span>{{ formatTimeSlotDisplay(timeSlot) }}</span>
-                  <span
-                    v-if="isSlotBooked(timeSlot)"
-                    class="mt-0.5 text-[9px] font-bold tracking-tight text-rose-600 uppercase"
-                  >
-                    Booked
-                  </span>
-                  <span
-                    v-else-if="isSlotBlocked(timeSlot)"
-                    class="mt-0.5 text-[9px] font-bold tracking-tight text-amber-600 uppercase"
-                  >
-                    Unavailable
-                  </span>
-                </button>
-              </div>
-
-              <!-- Case 4: No slots available -->
-              <div
-                v-else
-                class="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-center text-xs text-gray-500"
-              >
-                No consultation slots available on this date.
-              </div>
-            </div>
-
-            <!-- Attached AI Scan Result Card (When Booking From Scan) -->
-            <div
-              v-if="props.diagnosisUuid"
-              class="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/80 via-white to-blue-50/40 p-4 shadow-2xs"
-            >
-              <div class="mb-2.5 flex items-center justify-between">
-                <span class="text-[11px] font-bold tracking-wider text-blue-900 uppercase">
-                  Attached AI Scan Result
-                </span>
-                <span
-                  class="inline-flex items-center rounded-md bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-800 ring-1 ring-blue-700/10"
-                >
-                  Home Self-Assessment
-                </span>
-              </div>
-
-              <div
-                v-if="isLoadingDiagnosis"
-                class="flex items-center justify-center py-4 text-xs text-gray-500"
-              >
-                <Icon
-                  name="svg-spinners:ring-resize"
-                  class="text-primary mr-2 text-base"
-                />
-                Loading scan details...
-              </div>
-
-              <div
-                v-else
-                class="flex items-center gap-3.5"
-              >
-                <div
-                  class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xs"
-                >
-                  <img
-                    v-if="diagnosisData?.image_path"
-                    :src="getStorageUrl(diagnosisData.image_path)"
-                    :alt="diagnosisData?.label || 'Scan Image'"
-                    class="h-full w-full object-cover"
-                  />
-                  <div
-                    v-else
-                    class="flex h-full w-full items-center justify-center bg-gray-100 text-gray-400"
-                  >
+    <!-- Desktop Modal Mode (teleports to body) -->
+    <Teleport
+      v-else
+      to="body"
+    >
+      <Transition name="modal">
+        <div
+          class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/50 p-4"
+          @click.self="closeModal"
+        >
+          <div
+            class="bg-card border-border my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
+          >
+            <!-- Header -->
+            <div class="from-primary shrink-0 bg-gradient-to-br to-indigo-700 px-6 py-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20">
                     <Icon
-                      name="material-symbols:image-outline"
-                      class="text-xl"
+                      name="lucide:calendar-plus"
+                      class="text-lg text-white"
                     />
                   </div>
+                  <div>
+                    <p
+                      class="text-[10px] font-bold tracking-widest text-white uppercase opacity-80"
+                    >
+                      Book Consultation
+                    </p>
+                    <h3 class="text-base leading-tight font-black text-white">
+                      Request Consultation
+                    </h3>
+                  </div>
+                </div>
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  class="flex h-8 w-8 items-center justify-center rounded-full text-white/70 transition-all hover:bg-white/15 hover:text-white"
+                  @click="closeModal"
+                >
+                  <Icon
+                    name="lucide:x"
+                    class="text-base"
+                  />
+                </AppButton>
+              </div>
+            </div>
+
+            <!-- Doctor info strip -->
+            <div class="border-border shrink-0 border-b px-6 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                  <div
+                    class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full"
+                  >
+                    <img
+                      v-if="doctorAvatar"
+                      :src="doctorAvatar"
+                      :alt="doctorDisplayName"
+                      class="h-full w-full object-cover"
+                    />
+                    <Icon
+                      v-else
+                      name="lucide:stethoscope"
+                      class="text-primary text-sm"
+                    />
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-1.5">
+                      <p class="text-foreground text-sm font-bold">{{ doctorDisplayName }}</p>
+                      <span
+                        v-if="doctor.doctor_verification?.verified_at"
+                        class="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300"
+                      >
+                        verified
+                      </span>
+                    </div>
+                    <p class="text-muted-foreground text-xs">
+                      {{ doctorLocation }}
+                    </p>
+                  </div>
+                </div>
+                <span class="text-muted-foreground hidden text-xs font-medium sm:inline-block">
+                  Standard Consultation:
+                  <strong class="text-foreground font-semibold">1 hour</strong>
+                </span>
+              </div>
+            </div>
+
+            <!-- Split-Pane Body -->
+            <div class="flex flex-1 flex-col overflow-hidden md:flex-row">
+              <!-- Left Pane: Calendar Selection -->
+              <div
+                class="border-border flex flex-col justify-between overflow-y-auto p-5 md:w-[380px] md:shrink-0 md:border-r"
+              >
+                <!-- Loading skeleton -->
+                <div
+                  v-if="isLoading"
+                  class="flex animate-pulse flex-col gap-3 py-4"
+                >
+                  <div class="bg-foreground/10 mb-1 h-5 w-44 rounded-lg"></div>
+                  <div class="grid grid-cols-7 gap-y-3">
+                    <div
+                      v-for="n in 35"
+                      :key="n"
+                      class="bg-foreground/5 h-9 w-9 place-self-center rounded-full"
+                    ></div>
+                  </div>
                 </div>
 
-                <div class="min-w-0 flex-1">
-                  <h5 class="truncate text-sm font-bold text-gray-900">
-                    {{ diagnosisData?.label || 'Skin Assessment' }}
-                  </h5>
-                  <div class="mt-1 flex items-center gap-2">
+                <div v-else>
+                  <!-- Month navigation -->
+                  <div class="mb-3 flex items-center justify-between">
+                    <h2 class="text-foreground flex items-center gap-2 text-sm font-bold">
+                      <Icon
+                        name="lucide:calendar"
+                        class="text-primary text-base"
+                      />
+                      {{ currentMonthName }} {{ currentYear }}
+                    </h2>
+                    <div class="flex gap-1">
+                      <AppButton
+                        variant="unstyled"
+                        size="unstyled"
+                        rounded="unstyled"
+                        :disabled="isPrevMonthDisabled"
+                        class="flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+                        :class="
+                          isPrevMonthDisabled
+                            ? 'cursor-not-allowed opacity-25'
+                            : 'hover:bg-primary/10'
+                        "
+                        @click="prevMonth"
+                      >
+                        <Icon
+                          name="lucide:chevron-left"
+                          class="text-base"
+                        />
+                      </AppButton>
+                      <AppButton
+                        variant="unstyled"
+                        size="unstyled"
+                        rounded="unstyled"
+                        class="hover:bg-primary/10 flex h-7 w-7 items-center justify-center rounded-full transition-colors active:scale-95"
+                        @click="nextMonth"
+                      >
+                        <Icon
+                          name="lucide:chevron-right"
+                          class="text-base"
+                        />
+                      </AppButton>
+                    </div>
+                  </div>
+
+                  <!-- Day names header -->
+                  <div class="mb-1 grid grid-cols-7 text-center">
                     <span
-                      v-if="diagnosisData?.confidence_score || diagnosisData?.confidence"
-                      class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 ring-1 ring-emerald-600/20"
+                      v-for="d in daysOfWeek"
+                      :key="d"
+                      class="text-muted-foreground text-[11px] font-bold"
                     >
-                      {{
-                        (
-                          Number(diagnosisData.confidence_score || diagnosisData.confidence || 0) *
-                          100
-                        ).toFixed(1)
-                      }}% Confidence
-                    </span>
-                    <span class="truncate text-[11px] text-gray-500">
-                      {{
-                        diagnosisData?.created_at
-                          ? new Date(diagnosisData.created_at).toLocaleDateString()
-                          : 'Recent Scan'
-                      }}
+                      {{ d }}
                     </span>
                   </div>
-                  <p class="mt-1 text-[11px] text-gray-600">
-                    This image and analysis will be shared directly with the doctor.
+
+                  <!-- Calendar grid -->
+                  <div class="grid grid-cols-7 gap-y-1 text-center">
+                    <div
+                      v-for="empty in startingDayOffset"
+                      :key="'empty-' + empty"
+                    ></div>
+
+                    <div
+                      v-for="date in daysInMonth"
+                      :key="date"
+                      @click="selectDate(date)"
+                      @mouseenter="hoveredDate = dateStringFor(date)"
+                      @mouseleave="hoveredDate = null"
+                      class="relative flex h-8 w-8 items-center justify-center place-self-center rounded-full text-[13px] font-semibold transition-all select-none"
+                      :class="[
+                        isPast(date)
+                          ? 'text-muted-foreground/40 pointer-events-none cursor-not-allowed line-through'
+                          : selectedDate === dateStringFor(date)
+                            ? 'bg-secondary z-10 scale-110 cursor-pointer text-white shadow-md'
+                            : isUnavailable(date)
+                              ? 'cursor-not-allowed bg-red-50 text-red-400 opacity-80 ring-1 ring-red-200'
+                              : isDoctorOnDuty(date)
+                                ? 'cursor-pointer bg-emerald-50 font-bold text-emerald-700 ring-1 ring-emerald-300 hover:bg-emerald-100'
+                                : hasAnyDutyConfigured
+                                  ? 'text-muted-foreground/40 cursor-not-allowed bg-gray-50/60 ring-1 ring-gray-100'
+                                  : isToday(date)
+                                    ? 'text-primary ring-primary/40 hover:bg-primary/10 cursor-pointer ring-2'
+                                    : 'text-foreground hover:bg-primary/10 cursor-pointer'
+                      ]"
+                    >
+                      {{ date }}
+
+                      <!-- Indicator Dots -->
+                      <div
+                        v-if="selectedDate === dateStringFor(date)"
+                        class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-white"
+                      />
+                      <div
+                        v-else-if="isUnavailable(date) && !isPast(date)"
+                        class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-red-400"
+                      />
+                      <div
+                        v-else-if="isDoctorOnDuty(date) && !isPast(date)"
+                        class="absolute -bottom-0.5 h-1 w-1 rounded-full bg-emerald-500"
+                      />
+
+                      <!-- Tooltips -->
+                      <Transition name="fade-scale">
+                        <div
+                          v-if="
+                            hoveredDate === dateStringFor(date) &&
+                            isUnavailable(date) &&
+                            !isPast(date)
+                          "
+                          class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        >
+                          <div
+                            class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-red-700/60 bg-red-900/95"
+                          />
+                          <p class="text-xs font-bold text-red-100">Unavailable</p>
+                        </div>
+                      </Transition>
+
+                      <Transition name="fade-scale">
+                        <div
+                          v-if="
+                            hoveredDate === dateStringFor(date) &&
+                            isDoctorOnDuty(date) &&
+                            !isUnavailable(date) &&
+                            !isPast(date)
+                          "
+                          class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-emerald-700/60 bg-emerald-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        >
+                          <div
+                            class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-emerald-700/60 bg-emerald-950/95"
+                          />
+                          <p class="text-xs font-bold text-emerald-100">Doctor Available</p>
+                        </div>
+                      </Transition>
+                    </div>
+                  </div>
+
+                  <!-- Legend -->
+                  <div
+                    class="border-border mt-4 flex flex-wrap items-center justify-center gap-3 border-t pt-3 text-[11px] font-medium text-slate-600 dark:text-slate-400"
+                  >
+                    <span class="flex items-center gap-1.5">
+                      <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                      Doctor Available
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                      <span class="h-2 w-2 rounded-full bg-gray-300"></span>
+                      Off-Duty
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                      <span class="h-2 w-2 rounded-full bg-red-400"></span>
+                      Unavailable
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Pane: Clinic Location & 30-Minute Slots & Notes -->
+              <div
+                ref="timeSlotsSection"
+                class="custom-scrollbar bg-muted/10 flex flex-1 flex-col overflow-y-auto p-5"
+              >
+                <template v-if="selectedDate">
+                  <!-- Clinic Location Card for Selected Date -->
+                  <div
+                    v-if="selectedDateClinic"
+                    class="border-primary/20 bg-primary/5 mb-4 rounded-2xl border p-3.5"
+                  >
+                    <div class="flex items-start gap-3">
+                      <div
+                        class="bg-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white shadow-xs"
+                      >
+                        <Icon
+                          name="lucide:building-2"
+                          class="text-lg"
+                        />
+                      </div>
+                      <div class="min-w-0 flex-1">
+                        <span
+                          class="bg-primary/15 text-primary rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase"
+                        >
+                          Doctor Practice Location
+                        </span>
+                        <p class="text-foreground mt-0.5 truncate text-xs font-bold">
+                          {{ selectedDateClinic.name }}
+                        </p>
+                        <p
+                          v-if="selectedDateClinic.address"
+                          class="text-muted-foreground truncate text-[11px]"
+                        >
+                          {{ selectedDateClinic.address }}
+                        </p>
+                        <p
+                          v-if="selectedDateClinic.dutyHours"
+                          class="text-primary mt-1 flex items-center gap-1 text-[10px] font-semibold"
+                        >
+                          <Icon
+                            name="lucide:clock"
+                            class="text-xs"
+                          />
+                          Duty Schedule: {{ selectedDateClinic.dutyHours }}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Referral Diagnosis details if available -->
+                  <div
+                    v-if="diagnosisData"
+                    class="mb-4 flex items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3.5"
+                  >
+                    <img
+                      v-if="diagnosisData.image_path"
+                      :src="getStorageUrl(diagnosisData.image_path)"
+                      class="h-12 w-12 rounded-xl object-cover shadow-xs"
+                      alt="Scan thumbnail"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <p class="text-[10px] font-black tracking-wider text-indigo-600 uppercase">
+                        Attached Clinical Scan
+                      </p>
+                      <h4 class="truncate text-sm font-black text-indigo-950">
+                        {{ diagnosisData.label || 'AI Skin Assessment' }}
+                      </h4>
+                      <p class="text-muted-foreground text-[11px]">
+                        Scan from {{ diagnosisData.date || 'Recent assessment' }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Preferred Time Slot Header -->
+                  <div class="mb-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <Icon
+                        name="lucide:clock"
+                        class="text-primary text-base"
+                      />
+                      <h4 class="text-foreground text-xs font-bold tracking-wider uppercase">
+                        Select Preferred Time Slot (:30 min Scope)
+                      </h4>
+                    </div>
+                    <span
+                      v-if="availableTimeSlots.length > 0"
+                      class="text-muted-foreground text-[11px] font-medium"
+                    >
+                      {{ availableTimeSlots.filter(s => s.isAvailable).length }} slots available
+                    </span>
+                  </div>
+
+                  <!-- Time slots grid (30-minute intervals) -->
+                  <div
+                    v-if="availableTimeSlots.length > 0"
+                    class="grid grid-cols-2 gap-2.5 sm:grid-cols-3"
+                  >
+                    <button
+                      v-for="slot in availableTimeSlots"
+                      :key="slot.time24"
+                      type="button"
+                      :disabled="!slot.isAvailable"
+                      @click="selectTimeSlot(slot)"
+                      class="relative flex flex-col items-start justify-center gap-1 rounded-xl p-3 text-left transition-all"
+                      :class="[
+                        !slot.isAvailable
+                          ? 'bg-muted/40 text-muted-foreground/40 cursor-not-allowed border border-transparent line-through'
+                          : selectedTime === slot.time24
+                            ? 'bg-secondary ring-secondary/30 scale-[1.02] font-bold text-white shadow-md ring-2'
+                            : 'bg-card text-foreground hover:bg-primary/10 hover:text-primary border-border/70 cursor-pointer border shadow-xs active:scale-95'
+                      ]"
+                    >
+                      <div class="flex w-full items-center justify-between">
+                        <span class="text-xs font-bold">{{ slot.label }}</span>
+                        <span
+                          class="rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wider uppercase"
+                          :class="
+                            selectedTime === slot.time24
+                              ? 'bg-white/20 text-white'
+                              : 'bg-muted text-muted-foreground'
+                          "
+                        >
+                          {{ slot.durationLabel }}
+                        </span>
+                      </div>
+                      <span
+                        class="text-[10px]"
+                        :class="
+                          selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'
+                        "
+                      >
+                        until {{ slot.endLabel }}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div
+                    v-else
+                    class="my-4 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6 text-center text-xs text-amber-700"
+                  >
+                    <Icon
+                      name="lucide:alert-circle"
+                      class="mx-auto mb-2 text-xl"
+                    />
+                    <p class="font-bold">No Available Time Slots</p>
+                    <p class="mt-1 text-[11px] opacity-80">
+                      All consultation hours for this date are fully booked or blocked. Please
+                      select another date.
+                    </p>
+                  </div>
+
+                  <!-- Reason / Notes Input & Presets -->
+                  <div class="mt-5 border-t pt-4">
+                    <label class="text-foreground mb-1 block text-xs font-bold">
+                      Consultation Reason / Notes
+                    </label>
+                    <input
+                      v-model="purpose"
+                      type="text"
+                      placeholder="e.g. General consultation, rash review..."
+                      class="border-border bg-background text-foreground mb-2 w-full rounded-xl border px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <div class="flex flex-wrap gap-1.5">
+                      <button
+                        v-for="preset in presetPurposes"
+                        :key="preset"
+                        type="button"
+                        @click="setPurposePreset(preset)"
+                        class="rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all active:scale-95"
+                        :class="
+                          purpose === preset
+                            ? 'bg-primary/10 text-primary border-primary/30 font-bold'
+                            : 'bg-card text-muted-foreground hover:bg-muted border-border/70'
+                        "
+                      >
+                        {{ preset }}
+                      </button>
+                    </div>
+                  </div>
+                </template>
+
+                <div
+                  v-else
+                  class="my-auto flex flex-col items-center justify-center p-8 text-center"
+                >
+                  <div
+                    class="bg-primary/10 text-primary mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
+                  >
+                    <Icon
+                      name="lucide:calendar"
+                      class="text-2xl"
+                    />
+                  </div>
+                  <h4 class="text-foreground text-sm font-bold">Pick a Date to View Slots</h4>
+                  <p class="text-muted-foreground mt-1 max-w-xs text-xs">
+                    Select any available date on the calendar to see doctor clinic duty hours and
+                    bookable consultation slots.
                   </p>
                 </div>
               </div>
             </div>
 
-            <!-- Consultation Purpose (Shown ONLY for Direct Booking, NOT from Scan) -->
-            <div v-else>
-              <label class="mb-1.5 block text-xs font-bold tracking-wider text-gray-900 uppercase">
-                Consultation Reason / Notes
-              </label>
-              <input
-                v-model="purpose"
-                type="text"
-                placeholder="e.g. Skin checkup, acne evaluation..."
-                class="focus:border-primary focus:ring-primary/20 w-full rounded-2xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm font-medium text-gray-900 shadow-2xs transition-colors placeholder:text-gray-400 focus:ring-2 focus:outline-none"
-              />
-
-              <!-- Quick presets -->
-              <div class="mt-2 flex flex-wrap gap-1.5">
-                <button
-                  v-for="preset in presetPurposes"
-                  :key="preset"
-                  type="button"
-                  @click="setPurposePreset(preset)"
-                  class="rounded-xl border px-2.5 py-1 text-xs font-semibold shadow-2xs transition-all active:scale-95"
-                  :class="[
-                    purpose === preset
-                      ? 'border-primary bg-primary text-white shadow-xs'
-                      : 'hover:border-primary hover:bg-primary/10 hover:text-primary border-gray-300 bg-gray-100 text-gray-800'
-                  ]"
+            <!-- Bottom Footer Bar -->
+            <div
+              class="border-border/60 bg-card flex shrink-0 flex-col items-center justify-between gap-3 border-t px-6 py-3.5 sm:flex-row"
+            >
+              <div class="flex items-center gap-2.5">
+                <div
+                  class="bg-primary/10 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
                 >
-                  {{ preset }}
-                </button>
+                  <Icon
+                    name="lucide:calendar-clock"
+                    class="text-primary text-sm"
+                  />
+                </div>
+                <div>
+                  <p class="text-muted-foreground text-[10px] font-bold uppercase">
+                    Selected Schedule
+                  </p>
+                  <p class="text-foreground text-xs font-bold">
+                    <span v-if="selectedDate">
+                      {{ selectedDateLabel }}
+                      <span
+                        v-if="selectedTime"
+                        class="text-primary"
+                      >
+                        at {{ formatTime12H(selectedTime) }}
+                      </span>
+                    </span>
+                    <span
+                      v-else
+                      class="text-muted-foreground font-normal"
+                    >
+                      Please pick a date &amp; time slot above
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  class="border-border text-foreground/70 hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl border px-4 py-2 text-xs font-bold transition-all active:scale-95"
+                  @click="closeModal"
+                >
+                  Cancel
+                </AppButton>
+
+                <AppButton
+                  variant="unstyled"
+                  size="unstyled"
+                  rounded="unstyled"
+                  :disabled="!selectedDate || !selectedTime || isSubmitting"
+                  class="bg-primary flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
+                  @click="handleSubmit"
+                >
+                  <Icon
+                    v-if="isSubmitting"
+                    name="svg-spinners:ring-resize"
+                    class="text-sm"
+                  />
+                  <Icon
+                    v-else
+                    name="solar:calendar-add-bold"
+                    class="text-sm"
+                  />
+                  <span>{{ isSubmitting ? 'Submitting...' : 'Send Appointment Request' }}</span>
+                </AppButton>
               </div>
             </div>
-
-            <!-- Booking Notice -->
-            <div
-              class="flex items-start gap-2.5 rounded-2xl border border-blue-200 bg-blue-50/90 p-3.5 text-xs font-medium text-blue-950 shadow-2xs"
-            >
-              <Icon
-                name="material-symbols:info-outline-rounded"
-                class="mt-0.5 shrink-0 text-base text-blue-600"
-              />
-              <p class="leading-relaxed text-blue-950">
-                <template v-if="props.diagnosisUuid">
-                  This request will be sent to Dr. {{ doctor?.last_name || 'Doctor' }} along with
-                  your AI scan image and self-assessment results for clinical confirmation. You will
-                  be notified once the doctor accepts or suggests another schedule.
-                </template>
-                <template v-else>
-                  This request will be sent to the doctor for confirmation. You will be notified
-                  once the doctor accepts your appointment slot.
-                </template>
-              </p>
-            </div>
-          </div>
-
-          <!-- Footer Actions -->
-          <div class="flex items-center justify-end gap-2.5 border-t border-gray-100 bg-white p-4">
-            <button
-              type="button"
-              @click="closeModal"
-              :disabled="isSubmitting"
-              class="rounded-xl border border-gray-300 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-2xs transition hover:bg-gray-100 hover:text-gray-900 active:scale-95 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              @click="handleSubmit"
-              :disabled="
-                isSubmitting ||
-                isDateWholeDayBlocked ||
-                isDateOffDuty ||
-                !selectedTime ||
-                isSlotBlocked(selectedTime) ||
-                isSlotBooked(selectedTime)
-              "
-              class="bg-primary hover:bg-primary/90 flex items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-xs transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50"
-            >
-              <Icon
-                v-if="isSubmitting"
-                name="svg-spinners:ring-resize"
-                class="text-sm"
-              />
-              <Icon
-                v-else
-                name="material-symbols:send-rounded"
-                class="text-sm"
-              />
-              <span>{{ isSubmitting ? 'Sending Request...' : 'Send Appointment Request' }}</span>
-            </button>
           </div>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+      </Transition>
+    </Teleport>
+  </div>
 </template>
+
+<style scoped>
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 9999px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .fade-scale-enter-active,
+  .fade-scale-leave-active {
+    transition: all 0.15s ease;
+  }
+  .fade-scale-enter-from,
+  .fade-scale-leave-to {
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.95);
+  }
+
+  .modal-enter-active,
+  .modal-leave-active {
+    transition: all 0.25s ease-out;
+  }
+  .modal-enter-from,
+  .modal-leave-to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+</style>

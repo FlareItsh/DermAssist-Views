@@ -157,24 +157,65 @@
   const showPatientDirectBookingModal = ref(false)
   const isDirectBooking = ref(false)
 
-  const openScheduleFromSidebar = () => {
-    if (pendingAppointmentForConversation.value) {
-      openScheduleModalFromPending(pendingAppointmentForConversation.value)
-    } else {
-      const isDoc =
-        userRole.value === 'doctor' ||
-        userRole.value === 'secretary' ||
-        route.path.toLowerCase().startsWith('/doctor') ||
-        route.path.toLowerCase().startsWith('/secretary')
-      if (isDoc) {
+  const isDoctorUser = computed(() => {
+    return (
+      userRole.value === 'doctor' ||
+      userRole.value === 'secretary' ||
+      route.path.toLowerCase().startsWith('/doctor') ||
+      route.path.toLowerCase().startsWith('/secretary')
+    )
+  })
+
+  const chatPartnerDoctor = computed(() => {
+    if (!convData.value?.doctor) return null
+    return {
+      id: convData.value.doctor.id,
+      uuid: convData.value.doctor.uuid || convData.value.doctor.id,
+      name: convData.value.doctor.name || convData.value.doctor.user?.name || otherPersonName.value,
+      specialty: convData.value.doctor.specialty || 'Dermatologist',
+      profile_photo_url:
+        convData.value.doctor.profile_photo_url ||
+        convData.value.doctor.user?.profile_photo_url ||
+        otherPersonAvatar.value,
+      clinics: convData.value.doctor.clinics || []
+    }
+  })
+
+  const showPatientBookModal = ref(false)
+
+  const openScheduleFromHeader = () => {
+    if (isDoctorUser.value) {
+      if (pendingAppointmentForConversation.value) {
+        openScheduleModalFromPending(pendingAppointmentForConversation.value)
+      } else {
         schedulingAppointmentUuid.value = ''
         scheduleMode.value = 'schedule'
         showScheduleModal.value = true
-        showUserDetails.value = false
-      } else {
-        showPatientDirectBookingModal.value = true
-        showUserDetails.value = false
       }
+    } else {
+      showPatientBookModal.value = true
+    }
+  }
+
+  const handlePatientBookedFromChat = async () => {
+    showPatientBookModal.value = false
+    await fetchAppointments()
+    await fetchMessages(1)
+  }
+
+  const openScheduleFromSidebar = () => {
+    if (isDoctorUser.value) {
+      if (pendingAppointmentForConversation.value) {
+        openScheduleModalFromPending(pendingAppointmentForConversation.value)
+      } else {
+        schedulingAppointmentUuid.value = ''
+        scheduleMode.value = 'schedule'
+        showScheduleModal.value = true
+      }
+      showUserDetails.value = false
+    } else {
+      showPatientBookModal.value = true
+      showUserDetails.value = false
     }
   }
 
@@ -1601,6 +1642,22 @@
 
       <!-- Header actions menu -->
       <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <!-- Schedule / Request Schedule Action Button -->
+        <button
+          type="button"
+          @click="openScheduleFromHeader"
+          class="border-primary/20 bg-primary/10 text-primary hover:bg-primary flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border px-2.5 text-xs font-bold shadow-2xs transition-all duration-200 hover:text-white active:scale-95 sm:h-10 sm:rounded-2xl sm:px-3"
+          :title="isDoctorUser ? 'Schedule Consultation' : 'Request Schedule'"
+        >
+          <Icon
+            name="solar:calendar-date-bold"
+            class="text-base sm:text-lg"
+          />
+          <span class="hidden sm:inline">
+            {{ isDoctorUser ? 'Schedule' : 'Request Schedule' }}
+          </span>
+        </button>
+
         <!-- Search in chat button -->
         <button
           type="button"
@@ -2366,9 +2423,7 @@
                           alt="Diagnosis scan"
                         />
                         <div class="flex min-w-0 flex-col justify-center gap-0.5">
-                          <p
-                            class="text-[10px] font-black tracking-widest uppercase text-primary"
-                          >
+                          <p class="text-primary text-[10px] font-black tracking-widest uppercase">
                             {{
                               msg.appointment_data?.diagnosis?.scan_type === 'in_clinic'
                                 ? 'Clinical Findings'
@@ -3513,6 +3568,14 @@
         :inline="false"
         @close="rescheduleModalAppt = null"
         @requested="onRescheduleRequested"
+      />
+
+      <!-- Patient Consultation Booking Modal -->
+      <PatientSideComponentsBookAppointmentModal
+        v-if="!isDoctorUser"
+        v-model="showPatientBookModal"
+        :doctor="chatPartnerDoctor"
+        @booked="handlePatientBookedFromChat"
       />
 
       <!-- Reschedule Accept Confirmation Modal -->

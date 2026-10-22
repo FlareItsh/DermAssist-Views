@@ -23,8 +23,13 @@
 
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
+  const { resetScanner, appointmentUuid, patientUuid, saveActiveDiagnosisState } = useDiagnosis()
 
   const showScheduleModal = ref(false)
+  const rescheduleModalAppt = ref<any | null>(null)
+  const openRescheduleModal = (appt: any) => {
+    rescheduleModalAppt.value = appt
+  }
   const activeTab = ref<'today' | 'upcoming' | 'pending' | 'reschedule' | 'history'>('upcoming')
   const viewMode = ref<'list' | 'timetable'>('list')
 
@@ -127,12 +132,33 @@
   const confirmCheckIn = async () => {
     if (!pendingAttendanceAppt.value) return
     isProcessingAttendance.value = true
+    const targetAppt = pendingAttendanceAppt.value
     try {
-      await appointmentService.checkIn(pendingAttendanceAppt.value.id)
+      await appointmentService.checkIn(targetAppt.id)
       toast.success('Patient attendance checked in.')
       showCheckInModal.value = false
       pendingAttendanceAppt.value = null
-      await fetchAppointments()
+
+      // Prefill scanner with assigned patient & appointment and redirect
+      resetScanner()
+      appointmentUuid.value = targetAppt.id || targetAppt.uuid
+      const pUuid =
+        targetAppt.patient_uuid ||
+        targetAppt.patient?.uuid ||
+        targetAppt.patient?.id ||
+        targetAppt.user_id
+      if (pUuid) {
+        patientUuid.value = pUuid
+      }
+      saveActiveDiagnosisState()
+
+      await navigateTo({
+        path: '/Doctor/Scan',
+        query: {
+          appointment_uuid: targetAppt.id || targetAppt.uuid,
+          ...(pUuid ? { patient_uuid: pUuid } : {})
+        }
+      })
     } catch (e: any) {
       console.error(e)
       toast.error(e?.response?._data?.message || 'Failed to record check-in.')
@@ -284,16 +310,8 @@
   }
 
   // Doctor reschedule proposal modal
-  const rescheduleModalAppt = ref<any | null>(null)
   const promptProposeDate = (appt: any) => {
-    rescheduleModalAppt.value = {
-      id: appt.id,
-      uuid: appt.id,
-      doctor_uuid: appt.doctor_uuid,
-      doctor_id: appt.doctor_id,
-      doctor: appt.patientName,
-      info: appt.condition
-    }
+    openRescheduleModal(appt)
   }
 
   // Timetable quick view modal
@@ -1172,6 +1190,24 @@
               </button>
 
               <button
+                v-if="
+                  !appt.active_reschedule_proposal &&
+                  (appt.status === 'confirmed' ||
+                    appt.status === 'scheduled' ||
+                    appt.status === 'checked_in')
+                "
+                type="button"
+                @click="openRescheduleModal(appt)"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-50 active:scale-95"
+              >
+                <Icon
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-sm"
+                />
+                <span>Reschedule</span>
+              </button>
+
+              <button
                 type="button"
                 @click="promptCancelAppointment(appt)"
                 class="inline-flex h-9 cursor-pointer items-center justify-center gap-1 rounded-xl border border-gray-200 bg-white px-2.5 text-xs font-bold text-gray-600 shadow-xs transition hover:bg-gray-50 active:scale-95"
@@ -1492,11 +1528,43 @@
                 />
                 Message Patient
               </button>
+
+              <button
+                v-if="
+                  ['pending', 'confirmed', 'scheduled'].includes(
+                    (selectedTimetableAppt.status || '').toLowerCase()
+                  )
+                "
+                type="button"
+                @click="
+                  () => {
+                    const a = selectedTimetableAppt
+                    selectedTimetableAppt = null
+                    openRescheduleModal(a)
+                  }
+                "
+                class="flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+              >
+                <Icon
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-base"
+                />
+                Propose Reschedule
+              </button>
             </div>
           </div>
         </div>
       </div>
     </Transition>
+
+    <!-- Doctor Reschedule Proposal Modal -->
+    <PatientSideComponentsRescheduleModal
+      v-if="rescheduleModalAppt"
+      :appointment="rescheduleModalAppt"
+      :inline="false"
+      @close="rescheduleModalAppt = null"
+      @requested="fetchAppointments"
+    />
   </div>
 </template>
 
