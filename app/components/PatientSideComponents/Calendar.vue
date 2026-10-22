@@ -254,8 +254,8 @@
     router.push('/Doctor/profile#blocked-dates')
   }
 
-  const goToChat = (conversationUuid: string) => {
-    router.push(`/Patient/Messages/${conversationUuid}`)
+  const goToChat = async (conversationUuid: string) => {
+    await navigateTo(`/patient/messages/${conversationUuid}`)
   }
 
   const rescheduleModalAppt = ref<any | null>(null)

@@ -52,8 +52,8 @@
     if (!conversationUuid) return
     closePopover()
     const role = useCookie('user_role').value
-    const prefix = role === 'secretary' ? '/Secretary' : '/Doctor'
-    router.push(`${prefix}/Messages/${conversationUuid}`)
+    const prefix = role === 'secretary' ? '/secretary' : '/doctor'
+    navigateTo(`${prefix}/messages/${conversationUuid}`)
   }
 
   // ── Build the 14-day window centered on today + offset ────────────────────────

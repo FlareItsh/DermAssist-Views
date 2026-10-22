@@ -167,18 +167,38 @@
   })
 
   const chatPartnerDoctor = computed(() => {
-    if (!convData.value?.doctor) return null
-    return {
-      id: convData.value.doctor.id,
-      uuid: convData.value.doctor.uuid || convData.value.doctor.id,
-      name: convData.value.doctor.name || convData.value.doctor.user?.name || otherPersonName.value,
-      specialty: convData.value.doctor.specialty || 'Dermatologist',
-      profile_photo_url:
-        convData.value.doctor.profile_photo_url ||
-        convData.value.doctor.user?.profile_photo_url ||
-        otherPersonAvatar.value,
-      clinics: convData.value.doctor.clinics || []
+    const doc = convData.value?.doctor
+    if (doc) {
+      return {
+        ...doc,
+        id: doc.id,
+        uuid: doc.uuid || doc.id,
+        name: doc.name || doc.user?.name || props.otherPersonName,
+        first_name: doc.first_name,
+        last_name: doc.last_name,
+        specialty: doc.specialty || 'Dermatologist',
+        profile_photo_url:
+          doc.avatar_url ||
+          doc.avatar ||
+          doc.profile_photo_url ||
+          doc.user?.profile_photo_url ||
+          props.otherPersonAvatar ||
+          null,
+        avatar_path: doc.avatar_path || null,
+        clinics: doc.clinics || []
+      }
     }
+    if (!isDoctorUser.value) {
+      return {
+        id: conversationDoctorUuid.value || undefined,
+        uuid: conversationDoctorUuid.value || undefined,
+        name: props.otherPersonName,
+        specialty: 'Dermatologist',
+        profile_photo_url: props.otherPersonAvatar || null,
+        clinics: []
+      }
+    }
+    return null
   })
 
   const showPatientBookModal = ref(false)
@@ -892,12 +912,29 @@
     showScheduleModal.value = true
   }
 
+  const rescheduleModalAppt = ref<any | null>(null)
+
   const openRescheduleModal = (uuid?: string) => {
-    const targetUuid = typeof uuid === 'string' ? uuid : activeAppointment.value?.id
+    const targetUuid = typeof uuid === 'string' && uuid ? uuid : activeAppointment.value?.id
     if (!targetUuid) return
-    const found = appointments.value.find(a => a.id === targetUuid) || activeAppointment.value
+    const found =
+      appointments.value.find(a => a.id === targetUuid) ||
+      (activeAppointment.value?.id === targetUuid ? activeAppointment.value : null)
     if (found) {
       rescheduleModalAppt.value = found
+    } else {
+      rescheduleModalAppt.value = {
+        id: targetUuid,
+        doctor_uuid:
+          convData.value?.doctor?.uuid || convData.value?.doctor?.id || doctorInfo.value?.uuid,
+        doctor_id: convData.value?.doctor?.id || doctorInfo.value?.id,
+        doctor: doctorInfo.value
+          ? doctorInfo.value.name?.startsWith('Dr.')
+            ? doctorInfo.value.name
+            : `Dr. ${doctorInfo.value.name}`
+          : 'Doctor',
+        info: 'Consultation'
+      }
     }
   }
 
@@ -972,23 +1009,8 @@
     promptCancelAppointment(uuid)
   }
 
-  const rescheduleModalAppt = ref<any | null>(null)
-
   const requestReschedule = (uuid: string) => {
-    const found = appointments.value.find(a => a.id === uuid) || activeAppointment.value
-    if (found) {
-      rescheduleModalAppt.value = found
-    } else {
-      rescheduleModalAppt.value = {
-        id: uuid,
-        doctor_uuid: activeConversation.value?.doctor?.uuid,
-        doctor_id: activeConversation.value?.doctor?.id,
-        doctor: activeConversation.value?.doctor
-          ? `Dr. ${activeConversation.value.doctor.first_name} ${activeConversation.value.doctor.last_name}`
-          : 'Doctor',
-        info: 'Consultation'
-      }
-    }
+    openRescheduleModal(uuid)
   }
 
   const onRescheduleRequested = () => {

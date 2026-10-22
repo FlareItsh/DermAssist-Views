@@ -192,7 +192,7 @@
       const res = await conversationService.create({ doctor_id: doctor.id })
       const uuid = res?.data?.id || res?.id || res?.data?.uuid || res?.uuid
       if (uuid) {
-        router.push(`/Patient/Messages/${uuid}`)
+        await navigateTo(`/patient/messages/${uuid}`)
       }
     } catch (e) {
       console.error('Failed to start conversation with doctor:', e)
@@ -322,11 +322,11 @@
     }
   }
 
-  const goToChat = (conversationUuid?: string) => {
+  const goToChat = async (conversationUuid?: string) => {
     if (conversationUuid) {
-      router.push(`/Patient/Messages/${conversationUuid}`)
+      await navigateTo(`/patient/messages/${conversationUuid}`)
     } else {
-      router.push('/Patient/Messages')
+      await navigateTo('/patient/messages')
     }
   }
 
@@ -334,7 +334,7 @@
     await fetchAppointments()
     const convUuid = apptOrRes?.conversation_uuid || apptOrRes?.appointment?.conversation_uuid
     if (convUuid && selectedDiagnosisToBook.value) {
-      await router.push(`/Patient/Messages/${convUuid}`)
+      await navigateTo(`/patient/messages/${convUuid}`)
     }
   }
 

@@ -53,7 +53,7 @@
       const res = await conversationService.create({ doctor_id: doctorId })
       const uuid = res?.data?.id || res?.id || res?.data?.uuid || res?.uuid
       if (uuid) {
-        router.push(`/Patient/Messages/${uuid}`)
+        await navigateTo(`/patient/messages/${uuid}`)
       }
     } catch (e) {
       console.error(e)
