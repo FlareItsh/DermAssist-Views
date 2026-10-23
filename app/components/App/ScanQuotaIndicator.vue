@@ -87,19 +87,13 @@
         <span>Checking quota...</span>
       </template>
 
-      <!-- Unlimited doctor care 7-day grace -->
-      <template v-else-if="isUnlimited && quotaSource === 'doctor_care'">
+      <!-- Doctor unverified gate -->
+      <template v-else-if="quotaSource === 'doctor_unverified'">
         <Icon
-          name="lucide:sparkles"
-          class="h-3.5 w-3.5 animate-pulse text-amber-500"
+          name="lucide:shield-alert"
+          class="h-3.5 w-3.5 text-amber-500"
         />
-        <span>Unlimited AI Scans</span>
-        <span
-          v-if="!compact"
-          class="py-0.2 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-800 dark:text-amber-200"
-        >
-          Doctor Care
-        </span>
+        <span>Verification Required</span>
       </template>
 
       <!-- Unlimited admin or plan -->
@@ -143,7 +137,19 @@
           <strong class="font-bold">{{ remaining ?? 0 }}</strong> of {{ limit ?? 5 }} left
         </span>
         <span
-          v-if="quotaSource === 'subscription' && !compact"
+          v-if="quotaSource === 'doctor_trial' && !compact"
+          class="py-0.2 rounded-full bg-emerald-500/20 px-1.5 text-[10px] font-bold text-emerald-800 dark:text-emerald-200"
+        >
+          Trial ({{ limit }}/d)
+        </span>
+        <span
+          v-else-if="quotaSource === 'doctor_care' && !compact"
+          class="py-0.2 rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-800 dark:text-amber-200"
+        >
+          Doctor Care
+        </span>
+        <span
+          v-else-if="quotaSource === 'subscription' && !compact"
           class="py-0.2 rounded-full bg-indigo-500/20 px-1.5 text-[10px] font-bold text-indigo-800 dark:text-indigo-200"
         >
           Plan ({{ limit }}/day)
@@ -197,18 +203,33 @@
             <div>
               <p class="text-muted-foreground text-xs font-medium">Current Status</p>
               <h4 class="text-foreground text-base font-bold">
-                <template v-if="isUnlimited && quotaSource === 'subscription'">
+                <template v-if="quotaSource === 'doctor_unverified'">
+                  Verification Required
+                </template>
+                <template v-else-if="isUnlimited && quotaSource === 'subscription'">
                   Unlimited Plan Scans
                 </template>
                 <template v-else-if="isUnlimited">Unlimited Scans</template>
                 <template v-else-if="quotaSource === 'subscription'">
                   {{ remaining }} of {{ limit }} Plan Scans
                 </template>
+                <template v-else-if="quotaSource === 'doctor_trial'">
+                  {{ remaining }} of {{ limit }} Trial Scans
+                </template>
+                <template v-else-if="quotaSource === 'doctor_care'">
+                  {{ remaining }} of {{ limit }} Care Scans
+                </template>
                 <template v-else-if="isLimitReached">Limit Exhausted</template>
                 <template v-else>{{ remaining }} Scans Available</template>
               </h4>
               <p
-                v-if="isUnlimited && quotaSource === 'subscription'"
+                v-if="quotaSource === 'doctor_unverified'"
+                class="mt-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400"
+              >
+                Verification required before AI scanning is unlocked
+              </p>
+              <p
+                v-else-if="isUnlimited && quotaSource === 'subscription'"
                 class="mt-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
               >
                 Included with your active clinical subscription
@@ -218,6 +239,24 @@
                 class="mt-0.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400"
               >
                 {{ limit }} daily scans included with your subscription plan
+              </p>
+              <p
+                v-else-if="quotaSource === 'doctor_trial' && formattedUnlimitedUntil"
+                class="text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+              >
+                14-Day Doctor Trial active until {{ formattedUnlimitedUntil }}
+              </p>
+              <p
+                v-else-if="quotaSource === 'doctor_unsubscribed'"
+                class="text-xs font-semibold text-indigo-600 dark:text-indigo-400"
+              >
+                Post-trial base allowance ({{ limit }} scans/day)
+              </p>
+              <p
+                v-else-if="quotaSource === 'doctor_care' && formattedUnlimitedUntil"
+                class="text-xs font-semibold text-amber-600 dark:text-amber-400"
+              >
+                Doctor Care Tier active until {{ formattedUnlimitedUntil }}
               </p>
               <p
                 v-else-if="isUnlimited && formattedUnlimitedUntil"
@@ -270,19 +309,25 @@
             }}</strong>
             provided by your active clinical subscription plan.
           </p>
+          <p v-else-if="quotaSource === 'doctor_trial'">
+            • <strong class="text-foreground">14-Day Doctor Free Trial:</strong> Newly verified
+            doctors receive 10 scans per day during their initial 14-day trial period.
+          </p>
+          <p v-else-if="quotaSource === 'doctor_unsubscribed'">
+            • <strong class="text-foreground">Unsubscribed Doctor Allowance:</strong> Unsubscribed
+            verified doctors receive 3 scans per day. Upgrade to a subscription plan for unlimited
+            scanning.
+          </p>
           <p v-else-if="quotaSource === 'doctor_care'">
-            • <strong class="text-foreground">Doctor Care Grace Period:</strong> You currently enjoy
-            unlimited scans granted through your attending physician's appointment or registration
-            <template v-if="formattedUnlimitedUntil">
-              (valid until
-              <strong class="text-foreground font-semibold">{{ formattedUnlimitedUntil }}</strong
-              >) </template
-            >. Once expired, your account will smoothly return to standard daily quota.
+            • <strong class="text-foreground">Doctor Care Benefit Tier:</strong> You receive 15
+            scans per day for 1 month through your attending doctor's appointment or registration.
+            Once the 30-day care duration ends without a follow-up appointment, your account will
+            smoothly return to the standard daily quota.
           </p>
           <p v-else>
-            • <strong class="text-foreground">Doctor Care Grace:</strong> Patients who complete an
-            appointment with their doctor or have an account created by their doctor receive a grace
-            period of unlimited scans.
+            • <strong class="text-foreground">Doctor Care Tier:</strong> Patients who complete an
+            appointment with their doctor or have an account created by their doctor receive an
+            upgraded allowance of 15 scans per day for 1 month.
           </p>
         </div>
 

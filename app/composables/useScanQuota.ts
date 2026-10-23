@@ -63,6 +63,22 @@ export const useScanQuota = () => {
     return quota.value?.source ?? 'free'
   })
 
+  const canScan = computed(() => {
+    return quota.value?.can_scan ?? true
+  })
+
+  const isDoctorUnverified = computed(() => {
+    return quota.value?.source === 'doctor_unverified' || quota.value?.can_scan === false
+  })
+
+  const isDoctorTrial = computed(() => {
+    return quota.value?.source === 'doctor_trial'
+  })
+
+  const isDoctorUnsubscribed = computed(() => {
+    return quota.value?.source === 'doctor_unsubscribed'
+  })
+
   const unlimitedUntil = computed(() => {
     return quota.value?.unlimited_until ?? null
   })
@@ -178,6 +194,10 @@ export const useScanQuota = () => {
     unlimitedUntil,
     formattedUnlimitedUntil,
     formattedUnlimitedRemaining,
+    canScan,
+    isDoctorUnverified,
+    isDoctorTrial,
+    isDoctorUnsubscribed,
     fetchQuota,
     applyQuota,
     startCountdownTimer,

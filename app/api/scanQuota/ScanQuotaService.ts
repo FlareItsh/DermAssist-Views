@@ -8,7 +8,25 @@ export interface ScanQuota {
   resets_at: string | null
   countdown_seconds: number | null
   unlimited_until: string | null
-  source: 'admin' | 'doctor_care' | 'subscription' | 'free'
+  source:
+    | 'admin'
+    | 'doctor_care'
+    | 'subscription'
+    | 'free'
+    | 'doctor_trial'
+    | 'doctor_unsubscribed'
+    | 'doctor_unverified'
+  can_scan?: boolean
+  message?: string | null
+}
+
+export interface ScanQuotaPolicies {
+  doctor_trial_days: number
+  doctor_trial_daily_scans: number
+  doctor_unsubscribed_daily_scans: number
+  patient_default_daily_scans: number
+  patient_care_daily_scans: number
+  patient_care_duration_days: number
 }
 
 export interface DefaultScanQuotaResponse {
@@ -23,6 +41,18 @@ export interface CareGracePeriodsResponse {
 export class ScanQuotaService extends BaseService {
   async getQuota(): Promise<{ status: string; data: ScanQuota }> {
     return await this.request('/scan-quota', 'GET')
+  }
+
+  async getPolicies(): Promise<{ status: string; data: ScanQuotaPolicies }> {
+    return await this.request('/admin/settings/scan-quota-policies', 'GET')
+  }
+
+  async updatePolicies(payload: Partial<ScanQuotaPolicies>): Promise<{
+    status: string
+    message: string
+    data: ScanQuotaPolicies
+  }> {
+    return await this.request('/admin/settings/scan-quota-policies', 'POST', payload)
   }
 
   async getDefaultDailyQuota(): Promise<{ status: string; data: DefaultScanQuotaResponse }> {
