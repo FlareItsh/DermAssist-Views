@@ -2,6 +2,7 @@
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { toast } from 'vue-sonner'
+  import { useScanQuota } from '~/composables/useScanQuota'
 
   const {
     currentDiagnosis,
@@ -16,6 +17,7 @@
     appointmentUuid,
     pendingPatientRegistration
   } = useDiagnosis()
+  const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
   const userUuid = useCookie('user_uuid')
   const userRole = useCookie('user_role')
   const videoRef = ref<HTMLVideoElement | null>(null)
@@ -420,6 +422,11 @@
   const captureAndScan = async () => {
     if (isScanning.value) return
 
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     // Case 1: Scanning a previewed (uploaded or already captured) image
     if (previewImage.value && selectedFile.value) {
       await performDiagnosis(selectedFile.value as File)
@@ -496,6 +503,11 @@
   }
 
   const performDiagnosis = async (file: File) => {
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     isScanning.value = true
     errorMessage.value = ''
 
@@ -527,8 +539,16 @@
       const response = await diagnosisService.create(formData, {
         headers: userUuid.value ? { 'X-User-Uuid': userUuid.value } : {}
       })
-      if (response) setDiagnosis(response as any)
+      if (response) {
+        setDiagnosis(response as any)
+        if ((response as any).scan_quota) {
+          applyQuota((response as any).scan_quota)
+        }
+      }
     } catch (err: any) {
+      if (err.status === 429 || err.statusCode === 429) {
+        await fetchQuota(true)
+      }
       errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
     } finally {
       isScanning.value = false
@@ -642,6 +662,11 @@
           @dragleave="handleDragLeave"
           @drop="handleDrop"
         >
+          <!-- Floating Scan Quota Indicator -->
+          <div class="pointer-events-auto absolute top-3 left-3 z-20">
+            <AppScanQuotaIndicator light-theme />
+          </div>
+
           <!-- Drag & Drop Hover Overlay (Active when hovering file/image/link) -->
           <div
             v-if="isDraggingOver && !isScanning"
@@ -814,6 +839,7 @@
             :is-camera-on="isCameraOn || !!previewImage"
             :is-scanning="isScanning"
             :has-quality-error="!!qualityError"
+            :is-limit-reached="isLimitReached"
             @toggle-camera="toggleCamera"
             @trigger-file="triggerFileInput"
             @scan="captureAndScan"

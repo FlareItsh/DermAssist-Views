@@ -1,5 +1,7 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
+  import { scanQuotaService } from '~/api/scanQuota/ScanQuotaService'
+  import { toast } from 'vue-sonner'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -39,6 +41,22 @@
   const doctorCount = ref(0)
   const route = useRoute()
   const router = useRouter()
+
+  // Dynamic Scan Quota Setting State
+  const defaultScanQuota = ref(5)
+  const inputScanQuota = ref(5)
+  const isLoadingQuota = ref(false)
+  const isUpdatingQuota = ref(false)
+
+  // Dynamic Care Grace Periods State
+  const appointmentUnlimitedDays = ref(7)
+  const doctorCreatedUnlimitedDays = ref(7)
+  const inputApptGraceValue = ref(1)
+  const inputApptGraceUnit = ref<'days' | 'weeks'>('weeks')
+  const inputDocCreatedGraceValue = ref(1)
+  const inputDocCreatedGraceUnit = ref<'days' | 'weeks'>('weeks')
+  const isUpdatingApptGrace = ref(false)
+  const isUpdatingDocGrace = ref(false)
 
   const roleOptions = [
     { label: 'All', value: '' },
@@ -166,6 +184,135 @@
     }
   }
 
+  const fetchDefaultQuota = async () => {
+    isLoadingQuota.value = true
+    try {
+      const res = await scanQuotaService.getDefaultDailyQuota()
+      if (res?.data?.default_daily_quota) {
+        defaultScanQuota.value = res.data.default_daily_quota
+        inputScanQuota.value = res.data.default_daily_quota
+      }
+    } catch (e: any) {
+      console.error('Failed to load default scan quota:', e)
+    } finally {
+      isLoadingQuota.value = false
+    }
+  }
+
+  const saveDefaultQuota = async () => {
+    if (!inputScanQuota.value || inputScanQuota.value < 1) {
+      toast.error('Scan quota must be at least 1.')
+      return
+    }
+    isUpdatingQuota.value = true
+    try {
+      const res = await scanQuotaService.updateDefaultDailyQuota(inputScanQuota.value)
+      if (res?.data?.default_daily_quota) {
+        defaultScanQuota.value = res.data.default_daily_quota
+        inputScanQuota.value = res.data.default_daily_quota
+        toast.success(`Default daily scan quota updated to ${defaultScanQuota.value} scans.`)
+      }
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to update default scan quota.')
+    } finally {
+      isUpdatingQuota.value = false
+    }
+  }
+
+  const fetchCareGracePeriods = async () => {
+    try {
+      const res = await scanQuotaService.getCareGracePeriods()
+      if (res?.data) {
+        appointmentUnlimitedDays.value = res.data.appointment_unlimited_days
+        doctorCreatedUnlimitedDays.value = res.data.doctor_created_unlimited_days
+
+        if (appointmentUnlimitedDays.value > 0 && appointmentUnlimitedDays.value % 7 === 0) {
+          inputApptGraceValue.value = appointmentUnlimitedDays.value / 7
+          inputApptGraceUnit.value = 'weeks'
+        } else {
+          inputApptGraceValue.value = appointmentUnlimitedDays.value
+          inputApptGraceUnit.value = 'days'
+        }
+
+        if (doctorCreatedUnlimitedDays.value > 0 && doctorCreatedUnlimitedDays.value % 7 === 0) {
+          inputDocCreatedGraceValue.value = doctorCreatedUnlimitedDays.value / 7
+          inputDocCreatedGraceUnit.value = 'weeks'
+        } else {
+          inputDocCreatedGraceValue.value = doctorCreatedUnlimitedDays.value
+          inputDocCreatedGraceUnit.value = 'days'
+        }
+      }
+    } catch (e: any) {
+      console.error('Failed to load care grace periods:', e)
+    }
+  }
+
+  const saveAppointmentGrace = async () => {
+    const rawVal = Number(inputApptGraceValue.value)
+    if (isNaN(rawVal) || rawVal < 0) {
+      toast.error('Duration must be 0 or greater.')
+      return
+    }
+    const days = inputApptGraceUnit.value === 'weeks' ? rawVal * 7 : rawVal
+    if (days > 365) {
+      toast.error('Duration cannot exceed 365 days (52 weeks).')
+      return
+    }
+
+    isUpdatingApptGrace.value = true
+    try {
+      const res = await scanQuotaService.updateCareGracePeriods({
+        appointment_unlimited_days: days
+      })
+      if (res?.data) {
+        appointmentUnlimitedDays.value = res.data.appointment_unlimited_days
+        toast.success(`Completed appointment grace period set to ${days} day(s).`)
+      }
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to update grace period.')
+    } finally {
+      isUpdatingApptGrace.value = false
+    }
+  }
+
+  const saveDoctorCreatedGrace = async () => {
+    const rawVal = Number(inputDocCreatedGraceValue.value)
+    if (isNaN(rawVal) || rawVal < 0) {
+      toast.error('Duration must be 0 or greater.')
+      return
+    }
+    const days = inputDocCreatedGraceUnit.value === 'weeks' ? rawVal * 7 : rawVal
+    if (days > 365) {
+      toast.error('Duration cannot exceed 365 days (52 weeks).')
+      return
+    }
+
+    isUpdatingDocGrace.value = true
+    try {
+      const res = await scanQuotaService.updateCareGracePeriods({
+        doctor_created_unlimited_days: days
+      })
+      if (res?.data) {
+        doctorCreatedUnlimitedDays.value = res.data.doctor_created_unlimited_days
+        toast.success(`Doctor-created account grace period set to ${days} day(s).`)
+      }
+    } catch (err: any) {
+      toast.error(err.data?.message || err.message || 'Failed to update grace period.')
+    } finally {
+      isUpdatingDocGrace.value = false
+    }
+  }
+
+  const setApptPreset = (val: number, unit: 'days' | 'weeks') => {
+    inputApptGraceValue.value = val
+    inputApptGraceUnit.value = unit
+  }
+
+  const setDocCreatedPreset = (val: number, unit: 'days' | 'weeks') => {
+    inputDocCreatedGraceValue.value = val
+    inputDocCreatedGraceUnit.value = unit
+  }
+
   let searchTimeout: ReturnType<typeof setTimeout> | null = null
 
   const totalPages = computed(() => Math.max(1, Math.ceil(totalUsers.value / perPage.value)))
@@ -218,6 +365,8 @@
     syncRoleFromRoute()
     fetchUsers()
     fetchUserCounts()
+    fetchDefaultQuota()
+    fetchCareGracePeriods()
   })
 
   onUnmounted(() => {
@@ -307,6 +456,292 @@
         to="/admin/moderation/users?role=doctor"
         :loading="isLoadingCounts"
       />
+    </div>
+
+    <!-- AI Scan Quota & Grace Policy Settings Grid -->
+    <div class="mb-5 grid grid-cols-1 gap-4 md:mb-6 lg:grid-cols-3">
+      <!-- Setting 1: Default Daily Quota -->
+      <div
+        class="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5"
+      >
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              >
+                <Icon
+                  name="lucide:gauge"
+                  class="h-4.5 w-4.5"
+                />
+              </div>
+              <h3 class="text-sm font-bold text-gray-950">Daily AI Scan Quota</h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+            >
+              Active: {{ defaultScanQuota }}/24h
+            </span>
+          </div>
+
+          <p class="mt-2 text-xs leading-relaxed text-gray-500">
+            Standard limit for patients and unsubscribed doctors. Resets 24h after first scan.
+          </p>
+        </div>
+
+        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+          <div class="relative flex-1">
+            <input
+              v-model.number="inputScanQuota"
+              type="number"
+              min="1"
+              max="1000"
+              placeholder="e.g. 5"
+              class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-12 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              :disabled="isUpdatingQuota"
+            />
+            <span
+              class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+            >
+              scans
+            </span>
+          </div>
+
+          <AppButton
+            variant="solid"
+            size="sm"
+            @click="saveDefaultQuota"
+            :disabled="
+              isUpdatingQuota ||
+              inputScanQuota === defaultScanQuota ||
+              !inputScanQuota ||
+              inputScanQuota < 1
+            "
+            class="h-9.5 px-3.5"
+          >
+            <Icon
+              v-if="isUpdatingQuota"
+              name="svg-spinners:ring-resize"
+              class="mr-1 h-3.5 w-3.5 animate-spin"
+            />
+            <Icon
+              v-else
+              name="lucide:check"
+              class="mr-1 h-3.5 w-3.5"
+            />
+            <span>Update</span>
+          </AppButton>
+        </div>
+      </div>
+
+      <!-- Setting 2: Completed Appointment Grace Period -->
+      <div
+        class="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5"
+      >
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600"
+              >
+                <Icon
+                  name="lucide:calendar-check-2"
+                  class="h-4.5 w-4.5"
+                />
+              </div>
+              <h3 class="text-sm font-bold text-gray-950">Completed Appt Grace</h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
+            >
+              Active:
+              {{ appointmentUnlimitedDays === 0 ? 'Disabled' : `${appointmentUnlimitedDays}d` }}
+            </span>
+          </div>
+
+          <p class="mt-2 text-xs leading-relaxed text-gray-500">
+            Unlimited AI scans awarded to patients after their doctor marks an appointment complete.
+          </p>
+
+          <!-- Presets -->
+          <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              @click="setApptPreset(1, 'weeks')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              1 Week
+            </button>
+            <button
+              type="button"
+              @click="setApptPreset(2, 'weeks')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              2 Weeks
+            </button>
+            <button
+              type="button"
+              @click="setApptPreset(30, 'days')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              30 Days
+            </button>
+            <button
+              type="button"
+              @click="setApptPreset(0, 'days')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              None
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+          <div class="flex flex-1 items-center gap-1.5">
+            <input
+              v-model.number="inputApptGraceValue"
+              type="number"
+              min="0"
+              max="365"
+              class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-18 rounded-xl border border-gray-200 bg-gray-50 px-2.5 text-center text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              :disabled="isUpdatingApptGrace"
+            />
+            <select
+              v-model="inputApptGraceUnit"
+              class="focus:border-primary/30 focus:ring-primary/10 h-9.5 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-2 text-xs font-bold text-gray-800 transition outline-none focus:bg-white focus:ring-4"
+              :disabled="isUpdatingApptGrace"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+            </select>
+          </div>
+
+          <AppButton
+            variant="solid"
+            size="sm"
+            @click="saveAppointmentGrace"
+            :disabled="isUpdatingApptGrace"
+            class="h-9.5 px-3.5"
+          >
+            <Icon
+              v-if="isUpdatingApptGrace"
+              name="svg-spinners:ring-resize"
+              class="mr-1 h-3.5 w-3.5 animate-spin"
+            />
+            <Icon
+              v-else
+              name="lucide:check"
+              class="mr-1 h-3.5 w-3.5"
+            />
+            <span>Update</span>
+          </AppButton>
+        </div>
+      </div>
+
+      <!-- Setting 3: Doctor-Created Account Grace Period -->
+      <div
+        class="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm md:p-5"
+      >
+        <div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600"
+              >
+                <Icon
+                  name="lucide:user-plus"
+                  class="h-4.5 w-4.5"
+                />
+              </div>
+              <h3 class="text-sm font-bold text-gray-950">Doctor-Created Grace</h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-800"
+            >
+              Active:
+              {{ doctorCreatedUnlimitedDays === 0 ? 'Disabled' : `${doctorCreatedUnlimitedDays}d` }}
+            </span>
+          </div>
+
+          <p class="mt-2 text-xs leading-relaxed text-gray-500">
+            Unlimited AI scans awarded to patients whose accounts are registered directly by a
+            doctor.
+          </p>
+
+          <!-- Presets -->
+          <div class="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              @click="setDocCreatedPreset(1, 'weeks')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              1 Week
+            </button>
+            <button
+              type="button"
+              @click="setDocCreatedPreset(2, 'weeks')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              2 Weeks
+            </button>
+            <button
+              type="button"
+              @click="setDocCreatedPreset(30, 'days')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              30 Days
+            </button>
+            <button
+              type="button"
+              @click="setDocCreatedPreset(0, 'days')"
+              class="rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+            >
+              None
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
+          <div class="flex flex-1 items-center gap-1.5">
+            <input
+              v-model.number="inputDocCreatedGraceValue"
+              type="number"
+              min="0"
+              max="365"
+              class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-18 rounded-xl border border-gray-200 bg-gray-50 px-2.5 text-center text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+              :disabled="isUpdatingDocGrace"
+            />
+            <select
+              v-model="inputDocCreatedGraceUnit"
+              class="focus:border-primary/30 focus:ring-primary/10 h-9.5 flex-1 rounded-xl border border-gray-200 bg-gray-50 px-2 text-xs font-bold text-gray-800 transition outline-none focus:bg-white focus:ring-4"
+              :disabled="isUpdatingDocGrace"
+            >
+              <option value="days">Days</option>
+              <option value="weeks">Weeks</option>
+            </select>
+          </div>
+
+          <AppButton
+            variant="solid"
+            size="sm"
+            @click="saveDoctorCreatedGrace"
+            :disabled="isUpdatingDocGrace"
+            class="h-9.5 px-3.5"
+          >
+            <Icon
+              v-if="isUpdatingDocGrace"
+              name="svg-spinners:ring-resize"
+              class="mr-1 h-3.5 w-3.5 animate-spin"
+            />
+            <Icon
+              v-else
+              name="lucide:check"
+              class="mr-1 h-3.5 w-3.5"
+            />
+            <span>Update</span>
+          </AppButton>
+        </div>
+      </div>
     </div>
 
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">

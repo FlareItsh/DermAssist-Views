@@ -116,6 +116,12 @@
                   ? plan.max_secretaries
                   : 'Unlimited'
               }}</span>
+              · Scans/day:
+              <span class="font-mono text-gray-500">{{
+                plan.daily_scan_limit !== null && plan.daily_scan_limit !== undefined
+                  ? plan.daily_scan_limit
+                  : 'Unlimited'
+              }}</span>
             </p>
 
             <div class="flex gap-2">
@@ -223,6 +229,14 @@
                       : 'Unlimited'
                   }}</span>
                 </div>
+                <div class="text-gray-700">
+                  Daily Scans:
+                  <span class="font-mono text-gray-500">{{
+                    plan.daily_scan_limit !== null && plan.daily_scan_limit !== undefined
+                      ? plan.daily_scan_limit
+                      : 'Unlimited'
+                  }}</span>
+                </div>
               </td>
               <td class="px-5 py-4">
                 <button
@@ -268,7 +282,7 @@
         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4"
       >
         <div
-          class="max-h-[92vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:p-6"
+          class="max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:max-w-3xl sm:p-6"
         >
           <div class="flex items-center justify-between border-b border-gray-100 pb-3">
             <h3 class="text-base font-black text-gray-950 sm:text-lg">
@@ -345,7 +359,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
                   >Max Doctors (Seats)</label
@@ -372,13 +386,25 @@
               </div>
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                  >Max Secretaries (Seats)</label
+                  >Max Secretaries</label
                 >
                 <input
                   v-model.number="form.max_secretaries"
                   type="number"
                   min="0"
                   placeholder="0 = None"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Daily AI Scans</label
+                >
+                <input
+                  v-model.number="form.daily_scan_limit"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
                   class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
                 />
               </div>
@@ -542,6 +568,7 @@
     max_doctors: null,
     max_clinics: null,
     max_secretaries: null,
+    daily_scan_limit: null,
     trial_period_days: 0,
     grace_period_days: 3,
     is_active: true,
@@ -596,6 +623,7 @@
       max_doctors: 1,
       max_clinics: 1,
       max_secretaries: 0,
+      daily_scan_limit: 50,
       trial_period_days: 14,
       grace_period_days: 3,
       is_active: true,

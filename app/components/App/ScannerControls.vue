@@ -4,10 +4,12 @@
     isScanning: boolean
     hasQualityError: boolean
     hasConsent?: boolean
+    isLimitReached?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
-    hasConsent: true
+    hasConsent: true,
+    isLimitReached: false
   })
 
   const emit = defineEmits<{
@@ -47,8 +49,9 @@
           size="unstyled"
           rounded="unstyled"
           @click="emit('triggerFile')"
-          :disabled="isScanning"
+          :disabled="isScanning || isLimitReached"
           class="flex h-14 w-17 items-center justify-center bg-white shadow-lg transition-all hover:bg-gray-100 disabled:opacity-50"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Upload Image'"
         >
           <Icon
             name="famicons:folder-outline"
@@ -62,9 +65,13 @@
           size="unstyled"
           rounded="unstyled"
           @click="emit('scan')"
-          :disabled="isScanning || hasQualityError || !isCameraOn"
+          :disabled="isScanning || hasQualityError || !isCameraOn || isLimitReached"
           class="flex h-14 w-fit items-center justify-center rounded-r-full bg-white px-8 text-2xl font-bold shadow-lg transition-all hover:bg-gray-100 disabled:opacity-50"
-          :class="{ 'bg-green-50 text-green-700': isCameraOn && !hasQualityError && !isScanning }"
+          :class="{
+            'bg-green-50 text-green-700':
+              isCameraOn && !hasQualityError && !isScanning && !isLimitReached
+          }"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Start Scan'"
         >
           {{ isScanning ? '...' : 'Scan' }}
           <Icon

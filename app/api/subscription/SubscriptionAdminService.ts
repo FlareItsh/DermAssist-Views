@@ -10,6 +10,7 @@ export interface Plan {
   max_doctors?: number | null
   max_clinics?: number | null
   max_secretaries?: number | null
+  daily_scan_limit?: number | null
   features?: Record<string, boolean>
   trial_period_days?: number
   grace_period_days?: number

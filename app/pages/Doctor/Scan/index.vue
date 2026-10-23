@@ -12,7 +12,8 @@
     saveActiveDiagnosisState,
     resetScanner
   } = useDiagnosis()
-  const { canExecuteScan, isLoadingSubscription, fetchSubscription } = useDoctorSubscription()
+  const { isSubscribed, canExecuteScan, isLoadingSubscription, fetchSubscription } =
+    useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
 
@@ -81,7 +82,7 @@
 
         <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
         <div
-          v-else-if="!canExecuteScan"
+          v-else-if="isSubscribed && !canExecuteScan"
           class="bg-card border-border relative flex h-full min-h-[500px] flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border p-10 text-center shadow-sm"
         >
           <div
