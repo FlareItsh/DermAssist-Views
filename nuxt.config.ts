@@ -58,7 +58,14 @@ export default defineNuxtConfig({
       reverbScheme: 'http'
     }
   },
-  modules: ['@nuxt/eslint', '@nuxt/image', '@nuxt/ui', '@nuxt/fonts', '@nuxt/icon'],
+  modules: [
+    '@nuxt/eslint',
+    '@nuxt/image',
+    '@nuxt/ui',
+    '@nuxt/fonts',
+    '@nuxt/icon',
+    '@vercel/analytics'
+  ],
   image: {
     // Allow the storage host (ngrok, localhost, LAN, etc.) through IPX
     domains: ['localhost', '127.0.0.1', ...imageDomainsFromEnv]
