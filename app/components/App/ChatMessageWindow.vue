@@ -1856,28 +1856,6 @@
                   </p>
                 </div>
               </div>
-              <div class="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
-                <button
-                  @click="openScheduleModalFromPending(pendingAppointmentForConversation)"
-                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:flex-initial"
-                >
-                  <Icon
-                    name="material-symbols:check-circle-outline-rounded"
-                    class="text-sm"
-                  />
-                  Accept &amp; Schedule
-                </button>
-                <button
-                  @click="declineAppointmentFromPending(pendingAppointmentForConversation)"
-                  class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95 sm:flex-initial"
-                >
-                  <Icon
-                    name="material-symbols:cancel-outline-rounded"
-                    class="text-sm"
-                  />
-                  Decline
-                </button>
-              </div>
             </div>
           </div>
         </Transition>
