@@ -22,6 +22,237 @@
       </template>
     </AdminSideComponentsSubscriptionNavHeader>
 
+    <!-- Dynamic AI Scan & Trial Policy Management -->
+    <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div
+        class="flex flex-col gap-3 border-b border-gray-100 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between md:px-5"
+      >
+        <div>
+          <div class="flex items-center gap-2">
+            <div
+              class="bg-primary/10 text-primary flex h-7 w-7 items-center justify-center rounded-lg"
+            >
+              <Icon
+                name="lucide:gauge"
+                class="h-4 w-4"
+              />
+            </div>
+            <h2 class="text-sm font-black text-gray-950">AI Scan & Trial Quota Policies</h2>
+          </div>
+          <p class="mt-0.5 text-xs text-gray-500">
+            Configure system-wide doctor trial quotas, unsubscribed limits, and patient care tiers.
+          </p>
+        </div>
+        <AppButton
+          @click="savePolicies"
+          variant="solid"
+          size="sm"
+          :disabled="isUpdatingPolicies || isLoadingPolicies"
+          class="shrink-0 whitespace-nowrap"
+        >
+          <Icon
+            v-if="isUpdatingPolicies"
+            name="svg-spinners:ring-resize"
+            class="mr-1 h-3.5 w-3.5 animate-spin"
+          />
+          <Icon
+            v-else
+            name="lucide:save"
+            class="mr-1 h-3.5 w-3.5"
+          />
+          Save Quota Policies
+        </AppButton>
+      </div>
+
+      <div
+        class="grid grid-cols-1 divide-y divide-gray-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0"
+      >
+        <!-- Doctor Policies Panel -->
+        <div class="space-y-4 p-4 md:p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600"
+              >
+                <Icon
+                  name="lucide:stethoscope"
+                  class="h-4 w-4"
+                />
+              </span>
+              <h3 class="text-xs font-bold tracking-wider text-gray-900 uppercase">
+                Doctor Scan Policies
+              </h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700"
+            >
+              Verification Required
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Trial Duration</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.doctor_trial_days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >days</span
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Trial Scans / Day</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.doctor_trial_daily_scans"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >scans</span
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Post-Trial Scans</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.doctor_unsubscribed_daily_scans"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >scans</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <p class="text-[11px] leading-relaxed text-gray-500">
+            • Doctors must be verified to scan. Newly verified doctors receive free trial scans.
+            Post-trial unsubscribed doctors receive base quota. Subscribed doctors follow their plan
+            limit (Unlimited by default).
+          </p>
+        </div>
+
+        <!-- Patient Policies Panel -->
+        <div class="space-y-4 p-4 md:p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600"
+              >
+                <Icon
+                  name="lucide:heart-pulse"
+                  class="h-4 w-4"
+                />
+              </span>
+              <h3 class="text-xs font-bold tracking-wider text-gray-900 uppercase">
+                Patient Scan Policies
+              </h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+            >
+              Care Tier Auto-Upgrades
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Standard Patient</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.patient_default_daily_scans"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >scans</span
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Doctor Care Tier</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.patient_care_daily_scans"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >scans</span
+                >
+              </div>
+            </div>
+
+            <div>
+              <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                >Care Duration</label
+              >
+              <div class="relative">
+                <input
+                  v-model.number="policiesForm.patient_care_duration_days"
+                  type="number"
+                  min="1"
+                  max="365"
+                  class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                  :disabled="isLoadingPolicies || isUpdatingPolicies"
+                />
+                <span
+                  class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                  >days</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <p class="text-[11px] leading-relaxed text-gray-500">
+            • 15 scans/day for 1 month awarded to doctor-created patients and after completed
+            appointments. Does not stack quotas. Reverts to standard after 30 days without another
+            appointment.
+          </p>
+        </div>
+      </div>
+    </section>
+
     <!-- Plans Table -->
     <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
       <!-- Mobile Card List -->
@@ -540,10 +771,52 @@
     type Plan,
     type Feature
   } from '~/api/subscription/SubscriptionAdminService'
+  import { scanQuotaService, type ScanQuotaPolicies } from '~/api/scanQuota/ScanQuotaService'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
   })
+
+  // Dynamic Scan Quota Policies State
+  const isLoadingPolicies = ref(false)
+  const isUpdatingPolicies = ref(false)
+  const policiesForm = ref<ScanQuotaPolicies>({
+    doctor_trial_days: 14,
+    doctor_trial_daily_scans: 10,
+    doctor_unsubscribed_daily_scans: 3,
+    patient_default_daily_scans: 5,
+    patient_care_daily_scans: 15,
+    patient_care_duration_days: 30
+  })
+
+  const fetchPolicies = async () => {
+    isLoadingPolicies.value = true
+    try {
+      const res = await scanQuotaService.getPolicies()
+      if (res?.data) {
+        policiesForm.value = { ...res.data }
+      }
+    } catch (e: any) {
+      console.error('Failed to load scan quota policies:', e)
+    } finally {
+      isLoadingPolicies.value = false
+    }
+  }
+
+  const savePolicies = async () => {
+    isUpdatingPolicies.value = true
+    try {
+      const res = await scanQuotaService.updatePolicies(policiesForm.value)
+      if (res?.data) {
+        policiesForm.value = { ...res.data }
+        toast.success('AI scan and trial policies updated successfully.')
+      }
+    } catch (e: any) {
+      toast.error(e.data?.message || e.message || 'Failed to update policies.')
+    } finally {
+      isUpdatingPolicies.value = false
+    }
+  }
 
   const isLoading = ref(true)
   const isLoadingFeatures = ref(true)
@@ -726,6 +999,6 @@
   }
 
   onMounted(async () => {
-    await Promise.all([fetchPlans(), fetchFeatures()])
+    await Promise.all([fetchPlans(), fetchFeatures(), fetchPolicies()])
   })
 </script>

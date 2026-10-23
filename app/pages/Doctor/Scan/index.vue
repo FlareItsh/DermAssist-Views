@@ -14,6 +14,14 @@
   } = useDiagnosis()
   const { isSubscribed, canExecuteScan, isLoadingSubscription, fetchSubscription } =
     useDoctorSubscription()
+  const {
+    quota,
+    isLoading: isLoadingQuota,
+    isLimitReached,
+    isDoctorUnverified,
+    formattedCountdown,
+    fetchQuota
+  } = useScanQuota()
 
   const showConfirmDiscard = ref(false)
   const isMobile = ref<boolean | null>(null)
@@ -33,7 +41,7 @@
   onMounted(async () => {
     updateViewport()
     window.addEventListener('resize', updateViewport)
-    await fetchSubscription()
+    await Promise.all([fetchSubscription(), fetchQuota()])
     if (route.query.appointment_uuid) {
       appointmentUuid.value = String(route.query.appointment_uuid)
     }
@@ -82,16 +90,125 @@
       class="desktop-only flex h-full min-h-0 w-full gap-5"
     >
       <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-        <!-- Loading Subscription State -->
+        <!-- Loading Subscription / Quota State -->
         <div
-          v-if="isLoadingSubscription"
+          v-if="isLoadingSubscription || (isLoadingQuota && !quota)"
           class="bg-card border-border flex h-full min-h-[500px] flex-col items-center justify-center rounded-[2.5rem] border p-10 text-center shadow-sm"
         >
           <Icon
             name="svg-spinners:ring-resize"
             class="text-primary mb-4 h-10 w-10 animate-spin"
           />
-          <p class="text-muted-foreground text-sm font-medium">Checking subscription access...</p>
+          <p class="text-muted-foreground text-sm font-medium">Checking clinical scan access...</p>
+        </div>
+
+        <!-- Unverified Doctor Gate Card -->
+        <div
+          v-else-if="isDoctorUnverified"
+          class="bg-card border-border relative flex h-full min-h-[500px] flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border p-10 text-center shadow-sm"
+        >
+          <div
+            class="pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full bg-amber-500/10 blur-3xl"
+          ></div>
+
+          <div
+            class="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-amber-200 bg-amber-50 text-amber-600 shadow-sm"
+          >
+            <Icon
+              name="lucide:shield-alert"
+              class="text-4xl"
+            />
+          </div>
+
+          <AppBadge
+            color="amber"
+            variant="subtle"
+            class="mb-3 px-3 py-1 text-xs font-bold tracking-wider uppercase"
+          >
+            Verification Required
+          </AppBadge>
+
+          <h2 class="text-foreground max-w-md text-2xl font-black tracking-tight md:text-3xl">
+            Account Verification Pending
+          </h2>
+
+          <p class="text-muted-foreground mt-3 max-w-lg text-sm leading-relaxed font-medium">
+            Doctor account verification is required before you can perform AI skin scans. Once your
+            PRC medical credentials are approved by an administrator, your 14-day free trial will
+            automatically activate.
+          </p>
+
+          <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+            <AppButton
+              size="lg"
+              variant="solid"
+              to="/doctor/profile"
+              class="flex items-center gap-2 px-8 py-3.5 shadow-sm"
+            >
+              <Icon
+                name="lucide:file-badge"
+                class="text-lg"
+              />
+              <span>View Verification Status</span>
+            </AppButton>
+          </div>
+        </div>
+
+        <!-- Limit Reached Paywall Card -->
+        <div
+          v-else-if="isLimitReached"
+          class="bg-card border-border relative flex h-full min-h-[500px] flex-col items-center justify-center overflow-hidden rounded-[2.5rem] border p-10 text-center shadow-sm"
+        >
+          <div
+            class="pointer-events-none absolute -top-32 -right-32 h-80 w-80 rounded-full bg-red-500/10 blur-3xl"
+          ></div>
+
+          <div
+            class="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl border border-red-200 bg-red-50 text-red-600 shadow-sm"
+          >
+            <Icon
+              name="lucide:alert-circle"
+              class="text-4xl"
+            />
+          </div>
+
+          <AppBadge
+            color="danger"
+            variant="subtle"
+            class="mb-3 px-3 py-1 text-xs font-bold tracking-wider uppercase"
+          >
+            Daily Limit Reached
+          </AppBadge>
+
+          <h2 class="text-foreground max-w-md text-2xl font-black tracking-tight md:text-3xl">
+            Upgrade Plan for Unlimited AI Scans
+          </h2>
+
+          <p class="text-muted-foreground mt-3 max-w-lg text-sm leading-relaxed font-medium">
+            You have used all your AI scans for today.
+            <template v-if="formattedCountdown">
+              Your quota will reset in
+              <span class="text-foreground font-mono font-bold">{{ formattedCountdown }}</span
+              >.
+            </template>
+            Upgrade to any clinical subscription plan to perform unlimited patient scans without
+            restrictions.
+          </p>
+
+          <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+            <AppButton
+              size="lg"
+              variant="solid"
+              to="/doctor/subscription"
+              class="shadow-primary/20 flex items-center gap-2 px-8 py-3.5 shadow-lg"
+            >
+              <Icon
+                name="lucide:sparkles"
+                class="text-lg"
+              />
+              <span>Upgrade Subscription Plan</span>
+            </AppButton>
+          </div>
         </div>
 
         <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
@@ -229,19 +346,116 @@
     >
       <!-- Loading Subscription State -->
       <div
-        v-if="isLoadingSubscription"
+        v-if="isLoadingSubscription || (isLoadingQuota && !quota)"
         class="bg-card fixed inset-0 z-50 flex flex-col items-center justify-center p-6 text-center"
       >
         <Icon
           name="svg-spinners:ring-resize"
           class="text-primary mb-4 h-10 w-10 animate-spin"
         />
-        <p class="text-muted-foreground text-sm font-medium">Checking subscription access...</p>
+        <p class="text-muted-foreground text-sm font-medium">Checking clinical scan access...</p>
       </div>
 
-      <!-- Unsubscribed / Feature Disabled Doctor Paywall Card -->
+      <!-- Doctor Unverified Gate Card -->
       <div
-        v-else-if="!canExecuteScan"
+        v-else-if="isDoctorUnverified"
+        class="bg-card fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-6 text-center"
+      >
+        <div
+          class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600 shadow-sm"
+        >
+          <Icon
+            name="lucide:shield-alert"
+            class="text-3xl"
+          />
+        </div>
+
+        <AppBadge
+          color="amber"
+          variant="subtle"
+          class="mb-2 px-3 py-1 text-xs font-bold tracking-wider uppercase"
+        >
+          Verification Required
+        </AppBadge>
+
+        <h2 class="text-foreground text-xl font-black tracking-tight">Verification Pending</h2>
+
+        <p class="text-muted-foreground mt-2 max-w-xs text-xs leading-relaxed font-medium">
+          Doctor account verification is required before you can perform AI skin scans. Once your
+          credentials are approved, your 14-day free trial will activate automatically.
+        </p>
+
+        <div class="mt-6 flex flex-col items-center gap-3">
+          <AppButton
+            size="md"
+            variant="solid"
+            to="/doctor/profile"
+            class="flex items-center gap-2 px-6 py-3 font-bold shadow-sm"
+          >
+            <Icon
+              name="lucide:file-badge"
+              class="text-base"
+            />
+            <span>View Status</span>
+          </AppButton>
+        </div>
+      </div>
+
+      <!-- Limit Reached Paywall Card -->
+      <div
+        v-else-if="isLimitReached"
+        class="bg-card fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-6 text-center"
+      >
+        <div
+          class="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-red-200 bg-red-50 text-red-600 shadow-sm"
+        >
+          <Icon
+            name="lucide:alert-circle"
+            class="text-3xl"
+          />
+        </div>
+
+        <AppBadge
+          color="danger"
+          variant="subtle"
+          class="mb-2 px-3 py-1 text-xs font-bold tracking-wider uppercase"
+        >
+          Daily Limit Reached
+        </AppBadge>
+
+        <h2 class="text-foreground text-xl font-black tracking-tight">
+          Upgrade for Unlimited Scans
+        </h2>
+
+        <p class="text-muted-foreground mt-2 max-w-xs text-xs leading-relaxed font-medium">
+          You have used all your AI scans for today.
+          <template v-if="formattedCountdown">
+            Resets in
+            <span class="text-foreground font-mono font-bold">{{ formattedCountdown }}</span
+            >.
+          </template>
+          Subscribe to a clinical plan for unlimited access.
+        </p>
+
+        <div class="mt-6 flex flex-col items-center gap-3">
+          <AppButton
+            size="md"
+            variant="solid"
+            to="/doctor/subscription"
+            class="shadow-primary/20 flex items-center gap-2 px-6 py-3 font-bold shadow-lg"
+          >
+            <Icon
+              name="lucide:sparkles"
+              class="text-base"
+            />
+            <span>Upgrade Subscription</span>
+          </AppButton>
+        </div>
+      </div>
+
+      <!-- Feature Disabled Doctor Paywall Card -->
+      <div
+        v-else-if="isSubscribed && !canExecuteScan"
         class="bg-card fixed inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-6 text-center"
       >
         <div
