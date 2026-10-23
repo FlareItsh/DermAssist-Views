@@ -1131,8 +1131,11 @@
       showResolveModal.value = false
       fetchAppointments()
       fetchMessages(1)
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      const errorMsg =
+        e.data?.message || e.response?.data?.message || e.message || 'Cannot complete consultation.'
+      toast.error(errorMsg)
     } finally {
       isCompleting.value = false
     }

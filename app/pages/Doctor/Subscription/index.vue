@@ -295,7 +295,15 @@
         items.push('Patient Scan Recommendations')
       }
       if (features.can_execute_scan === true) {
-        items.push('Doctor AI Scan Execution')
+        const scanLimit =
+          planOrFeatures.daily_scan_limit ??
+          planOrFeatures.plan_snapshot?.daily_scan_limit ??
+          planOrFeatures.effective_daily_scan_limit
+        if (scanLimit) {
+          items.push(`${scanLimit} AI Disease Scans / Day`)
+        } else {
+          items.push('Unlimited AI Disease Scans')
+        }
       }
       if (features.export_pdf_reports === true) {
         items.push('PDF Clinical Report Exports')
@@ -406,6 +414,21 @@
                 class="text-xs"
               />
               Auto-Renew Off
+            </span>
+
+            <span
+              class="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50/80 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700"
+            >
+              <Icon
+                name="lucide:sparkles"
+                class="text-xs text-indigo-600"
+              />
+              {{
+                currentSubscription?.effective_daily_scan_limit !== undefined &&
+                currentSubscription?.effective_daily_scan_limit !== null
+                  ? `${currentSubscription.effective_daily_scan_limit} AI Scans / Day`
+                  : 'Unlimited AI Scans'
+              }}
             </span>
           </div>
 
@@ -738,24 +761,30 @@
 
             <!-- Quotas Row -->
             <div
-              class="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-gray-50/70 p-2.5 text-center text-xs"
+              class="mt-4 grid grid-cols-4 gap-1 rounded-2xl border border-gray-100 bg-gray-50/70 p-2 text-center text-xs"
             >
               <div>
-                <span class="block text-[10px] font-bold text-gray-400 uppercase">Doctors</span>
-                <span class="font-extrabold text-gray-900">
+                <span class="block text-[9px] font-bold text-gray-400 uppercase">Doctors</span>
+                <span class="text-[11px] font-extrabold text-gray-900">
                   {{ plan.max_doctors ? plan.max_doctors : 'Unlimited' }}
                 </span>
               </div>
               <div class="border-x border-gray-200/60">
-                <span class="block text-[10px] font-bold text-gray-400 uppercase">Clinics</span>
-                <span class="font-extrabold text-gray-900">
+                <span class="block text-[9px] font-bold text-gray-400 uppercase">Clinics</span>
+                <span class="text-[11px] font-extrabold text-gray-900">
                   {{ plan.max_clinics ? plan.max_clinics : 'Unlimited' }}
                 </span>
               </div>
-              <div>
-                <span class="block text-[10px] font-bold text-gray-400 uppercase">Secretaries</span>
-                <span class="font-extrabold text-gray-900">
+              <div class="border-r border-gray-200/60">
+                <span class="block text-[9px] font-bold text-gray-400 uppercase">Staff</span>
+                <span class="text-[11px] font-extrabold text-gray-900">
                   {{ plan.max_secretaries ?? 'Unlimited' }}
+                </span>
+              </div>
+              <div>
+                <span class="block text-[9px] font-bold text-gray-400 uppercase">Scans</span>
+                <span class="text-[11px] font-extrabold text-gray-900">
+                  {{ plan.daily_scan_limit ? `${plan.daily_scan_limit}/d` : 'Unlimited' }}
                 </span>
               </div>
             </div>
@@ -1048,6 +1077,17 @@
                       : calculateBasePrice(selectedPlan)
                     ).toLocaleString()
                   : 0
+              }}
+            </span>
+          </div>
+
+          <div class="flex justify-between border-t border-gray-100 pt-2 text-[11px] text-gray-500">
+            <span>AI Diagnostic Capacity</span>
+            <span class="font-bold text-indigo-700">
+              {{
+                selectedPlan?.daily_scan_limit
+                  ? `${selectedPlan.daily_scan_limit} scans / day`
+                  : 'Unlimited AI Scans'
               }}
             </span>
           </div>

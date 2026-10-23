@@ -3956,7 +3956,16 @@
                     class="text-muted-foreground block text-[10px] font-bold tracking-wider uppercase"
                     >AI Diagnostics</span
                   >
-                  <span class="mt-0.5 block text-sm font-bold text-emerald-600"> Included </span>
+                  <span class="mt-0.5 block text-sm font-bold text-emerald-600">
+                    {{
+                      mySubscription?.effective_daily_scan_limit !== undefined &&
+                      mySubscription?.effective_daily_scan_limit !== null
+                        ? `${mySubscription.effective_daily_scan_limit} / Day`
+                        : mySubscription?.plan?.daily_scan_limit
+                          ? `${mySubscription.plan.daily_scan_limit} / Day`
+                          : 'Unlimited'
+                    }}
+                  </span>
                 </div>
               </div>
             </div>

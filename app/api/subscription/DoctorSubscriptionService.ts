@@ -9,6 +9,7 @@ export interface DoctorPlan {
   max_doctors: number | null
   max_clinics: number | null
   max_secretaries?: number | null
+  daily_scan_limit?: number | null
   support_level?: string
   features: Record<string, any> | string[] | any
   is_active: boolean
@@ -31,6 +32,7 @@ export interface DoctorSubscription {
   effective_max_clinics?: number | null
   effective_max_secretaries?: number | null
   effective_max_doctors?: number | null
+  effective_daily_scan_limit?: number | null
   has_plan_update?: boolean
   latest_plan_version?: number
 }

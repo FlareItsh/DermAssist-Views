@@ -9,6 +9,7 @@
   import { usePasswordGenerator } from '~/composables/usePasswordGenerator'
   import { useFormSanitizer } from '~/composables/useFormSanitizer'
   import { useStorage } from '~/composables/useStorage'
+  import { useScanQuota } from '~/composables/useScanQuota'
 
   const router = useRouter()
   const {
@@ -30,6 +31,7 @@
 
   const userUuid = useCookie('user_uuid')
   const userName = useCookie('user_name')
+  const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
   const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
@@ -954,6 +956,11 @@
   const captureAndDiagnose = async () => {
     if (isScanning.value) return
 
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     // Doctor Requirement: A patient must be assigned before scan can proceed
     if (!patientUuid.value) {
       toast.error('Please assign or register a patient before starting the diagnosis scan.')
@@ -1006,6 +1013,11 @@
   }
 
   const runDiagnosis = async (file: File) => {
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     isScanning.value = true
     errorMessage.value = ''
     try {
@@ -1038,6 +1050,9 @@
       })
       if (response) {
         setDiagnosis(response as any)
+        if ((response as any).scan_quota) {
+          applyQuota((response as any).scan_quota)
+        }
         if (isHealthyState.value) {
           errorMessage.value = 'Healthy skin detected. No disease present.'
           toast.info('Healthy skin detected. No disease present.')
@@ -1063,6 +1078,9 @@
         }
       }
     } catch (err: any) {
+      if (err.status === 429 || err.statusCode === 429) {
+        await fetchQuota(true)
+      }
       errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
     } finally {
       isScanning.value = false
@@ -1141,8 +1159,16 @@
 
     <!-- === TOP HUD: Patient Assignment Chip & Status === -->
     <div
-      class="pointer-events-none absolute top-0 right-0 left-0 z-30 flex flex-col items-center gap-2.5 px-4 pt-22 sm:pt-28"
+      class="pointer-events-none absolute top-0 right-0 left-0 z-30 flex flex-col items-center gap-2.5 px-4 pt-20 sm:pt-26"
     >
+      <!-- Quota Indicator Pill -->
+      <div class="pointer-events-auto">
+        <AppScanQuotaIndicator
+          compact
+          light-theme
+        />
+      </div>
+
       <!-- Doctor Patient Assignment Floating Chip -->
       <div class="pointer-events-auto mt-2 sm:mt-3">
         <div
@@ -1391,7 +1417,9 @@
         <!-- Gallery / Upload button -->
         <button
           @click="triggerFileInput"
-          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90"
+          :disabled="isScanning || isLimitReached"
+          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Upload Image'"
         >
           <Icon
             name="famicons:folder-outline"
@@ -1402,8 +1430,9 @@
         <!-- Main shutter / diagnose button -->
         <button
           @click="captureAndDiagnose"
-          :disabled="isScanning || (qualityError !== null && isCameraOn)"
+          :disabled="isScanning || (qualityError !== null && isCameraOn) || isLimitReached"
           class="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Start Scan'"
         >
           <div
             class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-black/10"

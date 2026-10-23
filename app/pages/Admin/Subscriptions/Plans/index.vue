@@ -116,6 +116,12 @@
                   ? plan.max_secretaries
                   : 'Unlimited'
               }}</span>
+              · Scans/day:
+              <span class="font-mono text-gray-500">{{
+                plan.daily_scan_limit !== null && plan.daily_scan_limit !== undefined
+                  ? plan.daily_scan_limit
+                  : 'Unlimited'
+              }}</span>
             </p>
 
             <div class="flex gap-2">
@@ -220,6 +226,14 @@
                   <span class="font-mono text-gray-500">{{
                     plan.max_secretaries !== null && plan.max_secretaries !== undefined
                       ? plan.max_secretaries
+                      : 'Unlimited'
+                  }}</span>
+                </div>
+                <div class="text-gray-700">
+                  Daily Scans:
+                  <span class="font-mono text-gray-500">{{
+                    plan.daily_scan_limit !== null && plan.daily_scan_limit !== undefined
+                      ? plan.daily_scan_limit
                       : 'Unlimited'
                   }}</span>
                 </div>
@@ -345,7 +359,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
                   >Max Doctors (Seats)</label
@@ -372,13 +386,25 @@
               </div>
               <div>
                 <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                  >Max Secretaries (Seats)</label
+                  >Max Secretaries</label
                 >
                 <input
                   v-model.number="form.max_secretaries"
                   type="number"
                   min="0"
                   placeholder="0 = None"
+                  class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
+                  >Daily AI Scans</label
+                >
+                <input
+                  v-model.number="form.daily_scan_limit"
+                  type="number"
+                  min="1"
+                  placeholder="Empty = Unltd"
                   class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
                 />
               </div>
@@ -542,6 +568,7 @@
     max_doctors: null,
     max_clinics: null,
     max_secretaries: null,
+    daily_scan_limit: null,
     trial_period_days: 0,
     grace_period_days: 3,
     is_active: true,
@@ -596,6 +623,7 @@
       max_doctors: 1,
       max_clinics: 1,
       max_secretaries: 0,
+      daily_scan_limit: 50,
       trial_period_days: 14,
       grace_period_days: 3,
       is_active: true,

@@ -4,6 +4,7 @@
   import { toast } from 'vue-sonner'
   import { useDiagnosis } from '~/composables/useDiagnosis'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { useScanQuota } from '~/composables/useScanQuota'
 
   const router = useRouter()
   const {
@@ -19,6 +20,7 @@
     isHealthyState,
     isNoneState
   } = useDiagnosis()
+  const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
 
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
@@ -460,6 +462,11 @@
   const captureAndDiagnose = async () => {
     if (isScanning.value) return
 
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     // Case 1: Diagnose already loaded file/preview
     if (previewImage.value && selectedFile.value) {
       await runDiagnosis(selectedFile.value)
@@ -508,6 +515,11 @@
   }
 
   const runDiagnosis = async (file: File) => {
+    if (isLimitReached.value) {
+      toast.error('Daily scan limit reached. Please wait for your quota to reset.')
+      return
+    }
+
     isScanning.value = true
     errorMessage.value = ''
     try {
@@ -528,6 +540,9 @@
       })
       if (response) {
         setDiagnosis(response as any)
+        if ((response as any).scan_quota) {
+          applyQuota((response as any).scan_quota)
+        }
         if (isHealthyState.value) {
           errorMessage.value = 'Healthy skin detected. No disease present.'
           toast.info('Healthy skin detected. No disease present.')
@@ -547,6 +562,9 @@
         }
       }
     } catch (err: any) {
+      if (err.status === 429 || err.statusCode === 429) {
+        await fetchQuota(true)
+      }
       errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
     } finally {
       isScanning.value = false
@@ -638,10 +656,16 @@
       </p>
     </div>
 
-    <!-- === TOP HUD: Status / No-Image / Error bar === -->
+    <!-- === TOP HUD: Status / Quota / Error bar === -->
     <div
-      class="pointer-events-none absolute top-0 right-0 left-0 z-30 flex flex-col items-center gap-2 px-4 pt-24"
+      class="pointer-events-auto absolute top-0 right-0 left-0 z-30 flex flex-col items-center gap-2 px-4 pt-24"
     >
+      <!-- Quota Indicator Pill -->
+      <AppScanQuotaIndicator
+        compact
+        light-theme
+      />
+
       <!-- No image found pill -->
       <div
         v-if="!isCameraOn && !previewImage"
@@ -824,7 +848,9 @@
         <!-- Gallery / Upload button -->
         <button
           @click="triggerFileInput"
-          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90"
+          :disabled="isScanning || isLimitReached"
+          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Upload Image'"
         >
           <Icon
             name="famicons:folder-outline"
@@ -835,8 +861,9 @@
         <!-- Main shutter / diagnose button -->
         <button
           @click="captureAndDiagnose"
-          :disabled="isScanning || (qualityError !== null && isCameraOn)"
+          :disabled="isScanning || (qualityError !== null && isCameraOn) || isLimitReached"
           class="flex h-20 w-20 items-center justify-center rounded-full bg-white shadow-2xl transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          :title="isLimitReached ? 'Daily scan limit reached' : 'Start Scan'"
         >
           <div
             class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-black/10"
