@@ -282,7 +282,7 @@
         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4"
       >
         <div
-          class="max-h-[92vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:p-6"
+          class="max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:max-w-3xl sm:p-6"
         >
           <div class="flex items-center justify-between border-b border-gray-100 pb-3">
             <h3 class="text-base font-black text-gray-950 sm:text-lg">
