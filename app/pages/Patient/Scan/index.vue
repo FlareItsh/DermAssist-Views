@@ -1,9 +1,21 @@
 <script setup lang="ts">
-  import { onMounted } from 'vue'
+  import { ref, onMounted, onUnmounted } from 'vue'
   const { resetScanner } = useDiagnosis()
+
+  const isMobile = ref<boolean | null>(null)
+
+  const updateViewport = () => {
+    isMobile.value = window.innerWidth < 768
+  }
 
   onMounted(() => {
     resetScanner()
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateViewport)
   })
 
   definePageMeta({
@@ -15,7 +27,10 @@
 <template>
   <div class="h-full min-h-0 w-full">
     <!-- Desktop Layout -->
-    <div class="desktop-only flex h-full min-h-0 w-full gap-5">
+    <div
+      v-if="isMobile === false"
+      class="desktop-only flex h-full min-h-0 w-full gap-5"
+    >
       <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <ClientOnly>
           <AppScanner />
@@ -30,7 +45,10 @@
     </div>
 
     <!-- Mobile Layout - fullscreen, no scroll -->
-    <div class="mobile-only fixed inset-0 z-40 bg-black">
+    <div
+      v-else-if="isMobile === true"
+      class="mobile-only fixed inset-0 z-40 bg-black"
+    >
       <ClientOnly>
         <PatientSideComponentsMobileScanner />
       </ClientOnly>

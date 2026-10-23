@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   const route = useRoute()
   const {
     currentDiagnosis,
@@ -16,6 +16,11 @@
     useDoctorSubscription()
 
   const showConfirmDiscard = ref(false)
+  const isMobile = ref<boolean | null>(null)
+
+  const updateViewport = () => {
+    isMobile.value = window.innerWidth < 1024
+  }
 
   const discardModalTitle = computed(() => 'Discard Active Scan?')
 
@@ -26,6 +31,8 @@
   const discardModalConfirmText = computed(() => 'Discard & Start New')
 
   onMounted(async () => {
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
     await fetchSubscription()
     if (route.query.appointment_uuid) {
       appointmentUuid.value = String(route.query.appointment_uuid)
@@ -36,6 +43,10 @@
     if (route.query.appointment_uuid || route.query.patient_uuid) {
       saveActiveDiagnosisState()
     }
+  })
+
+  onUnmounted(() => {
+    window.removeEventListener('resize', updateViewport)
   })
 
   const discardAndStartNew = () => {
@@ -66,7 +77,10 @@
 <template>
   <div class="h-full min-h-0 w-full">
     <!-- Desktop Layout -->
-    <div class="desktop-only flex h-full min-h-0 w-full gap-5">
+    <div
+      v-if="isMobile === false"
+      class="desktop-only flex h-full min-h-0 w-full gap-5"
+    >
       <div class="flex h-full min-h-0 min-w-0 flex-1 flex-col">
         <!-- Loading Subscription State -->
         <div
@@ -209,7 +223,10 @@
     </div>
 
     <!-- Mobile Layout -->
-    <div class="mobile-only fixed inset-0 z-40 bg-black">
+    <div
+      v-else-if="isMobile === true"
+      class="mobile-only fixed inset-0 z-40 bg-black"
+    >
       <!-- Loading Subscription State -->
       <div
         v-if="isLoadingSubscription"

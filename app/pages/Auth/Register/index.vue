@@ -564,9 +564,13 @@
   const startCamera = async () => {
     isCapturing.value = true
     try {
-      stream.value = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' } // Prefer back camera on mobile
-      })
+      try {
+        stream.value = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }
+        })
+      } catch {
+        stream.value = await navigator.mediaDevices.getUserMedia({ video: true })
+      }
       if (video.value) {
         video.value.srcObject = stream.value
       }
@@ -582,6 +586,9 @@
     if (stream.value) {
       stream.value.getTracks().forEach(track => track.stop())
       stream.value = null
+    }
+    if (video.value) {
+      video.value.srcObject = null
     }
     isCapturing.value = false
   }

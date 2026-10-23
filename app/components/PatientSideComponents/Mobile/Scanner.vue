@@ -41,6 +41,12 @@
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
   const currentFacingMode = ref<'user' | 'environment'>('environment')
+  const videoDevices = ref<MediaDeviceInfo[]>([])
+  const currentDeviceIndex = ref(0)
+  const selectedDeviceId = ref<string>('')
+  const isTorchSupported = ref(false)
+  const isTorchOn = ref(false)
+  const isMicroscopeActive = ref(false)
 
   const isDraggingOver = ref(false)
   let dragCounter = 0
@@ -245,12 +251,104 @@
     toast.info('No valid image or image link detected in the drop.')
   }
 
-  const flipCamera = async () => {
+  const updateDeviceList = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      videoDevices.value = devices.filter(d => d.kind === 'videoinput')
+      if (stream) {
+        const activeTrack = stream.getVideoTracks()[0]
+        const settings = activeTrack?.getSettings?.()
+        if (settings?.deviceId) {
+          const idx = videoDevices.value.findIndex(d => d.deviceId === settings.deviceId)
+          if (idx !== -1) {
+            currentDeviceIndex.value = idx
+            selectedDeviceId.value = settings.deviceId
+          }
+        }
+      }
+      checkMicroscopeState()
+    } catch (e) {
+      console.warn('enumerateDevices error:', e)
+    }
+  }
+
+  const checkMicroscopeState = () => {
+    if (!selectedDeviceId.value) {
+      isMicroscopeActive.value = false
+      return
+    }
+    const currentDev = videoDevices.value.find(d => d.deviceId === selectedDeviceId.value)
+    if (currentDev) {
+      const label = currentDev.label.toLowerCase()
+      isMicroscopeActive.value =
+        /usb|microscope|uvc|endoscope|analyzer|external|dermatoscope/i.test(label)
+    } else {
+      isMicroscopeActive.value = false
+    }
+  }
+
+  const checkTorchCapability = () => {
+    if (!stream) {
+      isTorchSupported.value = false
+      isTorchOn.value = false
+      return
+    }
+    const track = stream.getVideoTracks()[0]
+    if (!track) {
+      isTorchSupported.value = false
+      isTorchOn.value = false
+      return
+    }
+    const capabilities = (track as any)?.getCapabilities?.() || {}
+    isTorchSupported.value = Boolean(capabilities.torch)
+    if (!isTorchSupported.value) {
+      isTorchOn.value = false
+    }
+  }
+
+  const toggleTorch = async () => {
+    if (!stream || !isTorchSupported.value) return
+    const track = stream.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const nextState = !isTorchOn.value
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }]
+      })
+      isTorchOn.value = nextState
+    } catch (e) {
+      console.warn('Torch toggle failed:', e)
+      isTorchSupported.value = false
+      isTorchOn.value = false
+    }
+  }
+
+  const canCycleCamera = computed(() => {
+    return videoDevices.value.length > 1 || (!selectedDeviceId.value && !isMicroscopeActive.value)
+  })
+
+  const cycleCamera = async () => {
     if (!isCameraOn.value) return
-    currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user'
-    // stopCamera is called inside startCamera so no double-stop
+    if (videoDevices.value.length > 1) {
+      currentDeviceIndex.value = (currentDeviceIndex.value + 1) % videoDevices.value.length
+      const nextDevice = videoDevices.value[currentDeviceIndex.value]
+      selectedDeviceId.value = nextDevice.deviceId
+      const label = (nextDevice.label || '').toLowerCase()
+      if (/front|user|selfie/i.test(label)) {
+        currentFacingMode.value = 'user'
+      } else if (/back|rear|environment/i.test(label)) {
+        currentFacingMode.value = 'environment'
+      }
+    } else {
+      currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user'
+      selectedDeviceId.value = ''
+    }
+    checkMicroscopeState()
     await startCamera()
   }
+
+  const flipCamera = cycleCamera
 
   const triggerFileInput = () => {
     if (fileInput.value) {
@@ -271,9 +369,27 @@
       clearInterval(qualityCheckInterval)
     }
     qualityCheckInterval = null
+
+    if (isTorchOn.value && stream) {
+      const track = stream.getVideoTracks()[0]
+      try {
+        ;(track as any)?.applyConstraints?.({ advanced: [{ torch: false }] })
+      } catch (_) {}
+      isTorchOn.value = false
+    }
+    isTorchSupported.value = false
+
     if (stream) {
       stream.getTracks().forEach(track => track.stop())
       stream = null
+    }
+
+    if (videoRef.value) {
+      const existing = videoRef.value.srcObject as MediaStream | null
+      if (existing && existing.getTracks) {
+        existing.getTracks().forEach(t => t.stop())
+      }
+      videoRef.value.srcObject = null
     }
   }
 
@@ -289,6 +405,46 @@
     }
   }
 
+  const acquireStream = async () => {
+    // 1. Try selected deviceId (USB microscope or specific camera)
+    if (selectedDeviceId.value) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: selectedDeviceId.value } }
+        })
+      } catch (err) {
+        console.warn('Exact deviceId request failed, trying ideal:', err)
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { ideal: selectedDeviceId.value } }
+          })
+        } catch (_) {}
+      }
+    }
+
+    // 2. Try preferred facingMode
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: currentFacingMode.value } }
+      })
+    } catch (facingErr) {
+      console.warn('Requested facingMode failed, trying alternate:', facingErr)
+    }
+
+    // 3. Try opposite facingMode
+    try {
+      const altFacing = currentFacingMode.value === 'environment' ? 'user' : 'environment'
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: altFacing } }
+      })
+    } catch (altErr) {
+      console.warn('Alt facingMode failed, trying generic video:', altErr)
+    }
+
+    // 4. Fallback to generic video
+    return await navigator.mediaDevices.getUserMedia({ video: true })
+  }
+
   const startCamera = async () => {
     isCameraOn.value = true
     errorMessage.value = ''
@@ -300,22 +456,22 @@
       return
     }
 
-    // Stop any lingering stream tracks before requesting new ones
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop())
-      stream = null
-    }
-
-    // Give the OS a moment to release the camera hardware
-    await new Promise(resolve => setTimeout(resolve, 200))
+    stopCamera()
+    await new Promise(resolve => setTimeout(resolve, 250))
 
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: currentFacingMode.value } }
-      })
+      stream = await acquireStream()
     } catch (err: any) {
       console.error('Camera error:', err)
-      errorMessage.value = `Camera error: ${err.name} — ${err.message}`
+      if (err.name === 'NotReadableError') {
+        errorMessage.value =
+          'Camera is in use by another app or tab. Please close other camera apps and try again.'
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage.value =
+          'Camera permission denied. Please allow camera access in browser settings.'
+      } else {
+        errorMessage.value = `Camera error: ${err.name} — ${err.message}`
+      }
       isCameraOn.value = false
       return
     }
@@ -328,6 +484,9 @@
         console.warn('Video play blocked:', playErr)
       }
     }
+
+    checkTorchCapability()
+    await updateDeviceList()
     startQualityLoop()
   }
 
@@ -487,8 +646,8 @@
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    // Only mirror the captured image when using the front (selfie) camera
-    if (currentFacingMode.value === 'user') {
+    // Only mirror the captured image when using the front (selfie) camera and not an external microscope
+    if (currentFacingMode.value === 'user' && !isMicroscopeActive.value) {
       context.save()
       context.scale(-1, 1)
       context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
@@ -571,8 +730,47 @@
     }
   }
 
+  let wasCameraActiveBeforeHide = false
+  const handleVisibilityChange = async () => {
+    if (document.hidden) {
+      if (isCameraOn.value) {
+        wasCameraActiveBeforeHide = true
+        stopCamera()
+        isCameraOn.value = false
+      }
+    } else {
+      if (wasCameraActiveBeforeHide && !previewImage.value) {
+        wasCameraActiveBeforeHide = false
+        await startCamera()
+      }
+    }
+  }
+
+  const handleDeviceChange = async () => {
+    const prevCount = videoDevices.value.length
+    await updateDeviceList()
+    const otgDevice = videoDevices.value.find(d =>
+      /usb|microscope|uvc|endoscope|analyzer|external|dermatoscope/i.test(d.label)
+    )
+    if (otgDevice && videoDevices.value.length > prevCount) {
+      toast.success(`External microscope detected: ${otgDevice.label || 'USB Camera'}`)
+    }
+  }
+
+  onMounted(async () => {
+    await updateDeviceList()
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  })
+
   onUnmounted(() => {
     stopCamera()
+    if (navigator.mediaDevices?.removeEventListener) {
+      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange)
+    }
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 
   const statusText = computed(() => {
@@ -633,7 +831,8 @@
       autoplay
       playsinline
       muted
-      class="absolute inset-0 h-full w-full -scale-x-100 object-cover"
+      class="absolute inset-0 h-full w-full object-cover"
+      :class="{ '-scale-x-100': currentFacingMode === 'user' && !isMicroscopeActive }"
     ></video>
 
     <img
@@ -665,6 +864,19 @@
         compact
         light-theme
       />
+
+      <!-- USB Microscope active pill -->
+      <div
+        v-if="isCameraOn && isMicroscopeActive && !previewImage"
+        class="flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-950/80 px-4 py-1.5 text-emerald-200 shadow-lg backdrop-blur-md"
+      >
+        <Icon
+          name="lucide:microscope"
+          size="16"
+          class="text-emerald-400"
+        />
+        <span class="text-xs font-bold tracking-wider uppercase"> USB Microscope Active </span>
+      </div>
 
       <!-- No image found pill -->
       <div
@@ -757,16 +969,43 @@
       <p class="text-xs font-medium text-white/50">This takes just a moment</p>
     </div>
 
-    <!-- === FLIP & RETAKE BUTTONS (below hero header) === -->
+    <!-- === FLIP, TORCH & RETAKE BUTTONS (below hero header) === -->
     <div class="absolute top-28 right-4 z-30 flex flex-col gap-2">
-      <!-- Flip camera button (only when camera is live) -->
+      <!-- Flip / cycle camera button (only when camera is live and multiple cameras exist) -->
       <button
-        v-if="isCameraOn && !previewImage && !isScanning"
-        @click="flipCamera"
+        v-if="isCameraOn && !previewImage && !isScanning && canCycleCamera"
+        @click="cycleCamera"
         class="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90"
+        :title="isMicroscopeActive ? 'Switch camera' : 'Flip camera'"
       >
         <Icon
-          name="material-symbols:flip-camera-android-rounded"
+          :name="
+            isMicroscopeActive
+              ? 'lucide:microscope'
+              : 'material-symbols:flip-camera-android-rounded'
+          "
+          size="22"
+        />
+      </button>
+
+      <!-- Torch / Flash button (ONLY when torch is supported by current camera hardware) -->
+      <button
+        v-if="isCameraOn && !previewImage && !isScanning && isTorchSupported"
+        @click="toggleTorch"
+        class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
+        :class="
+          isTorchOn
+            ? 'border-amber-400/80 bg-amber-500/80 text-white shadow-lg shadow-amber-500/30'
+            : 'border-white/20 bg-black/50 text-white'
+        "
+        :title="isTorchOn ? 'Turn off flash' : 'Turn on flash'"
+      >
+        <Icon
+          :name="
+            isTorchOn
+              ? 'material-symbols:flashlight-on-rounded'
+              : 'material-symbols:flashlight-off-rounded'
+          "
           size="22"
         />
       </button>

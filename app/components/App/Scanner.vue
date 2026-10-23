@@ -38,6 +38,17 @@
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
   let wasOnBeforeHidden = true
+  const videoDevices = ref<MediaDeviceInfo[]>([])
+  const selectedDeviceId = ref<string>('')
+  const currentDeviceIndex = ref(0)
+
+  const isMicroscopeActive = computed(() => {
+    if (!selectedDeviceId.value) return false
+    const dev = videoDevices.value.find(d => d.deviceId === selectedDeviceId.value)
+    return dev
+      ? /usb|microscope|uvc|endoscope|analyzer|external|dermatoscope/i.test(dev.label)
+      : false
+  })
 
   const isDraggingOver = ref(false)
   let dragCounter = 0
@@ -295,6 +306,68 @@
     }
   }
 
+  const updateDeviceList = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      videoDevices.value = devices.filter(d => d.kind === 'videoinput')
+      if (stream) {
+        const activeTrack = stream.getVideoTracks()[0]
+        const settings = activeTrack?.getSettings?.()
+        if (settings?.deviceId) {
+          const idx = videoDevices.value.findIndex(d => d.deviceId === settings.deviceId)
+          if (idx !== -1) {
+            currentDeviceIndex.value = idx
+            selectedDeviceId.value = settings.deviceId
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('enumerateDevices error:', e)
+    }
+  }
+
+  const cycleDevice = async () => {
+    if (videoDevices.value.length <= 1) return
+    currentDeviceIndex.value = (currentDeviceIndex.value + 1) % videoDevices.value.length
+    selectedDeviceId.value = videoDevices.value[currentDeviceIndex.value].deviceId
+    await startCamera()
+  }
+
+  const handleDeviceChange = async () => {
+    const prevCount = videoDevices.value.length
+    await updateDeviceList()
+    const otgDevice = videoDevices.value.find(d =>
+      /usb|microscope|uvc|endoscope|analyzer|external|dermatoscope/i.test(d.label)
+    )
+    if (otgDevice && videoDevices.value.length > prevCount) {
+      toast.success(`External microscope detected: ${otgDevice.label || 'USB Camera'}`)
+    }
+  }
+
+  const acquireStream = async () => {
+    if (selectedDeviceId.value) {
+      try {
+        return await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: selectedDeviceId.value } }
+        })
+      } catch (err) {
+        try {
+          return await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: { ideal: selectedDeviceId.value } }
+          })
+        } catch (_) {}
+      }
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'user' } }
+      })
+    } catch (_) {
+      return await navigator.mediaDevices.getUserMedia({ video: true })
+    }
+  }
+
   const startCamera = async () => {
     isCameraOn.value = true
     errorMessage.value = ''
@@ -307,28 +380,21 @@
       return
     }
 
+    stopCamera()
+    await new Promise(resolve => setTimeout(resolve, 200))
+
     try {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'user' } }
-        })
-      } catch (constraintErr) {
-        console.warn(
-          'Camera constraints failed, falling back to simple video stream:',
-          constraintErr
-        )
-        stream = await navigator.mediaDevices.getUserMedia({ video: true })
-      }
+      stream = await acquireStream()
 
       if (videoRef.value) {
         videoRef.value.srcObject = stream
-        // Explicitly trigger play to bypass iOS autoplay restrictions
         try {
           await videoRef.value.play()
         } catch (playErr) {
           console.warn('Video auto-play blocked, playing manually:', playErr)
         }
       }
+      await updateDeviceList()
       startQualityLoop()
     } catch (err: any) {
       console.error('Camera access error:', err)
@@ -444,10 +510,14 @@
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
 
-    context.save()
-    context.scale(-1, 1)
-    context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
-    context.restore()
+    if (!isMicroscopeActive.value) {
+      context.save()
+      context.scale(-1, 1)
+      context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
+      context.restore()
+    } else {
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+    }
 
     previewImage.value = canvas.toDataURL('image/jpeg')
     stopCamera()
@@ -559,8 +629,17 @@
     if (qualityCheckInterval) clearInterval(qualityCheckInterval)
     qualityCheckInterval = null
     qualityError.value = null
-    if (stream) stream.getTracks().forEach(track => track.stop())
-    stream = null
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop())
+      stream = null
+    }
+    if (videoRef.value) {
+      const existing = videoRef.value.srcObject as MediaStream | null
+      if (existing && existing.getTracks) {
+        existing.getTracks().forEach(t => t.stop())
+      }
+      videoRef.value.srcObject = null
+    }
   }
 
   watch(previewImage, newVal => {
@@ -586,7 +665,11 @@
     }
   }
 
-  onMounted(() => {
+  onMounted(async () => {
+    await updateDeviceList()
+    if (navigator.mediaDevices?.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange)
+    }
     if (!previewImage.value) {
       startCamera()
     } else {
@@ -594,8 +677,12 @@
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
   })
+
   onUnmounted(() => {
     stopCamera()
+    if (navigator.mediaDevices?.removeEventListener) {
+      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange)
+    }
     document.removeEventListener('visibilitychange', handleVisibilityChange)
   })
 </script>
@@ -756,9 +843,34 @@
             autoplay
             playsinline
             muted
-            class="absolute inset-0 h-full w-full -scale-x-100 rounded-4xl object-cover p-1 transition-opacity duration-500"
-            :class="{ 'pointer-events-none opacity-30': isScanning }"
+            class="absolute inset-0 h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500"
+            :class="{
+              '-scale-x-100': !isMicroscopeActive,
+              'pointer-events-none opacity-30': isScanning
+            }"
           ></video>
+
+          <!-- Desktop Camera Switcher (Only visible when 2+ cameras exist, e.g. USB microscope plugged in) -->
+          <div
+            v-if="isCameraOn && !previewImage && !isScanning && videoDevices.length > 1"
+            class="absolute top-4 right-4 z-20"
+          >
+            <button
+              type="button"
+              @click="cycleDevice"
+              class="flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
+              :title="isMicroscopeActive ? 'Switch to webcam' : 'Switch camera source'"
+            >
+              <Icon
+                :name="
+                  isMicroscopeActive ? 'lucide:microscope' : 'material-symbols:videocam-rounded'
+                "
+                class="text-base"
+                :class="{ 'text-emerald-400': isMicroscopeActive }"
+              />
+              <span>{{ isMicroscopeActive ? 'USB Microscope' : 'Switch Camera' }}</span>
+            </button>
+          </div>
           <div
             v-if="!isCameraOn && !previewImage"
             class="absolute inset-0 flex flex-col items-center justify-center gap-4 p-4 text-center text-gray-500"
