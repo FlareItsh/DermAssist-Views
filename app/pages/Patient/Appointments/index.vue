@@ -32,19 +32,37 @@
   const activeTab = ref<'active' | 'history'>('active')
 
   const activeAppointmentsList = computed(() => {
-    return appointments.value.filter(a =>
-      ['pending', 'confirmed', 'scheduled', 'checked_in', 'in_consultation'].includes(
-        a.status?.toLowerCase()
-      )
+    const combined = [...appointments.value, ...pendingAppointments.value]
+    return combined.filter(a =>
+      [
+        'pending',
+        'confirmed',
+        'scheduled',
+        'checked_in',
+        'in_consultation',
+        'reschedule_proposed',
+        'reschedule_requested'
+      ].includes(a.status?.toLowerCase())
     )
   })
 
   const historyAppointmentsList = computed(() => {
-    return appointments.value.filter(a =>
-      ['completed', 'cancelled', 'no_show', 'declined', 'rejected', 'expired'].includes(
+    const combined = [
+      ...appointments.value,
+      ...completedAppointments.value,
+      ...cancelledAppointments.value,
+      ...noShowAppointments.value,
+      ...declinedAppointments.value
+    ]
+    const seen = new Set<string>()
+    return combined.filter(a => {
+      const id = a.id || a.uuid
+      if (seen.has(id)) return false
+      seen.add(id)
+      return ['completed', 'cancelled', 'no_show', 'declined', 'rejected', 'expired'].includes(
         a.status?.toLowerCase()
       )
-    )
+    })
   })
 
   const appointmentSearchQuery = ref('')
@@ -352,7 +370,20 @@
       case 'scheduled':
         return { label: 'Confirmed', class: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20' }
       case 'pending':
-        return { label: 'Pending Review', class: 'bg-amber-50 text-amber-700 ring-amber-600/20' }
+        return {
+          label: 'Pending Doctor Approval',
+          class: 'bg-amber-50 text-amber-700 ring-amber-600/20'
+        }
+      case 'reschedule_requested':
+        return {
+          label: 'Reschedule Requested',
+          class: 'bg-amber-50 text-amber-700 ring-amber-600/20'
+        }
+      case 'reschedule_proposed':
+        return {
+          label: 'Reschedule Proposed',
+          class: 'bg-indigo-50 text-indigo-700 ring-indigo-600/20'
+        }
       case 'checked_in':
         return { label: 'Checked In', class: 'bg-blue-50 text-blue-700 ring-blue-600/20' }
       case 'in_consultation':
@@ -627,6 +658,39 @@
           </div>
         </div>
 
+        <!-- Pending Consultation Alert Banner -->
+        <div
+          v-if="pendingAppointments.length > 0 && activeTab === 'active'"
+          class="mb-4 flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-950 shadow-2xs sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div class="flex items-center gap-2.5">
+            <div
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+            >
+              <Icon
+                name="solar:clock-circle-bold"
+                class="text-base text-amber-600"
+              />
+            </div>
+            <div>
+              <p class="font-bold text-amber-900">
+                {{ pendingAppointments.length }} Pending Consultation Request{{
+                  pendingAppointments.length > 1 ? 's' : ''
+                }}
+              </p>
+              <p class="text-[11px] text-amber-800">
+                Awaiting doctor confirmation. Requested slots are pending approval and not finalized
+                until accepted.
+              </p>
+            </div>
+          </div>
+          <span
+            class="self-start rounded-full bg-amber-200/80 px-2.5 py-0.5 text-[10px] font-bold text-amber-900 uppercase sm:self-auto"
+          >
+            Awaiting Doctor Action
+          </span>
+        </div>
+
         <!-- Appointment Search -->
         <div class="mb-4">
           <div class="relative w-full sm:w-72">
@@ -725,9 +789,40 @@
               </div>
             </div>
 
+            <!-- Pending Booking Request Banner -->
+            <div
+              v-if="appt.status === 'pending'"
+              class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-950 shadow-2xs"
+            >
+              <div
+                class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700"
+              >
+                <Icon
+                  name="solar:clock-circle-bold"
+                  class="text-base text-amber-600"
+                />
+              </div>
+              <div class="flex-1">
+                <p class="font-bold text-amber-900">Awaiting Doctor Confirmation</p>
+                <p class="mt-0.5 text-[11px] leading-relaxed text-amber-800">
+                  Your appointment request for
+                  <strong
+                    >{{ appt.date || 'Pending Schedule'
+                    }}{{ appt.time ? ` at ${appt.time}` : '' }}</strong
+                  >
+                  is currently under review by {{ appt.doctor }}. The time slot is not confirmed
+                  until accepted.
+                </p>
+              </div>
+            </div>
+
             <!-- Reschedule Proposal Banner -->
             <div
-              v-if="appt.active_reschedule_proposal"
+              v-if="
+                appt.active_reschedule_proposal ||
+                appt.status === 'reschedule_requested' ||
+                appt.status === 'reschedule_proposed'
+              "
               class="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
@@ -736,13 +831,19 @@
                     name="material-symbols:pending-actions-rounded"
                     class="text-sm text-amber-600"
                   />
-                  <span
-                    >Reschedule Proposal:
-                    {{ formatProposalTime(appt.active_reschedule_proposal) }}</span
-                  >
+                  <span v-if="appt.active_reschedule_proposal">
+                    Reschedule Proposal: {{ formatProposalTime(appt.active_reschedule_proposal) }}
+                  </span>
+                  <span v-else-if="appt.requested_reschedule_date">
+                    Requested Reschedule: {{ appt.requested_reschedule_date
+                    }}{{
+                      appt.requested_reschedule_time ? ` at ${appt.requested_reschedule_time}` : ''
+                    }}
+                  </span>
+                  <span v-else> Reschedule Request Pending Doctor Review </span>
                 </p>
                 <p
-                  v-if="appt.active_reschedule_proposal.reason"
+                  v-if="appt.active_reschedule_proposal?.reason"
                   class="mt-0.5 text-[11px] text-amber-800 italic"
                 >
                   "{{ appt.active_reschedule_proposal.reason }}"
@@ -751,7 +852,12 @@
 
               <!-- Counterparty Actions -->
               <div
-                v-if="appt.active_reschedule_proposal.proposer_party === 'practice'"
+                v-if="
+                  appt.active_reschedule_proposal &&
+                  (appt.active_reschedule_proposal.proposer_party === 'practice' ||
+                    appt.active_reschedule_proposal.proposer_type === 'doctor' ||
+                    appt.active_reschedule_proposal.proposer_type === 'secretary')
+                "
                 class="flex shrink-0 items-center gap-2"
               >
                 <button
@@ -772,7 +878,7 @@
                 </button>
               </div>
               <div
-                v-else
+                v-else-if="appt.active_reschedule_proposal"
                 class="flex shrink-0 items-center gap-2"
               >
                 <span class="text-[11px] font-semibold text-amber-800">Pending Doctor Review</span>
@@ -784,6 +890,12 @@
                 >
                   Withdraw
                 </button>
+              </div>
+              <div
+                v-else
+                class="flex shrink-0 items-center gap-2"
+              >
+                <span class="text-[11px] font-semibold text-amber-800">Pending Doctor Review</span>
               </div>
             </div>
 
@@ -804,6 +916,8 @@
               <button
                 v-if="
                   !appt.active_reschedule_proposal &&
+                  appt.status !== 'reschedule_requested' &&
+                  appt.status !== 'reschedule_proposed' &&
                   (appt.status === 'confirmed' || appt.status === 'scheduled')
                 "
                 type="button"

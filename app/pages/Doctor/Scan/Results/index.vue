@@ -162,11 +162,10 @@
   const appointmentUuid = computed(() => {
     if (diagnosisAppointmentUuid.value) return diagnosisAppointmentUuid.value
     if (!patientUuid.value) return null
-    const allAppointments = [...appointments.value, ...pendingAppointments.value]
-    const match = allAppointments.find(
+    const match = appointments.value.find(
       a =>
         a.patient_uuid === patientUuid.value &&
-        !['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+        ['confirmed', 'scheduled', 'checked_in', 'in_consultation'].includes(
           a.status?.toLowerCase()
         )
     )
