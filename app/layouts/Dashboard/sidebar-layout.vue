@@ -214,6 +214,11 @@
         ]
       },
       {
+        icon: 'lucide:pill',
+        label: 'Medicine Library',
+        to: '/doctor/medicines'
+      },
+      {
         icon: 'lucide:user-plus',
         label: 'Secretaries',
         to: '/doctor/secretaries'

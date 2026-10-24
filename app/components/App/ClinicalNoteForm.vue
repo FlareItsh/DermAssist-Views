@@ -6,6 +6,11 @@
   import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { userService } from '~/api/user/UserService'
+  import {
+    medicineService,
+    type Medicine,
+    type MedicineVariant
+  } from '~/api/medicine/MedicineService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
 
@@ -81,6 +86,96 @@
   const followUpSectionRef = ref<HTMLElement | null>(null)
 
   const { clinics, fetchClinics } = useDoctorClinics()
+
+  // Adaptive Medicine Library & Prescription Workflow
+  const { data: medicinesResponse, pending: isLoadingMedicines } = medicineService.useList()
+  const availableMedicines = computed<Medicine[]>(() => {
+    const res = medicinesResponse.value as any
+    if (Array.isArray(res?.data)) return res.data
+    if (Array.isArray(res)) return res
+    return []
+  })
+
+  const selectedMedicineUuid = ref<string>('')
+  const selectedVariantUuid = ref<string>('')
+  const rxUnit = ref<string>('')
+  const rxFrequency = ref<string>('')
+  const rxDuration = ref<string>('')
+  const rxInstructions = ref<string>('')
+
+  const currentMedicine = computed<Medicine | null>(() => {
+    return availableMedicines.value.find(m => m.uuid === selectedMedicineUuid.value) || null
+  })
+
+  const currentVariants = computed<MedicineVariant[]>(() => {
+    return currentMedicine.value?.variants || []
+  })
+
+  const currentVariant = computed<MedicineVariant | null>(() => {
+    return currentVariants.value.find(v => v.uuid === selectedVariantUuid.value) || null
+  })
+
+  // Watch Dropdown 1: Medicine Selection -> auto-selects first variant and auto-fills fields
+  watch(selectedMedicineUuid, newMedUuid => {
+    if (!newMedUuid) {
+      selectedVariantUuid.value = ''
+      rxUnit.value = ''
+      rxFrequency.value = ''
+      return
+    }
+    const med = availableMedicines.value.find(m => m.uuid === newMedUuid)
+    if (med && med.variants && med.variants.length > 0) {
+      const first = med.variants[0]
+      selectedVariantUuid.value = first.uuid
+      rxUnit.value = first.unit
+      rxFrequency.value = first.default_frequency
+    } else {
+      selectedVariantUuid.value = ''
+      rxUnit.value = ''
+      rxFrequency.value = ''
+    }
+  })
+
+  // Watch Dropdown 2: Strength / Dosage -> reactively updates Unit and Frequency
+  watch(selectedVariantUuid, newVarUuid => {
+    if (!newVarUuid) return
+    const v = currentVariants.value.find(item => item.uuid === newVarUuid)
+    if (v) {
+      rxUnit.value = v.unit
+      rxFrequency.value = v.default_frequency
+    }
+  })
+
+  const handleAddMedicationToPrescription = () => {
+    if (!currentMedicine.value || !currentVariant.value) {
+      toast.warning('Please select a medicine and dosage variant from the library.')
+      return
+    }
+
+    const medName = currentMedicine.value.name
+    const strength = `${currentVariant.value.dosage}${rxUnit.value ? ` ${rxUnit.value}` : ''}`
+    const freq = rxFrequency.value.trim() || currentVariant.value.default_frequency
+    const durationPart = rxDuration.value.trim() ? ` for ${rxDuration.value.trim()}` : ''
+    const instructPart = rxInstructions.value.trim() ? ` (${rxInstructions.value.trim()})` : ''
+
+    const entry = `• ${medName} ${strength} — ${freq}${durationPart}${instructPart}`
+
+    if (note.value.prescription && note.value.prescription.trim()) {
+      note.value.prescription = `${note.value.prescription.trim()}\n${entry}`
+    } else {
+      note.value.prescription = entry
+    }
+
+    toast.success(`Added ${medName} to prescription draft.`)
+  }
+
+  const handleClearPrescriptionDraft = () => {
+    note.value.prescription = ''
+  }
+
+  const handleOpenMedicineLibrary = () => {
+    navigateTo('/doctor/medicines')
+  }
 
   const effectiveFollowUpLocation = computed(() => {
     if (followUpLocation.value === '__custom__') {
@@ -1038,22 +1133,180 @@
           >
           Plan
         </h3>
-        <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
-          <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
-              >Prescriptions</label
-            >
-            <textarea
-              v-model="note.prescription"
-              rows="4"
-              placeholder="Medication name, dosage, frequency, duration..."
-              class="w-full resize-none rounded-2xl border-0 bg-gray-50/50 p-3.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-amber-500 focus:ring-inset sm:p-4 sm:text-sm"
-            ></textarea>
+        <div class="grid gap-4 sm:gap-6">
+          <!-- Adaptive Prescription Section -->
+          <div
+            class="space-y-4 rounded-3xl border border-gray-200/80 bg-gray-50/50 p-4 shadow-2xs sm:p-5"
+          >
+            <div class="flex items-center justify-between border-b border-gray-200/60 pb-3">
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-100 text-amber-700"
+                >
+                  <Icon
+                    name="lucide:pill"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">
+                  Prescription
+                </h4>
+              </div>
+
+              <button
+                type="button"
+                @click="handleOpenMedicineLibrary"
+                class="text-primary inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+              >
+                <Icon
+                  name="lucide:external-link"
+                  class="text-xs"
+                />
+                <span>Medicine Library</span>
+              </button>
+            </div>
+
+            <!-- Two-Tier Dropdowns & Auto-fill Fields -->
+            <div class="grid gap-3 sm:grid-cols-12 sm:items-end">
+              <!-- Dropdown 1: Medicine Name -->
+              <div class="sm:col-span-4">
+                <label
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                >
+                  Medicine
+                </label>
+                <select
+                  v-model="selectedMedicineUuid"
+                  class="w-full rounded-xl border-0 bg-white p-2.5 text-xs text-gray-900 shadow-2xs ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                >
+                  <option value="">Select medicine</option>
+                  <option
+                    v-for="med in availableMedicines"
+                    :key="med.uuid"
+                    :value="med.uuid"
+                  >
+                    {{ med.name }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Dropdown 2: Strength / Dosage -->
+              <div class="sm:col-span-3">
+                <label
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                >
+                  Dosage
+                </label>
+                <select
+                  v-model="selectedVariantUuid"
+                  :disabled="!selectedMedicineUuid || currentVariants.length === 0"
+                  class="w-full rounded-xl border-0 bg-white p-2.5 text-xs text-gray-900 shadow-2xs ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">
+                    {{
+                      !selectedMedicineUuid
+                        ? 'Select medicine first'
+                        : currentVariants.length === 0
+                          ? 'No variants'
+                          : 'Select dosage'
+                    }}
+                  </option>
+                  <option
+                    v-for="v in currentVariants"
+                    :key="v.uuid"
+                    :value="v.uuid"
+                  >
+                    {{ v.dosage }} {{ v.unit }}
+                  </option>
+                </select>
+              </div>
+
+              <!-- Frequency Field -->
+              <div class="sm:col-span-5">
+                <label
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                >
+                  Frequency
+                </label>
+                <input
+                  type="text"
+                  v-model="rxFrequency"
+                  :disabled="!selectedVariantUuid"
+                  placeholder="e.g., BID, Every 6h"
+                  class="w-full rounded-xl border-0 bg-white p-2.5 text-xs text-gray-900 shadow-2xs ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
+            </div>
+
+            <!-- Modifiers & Add Button -->
+            <div class="grid gap-3 pt-2 sm:grid-cols-12 sm:items-center">
+              <div class="sm:col-span-4">
+                <input
+                  type="text"
+                  v-model="rxDuration"
+                  :disabled="!selectedVariantUuid"
+                  placeholder="Duration (e.g. 7 days)"
+                  class="w-full rounded-xl border-0 bg-white p-2 text-xs text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
+
+              <div class="sm:col-span-5">
+                <input
+                  type="text"
+                  v-model="rxInstructions"
+                  :disabled="!selectedVariantUuid"
+                  placeholder="Instructions (e.g. after meals)"
+                  class="w-full rounded-xl border-0 bg-white p-2 text-xs text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
+
+              <div class="flex justify-end sm:col-span-3">
+                <button
+                  type="button"
+                  @click="handleAddMedicationToPrescription"
+                  :disabled="!selectedMedicineUuid || !selectedVariantUuid"
+                  class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-amber-700 disabled:opacity-40 sm:w-auto"
+                >
+                  <Icon
+                    name="lucide:plus"
+                    class="text-sm"
+                  />
+                  <span>Add Medication</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Prescription Draft Textarea -->
+            <div class="space-y-1.5 border-t border-gray-200/60 pt-3">
+              <div class="flex items-center justify-between">
+                <label
+                  class="text-[10px] font-bold tracking-wider text-gray-600 uppercase sm:text-xs"
+                >
+                  Prescription Draft
+                </label>
+                <button
+                  v-if="note.prescription"
+                  type="button"
+                  @click="handleClearPrescriptionDraft"
+                  class="text-[10px] font-semibold text-gray-400 hover:text-red-600"
+                >
+                  Clear
+                </button>
+              </div>
+              <textarea
+                v-model="note.prescription"
+                rows="4"
+                placeholder="Medication name, dosage, frequency, duration..."
+                class="w-full resize-none rounded-2xl border-0 bg-white p-3.5 font-mono text-xs text-gray-800 shadow-inner ring-1 ring-gray-200 transition-all outline-none ring-inset focus:ring-2 focus:ring-amber-500 focus:ring-inset sm:p-4 sm:text-sm"
+              ></textarea>
+            </div>
           </div>
+
+          <!-- Patient Education & Instructions -->
           <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
-              >Patient Education & Instructions</label
-            >
+            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs">
+              Patient Education & Instructions
+            </label>
             <textarea
               v-model="note.patient_education"
               rows="4"
