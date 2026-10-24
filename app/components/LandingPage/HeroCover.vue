@@ -8,7 +8,7 @@
 
     <!-- Fixed Morphing White Header Canvas (Slow, silky shrink on left & right, stops at navbar height) -->
     <div
-      class="bg-card text-foreground fixed top-0 z-40 flex flex-col overflow-hidden"
+      class="text-foreground via-card fixed top-0 z-40 flex flex-col overflow-hidden bg-gradient-to-b from-[#f0f6ff] to-[#edf4fc]"
       :style="{
         left: `${heroInset}px`,
         right: `${heroInset}px`,
@@ -17,9 +17,45 @@
         boxShadow: heroShadow
       }"
     >
+      <!-- Modern Minimalist Designer Backdrop Elements -->
+      <div
+        class="pointer-events-none absolute inset-0 -z-0 overflow-hidden transition-opacity duration-150"
+        :style="{
+          opacity: contentOpacity,
+          visibility: contentOpacity <= 0 ? 'hidden' : 'visible'
+        }"
+      >
+        <!-- Layer 1: Ambient Mesh Aura Orbs (Barely Visible) -->
+        <div
+          class="from-secondary/8 via-primary/4 absolute -top-24 -right-24 h-96 w-96 rounded-full bg-gradient-to-bl to-transparent blur-3xl"
+        ></div>
+        <div
+          class="via-primary/4 absolute top-[65%] -left-28 h-88 w-88 -translate-y-1/2 rounded-full bg-gradient-to-tr from-sky-400/8 to-transparent blur-3xl"
+        ></div>
+
+        <!-- Layer 2: Precision Dot Matrix Grid (Crisp & Visible) -->
+        <div
+          class="absolute inset-0 [background-image:radial-gradient(oklch(0.55_0.22_258.275/0.45)_1.5px,transparent_1.5px)] [mask-image:radial-gradient(ellipse_at_50%_45%,black_45%,transparent_85%)] [background-size:24px_24px] opacity-75"
+        ></div>
+
+        <!-- Layer 4: Designer Crosshair Markers (+) in Corners -->
+        <div class="text-secondary/40 absolute top-20 left-7 font-mono text-xs font-semibold">
+          +
+        </div>
+        <div class="text-secondary/40 absolute top-20 right-7 font-mono text-xs font-semibold">
+          +
+        </div>
+        <div class="text-secondary/40 absolute bottom-32 left-7 font-mono text-xs font-semibold">
+          +
+        </div>
+        <div class="text-secondary/40 absolute right-7 bottom-32 font-mono text-xs font-semibold">
+          +
+        </div>
+      </div>
+
       <!-- Center Welcoming Content (Gradually translates and fades out over slow scroll) -->
       <main
-        class="flex flex-1 flex-col items-center justify-center px-5 pt-[clamp(3.5rem,7vh,5rem)] pb-[clamp(2.5rem,5vh,3.5rem)] text-center"
+        class="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pt-[clamp(3.5rem,7vh,5rem)] pb-[clamp(2.5rem,5vh,3.5rem)] text-center"
         :style="{
           opacity: contentOpacity,
           transform: `translateY(-${contentTranslateY}px)`,
@@ -499,10 +535,10 @@
             Get Started
           </NuxtLink>
 
-          <!-- Login (Below, Outline with Border Only) -->
+          <!-- Login (Below, Solid White Background) -->
           <NuxtLink
             to="/auth/login"
-            class="border-border hover:bg-muted/30 flex h-12 w-full items-center justify-center rounded-full border bg-transparent px-6 text-sm font-semibold text-black transition-all active:scale-98 sm:h-13 sm:text-base"
+            class="border-border/80 flex h-12 w-full items-center justify-center rounded-full border bg-white px-6 text-sm font-semibold text-black shadow-2xs transition-all hover:bg-white/90 active:scale-98 sm:h-13 sm:text-base"
           >
             Login
           </NuxtLink>

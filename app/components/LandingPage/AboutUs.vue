@@ -39,9 +39,7 @@
             :name="card.tabIcon"
             class="text-secondary h-5 w-5 transition-transform duration-300 group-hover:scale-110"
           />
-          <span class="text-foreground/80 text-xs font-semibold tracking-wide">
-            {{ card.tabLabel }}
-          </span>
+          <span class="text-foreground/80 w-15 text-xs font-semibold tracking-wide"> </span>
 
           <!-- Smooth Inverted Concave Fillet (Connecting Tab to Card Shoulder) -->
           <div class="pointer-events-none absolute -right-4 bottom-0 h-4 w-4 overflow-hidden">
@@ -95,7 +93,7 @@
 
     <!-- Trust Stats Bar / Summary Strip -->
     <div
-      class="md:border-border/60 md:bg-card/60 mt-6 flex flex-wrap items-center justify-around gap-6 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md md:mt-16 md:p-7"
+      class="md:border-border/60 md:bg-card/60 mt-6 flex flex-wrap items-center justify-around gap-6 rounded-2xl border border-white bg-white/10 p-5 backdrop-blur-md md:mt-16 md:p-7"
     >
       <div class="flex items-center gap-3">
         <div

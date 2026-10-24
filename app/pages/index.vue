@@ -10,23 +10,25 @@
       >
         AI-Powered Skin Condition Recognition System
       </h1>
-      <NuxtImg
-        src="/images/lp-img.png"
-        class="mx-auto mb-2 h-auto w-full md:h-screen md:w-auto"
-        alt="CTA"
-      />
-      <NuxtLink
-        to="/Doctor"
-        class="absolute z-10 cursor-pointer rounded-full"
-        style="top: 112%; left: 6.7%; width: 16.8%; height: 8%"
-      >
-        <span class="sr-only">Get Started</span>
-      </NuxtLink>
+      <div class="relative mx-auto mb-2 w-fit">
+        <NuxtImg
+          src="/images/lp-img.png"
+          class="h-auto w-full md:h-screen md:w-auto"
+          alt="CTA"
+        />
+        <NuxtLink
+          to="/Doctor"
+          class="absolute z-10 cursor-pointer rounded-full"
+          style="bottom: 7%; left: 3.8%; width: 18%; height: 7.5%"
+        >
+          <span class="sr-only">Scan Your Skin Now</span>
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- Main Content Container -->
     <div
-      class="relative z-10 mx-auto mb-12 flex max-w-7xl flex-col justify-center gap-8 px-4 pt-4 md:gap-20 md:px-12 md:pt-10"
+      class="relative z-10 mx-auto mb-12 flex max-w-7xl flex-col justify-center gap-8 px-4 pt-4 md:gap-20 md:px-16 md:pt-10 lg:px-24"
     >
       <!-- Features Pitch Section -->
       <div class="flex items-center justify-center gap-5 md:space-x-20">
@@ -61,8 +63,11 @@
       <LandingPageAboutUs />
 
       <!-- Features Section -->
-      <div id="features">
-        <div class="mb-5 flex flex-col items-center justify-center md:mb-20">
+      <div
+        id="features"
+        class="w-full"
+      >
+        <div class="mb-5 flex flex-col items-center justify-center md:mb-14">
           <h2 class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
             Features
           </h2>
@@ -70,11 +75,11 @@
             Our Features &amp; Services
           </h1>
         </div>
-        <div class="flex flex-wrap justify-center gap-4 md:gap-6 lg:gap-8">
+        <div class="mx-auto flex max-w-6xl flex-wrap justify-center gap-5 md:gap-7 lg:gap-8">
           <div
             v-for="feature in features"
             :key="feature.title"
-            class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md md:h-auto md:min-h-[320px] md:w-80 md:justify-start md:rounded-3xl md:p-7 lg:w-88"
+            class="bg-card flex w-full max-w-md flex-col items-center justify-start rounded-[20px] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md md:h-auto md:min-h-[300px] md:w-80 md:rounded-3xl md:p-7 lg:w-84"
           >
             <div
               class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-18 md:w-18 md:p-4"
@@ -91,11 +96,11 @@
               />
             </div>
             <div class="flex flex-col items-center">
-              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-5 md:text-xl">
+              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-4 md:text-xl">
                 {{ feature.title }}
               </p>
               <p
-                class="text-foreground md:text-muted-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-3 md:px-2 md:text-sm md:leading-relaxed"
+                class="text-foreground md:text-muted-foreground mt-1 px-1 text-center text-[10px] leading-relaxed md:mt-3 md:px-2 md:text-sm"
               >
                 {{ feature.description }}
               </p>
@@ -106,13 +111,15 @@
 
       <!-- Contact Section -->
       <div id="contact">
-        <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
-          <h2 class="text-secondary md:text-secondary text-sm font-medium md:text-4xl md:font-thin">
+        <div class="mb-5 flex flex-col items-center justify-center md:mb-14">
+          <p class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
             Contact Us
-          </h2>
-          <h1 class="md:text-secondary text-base font-bold text-white md:text-5xl md:font-semibold">
+          </p>
+          <h2
+            class="md:text-secondary mt-0 text-center text-base font-bold tracking-tight text-white md:text-5xl md:font-semibold"
+          >
             Contact for Reports &amp; Feedback
-          </h1>
+          </h2>
         </div>
         <div class="flex flex-col gap-6 md:flex-row md:gap-10">
           <div
