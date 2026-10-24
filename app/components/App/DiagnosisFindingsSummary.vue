@@ -146,14 +146,6 @@
             ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
             }
-
-            if (isValidUuid(appointmentUuid.value)) {
-              try {
-                await appointmentService.attachInClinicScan(appointmentUuid.value, uuid)
-              } catch (attachErr) {
-                console.error('Failed to attach in-clinic scan to appointment', attachErr)
-              }
-            }
           }
         } catch (e) {
           console.error('Failed to update patient on diagnosis', e)

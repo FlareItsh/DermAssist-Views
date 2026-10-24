@@ -15,6 +15,8 @@
   const {
     isScanning,
     isScanned,
+    currentDiagnosis,
+    clearDiagnosis,
     setDiagnosis,
     qualityError,
     previewImage,
@@ -583,6 +585,15 @@
   }
 
   const resetToCamera = async () => {
+    const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+    if (diagUuid) {
+      try {
+        await diagnosisService.delete(String(diagUuid))
+      } catch (e) {
+        console.error('Failed to clean up retaken scan', e)
+      }
+    }
+    clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false

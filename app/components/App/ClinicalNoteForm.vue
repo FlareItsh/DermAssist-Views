@@ -772,6 +772,14 @@
         )
       }
 
+      if (props.diagnosisUuid) {
+        try {
+          await diagnosisService.update(props.diagnosisUuid, { status: 'completed' })
+        } catch (diagErr) {
+          console.error('Failed to set diagnosis status to completed:', diagErr)
+        }
+      }
+
       // Mark active appointment as completed when in finish mode
       if (props.isFinishMode && targetAppointmentUuid) {
         try {

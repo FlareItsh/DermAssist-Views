@@ -27,6 +27,10 @@
     return Boolean(props.record?.is_appealed || props.record?.appeal)
   })
 
+  const prescriptionText = computed(() => {
+    return props.record?.clinical_note?.prescription || props.record?.prescription || null
+  })
+
   // Selected disease for dynamic characteristics and symptoms switching
   const selectedDisease = ref<string>('Acne')
 
@@ -294,7 +298,9 @@
       </div>
 
       <!-- Doctor Clinical Assessment Section (when doctor notes exist) -->
-      <template v-if="record.type === 'doctor_diagnosis' || record.clinical_note">
+      <template
+        v-if="record.type === 'doctor_diagnosis' || record.clinical_note || prescriptionText"
+      >
         <!-- Doctor Card -->
         <div
           v-if="record.doctor"
@@ -319,22 +325,24 @@
           </div>
         </div>
 
-        <!-- Prescriptions & Plan Highlight -->
+        <!-- Prescription -->
         <div
-          v-if="record.clinical_note?.prescription"
-          class="border-warning-border bg-warning-subtle text-warning-text rounded-2xl border p-3.5 text-xs shadow-2xs"
+          v-if="prescriptionText"
+          class="rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs"
         >
-          <div class="text-warning-text mb-1 flex items-center gap-1.5 font-semibold">
+          <div class="mb-2 flex items-center gap-1.5 font-semibold text-gray-900">
             <Icon
               name="material-symbols:prescriptions-outline-rounded"
-              size="16"
-              class="text-warning"
+              size="18"
+              class="text-indigo-600"
             />
-            <span class="text-[10px] tracking-wider uppercase">Prescriptions & Plan</span>
+            <span class="text-xs font-bold tracking-wider uppercase">Prescription</span>
           </div>
-          <p class="leading-relaxed font-normal whitespace-pre-wrap">
-            {{ record.clinical_note.prescription }}
-          </p>
+          <div
+            class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-800 select-text"
+          >
+            {{ prescriptionText }}
+          </div>
         </div>
 
         <!-- Clinical Notes Summary -->
