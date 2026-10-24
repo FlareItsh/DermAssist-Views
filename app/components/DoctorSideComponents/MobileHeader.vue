@@ -30,6 +30,7 @@
 
   const menuLinks = computed(() => [
     { icon: 'solar:user-bold-duotone', label: 'Profile Settings', to: '/doctor/profile' },
+    { icon: 'solar:pill-bold-duotone', label: 'Medicine Library', to: '/doctor/medicines' },
     { icon: 'solar:folder-with-files-bold-duotone', label: 'Records', to: '/doctor/records' },
     {
       icon: 'solar:users-group-two-rounded-bold-duotone',
