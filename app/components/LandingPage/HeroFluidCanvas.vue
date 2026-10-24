@@ -14,14 +14,10 @@
       class="pointer-events-none absolute inset-0 bg-radial-[circle_at_center,transparent_35%,rgba(0,0,0,0.7)_100%]"
     />
 
-    <!-- Top Area: Floating Navbar + Centered Subtitle -->
-    <div class="relative z-20 flex w-full shrink-0 flex-col items-center pt-2 md:pt-3">
-      <div class="w-full">
-        <LandingPageNavbar />
-      </div>
-
+    <!-- Top Area: Centered Subtitle positioned below fixed navbar -->
+    <div class="relative z-20 flex w-full shrink-0 flex-col items-center pt-20 sm:pt-24 md:pt-28">
       <h1
-        class="font-barlow mt-2 max-w-[340px] px-4 text-center text-base font-light tracking-[2px] text-white uppercase sm:mt-3 sm:max-w-xl sm:text-2xl sm:tracking-[4px] md:mt-4 md:max-w-none md:text-4xl md:tracking-[6px] lg:text-5xl"
+        class="font-barlow max-w-[340px] px-4 text-center text-base font-light tracking-[2px] text-white uppercase sm:max-w-xl sm:text-2xl sm:tracking-[4px] md:max-w-none md:text-4xl md:tracking-[6px] lg:text-5xl"
       >
         AI-Powered Skin Condition Recognition System
       </h1>

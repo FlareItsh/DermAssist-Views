@@ -12,25 +12,30 @@
       <div class="flex flex-col gap-4 md:flex-row md:justify-between">
         <div class="font-barlow leading-tight">
           <p class="text-primary-light text-sm">Contact DermAssist at:</p>
-          <p class="text-card text-base md:text-2xl">dermassist@gmail.com</p>
+          <a
+            href="mailto:dermassist@gmail.com"
+            class="text-card text-base transition hover:text-white/80 md:text-2xl"
+          >
+            dermassist@gmail.com
+          </a>
         </div>
         <div>
           <div class="text-card font-barlow hidden space-x-4 text-2xl md:flex">
             <a
-              href="#"
-              class="cursor-pointer"
+              href="#about"
+              class="cursor-pointer transition hover:text-white/80"
               >About</a
             >
             <span>|</span>
             <a
-              href="#"
-              class="cursor-pointer"
+              href="#features"
+              class="cursor-pointer transition hover:text-white/80"
               >Features</a
             >
             <span>|</span>
             <a
-              href="#"
-              class="cursor-pointer"
+              href="#contact"
+              class="cursor-pointer transition hover:text-white/80"
               >Contact Us</a
             >
           </div>

@@ -1,20 +1,20 @@
 <template>
   <div
-    class="bg-card relative m-3 flex items-center justify-between rounded-full px-3 py-1 text-center md:m-5 md:px-7"
+    class="bg-card/95 relative m-3 flex items-center justify-between rounded-full px-3 py-1 text-center shadow-lg backdrop-blur-md md:m-5 md:px-7"
   >
     <div class="hidden space-x-6 text-[14px] font-semibold md:flex">
       <a
-        href="#"
+        href="#about"
         class="cursor-pointer"
         >About</a
       >
       <a
-        href="#"
+        href="#features"
         class="cursor-pointer"
         >Features</a
       >
       <a
-        href="#"
+        href="#contact"
         class="cursor-pointer"
         >Contact Us</a
       >
@@ -30,17 +30,17 @@
       </h1>
       <div class="ml-1 flex space-x-2 text-[8px] md:hidden">
         <a
-          href="#"
+          href="#about"
           class="cursor-pointer"
           >About</a
         >
         <a
-          href="#"
+          href="#features"
           class="cursor-pointer"
           >Features</a
         >
         <a
-          href="#"
+          href="#contact"
           class="cursor-pointer"
           >Contact</a
         >
