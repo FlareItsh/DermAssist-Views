@@ -1,9 +1,12 @@
 <template>
-  <div class="mb-12 flex flex-col justify-center gap-5 px-5 md:gap-20 md:px-12">
-    <!-- Hero Section -->
-    <div>
+  <div class="relative w-full overflow-x-clip">
+    <!-- Mobile Hero Cover (Strictly Mobile < md: Full screen white canvas that shrinks on scroll) -->
+    <LandingPageHeroCover />
+
+    <!-- Desktop Hero Section (Strictly Desktop >= md) -->
+    <div class="hidden px-5 pt-2 md:block md:px-12 md:pt-4">
       <h1
-        class="font-barlow mt-2 text-center text-[11px] tracking-[1px] md:mt-12 md:text-5xl md:tracking-[5px]"
+        class="font-barlow mt-2 text-center text-[11px] tracking-[1px] md:mt-8 md:text-5xl md:tracking-[5px]"
       >
         AI-Powered Skin Condition Recognition System
       </h1>
@@ -21,149 +24,146 @@
       </NuxtLink>
     </div>
 
-    <!-- Features Pitch Section -->
-    <div class="flex items-center justify-center gap-5 md:space-x-20">
-      <NuxtImg
-        src="/images/accuracy-test.png"
-        class="h-auto w-2/5 shrink-0 md:h-100 md:w-auto"
-        alt="CTA"
-      />
-      <div class="flex flex-col space-y-1 md:space-y-3">
-        <p class="text-[9px] leading-snug font-semibold md:w-145 md:text-2xl">
-          With DermAssist, you benefit from AI-powered analysis backed by real doctors. Our system
-          helps detect skin concerns quickly and accurately, while giving you the option to consult
-          professionals for proper guidance.
-        </p>
-        <div
-          class="bg-secondary my-2 h-[2px] w-full rounded-full md:my-7 md:h-[5px] md:w-130"
-        ></div>
-        <AppButton
-          variant="unstyled"
-          size="unstyled"
-          rounded="unstyled"
-          class="bg-foreground text-card w-16 cursor-pointer rounded-full px-2 py-1 text-[9px] md:w-50 md:px-5 md:py-2 md:text-lg"
-        >
-          Know More
-        </AppButton>
-      </div>
-    </div>
-
-    <!-- About Section -->
-    <div>
-      <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
-        <h2 class="text-secondary text-sm font-thin md:text-4xl">About Us</h2>
-        <h1 class="text-secondary text-base font-semibold md:text-5xl">About DermAssist</h1>
-      </div>
-      <div>
-        <h1
-          class="text-foreground -mb-4 text-base leading-tight font-semibold tracking-widest md:-mb-25 md:text-[82px] md:leading-25 md:tracking-[10px]"
-        >
-          Smarter Skin Care, Made <br />
-          Accessible
-        </h1>
+    <!-- Main Content Container -->
+    <div
+      class="relative z-10 mx-auto mb-12 flex max-w-7xl flex-col justify-center gap-8 px-4 pt-4 md:gap-20 md:px-12 md:pt-10"
+    >
+      <!-- Features Pitch Section -->
+      <div class="flex items-center justify-center gap-5 md:space-x-20">
         <NuxtImg
-          src="/images/about-us-img.png"
-          class="h-auto w-full"
+          src="/images/accuracy-test.png"
+          class="h-auto w-2/5 shrink-0 rounded-2xl md:h-100 md:w-auto"
           alt="CTA"
         />
-      </div>
-    </div>
-
-    <!-- Features Section -->
-    <div>
-      <div class="mb-5 flex flex-col items-center justify-center md:mb-20">
-        <h2 class="text-secondary text-sm font-thin md:text-4xl">Features</h2>
-        <h1 class="text-secondary text-base font-semibold md:text-5xl">Our Features & Services</h1>
-      </div>
-      <div class="flex flex-wrap justify-center gap-3 md:gap-10">
-        <div
-          v-for="feature in features"
-          :key="feature.title"
-          class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-shadow hover:shadow-md md:h-150 md:w-110 md:rounded-[50px] md:p-10"
-        >
-          <div
-            class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-35 md:w-35 md:p-7"
+        <div class="flex flex-col space-y-1 md:space-y-3">
+          <p
+            class="md:text-foreground text-xs leading-relaxed font-semibold text-white md:w-145 md:text-2xl"
           >
-            <div
-              v-if="feature.icon.startsWith('<svg')"
-              v-html="feature.icon"
-              class="flex h-5 w-5 items-center justify-center md:h-20 md:w-20 [&>svg]:h-full [&>svg]:w-full"
-            ></div>
-            <Icon
-              v-else
-              :name="feature.icon"
-              class="text-base md:text-7xl"
-            />
-          </div>
-          <div class="flex flex-col items-center">
-            <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-10 md:text-[40px]">
-              {{ feature.title }}
-            </p>
-            <p
-              class="text-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-5 md:px-4 md:text-[20px]"
-            >
-              {{ feature.description }}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contact Section -->
-    <div>
-      <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
-        <h2 class="text-secondary text-sm font-thin md:text-4xl">Contact Us</h2>
-        <h1 class="text-secondary text-base font-semibold md:text-5xl">
-          Contact for Reports & Feedback
-        </h1>
-      </div>
-      <div class="flex flex-col gap-6 md:flex-row md:gap-10">
-        <div class="bg-card flex w-full flex-col rounded-[25px] p-8 md:w-1/2 md:p-15 md:px-25">
-          <h1 class="mb-2 text-base font-semibold md:text-3xl">Get in Touch</h1>
-          <p class="mb-6 text-xs text-gray-500">
-            Have questions, feedback, or need assistance? We're here to help!
+            With DermAssist, you benefit from AI-powered analysis backed by real doctors. Our system
+            helps detect skin concerns quickly and accurately, while giving you the option to
+            consult professionals for proper guidance.
           </p>
-
-          <p class="mb-1 text-[9px] text-gray-500">Name</p>
-          <input
-            type="text"
-            class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
-          />
-
-          <p class="mb-1 text-[9px] text-gray-500">Email</p>
-          <input
-            type="email"
-            class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
-          />
-
-          <p class="mb-1 text-[9px] text-gray-500">Message</p>
-          <textarea
-            class="bg-primary-light ring-secondary h-32 resize-none rounded-xl px-4 py-2 outline-none focus:ring-1"
-          ></textarea>
-
-          <div class="mt-4 flex items-center justify-start gap-2">
-            <input
-              type="checkbox"
-              class="accent-secondary h-3 w-3 cursor-pointer"
-            />
-            <p class="text-[9px] text-gray-500">I agree to the terms and conditions</p>
-          </div>
-
+          <div
+            class="md:bg-secondary my-2 h-[2px] w-full rounded-full bg-white/40 md:my-7 md:h-[5px] md:w-130"
+          ></div>
           <AppButton
             variant="unstyled"
             size="unstyled"
             rounded="unstyled"
-            class="bg-secondary hover:bg-opacity-90 mt-5 rounded-xl py-2 text-[12px] font-semibold text-white transition-all md:mt-20"
+            class="text-secondary md:bg-foreground md:text-card w-24 cursor-pointer rounded-full bg-white px-3 py-1.5 text-xs font-semibold shadow-md transition-all hover:bg-white/90 md:w-50 md:px-5 md:py-2 md:text-lg"
           >
-            Send Message
+            Know More
           </AppButton>
         </div>
+      </div>
 
-        <NuxtImg
-          src="/images/contact-us-img.png"
-          class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
-          alt="contact"
-        />
+      <!-- About Section -->
+      <LandingPageAboutUs />
+
+      <!-- Features Section -->
+      <div id="features">
+        <div class="mb-5 flex flex-col items-center justify-center md:mb-20">
+          <h2 class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
+            Features
+          </h2>
+          <h1 class="md:text-secondary text-base font-bold text-white md:text-5xl md:font-semibold">
+            Our Features &amp; Services
+          </h1>
+        </div>
+        <div class="flex flex-wrap justify-center gap-3 md:gap-10">
+          <div
+            v-for="feature in features"
+            :key="feature.title"
+            class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-shadow hover:shadow-md md:h-150 md:w-110 md:rounded-[50px] md:p-10"
+          >
+            <div
+              class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-35 md:w-35 md:p-7"
+            >
+              <div
+                v-if="feature.icon.startsWith('<svg')"
+                v-html="feature.icon"
+                class="flex h-5 w-5 items-center justify-center md:h-20 md:w-20 [&>svg]:h-full [&>svg]:w-full"
+              ></div>
+              <Icon
+                v-else
+                :name="feature.icon"
+                class="text-base md:text-7xl"
+              />
+            </div>
+            <div class="flex flex-col items-center">
+              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-10 md:text-[40px]">
+                {{ feature.title }}
+              </p>
+              <p
+                class="text-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-5 md:px-4 md:text-[20px]"
+              >
+                {{ feature.description }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Contact Section -->
+      <div id="contact">
+        <div class="mb-10 flex flex-col items-center justify-center md:mb-20">
+          <h2 class="text-secondary md:text-secondary text-sm font-medium md:text-4xl md:font-thin">
+            Contact Us
+          </h2>
+          <h1 class="md:text-secondary text-base font-bold text-white md:text-5xl md:font-semibold">
+            Contact for Reports &amp; Feedback
+          </h1>
+        </div>
+        <div class="flex flex-col gap-6 md:flex-row md:gap-10">
+          <div
+            class="bg-card border-border/80 flex w-full flex-col rounded-[25px] border p-8 shadow-sm md:w-1/2 md:border-none md:p-15 md:px-25 md:shadow-none"
+          >
+            <h1 class="mb-2 text-base font-semibold md:text-3xl">Get in Touch</h1>
+            <p class="mb-6 text-xs text-gray-500">
+              Have questions, feedback, or need assistance? We're here to help!
+            </p>
+
+            <p class="mb-1 text-[9px] text-gray-500">Name</p>
+            <input
+              type="text"
+              class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
+            />
+
+            <p class="mb-1 text-[9px] text-gray-500">Email</p>
+            <input
+              type="email"
+              class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
+            />
+
+            <p class="mb-1 text-[9px] text-gray-500">Message</p>
+            <textarea
+              class="bg-primary-light ring-secondary h-32 resize-none rounded-xl px-4 py-2 outline-none focus:ring-1"
+            ></textarea>
+
+            <div class="mt-4 flex items-center justify-start gap-2">
+              <input
+                type="checkbox"
+                class="accent-secondary h-3 w-3 cursor-pointer"
+              />
+              <p class="text-[9px] text-gray-500">I agree to the terms and conditions</p>
+            </div>
+
+            <AppButton
+              variant="unstyled"
+              size="unstyled"
+              rounded="unstyled"
+              class="bg-secondary hover:bg-opacity-90 mt-5 rounded-xl py-2 text-[12px] font-semibold text-white transition-all md:mt-20"
+            >
+              Send Message
+            </AppButton>
+          </div>
+
+          <NuxtImg
+            src="/images/contact-us-img.png"
+            class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
+            alt="contact"
+          />
+        </div>
       </div>
     </div>
   </div>
