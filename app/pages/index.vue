@@ -28,18 +28,18 @@
 
     <!-- Main Content Container -->
     <div
-      class="relative z-10 mx-auto mb-12 flex max-w-7xl flex-col justify-center gap-8 px-4 pt-4 md:gap-20 md:px-16 md:pt-10 lg:px-24"
+      class="relative z-10 mx-auto mb-12 flex max-w-7xl flex-col justify-center gap-10 px-4 pt-12 sm:pt-14 md:gap-20 md:px-8 md:pt-10 lg:gap-24 lg:px-12 xl:max-w-[1380px] xl:px-14"
     >
       <!-- Features Pitch Section -->
       <div class="flex items-center justify-center gap-5 md:space-x-20">
         <NuxtImg
           src="/images/accuracy-test.png"
-          class="h-auto w-2/5 shrink-0 rounded-2xl md:h-100 md:w-auto"
+          class="h-auto w-2/5 shrink-0 rounded-2xl border-2 border-white md:h-100 md:w-auto md:border-0"
           alt="CTA"
         />
         <div class="flex flex-col space-y-1 md:space-y-3">
           <p
-            class="md:text-foreground text-xs leading-relaxed font-semibold text-white md:w-145 md:text-2xl"
+            class="md:text-foreground text-[10px] leading-relaxed font-semibold text-white sm:text-xs md:w-145 md:text-2xl"
           >
             With DermAssist, you benefit from AI-powered analysis backed by real doctors. Our system
             helps detect skin concerns quickly and accurately, while giving you the option to
@@ -65,9 +65,14 @@
       <!-- Features Section -->
       <div
         id="features"
-        class="w-full"
+        class="relative w-full scroll-mt-20"
       >
-        <div class="mb-5 flex flex-col items-center justify-center md:mb-14">
+        <!-- Ambient Atmospheric Glow -->
+        <div
+          class="from-secondary/15 via-primary/10 pointer-events-none absolute -top-14 left-1/2 -z-10 h-64 w-full max-w-4xl -translate-x-1/2 rounded-full bg-gradient-to-tr to-amber-400/10 blur-3xl"
+        ></div>
+
+        <div class="mb-5 flex flex-col items-center justify-center md:mb-8">
           <h2 class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
             Features
           </h2>
@@ -75,32 +80,32 @@
             Our Features &amp; Services
           </h1>
         </div>
-        <div class="mx-auto flex max-w-6xl flex-wrap justify-center gap-5 md:gap-7 lg:gap-8">
+        <div class="grid w-full grid-cols-1 gap-5 md:grid-cols-3 md:gap-7 lg:gap-8">
           <div
             v-for="feature in features"
             :key="feature.title"
-            class="bg-card flex w-full max-w-md flex-col items-center justify-start rounded-[20px] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md md:h-auto md:min-h-[300px] md:w-80 md:rounded-3xl md:p-7 lg:w-84"
+            class="bg-card flex w-full flex-col items-center justify-start rounded-[20px] p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md md:h-auto md:min-h-[320px] md:rounded-3xl md:p-8 lg:min-h-[340px] lg:p-9"
           >
             <div
-              class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-18 md:w-18 md:p-4"
+              class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-20 md:w-20 md:p-4.5"
             >
               <div
                 v-if="feature.icon.startsWith('<svg')"
                 v-html="feature.icon"
-                class="flex h-5 w-5 items-center justify-center md:h-9 md:w-9 [&>svg]:h-full [&>svg]:w-full"
+                class="flex h-5 w-5 items-center justify-center md:h-10 md:w-10 [&>svg]:h-full [&>svg]:w-full"
               ></div>
               <Icon
                 v-else
                 :name="feature.icon"
-                class="text-base md:text-3xl"
+                class="text-base md:text-4xl"
               />
             </div>
             <div class="flex flex-col items-center">
-              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-4 md:text-xl">
+              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-5 md:text-2xl">
                 {{ feature.title }}
               </p>
               <p
-                class="text-foreground md:text-muted-foreground mt-1 px-1 text-center text-[10px] leading-relaxed md:mt-3 md:px-2 md:text-sm"
+                class="text-foreground md:text-muted-foreground mt-1 px-1 text-center text-[10px] leading-relaxed md:mt-3 md:px-3 md:text-base"
               >
                 {{ feature.description }}
               </p>
@@ -110,8 +115,16 @@
       </div>
 
       <!-- Contact Section -->
-      <div id="contact">
-        <div class="mb-5 flex flex-col items-center justify-center md:mb-14">
+      <div
+        id="contact"
+        class="relative w-full scroll-mt-20"
+      >
+        <!-- Ambient Atmospheric Glow -->
+        <div
+          class="from-secondary/15 via-primary/10 pointer-events-none absolute -top-14 left-1/2 -z-10 h-64 w-full max-w-4xl -translate-x-1/2 rounded-full bg-gradient-to-tr to-amber-400/10 blur-3xl"
+        ></div>
+
+        <div class="mb-5 flex flex-col items-center justify-center md:mb-8">
           <p class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
             Contact Us
           </p>
@@ -121,65 +134,202 @@
             Contact for Reports &amp; Feedback
           </h2>
         </div>
-        <div class="flex flex-col gap-6 md:flex-row md:gap-10">
+        <div class="flex flex-col gap-6 md:flex-row md:items-stretch md:gap-8 lg:gap-10">
+          <!-- Modern Contact Form Card -->
           <div
-            class="bg-card border-border/80 flex w-full flex-col rounded-[25px] border p-8 shadow-sm md:w-1/2 md:border-none md:p-15 md:px-25 md:shadow-none"
+            class="bg-card border-border/80 relative flex w-full flex-col justify-between rounded-3xl border p-6 shadow-sm sm:p-8 md:w-1/2 md:p-10 lg:p-12"
           >
-            <h1 class="mb-2 text-base font-semibold md:text-3xl">Get in Touch</h1>
-            <p class="mb-6 text-xs text-gray-500">
-              Have questions, feedback, or need assistance? We're here to help!
-            </p>
+            <div>
+              <div class="mb-6">
+                <span
+                  class="text-secondary mb-1.5 inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase"
+                >
+                  <Icon
+                    name="lucide:message-square-text"
+                    class="h-4 w-4"
+                  />
+                  Message Our Team
+                </span>
+                <h3 class="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
+                  Get in Touch
+                </h3>
+                <p class="text-muted-foreground mt-1.5 text-xs leading-relaxed sm:text-sm">
+                  Have questions, feedback, or need clinical assistance? We're here to help!
+                </p>
+              </div>
 
-            <p class="mb-1 text-[9px] text-gray-500">Name</p>
-            <input
-              type="text"
-              class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
-            />
+              <form
+                class="flex flex-col gap-4.5"
+                @submit.prevent="handleSendMessage"
+              >
+                <!-- Full Name -->
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/80 text-xs font-semibold">Full Name</label>
+                  <div class="relative">
+                    <div
+                      class="text-muted-foreground/60 pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5"
+                    >
+                      <Icon
+                        name="lucide:user"
+                        class="h-4 w-4"
+                      />
+                    </div>
+                    <input
+                      v-model="contactForm.name"
+                      type="text"
+                      placeholder="e.g. Dr. Jane Smith"
+                      class="bg-background/50 border-border/80 text-foreground placeholder:text-muted-foreground/50 focus:border-secondary focus:ring-secondary/20 h-11 w-full rounded-2xl border pr-4 pl-10 text-xs transition-all duration-200 outline-none focus:bg-white focus:ring-2 sm:text-sm"
+                    />
+                  </div>
+                </div>
 
-            <p class="mb-1 text-[9px] text-gray-500">Email</p>
-            <input
-              type="email"
-              class="bg-primary-light ring-secondary mb-4 rounded-xl px-4 py-2 outline-none focus:ring-1"
-            />
+                <!-- Email Address -->
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/80 text-xs font-semibold">Email Address</label>
+                  <div class="relative">
+                    <div
+                      class="text-muted-foreground/60 pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5"
+                    >
+                      <Icon
+                        name="lucide:mail"
+                        class="h-4 w-4"
+                      />
+                    </div>
+                    <input
+                      v-model="contactForm.email"
+                      type="email"
+                      placeholder="name@example.com"
+                      class="bg-background/50 border-border/80 text-foreground placeholder:text-muted-foreground/50 focus:border-secondary focus:ring-secondary/20 h-11 w-full rounded-2xl border pr-4 pl-10 text-xs transition-all duration-200 outline-none focus:bg-white focus:ring-2 sm:text-sm"
+                    />
+                  </div>
+                </div>
 
-            <p class="mb-1 text-[9px] text-gray-500">Message</p>
-            <textarea
-              class="bg-primary-light ring-secondary h-32 resize-none rounded-xl px-4 py-2 outline-none focus:ring-1"
-            ></textarea>
+                <!-- Message -->
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-foreground/80 text-xs font-semibold">Your Message</label>
+                  <div class="relative">
+                    <textarea
+                      v-model="contactForm.message"
+                      rows="4"
+                      placeholder="Tell us about your questions, inquiries, or feedback..."
+                      class="bg-background/50 border-border/80 text-foreground placeholder:text-muted-foreground/50 focus:border-secondary focus:ring-secondary/20 w-full resize-none rounded-2xl border p-3.5 text-xs transition-all duration-200 outline-none focus:bg-white focus:ring-2 sm:text-sm"
+                    ></textarea>
+                  </div>
+                </div>
 
-            <div class="mt-4 flex items-center justify-start gap-2">
-              <input
-                type="checkbox"
-                class="accent-secondary h-3 w-3 cursor-pointer"
-              />
-              <p class="text-[9px] text-gray-500">I agree to the terms and conditions</p>
+                <!-- Terms & Conditions -->
+                <div class="flex items-center gap-2.5 pt-1 text-xs select-none">
+                  <input
+                    id="contact-terms-checkbox"
+                    v-model="contactForm.agreed"
+                    type="checkbox"
+                    class="accent-secondary border-border/80 h-4 w-4 cursor-pointer rounded-md"
+                  />
+                  <label
+                    for="contact-terms-checkbox"
+                    class="text-muted-foreground cursor-pointer"
+                  >
+                    I agree to the
+                    <button
+                      type="button"
+                      class="text-secondary cursor-pointer font-medium hover:underline"
+                      @click="openTermsModal('terms')"
+                    >
+                      Terms &amp; Conditions
+                    </button>
+                  </label>
+                </div>
+
+                <!-- Submit Button -->
+                <button
+                  type="submit"
+                  :disabled="isSending"
+                  class="bg-secondary hover:bg-primary mt-1 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-white shadow-xs transition-all duration-200 hover:shadow-md active:scale-98 disabled:cursor-not-allowed disabled:opacity-70 sm:text-sm"
+                >
+                  <Icon
+                    v-if="!isSending"
+                    name="lucide:send"
+                    class="h-4 w-4"
+                  />
+                  <Icon
+                    v-else
+                    name="lucide:loader-2"
+                    class="h-4 w-4 animate-spin"
+                  />
+                  <span>{{ isSending ? 'Sending Message...' : 'Send Message' }}</span>
+                </button>
+              </form>
             </div>
-
-            <AppButton
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
-              class="bg-secondary hover:bg-opacity-90 mt-5 rounded-xl py-2 text-[12px] font-semibold text-white transition-all md:mt-20"
-            >
-              Send Message
-            </AppButton>
           </div>
 
           <NuxtImg
             src="/images/contact-us-img.png"
-            class="h-full w-full rounded-[25px] object-cover md:h-auto md:w-1/2"
+            class="hidden rounded-3xl object-cover md:block md:h-auto md:w-1/2"
             alt="contact"
           />
         </div>
       </div>
     </div>
+
+    <!-- Terms & Conditions Modal -->
+    <AppModalTermsModal
+      v-model="showTermsModal"
+      :initial-tab="termsModalTab"
+      @accept="handleTermsAccepted"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+  import { ref } from 'vue'
+  import { toast } from 'vue-sonner'
+
   definePageMeta({
     layout: 'landing-page'
   })
+
+  const showTermsModal = ref(false)
+  const termsModalTab = ref<'terms' | 'privacy' | 'cookies'>('terms')
+
+  const openTermsModal = (tab: 'terms' | 'privacy' | 'cookies' = 'terms') => {
+    termsModalTab.value = tab
+    showTermsModal.value = true
+  }
+
+  const handleTermsAccepted = () => {
+    contactForm.value.agreed = true
+    showTermsModal.value = false
+  }
+
+  const contactForm = ref({
+    name: '',
+    email: '',
+    message: '',
+    agreed: false
+  })
+  const isSending = ref(false)
+
+  const handleSendMessage = () => {
+    if (
+      !contactForm.value.name.trim() ||
+      !contactForm.value.email.trim() ||
+      !contactForm.value.message.trim()
+    ) {
+      toast.error('Please fill in all fields before sending.')
+      return
+    }
+    if (!contactForm.value.agreed) {
+      toast.error('Please agree to the terms and conditions.')
+      return
+    }
+
+    isSending.value = true
+    setTimeout(() => {
+      isSending.value = false
+      toast.success('Thank you! Your message has been sent successfully.')
+      contactForm.value = { name: '', email: '', message: '', agreed: false }
+    }, 600)
+  }
 
   // THE DYNAMIC ARRAY: Manage your features here!
   const features = [

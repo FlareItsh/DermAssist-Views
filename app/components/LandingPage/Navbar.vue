@@ -1,7 +1,7 @@
 <template>
   <!-- Backdrop click interceptor to close dropdown on outside tap -->
   <div
-    v-if="isMenuOpen && isScrolled"
+    v-if="isMenuOpen && isCollapsed"
     class="fixed inset-0 z-40 md:hidden"
     @click="closeMenu"
   ></div>
@@ -14,22 +14,29 @@
       <a
         href="#about"
         class="hover:text-secondary cursor-pointer transition-colors"
+        @click="scrollToSection($event, 'about')"
         >About</a
       >
       <a
         href="#features"
         class="hover:text-secondary cursor-pointer transition-colors"
+        @click="scrollToSection($event, 'features')"
         >Features</a
       >
       <a
         href="#contact"
         class="hover:text-secondary cursor-pointer transition-colors"
+        @click="scrollToSection($event, 'contact')"
         >Contact Us</a
       >
     </div>
 
     <!-- Brand / Center Logo + Shrunken Mobile 3-Line Menu Icon -->
-    <div class="mr-2 flex items-center space-x-1.5 md:mr-3 md:space-x-2">
+    <div
+      class="mr-2 flex items-center space-x-1.5 md:mr-3 md:space-x-2"
+      :class="[isCollapsed ? 'cursor-pointer transition-transform active:scale-95' : '']"
+      @click="handleLogoClick"
+    >
       <NuxtImg
         src="/images/DA_Icon.png"
         class="mx-auto mb-0.5 h-7 w-auto md:mb-2 md:h-15"
@@ -39,17 +46,17 @@
         DermAssist
       </h1>
 
-      <!-- Mobile 3-Line Menu Icon (Hidden when at top, smoothly reveals when shrunk down) -->
+      <!-- Mobile 3-Line Menu Icon (Visible strictly when hero cover is collapsed) -->
       <button
         type="button"
         aria-label="Toggle navigation menu"
         class="text-foreground flex h-7 w-7 items-center justify-center rounded-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-black/5 active:scale-95 md:hidden"
         :class="[
-          isScrolled
+          isCollapsed
             ? 'pointer-events-auto scale-100 opacity-100'
             : 'pointer-events-none scale-75 opacity-0'
         ]"
-        @click="toggleMenu"
+        @click.stop="toggleMenu"
       >
         <Icon
           :name="isMenuOpen ? 'lucide:x' : 'lucide:menu'"
@@ -58,40 +65,43 @@
       </button>
     </div>
 
-    <!-- Mobile Quick Links (Centered when open; smoothly scales and fades out when shrunk down) -->
+    <!-- Mobile Quick Links (Middle: ONLY visible when hero cover is fully opened and NOT collapsed) -->
     <div
-      class="pointer-events-none absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 text-[11px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] md:hidden"
+      class="absolute top-1/2 left-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 text-[11px] font-semibold transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] md:hidden"
       :class="[
-        isScrolled
-          ? 'scale-75 opacity-0'
-          : 'text-foreground pointer-events-auto scale-100 opacity-100'
+        isFullyOpened && !isCollapsed
+          ? 'text-foreground pointer-events-auto scale-100 opacity-100'
+          : 'pointer-events-none scale-75 opacity-0'
       ]"
     >
       <a
         href="#about"
-        class="hover:text-secondary px-1 py-0.5 transition-colors active:scale-95"
+        class="hover:text-secondary cursor-pointer px-2 py-1 transition-colors active:scale-95"
+        @click="scrollToSection($event, 'about')"
       >
         About
       </a>
       <a
         href="#features"
-        class="hover:text-secondary px-1 py-0.5 transition-colors active:scale-95"
+        class="hover:text-secondary cursor-pointer px-2 py-1 transition-colors active:scale-95"
+        @click="scrollToSection($event, 'features')"
       >
         Features
       </a>
       <a
         href="#contact"
-        class="hover:text-secondary px-1 py-0.5 transition-colors active:scale-95"
+        class="hover:text-secondary cursor-pointer px-2 py-1 transition-colors active:scale-95"
+        @click="scrollToSection($event, 'contact')"
       >
         Contact
       </a>
     </div>
 
-    <!-- Actions (On mobile: hidden when at top, smoothly reveals when transformed into navbar) -->
+    <!-- Actions (On mobile: visible strictly when hero cover is collapsed) -->
     <div
       class="flex items-center space-x-1.5 transition-all duration-400 ease-[cubic-bezier(0.16,1,0.3,1)] md:pointer-events-auto md:translate-x-0 md:space-x-6 md:opacity-100"
       :class="[
-        isScrolled
+        isCollapsed
           ? 'pointer-events-auto translate-x-0 opacity-100'
           : 'pointer-events-none translate-x-2 opacity-0'
       ]"
@@ -110,7 +120,7 @@
       </NuxtLink>
     </div>
 
-    <!-- Floating Mobile Dropdown Menu (Opened by the 3-line icon in shrunken mode) -->
+    <!-- Floating Mobile Dropdown Menu (Opened by the 3-line icon in collapsed mode) -->
     <Transition
       enter-active-class="transition duration-200 ease-out"
       enter-from-class="opacity-0 -translate-y-2 scale-95"
@@ -120,13 +130,13 @@
       leave-to-class="opacity-0 -translate-y-2 scale-95"
     >
       <div
-        v-if="isMenuOpen && isScrolled"
+        v-if="isMenuOpen && isCollapsed"
         class="bg-card/95 border-border/80 absolute top-[calc(100%+8px)] left-0 z-50 flex w-44 flex-col gap-1 rounded-2xl border p-2 text-left shadow-xl backdrop-blur-md md:hidden"
       >
         <a
           href="#about"
           class="hover:bg-accent/15 text-foreground hover:text-secondary flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
-          @click="closeMenu"
+          @click="scrollToSection($event, 'about')"
         >
           <Icon
             name="lucide:info"
@@ -137,7 +147,7 @@
         <a
           href="#features"
           class="hover:bg-accent/15 text-foreground hover:text-secondary flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
-          @click="closeMenu"
+          @click="scrollToSection($event, 'features')"
         >
           <Icon
             name="lucide:sparkles"
@@ -148,7 +158,7 @@
         <a
           href="#contact"
           class="hover:bg-accent/15 text-foreground hover:text-secondary flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors"
-          @click="closeMenu"
+          @click="scrollToSection($event, 'contact')"
         >
           <Icon
             name="lucide:mail"
@@ -162,9 +172,10 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue'
+  import { ref, watch } from 'vue'
 
-  const isScrolled = ref(false)
+  const isCollapsed = useState<boolean>('hero_cover_is_collapsed', () => false)
+  const isFullyOpened = useState<boolean>('hero_cover_is_fully_opened', () => true)
   const isMenuOpen = ref(false)
 
   const toggleMenu = () => {
@@ -175,20 +186,55 @@
     isMenuOpen.value = false
   }
 
-  const handleScroll = () => {
-    const scrolled = window.scrollY > 35
-    if (!scrolled && isMenuOpen.value) {
-      isMenuOpen.value = false
+  watch(isCollapsed, collapsed => {
+    if (!collapsed) {
+      closeMenu()
     }
-    isScrolled.value = scrolled
+  })
+
+  const handleLogoClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && isCollapsed.value) {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      isCollapsed.value = false
+      setTimeout(() => {
+        isFullyOpened.value = true
+      }, 400)
+    }
   }
 
-  onMounted(() => {
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    handleScroll()
-  })
+  const scrollToSection = (e: MouseEvent, sectionId: string) => {
+    e.preventDefault()
+    closeMenu()
 
-  onUnmounted(() => {
-    window.removeEventListener('scroll', handleScroll)
-  })
+    const element = document.getElementById(sectionId)
+    if (!element) return
+
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    const navOffset = isMobile ? 70 : 80
+
+    if (isMobile && !isCollapsed.value) {
+      // When hero cover is open on mobile, hero-spacer height is window.innerHeight.
+      // Once collapsed, it shrinks to 56px (minNavbarHeight).
+      // We subtract this shrinkage so the scroll target accurately lands at the top of the section.
+      const rawPosition = element.getBoundingClientRect().top + window.scrollY
+      const shrinkAmount = window.innerHeight - 56
+      const finalTarget = Math.max(0, rawPosition - shrinkAmount - navOffset)
+
+      isCollapsed.value = true
+      isFullyOpened.value = false
+
+      setTimeout(() => {
+        window.scrollTo({
+          top: finalTarget,
+          behavior: 'smooth'
+        })
+      }, 50)
+    } else {
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY
+      window.scrollTo({
+        top: Math.max(0, elementPosition - navOffset),
+        behavior: 'smooth'
+      })
+    }
+  }
 </script>

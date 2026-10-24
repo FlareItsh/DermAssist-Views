@@ -2,40 +2,35 @@
   <div class="relative block w-full md:hidden">
     <!-- Stable Spacer in normal flow: keeps document scroll height accurate and syncs with blue content -->
     <div
-      class="pointer-events-none w-full"
-      :style="{ height: `${spacerHeight}px` }"
+      class="hero-spacer pointer-events-none w-full"
+      :style="{ height: isCollapsed ? `${minNavbarHeight}px` : `${windowH}px` }"
     ></div>
 
-    <!-- Fixed Morphing White Header Canvas (Slow, silky shrink on left & right, stops at navbar height) -->
+    <!-- Fixed Morphing White Header Canvas (Collapses smoothly to docked top navbar via GPU transition) -->
     <div
-      class="text-foreground via-card fixed top-0 z-40 flex flex-col overflow-hidden bg-gradient-to-b from-[#f0f6ff] to-[#edf4fc]"
+      class="hero-canvas text-foreground via-card fixed top-0 z-40 flex flex-col overflow-hidden bg-gradient-to-b from-[#f0f6ff] to-[#edf4fc]"
+      :class="[
+        isCollapsed
+          ? 'right-3.5 left-3.5 rounded-b-3xl shadow-[0_10px_25px_-5px_rgba(0,0,0,0.12),0_8px_12px_-6px_rgba(0,0,0,0.06)]'
+          : 'inset-x-0 rounded-none shadow-none'
+      ]"
       :style="{
-        left: `${heroInset}px`,
-        right: `${heroInset}px`,
-        height: `${heroHeight}px`,
-        borderRadius: `0 0 ${heroRadius}px ${heroRadius}px`,
-        boxShadow: heroShadow
+        height: isCollapsed ? `${minNavbarHeight}px` : `${windowH}px`
       }"
     >
       <!-- Modern Minimalist Designer Backdrop Elements -->
       <div
-        class="pointer-events-none absolute inset-0 -z-0 overflow-hidden transition-opacity duration-150"
-        :style="{
-          opacity: contentOpacity,
-          visibility: contentOpacity <= 0 ? 'hidden' : 'visible'
-        }"
+        class="hero-content pointer-events-none absolute inset-0 -z-0 overflow-hidden"
+        :class="[isCollapsed ? 'invisible opacity-0' : 'visible opacity-100']"
       >
-        <!-- Layer 1: Ambient Mesh Aura Orbs (Barely Visible) -->
+        <!-- Layer 1: Ambient Mesh Aura (Native GPU Radial Gradient - Zero Blur Filter Overhead) -->
         <div
-          class="from-secondary/8 via-primary/4 absolute -top-24 -right-24 h-96 w-96 rounded-full bg-gradient-to-bl to-transparent blur-3xl"
-        ></div>
-        <div
-          class="via-primary/4 absolute top-[65%] -left-28 h-88 w-88 -translate-y-1/2 rounded-full bg-gradient-to-tr from-sky-400/8 to-transparent blur-3xl"
+          class="absolute inset-0 [background:radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.08)_0%,transparent_50%),radial-gradient(circle_at_10%_65%,rgba(56,189,248,0.07)_0%,transparent_45%)]"
         ></div>
 
-        <!-- Layer 2: Precision Dot Matrix Grid (Crisp & Visible) -->
+        <!-- Layer 2: Precision Dot Matrix Grid (Subtle & Soft) -->
         <div
-          class="absolute inset-0 [background-image:radial-gradient(oklch(0.55_0.22_258.275/0.45)_1.5px,transparent_1.5px)] [mask-image:radial-gradient(ellipse_at_50%_45%,black_45%,transparent_85%)] [background-size:24px_24px] opacity-75"
+          class="absolute inset-0 [background-image:radial-gradient(oklch(0.55_0.22_258.275/0.35)_1.2px,transparent_1.2px)] [mask-image:radial-gradient(ellipse_at_50%_45%,black_45%,transparent_90%)] [background-size:24px_24px] opacity-60"
         ></div>
 
         <!-- Layer 4: Designer Crosshair Markers (+) in Corners -->
@@ -53,15 +48,14 @@
         </div>
       </div>
 
-      <!-- Center Welcoming Content (Gradually translates and fades out over slow scroll) -->
+      <!-- Center Welcoming Content -->
       <main
-        class="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pt-[clamp(3.5rem,7vh,5rem)] pb-[clamp(2.5rem,5vh,3.5rem)] text-center"
-        :style="{
-          opacity: contentOpacity,
-          transform: `translateY(-${contentTranslateY}px)`,
-          pointerEvents: contentOpacity < 0.1 ? 'none' : 'auto',
-          visibility: contentOpacity <= 0 ? 'hidden' : 'visible'
-        }"
+        class="hero-content relative z-10 flex flex-1 flex-col items-center justify-center px-5 pt-[clamp(4.25rem,8vh,5.5rem)] pb-[clamp(2rem,4vh,3rem)] text-center"
+        :class="[
+          isCollapsed
+            ? 'pointer-events-none invisible -translate-y-4 opacity-0'
+            : 'pointer-events-auto visible translate-y-0 opacity-100'
+        ]"
       >
         <!-- Eyebrow Website Brand Name -->
         <p
@@ -105,14 +99,16 @@
           <!-- Row 1 -->
           <div
             class="marquee-track animate-marquee-right-1 flex shrink-0 items-center gap-3.5"
-            :style="{ animationPlayState: contentOpacity < 0.05 ? 'paused' : 'running' }"
+            :style="{
+              animationPlayState: isCollapsed ? 'paused' : 'running'
+            }"
           >
             <!-- Original pills set -->
             <div class="flex shrink-0 items-center gap-3.5">
               <!-- Pill 1: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:microscope"
@@ -120,7 +116,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Instant Skin Analysis
                 </span>
@@ -128,7 +124,7 @@
               <!-- Pill 2: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:activity"
@@ -136,7 +132,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Track Skin Changes
                 </span>
@@ -160,7 +156,7 @@
               <!-- Pill 4: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:sparkles"
@@ -168,7 +164,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Smart Diagnosis
                 </span>
@@ -181,7 +177,7 @@
             >
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:microscope"
@@ -189,14 +185,14 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Instant Skin Analysis
                 </span>
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:activity"
@@ -204,7 +200,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Track Skin Changes
                 </span>
@@ -226,7 +222,7 @@
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:sparkles"
@@ -234,7 +230,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Smart Diagnosis
                 </span>
@@ -245,14 +241,16 @@
           <!-- Row 2 -->
           <div
             class="marquee-track animate-marquee-right-2 flex shrink-0 items-center gap-3.5"
-            :style="{ animationPlayState: contentOpacity < 0.05 ? 'paused' : 'running' }"
+            :style="{
+              animationPlayState: isCollapsed ? 'paused' : 'running'
+            }"
           >
             <!-- Original pills set -->
             <div class="flex shrink-0 items-center gap-3.5">
               <!-- Pill 1: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:stethoscope"
@@ -260,7 +258,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Licensed Dermatologists
                 </span>
@@ -278,13 +276,13 @@
                 <span
                   class="inline-flex shrink-0 items-center rounded-full border border-sky-300/80 bg-sky-100 px-4 py-2 text-xs font-semibold text-sky-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
                 >
-                  40+ Conditions
+                  Core Conditions
                 </span>
               </div>
               <!-- Pill 3: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:shield-check"
@@ -292,7 +290,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Encrypted &amp; Private
                 </span>
@@ -300,7 +298,7 @@
               <!-- Pill 4: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:pill"
@@ -308,7 +306,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Clinical Advice
                 </span>
@@ -321,7 +319,7 @@
             >
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:stethoscope"
@@ -329,7 +327,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Licensed Dermatologists
                 </span>
@@ -346,12 +344,12 @@
                 <span
                   class="inline-flex shrink-0 items-center rounded-full border border-sky-300/80 bg-sky-100 px-4 py-2 text-xs font-semibold text-sky-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
                 >
-                  40+ Conditions
+                  Core Conditions
                 </span>
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:shield-check"
@@ -359,14 +357,14 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Encrypted &amp; Private
                 </span>
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:pill"
@@ -374,7 +372,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Clinical Advice
                 </span>
@@ -385,14 +383,16 @@
           <!-- Row 3 -->
           <div
             class="marquee-track animate-marquee-right-3 flex shrink-0 items-center gap-3.5"
-            :style="{ animationPlayState: contentOpacity < 0.05 ? 'paused' : 'running' }"
+            :style="{
+              animationPlayState: isCollapsed ? 'paused' : 'running'
+            }"
           >
             <!-- Original pills set -->
             <div class="flex shrink-0 items-center gap-3.5">
               <!-- Pill 1: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:camera"
@@ -400,7 +400,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Mobile Camera Scans
                 </span>
@@ -408,7 +408,7 @@
               <!-- Pill 2: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:badge-check"
@@ -416,7 +416,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Clinical Accuracy
                 </span>
@@ -440,7 +440,7 @@
               <!-- Pill 4: White -->
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:trending-up"
@@ -448,7 +448,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Real-Time Tracking
                 </span>
@@ -461,7 +461,7 @@
             >
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:camera"
@@ -469,14 +469,14 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Mobile Camera Scans
                 </span>
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:badge-check"
@@ -484,7 +484,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Clinical Accuracy
                 </span>
@@ -506,7 +506,7 @@
               </div>
               <div class="inline-flex shrink-0 items-center gap-1.5">
                 <span
-                  class="flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-200/90 bg-white shadow-2xs sm:h-10 sm:w-10"
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-blue-400 bg-white shadow-2xs sm:h-11 sm:w-11"
                 >
                   <Icon
                     name="lucide:trending-up"
@@ -514,7 +514,7 @@
                   />
                 </span>
                 <span
-                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-200/90 bg-white px-4 py-2 text-xs font-semibold text-blue-950 shadow-2xs sm:px-4.5 sm:py-2.5 sm:text-sm"
+                  class="inline-flex shrink-0 items-center rounded-full border border-dashed border-blue-400 bg-white px-4.5 py-2.5 text-xs font-semibold text-blue-950 shadow-2xs sm:px-5 sm:py-3 sm:text-sm"
                 >
                   Real-Time Tracking
                 </span>
@@ -545,17 +545,17 @@
         </div>
       </main>
 
-      <!-- Bottom Scroll Arrow Indicator (static, pinned low, clickable to auto-scroll) -->
+      <!-- Bottom Scroll Arrow Indicator -->
       <button
         type="button"
         aria-label="Scroll down"
-        class="text-muted-foreground absolute right-0 bottom-1 left-0 flex cursor-pointer items-center justify-center py-1 transition-opacity duration-150"
-        :style="{
-          opacity: footerOpacity,
-          pointerEvents: footerOpacity < 0.2 ? 'none' : 'auto',
-          visibility: footerOpacity <= 0 ? 'hidden' : 'visible'
-        }"
-        @click="scrollToDock"
+        class="hero-content text-muted-foreground absolute right-0 bottom-1 left-0 flex cursor-pointer items-center justify-center py-1"
+        :class="[
+          isCollapsed
+            ? 'pointer-events-none invisible opacity-0'
+            : 'pointer-events-auto visible opacity-100'
+        ]"
+        @click="collapseHero"
       >
         <Icon
           name="lucide:chevron-down"
@@ -588,125 +588,51 @@
   })
 
   const windowH = ref(800)
-  const spacerHeight = ref(800)
-  const heroHeight = ref(800)
-  const heroInset = ref(0)
-  const heroRadius = ref(0)
-  const heroShadow = ref('none')
-  const contentOpacity = ref(1)
-  const contentTranslateY = ref(0)
-  const footerOpacity = ref(1)
+  const minNavbarHeight = 56
+  const isCollapsed = useState<boolean>('hero_cover_is_collapsed', () => false)
+  const isFullyOpened = useState<boolean>('hero_cover_is_fully_opened', () => true)
+  const isAnimating = ref(false)
+  let animTimer: ReturnType<typeof setTimeout> | null = null
+  let hasScrolledDown = false
 
-  const minNavbarHeight = 56 // Compact navbar pill height with sleek, snug bottom padding
-  const slowShrinkDistance = 300 // Slow, comfortable distance for left & right shrink
-
-  let ticking = false
-  let isAutoScrolling = false
-  let autoScrollTimeout: ReturnType<typeof setTimeout> | null = null
-  let lastScrollY = 0
   let touchStartY = 0
 
-  const getTargetY = () => {
-    const H = windowH.value || (typeof window !== 'undefined' ? window.innerHeight : 800)
-    return Math.max(0, H - minNavbarHeight)
+  const collapseHero = () => {
+    if (isCollapsed.value || isAnimating.value) return
+    isAnimating.value = true
+    isFullyOpened.value = false
+    isCollapsed.value = true
+    hasScrolledDown = false
+
+    if (animTimer) clearTimeout(animTimer)
+    animTimer = setTimeout(() => {
+      isAnimating.value = false
+    }, 380)
   }
 
-  const scrollToDock = () => {
-    if (typeof window === 'undefined') return
-    const targetY = getTargetY()
-    isAutoScrolling = true
-    if (autoScrollTimeout) clearTimeout(autoScrollTimeout)
-    window.scrollTo({
-      top: targetY,
-      behavior: 'smooth'
-    })
-    autoScrollTimeout = setTimeout(() => {
-      isAutoScrolling = false
-    }, 850)
-  }
+  const expandHero = () => {
+    if (!isCollapsed.value || isAnimating.value) return
+    isAnimating.value = true
+    isFullyOpened.value = false
 
-  const scrollToTop = () => {
-    if (typeof window === 'undefined') return
-    isAutoScrolling = true
-    if (autoScrollTimeout) clearTimeout(autoScrollTimeout)
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-    autoScrollTimeout = setTimeout(() => {
-      isAutoScrolling = false
-    }, 850)
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+
+    isCollapsed.value = false
+    hasScrolledDown = false
+
+    if (animTimer) clearTimeout(animTimer)
+    animTimer = setTimeout(() => {
+      isAnimating.value = false
+      isFullyOpened.value = true
+    }, 400)
   }
 
   const updateDimensions = () => {
     if (typeof window !== 'undefined') {
-      const h = window.innerHeight || 800
-      windowH.value = h
-      spacerHeight.value = h
+      windowH.value = window.innerHeight || 800
     }
-  }
-
-  const updateScrollState = () => {
-    if (typeof window === 'undefined') return
-
-    if (window.innerWidth >= 768) {
-      heroHeight.value = 0
-      heroInset.value = 0
-      heroRadius.value = 0
-      heroShadow.value = 'none'
-      contentOpacity.value = 1
-      contentTranslateY.value = 0
-      footerOpacity.value = 1
-      ticking = false
-      return
-    }
-
-    const y = window.scrollY
-    const clampedY = Math.max(0, y)
-    const H = windowH.value
-    const targetY = getTargetY()
-
-    // 1. Natural 1:1 scroll synchronization: collapses until minNavbarHeight (68px), then locks permanently
-    const currentH = Math.min(H, Math.max(minNavbarHeight, H - clampedY))
-    heroHeight.value = currentH
-
-    // 2. Slow and graceful shrink animation on left and right (0px -> 14px) over 300px of scroll
-    const shrinkProgress = Math.min(clampedY / slowShrinkDistance, 1)
-    heroInset.value = shrinkProgress * 14
-
-    // 3. Bottom corners round gracefully to 24px matching navbar roundness
-    heroRadius.value = shrinkProgress * 24
-
-    // 4. Soft bottom shadow gently blooms
-    if (shrinkProgress > 0.05) {
-      const alpha1 = (0.06 + shrinkProgress * 0.16).toFixed(3)
-      const alpha2 = (0.03 + shrinkProgress * 0.09).toFixed(3)
-      heroShadow.value = `0 10px 25px -5px rgba(0, 0, 0, ${alpha1}), 0 8px 12px -6px rgba(0, 0, 0, ${alpha2})`
-    } else {
-      heroShadow.value = 'none'
-    }
-
-    // 5. Scroll prompt fades out gently over 100px
-    footerOpacity.value = Math.max(0, 1 - clampedY / 100)
-
-    // 6. Welcoming typography & tags translate up and fade out smoothly over 240px
-    contentOpacity.value = Math.max(0, 1 - clampedY / 240)
-    contentTranslateY.value = Math.min(clampedY * 0.25, 60)
-
-    lastScrollY = clampedY
-    ticking = false
-  }
-
-  const onScroll = () => {
-    if (!ticking) {
-      window.requestAnimationFrame(updateScrollState)
-      ticking = true
-    }
-  }
-
-  const onResize = () => {
-    updateDimensions()
-    onScroll()
   }
 
   const onTouchStart = (e: TouchEvent) => {
@@ -716,36 +642,73 @@
   }
 
   const onTouchEnd = (e: TouchEvent) => {
-    if (window.innerWidth >= 768 || isAutoScrolling) return
+    if (window.innerWidth >= 768) return
+    if (isAnimating.value) return
     if (e.changedTouches.length === 0) return
 
     const touchEndY = e.changedTouches[0].clientY
-    const deltaY = touchStartY - touchEndY // positive = swiped up (scroll down intent)
-    const y = window.scrollY
-    const targetY = getTargetY()
+    const deltaY = touchStartY - touchEndY // positive = swiped up, negative = swiped down
 
-    if (deltaY > 25 && y < targetY - 40) {
-      scrollToDock()
-    } else if (deltaY < -25 && y > 0 && y <= targetY + 30) {
-      scrollToTop()
+    if (!isCollapsed.value) {
+      // If expanded: ANY slight upward swipe (>15px) immediately collapses it!
+      if (deltaY > 15) {
+        collapseHero()
+      }
+    } else {
+      // If collapsed and user reaches top (scrollY <= 5 or swiping down near top): auto-expand!
+      if (window.scrollY <= 5 || (window.scrollY <= 50 && deltaY < -20)) {
+        expandHero()
+      }
+    }
+  }
+
+  const onWheel = (e: WheelEvent) => {
+    if (window.innerWidth >= 768) return
+    if (isAnimating.value) return
+
+    if (!isCollapsed.value && e.deltaY > 6) {
+      collapseHero()
+    } else if (isCollapsed.value && window.scrollY <= 10 && e.deltaY < -6) {
+      expandHero()
+    }
+  }
+
+  const onScroll = () => {
+    if (window.innerWidth >= 768) return
+    if (isAnimating.value) return
+
+    const y = window.scrollY
+
+    if (!isCollapsed.value) {
+      if (y > 30) {
+        collapseHero()
+      }
+    } else {
+      if (y > 35) {
+        hasScrolledDown = true
+      } else if (y <= 2 && hasScrolledDown) {
+        // User scrolled all the way back to the top end: auto-open without pull-to-refresh!
+        expandHero()
+      }
     }
   }
 
   onMounted(() => {
     updateDimensions()
     window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize, { passive: true })
+    window.addEventListener('wheel', onWheel, { passive: true })
+    window.addEventListener('resize', updateDimensions, { passive: true })
     window.addEventListener('touchstart', onTouchStart, { passive: true })
     window.addEventListener('touchend', onTouchEnd, { passive: true })
-    updateScrollState()
   })
 
   onUnmounted(() => {
     window.removeEventListener('scroll', onScroll)
-    window.removeEventListener('resize', onResize)
+    window.removeEventListener('wheel', onWheel)
+    window.removeEventListener('resize', updateDimensions)
     window.removeEventListener('touchstart', onTouchStart)
     window.removeEventListener('touchend', onTouchEnd)
-    if (autoScrollTimeout) clearTimeout(autoScrollTimeout)
+    if (animTimer) clearTimeout(animTimer)
   })
 </script>
 
@@ -755,6 +718,29 @@
   .font-cursive {
     font-family: 'Playfair Display', serif !important;
     font-style: italic !important;
+  }
+
+  .hero-canvas {
+    transition:
+      height 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      left 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      right 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      border-radius 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.35s ease;
+    will-change: height, left, right;
+    transform: translateZ(0);
+  }
+
+  .hero-spacer {
+    transition: height 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: height;
+  }
+
+  .hero-content {
+    transition:
+      opacity 0.25s ease,
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0.25s ease;
   }
 
   @keyframes marquee-scroll-right {
