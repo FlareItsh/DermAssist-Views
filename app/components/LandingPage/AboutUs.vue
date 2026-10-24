@@ -1,7 +1,7 @@
 <template>
   <section
     id="about"
-    class="relative my-6 py-6 md:my-16 md:py-12"
+    class="relative my-3 py-3 md:my-16 md:py-12"
   >
     <!-- Ambient Atmospheric Glow -->
     <div
@@ -9,46 +9,36 @@
     ></div>
 
     <!-- Header Section (Matching Reference Typography & Accent Tag) -->
-    <div class="mb-10 max-w-3xl md:mb-14">
-      <div class="inline-flex items-center gap-2">
-        <span class="h-2 w-2 animate-pulse rounded-full bg-amber-500"></span>
-        <p
-          class="text-xs font-semibold tracking-wider text-amber-300 uppercase md:text-sm md:text-amber-600 dark:text-amber-400"
-        >
-          Our Advantages
-        </p>
-      </div>
+    <div
+      class="mx-auto mb-6 flex max-w-3xl flex-col items-center text-center md:mb-20 md:max-w-none"
+    >
+      <p class="md:text-secondary text-sm font-medium text-blue-200 md:text-4xl md:font-thin">
+        About Us
+      </p>
 
       <h2
-        class="md:text-foreground mt-2 text-2xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl md:leading-[1.15]"
+        class="md:text-secondary mt-0 text-base font-bold tracking-tight text-white md:text-5xl md:font-semibold"
       >
         Smarter skin care, made easy &amp; accessible
       </h2>
-
-      <p
-        class="md:text-muted-foreground mt-3 text-xs leading-relaxed text-blue-100 sm:text-base md:mt-4 md:text-lg"
-      >
-        Your skin health deserves the certainty of real medical expertise. DermAssist pairs
-        cutting-edge clinical AI with certified dermatologists to detect concerns quickly and
-        connect you with professional care.
-      </p>
     </div>
 
     <!-- Folder-Tabbed Cards Grid (Responsive: Mobile Stack, Desktop 3-Col) -->
-    <div class="grid grid-cols-1 gap-8 md:grid-cols-3 md:gap-6 lg:gap-8">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6 lg:gap-8">
       <div
         v-for="(card, index) in advantageCards"
         :key="card.title"
-        class="group relative pt-11 transition-transform duration-300 hover:-translate-y-1"
+        class="group relative pt-8 drop-shadow-sm transition duration-300 hover:-translate-y-1 hover:drop-shadow-lg"
       >
         <!-- The Folder Tab -->
         <div
-          class="border-border/80 bg-card group-hover:border-primary/40 absolute top-0 left-0 z-10 flex h-11 items-center gap-2.5 rounded-tl-2xl rounded-tr-xl border-t border-r border-l px-5 shadow-xs transition-colors duration-200"
+          class="bg-card absolute top-0 left-0 z-10 flex h-9 items-center gap-2.5 rounded-tl-2xl rounded-tr-xl px-4"
         >
-          <!-- 3D / Emotive Icon Badge -->
-          <span class="text-xl transition-transform duration-300 group-hover:scale-110">
-            {{ card.emoji }}
-          </span>
+          <!-- Tab Icon Badge -->
+          <Icon
+            :name="card.tabIcon"
+            class="text-secondary h-5 w-5 transition-transform duration-300 group-hover:scale-110"
+          />
           <span class="text-foreground/80 text-xs font-semibold tracking-wide">
             {{ card.tabLabel }}
           </span>
@@ -57,15 +47,9 @@
           <div class="pointer-events-none absolute -right-4 bottom-0 h-4 w-4 overflow-hidden">
             <svg
               viewBox="0 0 16 16"
-              class="fill-card text-border/80 group-hover:text-primary/40 h-4 w-4 transition-colors duration-200"
+              class="fill-card h-4 w-4"
             >
               <path d="M 0,0 C 0,8.837 7.163,16 16,16 L 0,16 Z" />
-              <path
-                d="M 0,0 C 0,8.837 7.163,16 16,16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.2"
-              />
             </svg>
           </div>
 
@@ -75,7 +59,7 @@
 
         <!-- Folder Card Body -->
         <div
-          class="border-border/80 bg-card group-hover:border-primary/40 relative flex h-full flex-col justify-between rounded-tl-none rounded-tr-3xl rounded-b-3xl border p-6 shadow-sm transition-all duration-300 group-hover:shadow-lg sm:p-7 md:p-8"
+          class="bg-card relative flex h-full flex-col justify-between rounded-tl-none rounded-tr-3xl rounded-b-3xl px-4 py-5 sm:px-5 sm:py-6 md:px-5 md:py-6"
         >
           <div>
             <h3 class="text-foreground text-base font-bold sm:text-lg md:text-xl">
@@ -87,9 +71,9 @@
           </div>
 
           <!-- Bottom Metric / Feature Highlight Pill -->
-          <div class="border-border/50 mt-6 flex items-center justify-between border-t pt-4">
+          <div class="border-border/50 mt-3 -mb-2 flex items-center justify-between border-t pt-3">
             <span
-              class="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-medium"
+              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium"
               :class="card.pillClass"
             >
               <Icon
@@ -111,7 +95,7 @@
 
     <!-- Trust Stats Bar / Summary Strip -->
     <div
-      class="md:border-border/60 md:bg-card/60 mt-12 flex flex-wrap items-center justify-around gap-6 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md md:mt-16 md:p-7"
+      class="md:border-border/60 md:bg-card/60 mt-6 flex flex-wrap items-center justify-around gap-6 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md md:mt-16 md:p-7"
     >
       <div class="flex items-center gap-3">
         <div
@@ -175,7 +159,7 @@
   interface AdvantageCard {
     title: string
     description: string
-    emoji: string
+    tabIcon: string
     tabLabel: string
     highlight: string
     iconName: string
@@ -187,7 +171,7 @@
       title: 'AI-Powered Detection',
       description:
         'Advanced computer vision models screen skin images in seconds. No fake claims—our algorithms provide objective visual probability scores across 40+ common conditions.',
-      emoji: '🔮',
+      tabIcon: 'lucide:scan-search',
       tabLabel: 'Smart Screening',
       highlight: 'Instant Scan Results',
       iconName: 'lucide:zap',
@@ -197,7 +181,7 @@
       title: 'Verified Medical Doctors',
       description:
         'AI screening is just the beginning. Connect directly with board-certified dermatologists to review findings, get clear diagnoses, and receive medical treatment advice.',
-      emoji: '🩺',
+      tabIcon: 'lucide:stethoscope',
       tabLabel: 'Doctor Backed',
       highlight: 'Licensed Dermatologists',
       iconName: 'lucide:stethoscope',
@@ -207,7 +191,7 @@
       title: 'Ready in Minutes',
       description:
         'Skip weeks-long waiting rooms and referral queues. Take a photo with your phone or webcam and start your skin wellness journey from anywhere.',
-      emoji: '🚀',
+      tabIcon: 'lucide:rocket',
       tabLabel: 'Fast Access',
       highlight: 'Zero Waitlists',
       iconName: 'lucide:clock',

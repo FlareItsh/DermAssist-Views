@@ -70,32 +70,32 @@
             Our Features &amp; Services
           </h1>
         </div>
-        <div class="flex flex-wrap justify-center gap-3 md:gap-10">
+        <div class="flex flex-wrap justify-center gap-4 md:gap-6 lg:gap-8">
           <div
             v-for="feature in features"
             :key="feature.title"
-            class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-shadow hover:shadow-md md:h-150 md:w-110 md:rounded-[50px] md:p-10"
+            class="bg-card flex w-full max-w-lg flex-col items-center justify-center rounded-[20px] p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md md:h-auto md:min-h-[320px] md:w-80 md:justify-start md:rounded-3xl md:p-7 lg:w-88"
           >
             <div
-              class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-35 md:w-35 md:p-7"
+              class="bg-secondary text-card flex h-10 w-10 items-center justify-center rounded-full p-2 md:h-18 md:w-18 md:p-4"
             >
               <div
                 v-if="feature.icon.startsWith('<svg')"
                 v-html="feature.icon"
-                class="flex h-5 w-5 items-center justify-center md:h-20 md:w-20 [&>svg]:h-full [&>svg]:w-full"
+                class="flex h-5 w-5 items-center justify-center md:h-9 md:w-9 [&>svg]:h-full [&>svg]:w-full"
               ></div>
               <Icon
                 v-else
                 :name="feature.icon"
-                class="text-base md:text-7xl"
+                class="text-base md:text-3xl"
               />
             </div>
             <div class="flex flex-col items-center">
-              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-10 md:text-[40px]">
+              <p class="text-secondary mt-2 text-center text-xs font-bold md:mt-5 md:text-xl">
                 {{ feature.title }}
               </p>
               <p
-                class="text-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-5 md:px-4 md:text-[20px]"
+                class="text-foreground md:text-muted-foreground mt-1 px-1 text-center text-[10px] leading-tight md:mt-3 md:px-2 md:text-sm md:leading-relaxed"
               >
                 {{ feature.description }}
               </p>
