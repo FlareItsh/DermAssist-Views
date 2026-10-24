@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { userService } from '~/api/user/UserService'
+  import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { calculateAge } from '~/composables/useFormSanitizer'
 
   const {
@@ -31,17 +32,25 @@
     showConfirmDiscardModal.value = true
   }
 
-  const handleConfirmDiscard = () => {
+  const handleConfirmDiscard = async () => {
     showConfirmDiscardModal.value = false
     isCompleted.value = true
+    const diagUuid = currentDiagnosis.value?.uuid || (currentDiagnosis.value as any)?.id
+    if (diagUuid) {
+      try {
+        await diagnosisService.delete(String(diagUuid))
+      } catch (e) {
+        console.error('Failed to clean up discarded scan', e)
+      }
+    }
     if (import.meta.client) {
       try {
         localStorage.removeItem('dermassist_active_diagnosis')
         localStorage.removeItem('draft_clinical_note_active')
         localStorage.removeItem('draft_patient_info_active')
-        if (currentDiagnosis.value?.uuid) {
-          localStorage.removeItem(`draft_clinical_note_diag_${currentDiagnosis.value.uuid}`)
-          localStorage.removeItem(`draft_patient_info_${currentDiagnosis.value.uuid}`)
+        if (diagUuid) {
+          localStorage.removeItem(`draft_clinical_note_diag_${diagUuid}`)
+          localStorage.removeItem(`draft_patient_info_${diagUuid}`)
         }
       } catch (e) {
         // silent fail
@@ -153,11 +162,10 @@
   const appointmentUuid = computed(() => {
     if (diagnosisAppointmentUuid.value) return diagnosisAppointmentUuid.value
     if (!patientUuid.value) return null
-    const allAppointments = [...appointments.value, ...pendingAppointments.value]
-    const match = allAppointments.find(
+    const match = appointments.value.find(
       a =>
         a.patient_uuid === patientUuid.value &&
-        !['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+        ['confirmed', 'scheduled', 'checked_in', 'in_consultation'].includes(
           a.status?.toLowerCase()
         )
     )

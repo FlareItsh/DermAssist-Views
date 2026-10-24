@@ -40,9 +40,11 @@
     }
   )
 
-  const { appointments, fetchAppointments } = useAppointments()
+  const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
 
-  const appointmentsMap = computed(() => appointments.value.map(appt => appt.date))
+  const allAppointments = computed(() => [...appointments.value, ...pendingAppointments.value])
+
+  const appointmentsMap = computed(() => allAppointments.value.map(appt => appt.date))
 
   const currentDate = ref(new Date())
 
@@ -84,8 +86,13 @@
 
   const hasAppointment = (day: number) => appointmentsMap.value.includes(dateStringFor(day))
 
+  const hasPendingAppointment = (day: number) => {
+    const dStr = dateStringFor(day)
+    return pendingAppointments.value.some(appt => appt.date === dStr)
+  }
+
   const getAppointmentsForDate = (dateStr: string) => {
-    return appointments.value.filter(a => a.date === dateStr)
+    return allAppointments.value.filter(a => a.date === dateStr)
   }
 
   const formatAppointmentTimeRange = (appt: any): string => {
@@ -215,7 +222,7 @@
 
   const appointmentsForDay = computed(() => {
     if (!selectedDay.value) return []
-    return appointments.value.filter(a => a.date === selectedDay.value)
+    return allAppointments.value.filter(a => a.date === selectedDay.value)
   })
 
   const selectedDayLabel = computed(() => {
@@ -384,11 +391,36 @@
                   />
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-bold text-gray-900">{{ appt.doctor }}</p>
+                  <div class="flex items-center gap-2">
+                    <p class="truncate text-sm font-bold text-gray-900">{{ appt.doctor }}</p>
+                    <span
+                      v-if="appt.status === 'pending'"
+                      class="inline-flex shrink-0 items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[9px] font-bold text-amber-700 ring-1 ring-amber-600/20"
+                    >
+                      Pending Approval
+                    </span>
+                  </div>
                   <p class="truncate text-[11px] font-bold tracking-wide text-indigo-600 uppercase">
                     {{ appt.info }}
                   </p>
                 </div>
+              </div>
+
+              <!-- Pending Booking Request Banner -->
+              <div
+                v-if="appt.status === 'pending'"
+                class="rounded-xl border border-amber-200 bg-amber-50/90 p-2 text-xs text-amber-900"
+              >
+                <div class="flex items-center gap-1 font-bold text-amber-900">
+                  <Icon
+                    name="solar:clock-circle-bold"
+                    class="text-xs text-amber-600"
+                  />
+                  <span>Awaiting Doctor Confirmation</span>
+                </div>
+                <p class="mt-0.5 text-[10px] text-amber-800">
+                  Slot requested and pending doctor acceptance.
+                </p>
               </div>
 
               <!-- Meta info: Time & Location -->
@@ -446,7 +478,11 @@
 
                 <!-- If proposed by practice: Patient can accept or decline -->
                 <div
-                  v-if="appt.active_reschedule_proposal.proposer_party === 'practice'"
+                  v-if="
+                    appt.active_reschedule_proposal.proposer_party === 'practice' ||
+                    appt.active_reschedule_proposal.proposer_type === 'doctor' ||
+                    appt.active_reschedule_proposal.proposer_type === 'secretary'
+                  "
                   class="mt-2 flex gap-1.5"
                 >
                   <button
@@ -630,7 +666,13 @@
           <div
             v-if="hasAppointment(date) && !isPast(date) && !isWholeDayBlocked(date)"
             class="absolute -bottom-1 h-1 w-1 rounded-full"
-            :class="selectedDay === dateStringFor(date) ? 'bg-white' : 'bg-secondary'"
+            :class="
+              selectedDay === dateStringFor(date)
+                ? 'bg-white'
+                : hasPendingAppointment(date)
+                  ? 'bg-amber-500'
+                  : 'bg-secondary'
+            "
           />
 
           <!-- Blocked date tooltip -->

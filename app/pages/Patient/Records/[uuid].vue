@@ -22,6 +22,10 @@
     return Boolean(record.value?.is_appealed || record.value?.appeal)
   })
 
+  const prescriptionText = computed(() => {
+    return record.value?.clinical_note?.prescription || record.value?.prescription || null
+  })
+
   const activeDiseaseInfo = computed(() => {
     if (!record.value) return null
     const label = record.value.label || record.value.title || 'None'
@@ -250,25 +254,27 @@
         </div>
 
         <!-- Doctor Clinical Notes (if available) -->
-        <template v-if="record.type === 'doctor_diagnosis' && record.clinical_note">
-          <!-- Prescriptions Card -->
+        <template
+          v-if="record.type === 'doctor_diagnosis' || record.clinical_note || prescriptionText"
+        >
+          <!-- Prescription Card -->
           <div
-            v-if="record.clinical_note.prescription"
-            class="border-warning-border bg-warning-subtle flex flex-col gap-2 rounded-2xl border p-4 shadow-xs"
+            v-if="prescriptionText"
+            class="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs"
           >
-            <div class="text-warning-text flex items-center gap-2">
+            <div class="flex items-center gap-2 text-gray-800">
               <Icon
                 name="material-symbols:prescriptions-outline-rounded"
                 size="18"
-                class="text-warning"
+                class="text-indigo-600"
               />
-              <h4 class="text-warning-text text-xs font-semibold tracking-wider uppercase">
-                Prescriptions & Plan
-              </h4>
+              <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">Prescription</h4>
             </div>
-            <p class="text-warning-text text-xs leading-relaxed font-normal whitespace-pre-wrap">
-              {{ record.clinical_note.prescription }}
-            </p>
+            <div
+              class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-800 select-text"
+            >
+              {{ prescriptionText }}
+            </div>
           </div>
 
           <!-- Notes Card -->

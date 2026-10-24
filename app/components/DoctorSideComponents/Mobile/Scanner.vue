@@ -15,6 +15,8 @@
   const {
     isScanning,
     isScanned,
+    currentDiagnosis,
+    clearDiagnosis,
     setDiagnosis,
     qualityError,
     previewImage,
@@ -583,6 +585,15 @@
   }
 
   const resetToCamera = async () => {
+    const diagUuid = (currentDiagnosis.value as any)?.uuid || currentDiagnosis.value?.id
+    if (diagUuid) {
+      try {
+        await diagnosisService.delete(String(diagUuid))
+      } catch (e) {
+        console.error('Failed to clean up retaken scan', e)
+      }
+    }
+    clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
     isScanned.value = false
@@ -723,7 +734,10 @@
   }
 
   const availableAppointments = computed(() => {
-    const all = [...appointments.value, ...pendingAppointments.value]
+    // Only include confirmed/scheduled appointments (exclude unaccepted pending requests)
+    const all = appointments.value.filter(a =>
+      ['confirmed', 'scheduled', 'checked_in', 'in_consultation'].includes(a.status?.toLowerCase())
+    )
     const todayStr = getTodayStr()
     const tomorrowStr = getTomorrowStr()
 
@@ -732,7 +746,7 @@
     for (const appt of all) {
       // Exclude non-active / completed / cancelled appointments
       if (
-        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show', 'pending'].includes(
           appt.status?.toLowerCase()
         )
       ) {

@@ -146,14 +146,6 @@
             ) {
               await diagnosisService.update(uuid, { patient_uuid: patientUuid.value })
             }
-
-            if (isValidUuid(appointmentUuid.value)) {
-              try {
-                await appointmentService.attachInClinicScan(appointmentUuid.value, uuid)
-              } catch (attachErr) {
-                console.error('Failed to attach in-clinic scan to appointment', attachErr)
-              }
-            }
           }
         } catch (e) {
           console.error('Failed to update patient on diagnosis', e)
@@ -294,7 +286,10 @@
 
   // ─── Structured Appointments (Appointment-Centric) ─────────────────────────
   const availableAppointments = computed(() => {
-    const all = [...appointments.value, ...pendingAppointments.value]
+    // Only include confirmed/scheduled appointments (exclude unaccepted pending requests)
+    const all = appointments.value.filter(a =>
+      ['confirmed', 'scheduled', 'checked_in', 'in_consultation'].includes(a.status?.toLowerCase())
+    )
     const todayStr = getTodayStr()
     const tomorrowStr = getTomorrowStr()
 
@@ -303,7 +298,7 @@
     for (const appt of all) {
       // Exclude non-active / completed / cancelled appointments
       if (
-        ['completed', 'cancelled', 'declined', 'rejected', 'no_show'].includes(
+        ['completed', 'cancelled', 'declined', 'rejected', 'no_show', 'pending'].includes(
           appt.status?.toLowerCase()
         )
       ) {
