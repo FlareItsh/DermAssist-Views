@@ -4,7 +4,7 @@
   >
     <!-- Subtle Modern Backdrop Elements for Mobile Blue Background -->
     <div
-      class="pointer-events-none absolute inset-0 -z-0 overflow-hidden md:hidden"
+      class="pointer-events-none fixed inset-0 -z-0 overflow-hidden md:hidden"
       aria-hidden="true"
     >
       <!-- Layer 1: Ambient Luminous Radial Mesh -->
@@ -116,17 +116,17 @@
 
     <!-- Desktop Modern Dot Matrix Grid Background (Matching Hero Cover) -->
     <div
-      class="pointer-events-none absolute inset-0 -z-0 hidden overflow-hidden md:block"
+      class="pointer-events-none fixed inset-0 z-0 hidden overflow-hidden md:block"
       aria-hidden="true"
     >
       <!-- Layer 1: Ambient Mesh Aura for subtle depth -->
       <div
-        class="absolute inset-0 [background:radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.06)_0%,transparent_50%),radial-gradient(circle_at_10%_45%,rgba(56,189,248,0.05)_0%,transparent_45%)]"
+        class="absolute inset-0 [background-attachment:fixed] [background:radial-gradient(circle_at_90%_0%,rgba(59,130,246,0.06)_0%,transparent_50%),radial-gradient(circle_at_10%_45%,rgba(56,189,248,0.05)_0%,transparent_45%)]"
       ></div>
 
       <!-- Layer 2: Precision Dot Matrix Grid (Matching HeroCover dots) -->
       <div
-        class="absolute inset-0 [background-image:radial-gradient(oklch(0.55_0.22_258.275/0.28)_1.2px,transparent_1.2px)] [background-size:24px_24px] opacity-70"
+        class="absolute inset-0 [background-image:radial-gradient(oklch(0.55_0.22_258.275/0.28)_1.2px,transparent_1.2px)] [background-size:24px_24px] [background-attachment:fixed] opacity-70"
       ></div>
     </div>
 

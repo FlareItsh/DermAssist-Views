@@ -240,7 +240,7 @@
 
           <!-- Row 2 -->
           <div
-            class="marquee-track animate-marquee-right-2 flex shrink-0 items-center gap-3.5"
+            class="marquee-track animate-marquee-left-2 flex shrink-0 items-center gap-3.5"
             :style="{
               animationPlayState: isCollapsed ? 'paused' : 'running'
             }"
@@ -752,13 +752,22 @@
     }
   }
 
+  @keyframes marquee-scroll-left {
+    0% {
+      transform: translate3d(0%, 0, 0);
+    }
+    100% {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
   .animate-marquee-right-1 {
     animation: marquee-scroll-right 24s linear infinite;
     will-change: transform;
   }
 
-  .animate-marquee-right-2 {
-    animation: marquee-scroll-right 30s linear infinite;
+  .animate-marquee-left-2 {
+    animation: marquee-scroll-left 28s linear infinite;
     will-change: transform;
   }
 
