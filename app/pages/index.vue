@@ -604,38 +604,19 @@
                     class="text-muted-foreground group-hover:text-primary ml-auto size-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                   />
                 </a>
-
-                <!-- Clinic Hours -->
-                <div class="border-border/60 flex items-center gap-4 rounded-2xl border p-4">
-                  <div
-                    class="bg-primary/10 text-primary flex size-12 shrink-0 items-center justify-center rounded-xl"
-                  >
-                    <Icon
-                      name="lucide:clock"
-                      class="size-6"
-                    />
-                  </div>
-                  <div>
-                    <p class="text-muted-foreground text-xs font-medium">Consultation Hours</p>
-                    <p class="text-foreground text-sm font-semibold">
-                      Mon – Fri: 8:00 AM – 6:00 PM (PHT)
-                    </p>
-                  </div>
-                </div>
               </div>
 
               <!-- Urgent notice -->
-              <div
-                class="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:text-amber-200"
-              >
-                <div class="flex items-start gap-2">
+              <div class="mt-6 rounded-2xl border border-rose-200/90 bg-rose-50/80 p-4 text-xs">
+                <div class="flex items-start gap-2.5">
                   <Icon
                     name="lucide:alert-circle"
-                    class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400"
+                    class="mt-0.5 size-4.5 shrink-0 text-rose-600"
                   />
-                  <p class="leading-relaxed">
-                    <strong>Medical Note:</strong> For sudden acute symptoms, severe infections, or
-                    bleeding, please visit your nearest hospital emergency department immediately.
+                  <p class="leading-relaxed text-zinc-800">
+                    <strong class="font-bold text-rose-700">Medical Note:</strong>
+                    For sudden acute symptoms, severe infections, or bleeding, please visit your
+                    nearest hospital emergency department immediately.
                   </p>
                 </div>
               </div>
