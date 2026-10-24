@@ -79,6 +79,7 @@
   --font-primary: Poppins;
   --font-sans: 'DM Sans', sans-serif;
   --font-serif: 'Playfair Display', serif;
+  --font-cursive: 'Alex Brush', cursive;
 
   --color-primary-light: oklch(0.65 0.18 258.275);
   --color-primary-dark: oklch(0.46 0.22 258.275);
@@ -100,6 +101,10 @@ body {
 }
 
 @layer utilities {
+  .font-cursive {
+    font-family: 'Alex Brush', cursive !important;
+  }
+
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: #cbd5e1 transparent;
