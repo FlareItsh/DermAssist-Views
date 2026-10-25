@@ -27,6 +27,10 @@ export class UserService extends BaseService {
     return await this.request(`${this.resource}/${uuid}/restore`, 'POST')
   }
 
+  async changeRole(uuid: string, payload: { role: string; admin_password: string }): Promise<any> {
+    return await this.request(`/admin/users/${uuid}/role`, 'PUT', payload)
+  }
+
   // Doctor-Created Patients
   async createDoctorPatient(payload: object): Promise<any> {
     return await this.request('/doctor/patients', 'POST', payload)
