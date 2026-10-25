@@ -217,7 +217,63 @@
                   </div>
 
                   <div>
-                    <h4 class="text-foreground font-bold">5. Limitation of Liability</h4>
+                    <h4 class="text-foreground font-bold">
+                      5. Fees, Subscriptions & Strict No-Refund Policy
+                    </h4>
+                    <p class="text-muted-foreground mt-1">
+                      All fees and transactions processed on DermAssist—including doctor
+                      professional subscription plans, consultation appointment bookings, feature
+                      add-ons, and AI scan quota purchases—are strictly final, non-refundable, and
+                      non-creditable. Due to the immediate provisioning of clinical AI services,
+                      cloud computational resources, and doctor time allocations:
+                    </p>
+                    <ul class="text-muted-foreground mt-2 list-disc space-y-1.5 pl-5">
+                      <li>
+                        <strong class="text-foreground font-semibold">Doctor Subscriptions:</strong>
+                        Subscription plans are billed automatically in advance (monthly or
+                        annually). You may cancel your auto-renewal at any time to prevent
+                        subsequent billing cycles; however, charges for the current active billing
+                        cycle are strictly non-refundable and will not be prorated.
+                      </li>
+                      <li>
+                        <strong class="text-foreground font-semibold"
+                          >Consultations & Telehealth Appointments:</strong
+                        >
+                        Fees paid for completed, in-progress, or missed appointments (patient
+                        no-shows) are non-refundable. Rescheduling requests must adhere to clinic
+                        and attending physician availability rules.
+                      </li>
+                      <li>
+                        <strong class="text-foreground font-semibold"
+                          >AI Scan Quotas & Digital Credits:</strong
+                        >
+                        AI diagnostic quotas and digital credits are provisioned instantaneously
+                        upon payment confirmation. Allocated, used, or expired quota credits cannot
+                        be refunded, transferred, or exchanged for cash.
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div class="rounded-xl border border-amber-500/25 bg-amber-500/10 p-3.5">
+                    <p
+                      class="flex items-center gap-1.5 font-semibold text-amber-700 dark:text-amber-400"
+                    >
+                      <Icon
+                        name="lucide:alert-circle"
+                        class="h-4 w-4 shrink-0"
+                      />
+                      Summary of No-Refund Commitment
+                    </p>
+                    <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+                      By proceeding with any subscription or consultation booking on DermAssist, you
+                      explicitly acknowledge and accept this strict no-refund policy. Please verify
+                      plan tier selections and appointment details prior to completing any
+                      transaction.
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 class="text-foreground font-bold">6. Limitation of Liability</h4>
                     <p class="text-muted-foreground mt-1">
                       DermAssist shall not be liable for any indirect, incidental, or consequential
                       damages resulting from the use or inability to use the platform or any
@@ -364,7 +420,7 @@
             <div
               class="border-border/40 bg-muted/20 flex shrink-0 items-center justify-between border-t px-6 py-4"
             >
-              <span class="text-muted-foreground text-xs"> Last updated: September 2026 </span>
+              <span class="text-muted-foreground text-xs"> Last updated: October 2026 </span>
               <div class="flex items-center gap-2">
                 <AppButton
                   variant="ghost"
