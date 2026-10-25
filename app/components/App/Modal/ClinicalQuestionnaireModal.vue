@@ -364,7 +364,7 @@
     :model-value="modelValue"
     title="Clinical Symptom Questionnaire"
     description="Verify your visual scan against medical history & physical sensations"
-    size="xl"
+    size="2xl"
     compact
     @update:model-value="emit('update:modelValue', $event)"
     @close="handleClose"

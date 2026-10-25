@@ -83,7 +83,7 @@
     :model-value="modelValue"
     title="Patient Clinical Anamnesis"
     description="Patient self-reported history and mathematical Bayesian probability shifts"
-    size="xl"
+    size="2xl"
     compact
     @update:model-value="emit('update:modelValue', $event)"
     @close="handleClose"
