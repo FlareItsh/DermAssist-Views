@@ -352,6 +352,20 @@
     previewImageUrl.value = url
   }
 
+  // Patient clinical questionnaire inspection modal for doctor & attendees
+  const selectedDiagnosisForQuestionnaire = ref<any>(null)
+  const showPatientQuestionnaireModal = ref(false)
+
+  const openPatientQuestionnaireModal = (diagnosisData: any) => {
+    selectedDiagnosisForQuestionnaire.value = diagnosisData
+    showPatientQuestionnaireModal.value = true
+  }
+
+  const handleClosePatientQuestionnaireModal = () => {
+    showPatientQuestionnaireModal.value = false
+    selectedDiagnosisForQuestionnaire.value = null
+  }
+
   // Deduplicated displayed messages to filter out duplicate system cards
   const deduplicatedMessages = computed(() => {
     const valid = allMessages.value.filter(m => m && m.id)
@@ -2463,6 +2477,44 @@
                           </div>
                         </div>
                       </div>
+
+                      <!-- Doctor / Attendees Button for Patient Clinical Anamnesis Answers -->
+                      <div
+                        v-if="
+                          msg.appointment_data?.diagnosis?.is_questionnaire_refined ||
+                          (msg.appointment_data?.diagnosis as any)?.questionnaire_answers
+                        "
+                        class="border-border/40 mt-3 border-t pt-2.5"
+                      >
+                        <button
+                          type="button"
+                          class="border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 flex w-full items-center justify-between rounded-xl border px-3 py-1.5 text-xs font-bold transition-all active:scale-98"
+                          @click.stop="
+                            openPatientQuestionnaireModal(msg.appointment_data.diagnosis)
+                          "
+                        >
+                          <div class="flex items-center gap-1.5">
+                            <Icon
+                              name="lucide:folder-heart"
+                              class="h-4 w-4"
+                            />
+                            <span>Patient Anamnesis Answers</span>
+                          </div>
+                          <span class="text-primary/80 text-[10px] font-black uppercase">
+                            View Answers →
+                          </span>
+                        </button>
+                      </div>
+
+                      <div
+                        v-else-if="
+                          userRole?.toLowerCase() === 'doctor' ||
+                          userRole?.toLowerCase() === 'secretary'
+                        "
+                        class="text-muted-foreground/80 mt-2 text-[10px] italic"
+                      >
+                        ℹ️ Visual scan only (No questionnaire submitted)
+                      </div>
                     </div>
 
                     <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
@@ -3848,6 +3900,13 @@
           </div>
         </Transition>
       </Teleport>
+
+      <!-- Patient Questionnaire Answers Modal (Doctor View) -->
+      <AppModalPatientQuestionnaireAnswersModal
+        v-model="showPatientQuestionnaireModal"
+        :diagnosis="selectedDiagnosisForQuestionnaire"
+        @update:model-value="handleClosePatientQuestionnaireModal"
+      />
     </ClientOnly>
   </div>
 </template>

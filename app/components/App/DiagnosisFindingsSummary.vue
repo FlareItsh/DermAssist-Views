@@ -49,9 +49,29 @@
 
   const confidence = computed(() => {
     if (!currentDiagnosis.value) return 0
+    if (
+      currentDiagnosis.value.is_questionnaire_refined &&
+      currentDiagnosis.value.refined_confidence != null
+    ) {
+      return Math.round(currentDiagnosis.value.refined_confidence * 100)
+    }
     return Math.round(currentDiagnosis.value.confidence * 100)
   })
   const accuracy = confidence
+
+  const showQuestionnaireModal = ref(false)
+
+  const openQuestionnaireModal = () => {
+    showQuestionnaireModal.value = true
+  }
+
+  const handleCloseQuestionnaire = () => {
+    showQuestionnaireModal.value = false
+  }
+
+  const handleRefinedDiagnosis = () => {
+    showQuestionnaireModal.value = false
+  }
 
   const showScanReminder = ref(false)
 
@@ -81,7 +101,7 @@
         'Technical scan capture failure: Image quality unusable. Please rescan.'
       )
     }
-    if (isNoneState.value) return 'Non-skin image detected. Scan skin to proceed.'
+    if (isNoneState.value) return 'Non-Skin/No Skin Disease Detected. Scan skin to proceed.'
     if (props.role !== 'doctor' && isHealthyState.value) {
       return 'Healthy skin detected. No disease present.'
     }
@@ -750,6 +770,73 @@
             :confidence="confidence"
             :is-inconclusive="isInconclusiveState"
           />
+        </div>
+
+        <!-- Bayesian Multimodal Refinement Indicator / Trigger Card -->
+        <div
+          v-if="currentDiagnosis?.is_questionnaire_refined"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3"
+        >
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"
+            >
+              <Icon
+                name="lucide:sparkles"
+                class="h-3.5 w-3.5"
+              />
+              Multimodal Bayesian Verified
+            </span>
+          </div>
+          <button
+            type="button"
+            class="text-primary text-xs font-bold hover:underline"
+            @click="openQuestionnaireModal"
+          >
+            Retake Questionnaire
+          </button>
+        </div>
+
+        <div
+          v-else-if="
+            props.role === 'patient' &&
+            isScanned &&
+            !isHealthyState &&
+            !isInconclusiveState &&
+            !isNoneState &&
+            !isTechnicalFailure
+          "
+          class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
+        >
+          <div class="flex items-start gap-3">
+            <div
+              class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+            >
+              <Icon
+                name="lucide:clipboard-check"
+                class="h-4 w-4"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h4 class="text-foreground text-xs font-bold">Want Higher Assurance? (Optional)</h4>
+              <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                Answer 4 quick symptom questions to mathematically verify this image against
+                real-world sensations.
+              </p>
+              <AppButton
+                variant="primary"
+                size="sm"
+                class="mt-2.5 h-8 rounded-xl px-3.5 text-xs font-bold shadow-xs"
+                @click="openQuestionnaireModal"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="mr-1.5 h-3.5 w-3.5"
+                />
+                Refine with Questionnaire
+              </AppButton>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col">
@@ -1656,7 +1743,7 @@
                 isTechnicalFailure
                   ? 'Technical Scan Failure'
                   : isNoneState
-                    ? 'Non-Skin Image Detected'
+                    ? 'Non-Skin/No Skin Disease Detected'
                     : isOutOfScopeState
                       ? 'Out-of-Scope Condition'
                       : isInconclusiveState
@@ -1908,6 +1995,16 @@
       :loading="isDiscarding"
       @confirm="handleConfirmDiscard"
       @cancel="showDiscardModal = false"
+    />
+
+    <!-- Clinical Questionnaire Modal -->
+    <AppModalClinicalQuestionnaireModal
+      v-model="showQuestionnaireModal"
+      :diagnosis-uuid="currentDiagnosis?.uuid"
+      :prior-label="currentDiagnosis?.label"
+      :prior-confidence="currentDiagnosis?.confidence"
+      :prior-probabilities="currentDiagnosis?.all_probabilities"
+      @refined="handleRefinedDiagnosis"
     />
   </div>
 </template>

@@ -881,7 +881,7 @@
       if (
         newVal === 'None' ||
         newVal === 'Non-Skin' ||
-        newVal === 'Non-Skin Image Detected' ||
+        newVal === 'Non-Skin/No Skin Disease Detected' ||
         newVal === 'Non-Skin / Out of Scope'
       ) {
         activeDisease.value = 'None'
@@ -1354,7 +1354,7 @@
               >
                 {{
                   activeDisease === 'None'
-                    ? 'Non-Skin Image Detected'
+                    ? 'Non-Skin/No Skin Disease Detected'
                     : activeDisease === 'OutOfScope'
                       ? 'Out-of-Scope Condition'
                       : activeDisease === 'Inconclusive'
