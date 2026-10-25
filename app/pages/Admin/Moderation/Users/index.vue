@@ -6,6 +6,19 @@
     layout: 'dashboard-sidebar-layout'
   })
 
+  interface ScanQuota {
+    is_unlimited: boolean
+    limit: number | null
+    used: number
+    remaining: number | null
+    resets_at?: string | null
+    countdown_seconds?: number | null
+    unlimited_until?: string | null
+    source?: string
+    can_scan?: boolean
+    message?: string | null
+  }
+
   interface User {
     id?: number
     uuid: string
@@ -21,10 +34,36 @@
     affiliation?: string | null
     created_at?: string
     updated_at?: string
+    is_doctor_registered?: boolean
+    account_origin?: 'doctor_created' | 'self_registered'
+    registered_by_doctor?: {
+      id?: number
+      uuid?: string
+      first_name?: string
+      last_name?: string
+    } | null
+    assigned_doctor?: {
+      id?: number
+      uuid?: string
+      name?: string
+    } | null
     doctor_verification?: {
       status?: string
       prc_number?: string
     }
+    doctor_affiliation?: {
+      type: string
+      summary: string
+      hospital_affiliation?: string | null
+    } | null
+    subscription_details?: {
+      plan_name?: string
+      status?: string
+      is_active?: boolean
+      starts_at?: string | null
+      ends_at?: string | null
+    } | null
+    scan_quota?: ScanQuota | null
   }
 
   const users = ref<User[]>([])
@@ -287,6 +326,30 @@
   const visibleDoctorCount = computed(
     () => users.value.filter(user => getUserRole(user) === 'doctor').length
   )
+
+  const getScanQuotaLabel = (item: User) => {
+    const q = item.scan_quota
+    if (!q) return 'Scan Quota'
+    if (q.is_unlimited) return 'Unlimited scans'
+    if (q.can_scan === false && q.limit === 0) return '0 scans'
+    if (q.remaining !== null && q.limit !== null) {
+      return `${q.remaining}/${q.limit} scans`
+    }
+    if (q.limit !== null) {
+      return `${q.limit} scans/day`
+    }
+    return 'Scans active'
+  }
+
+  const getScanQuotaTooltip = (item: User) => {
+    const q = item.scan_quota
+    if (!q) return ''
+    if (q.is_unlimited) return 'Unlimited AI scans available'
+    if (q.source === 'doctor_care') return 'Doctor Care Window: 15 scans per day'
+    if (q.source === 'doctor_trial') return '14-Day Doctor Trial: 10 scans per day'
+    if (q.source === 'doctor_unverified') return 'Doctor verification required to scan'
+    return `${q.remaining ?? q.limit} remaining of ${q.limit} daily scans`
+  }
 </script>
 
 <template>
@@ -405,13 +468,74 @@
           </div>
 
           <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-gray-700 capitalize">
-              {{ getUserRole(user) }}
-            </p>
+            <div class="flex flex-wrap items-center gap-1.5">
+              <p class="truncate text-sm font-semibold text-gray-700 capitalize">
+                {{ getUserRole(user) }}
+              </p>
+              <!-- Account Type / Origin Chip -->
+              <span
+                v-if="getUserRole(user) === 'patient'"
+                class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+                :class="
+                  user.account_origin === 'doctor_created' || user.is_doctor_registered
+                    ? 'border border-sky-200/70 bg-sky-50 text-sky-700'
+                    : 'border border-emerald-200/70 bg-emerald-50 text-emerald-700'
+                "
+              >
+                <Icon
+                  :name="
+                    user.account_origin === 'doctor_created' || user.is_doctor_registered
+                      ? 'lucide:stethoscope'
+                      : 'lucide:user'
+                  "
+                  class="text-[10px]"
+                />
+                {{
+                  user.account_origin === 'doctor_created' || user.is_doctor_registered
+                    ? 'Doctor-Created'
+                    : 'Self-Registered'
+                }}
+              </span>
+
+              <span
+                v-else-if="getUserRole(user) === 'doctor' && user.subscription_details?.plan_name"
+                class="inline-flex items-center gap-1 rounded-md border border-purple-200/70 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="text-[10px]"
+                />
+                {{ user.subscription_details.plan_name }}
+              </span>
+
+              <span
+                v-else-if="getUserRole(user) === 'secretary' && user.assigned_doctor"
+                class="inline-flex items-center gap-1 rounded-md border border-indigo-200/70 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700"
+              >
+                <Icon
+                  name="lucide:user-check"
+                  class="text-[10px]"
+                />
+                Dr. {{ user.assigned_doctor.name }}
+              </span>
+            </div>
             <p class="mt-1 truncate text-xs font-medium text-gray-400">{{ getLocation(user) }}</p>
           </div>
 
           <div class="flex items-center gap-3 lg:justify-end">
+            <!-- Available Scans Pill -->
+            <div
+              v-if="user.scan_quota"
+              class="hidden items-center gap-1.5 rounded-full border border-gray-200/90 bg-gray-50/80 px-2.5 py-0.5 text-[11px] font-bold text-gray-700 sm:inline-flex"
+              :title="getScanQuotaTooltip(user)"
+            >
+              <Icon
+                name="lucide:zap"
+                class="text-xs text-amber-500"
+              />
+              <span>{{ getScanQuotaLabel(user) }}</span>
+            </div>
+
             <AppBadge
               size="xs"
               :color="getStatusColor(getUserStatus(user))"
