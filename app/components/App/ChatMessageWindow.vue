@@ -2511,9 +2511,13 @@
                           userRole?.toLowerCase() === 'doctor' ||
                           userRole?.toLowerCase() === 'secretary'
                         "
-                        class="text-muted-foreground/80 mt-2 text-[10px] italic"
+                        class="text-muted-foreground/80 mt-2 flex items-center gap-1.5 text-[10px] italic"
                       >
-                        ℹ️ Visual scan only (No questionnaire submitted)
+                        <Icon
+                          name="lucide:info"
+                          class="h-3.5 w-3.5 shrink-0"
+                        />
+                        <span>Visual scan only (No questionnaire submitted)</span>
                       </div>
                     </div>
 
