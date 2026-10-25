@@ -801,6 +801,8 @@
           v-else-if="
             props.role === 'patient' &&
             isScanned &&
+            isInconclusiveState &&
+            !isOutOfScopeState &&
             !isHealthyState &&
             !isNoneState &&
             !isTechnicalFailure
@@ -817,19 +819,10 @@
               />
             </div>
             <div class="min-w-0 flex-1">
-              <h4 class="text-foreground text-xs font-bold">
-                {{
-                  isInconclusiveState
-                    ? 'Clarify Ambiguous Scan (Optional)'
-                    : 'Want Higher Assurance? (Optional)'
-                }}
-              </h4>
+              <h4 class="text-foreground text-xs font-bold">Clarify Ambiguous Scan (Optional)</h4>
               <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                {{
-                  isInconclusiveState
-                    ? 'Visual AI detected close competing contenders. Answer 4 quick symptom questions to mathematically separate them and reach a conclusive diagnosis.'
-                    : 'Answer 4 quick symptom questions to mathematically verify this image against real-world sensations.'
-                }}
+                Visual AI detected close competing contenders. Answer 4 quick symptom questions to
+                mathematically separate them and reach a conclusive diagnosis.
               </p>
               <AppButton
                 variant="primary"
@@ -841,9 +834,7 @@
                   name="lucide:sparkles"
                   class="mr-1.5 h-3.5 w-3.5"
                 />
-                {{
-                  isInconclusiveState ? 'Clarify with Questionnaire' : 'Refine with Questionnaire'
-                }}
+                Clarify with Questionnaire
               </AppButton>
             </div>
           </div>

@@ -468,6 +468,7 @@ export const useDiagnosis = () => {
 
   const isInconclusiveState = computed(() => {
     if (!currentDiagnosis.value) return false
+    if (isOutOfScopeState.value) return false
     return (
       currentDiagnosis.value.is_inconclusive === true ||
       currentDiagnosis.value.label === 'Inconclusive' ||
