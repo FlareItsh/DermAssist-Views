@@ -802,7 +802,6 @@
             props.role === 'patient' &&
             isScanned &&
             !isHealthyState &&
-            !isInconclusiveState &&
             !isNoneState &&
             !isTechnicalFailure
           "
@@ -818,10 +817,19 @@
               />
             </div>
             <div class="min-w-0 flex-1">
-              <h4 class="text-foreground text-xs font-bold">Want Higher Assurance? (Optional)</h4>
+              <h4 class="text-foreground text-xs font-bold">
+                {{
+                  isInconclusiveState
+                    ? 'Clarify Ambiguous Scan (Optional)'
+                    : 'Want Higher Assurance? (Optional)'
+                }}
+              </h4>
               <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                Answer 4 quick symptom questions to mathematically verify this image against
-                real-world sensations.
+                {{
+                  isInconclusiveState
+                    ? 'Visual AI detected close competing contenders. Answer 4 quick symptom questions to mathematically separate them and reach a conclusive diagnosis.'
+                    : 'Answer 4 quick symptom questions to mathematically verify this image against real-world sensations.'
+                }}
               </p>
               <AppButton
                 variant="primary"
@@ -833,7 +841,9 @@
                   name="lucide:sparkles"
                   class="mr-1.5 h-3.5 w-3.5"
                 />
-                Refine with Questionnaire
+                {{
+                  isInconclusiveState ? 'Clarify with Questionnaire' : 'Refine with Questionnaire'
+                }}
               </AppButton>
             </div>
           </div>

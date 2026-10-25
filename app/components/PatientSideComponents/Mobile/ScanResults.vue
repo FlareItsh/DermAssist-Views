@@ -579,7 +579,7 @@
     </div>
 
     <div
-      v-else-if="!isHealthyState && !isInconclusiveState && !isNoneState && currentDiagnosis?.uuid"
+      v-else-if="!isHealthyState && !isNoneState && currentDiagnosis?.uuid"
       class="border-primary/20 from-primary/5 to-primary/10 flex flex-col gap-2 rounded-2xl border bg-gradient-to-br via-white p-3.5 shadow-xs"
     >
       <div class="flex items-center gap-2">
@@ -592,9 +592,19 @@
           />
         </div>
         <div class="min-w-0 flex-1">
-          <h4 class="text-xs font-bold text-gray-900">Want Higher Assurance? (Optional)</h4>
+          <h4 class="text-xs font-bold text-gray-900">
+            {{
+              isInconclusiveState
+                ? 'Clarify Ambiguous Scan (Optional)'
+                : 'Want Higher Assurance? (Optional)'
+            }}
+          </h4>
           <p class="text-[11px] text-gray-500">
-            Answer 4 quick symptom questions to mathematically verify this scan.
+            {{
+              isInconclusiveState
+                ? 'Answer quick symptom questions to mathematically separate close contenders.'
+                : 'Answer 4 quick symptom questions to mathematically verify this scan.'
+            }}
           </p>
         </div>
       </div>
@@ -608,7 +618,7 @@
           name="lucide:sparkles"
           class="mr-1.5 h-3.5 w-3.5"
         />
-        Refine with Questionnaire
+        {{ isInconclusiveState ? 'Clarify with Questionnaire' : 'Refine with Questionnaire' }}
       </AppButton>
     </div>
 
