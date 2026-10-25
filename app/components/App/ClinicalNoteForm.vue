@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
+  import { $api } from '~/composables/useApi'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { datasetService } from '~/api/dataset/DatasetService'
@@ -171,6 +172,82 @@
 
   const handleClearPrescriptionDraft = () => {
     note.value.prescription = ''
+  }
+
+  // Prescription Pad & Post-Finish Printing Flow
+  const showPrescriptionPadModal = ref(false)
+  const showPostFinishPrompt = ref(false)
+  const isPreviewSaving = ref(false)
+  const isDownloadingRxPdf = ref(false)
+  const savedPayload = ref<{ conversationUuid?: string; followUpScheduled?: boolean } | undefined>(undefined)
+
+  const effectiveDiagUuid = computed(() => {
+    return props.diagnosisUuid || (note.value as any)?.diagnosis_uuid || (note.value as any)?.in_clinic_diagnosis_uuid || null
+  })
+
+  const handleDownloadRxPdf = async () => {
+    // If note is modified, quickly sync draft before download
+    if (props.diagnosisUuid) {
+      try {
+        await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
+      } catch (e) {
+        // continue to download
+      }
+    }
+
+    const diagUuid = effectiveDiagUuid.value
+    if (!diagUuid) {
+      toast.error('Diagnosis record reference missing.')
+      return
+    }
+
+    isDownloadingRxPdf.value = true
+    try {
+      const blob = await $api<Blob>(`/diagnoses/${diagUuid}/prescription/pdf`, {
+        responseType: 'blob'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `prescription-${String(diagUuid).slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Prescription PDF downloaded successfully!')
+    } catch (err: any) {
+      console.error('Failed to download prescription PDF:', err)
+      toast.error('Failed to download PDF. Please try again.')
+    } finally {
+      isDownloadingRxPdf.value = false
+    }
+  }
+
+  const handleOpenPrescriptionPreview = async () => {
+    if (!note.value.prescription || !note.value.prescription.trim()) {
+      toast.warning('Please add medications to the prescription draft first.')
+      return
+    }
+
+    isPreviewSaving.value = true
+    try {
+      if (props.diagnosisUuid) {
+        await clinicalNoteService.saveForDiagnosis(props.diagnosisUuid, note.value)
+      } else if (props.appointmentUuid) {
+        await clinicalNoteService.save(props.appointmentUuid, note.value)
+      }
+      showPrescriptionPadModal.value = true
+    } catch (e) {
+      console.error('Failed to sync draft for prescription preview:', e)
+      showPrescriptionPadModal.value = true
+    } finally {
+      isPreviewSaving.value = false
+    }
+  }
+
+  const handleFinishAndExit = () => {
+    showPostFinishPrompt.value = false
+    emit('saved', savedPayload.value)
   }
 
   const handleOpenMedicineLibrary = () => {
@@ -903,10 +980,19 @@
 
       followUpError.value = null
       showSuccess.value = true
-      emit('saved', {
-        conversationUuid: scheduledConversationUuid,
-        followUpScheduled: didScheduleFollowUp
-      })
+
+      if (props.isFinishMode && note.value.prescription && note.value.prescription.trim()) {
+        savedPayload.value = {
+          conversationUuid: scheduledConversationUuid,
+          followUpScheduled: didScheduleFollowUp
+        }
+        showPostFinishPrompt.value = true
+      } else {
+        emit('saved', {
+          conversationUuid: scheduledConversationUuid,
+          followUpScheduled: didScheduleFollowUp
+        })
+      }
 
       setTimeout(() => {
         showSuccess.value = false
@@ -1292,14 +1378,38 @@
                 >
                   Prescription Draft
                 </label>
-                <button
-                  v-if="note.prescription"
-                  type="button"
-                  @click="handleClearPrescriptionDraft"
-                  class="text-[10px] font-semibold text-gray-400 hover:text-red-600"
-                >
-                  Clear
-                </button>
+                <div class="flex items-center gap-2.5">
+                  <button
+                    v-if="note.prescription && note.prescription.trim()"
+                    type="button"
+                    :disabled="isDownloadingRxPdf"
+                    @click="handleDownloadRxPdf"
+                    class="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
+                  >
+                    <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
+                    <Icon v-else name="lucide:download" class="text-xs" />
+                    <span>Download Rx</span>
+                  </button>
+                  <button
+                    v-if="note.prescription && note.prescription.trim()"
+                    type="button"
+                    :disabled="isPreviewSaving"
+                    @click="handleOpenPrescriptionPreview"
+                    class="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    <Icon v-if="isPreviewSaving" name="lucide:loader-2" class="animate-spin text-xs" />
+                    <Icon v-else name="lucide:printer" class="text-xs" />
+                    <span>Preview & Print Rx</span>
+                  </button>
+                  <button
+                    v-if="note.prescription"
+                    type="button"
+                    @click="handleClearPrescriptionDraft"
+                    class="text-[10px] font-semibold text-gray-400 hover:text-red-600"
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
               <textarea
                 v-model="note.prescription"
@@ -1758,5 +1868,59 @@
         </div>
       </section>
     </div>
+
+    <!-- Official Prescription Pad Modal -->
+    <AppPrescriptionPrescriptionPadModal
+      v-model="showPrescriptionPadModal"
+      :diagnosis-uuid="effectiveDiagUuid"
+    />
+
+    <!-- Post-Finish Prescription Prompt Dialog -->
+    <Teleport to="body">
+      <div
+        v-if="showPostFinishPrompt"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+      >
+        <div class="flex flex-col w-full max-w-md bg-white border border-gray-100 shadow-2xl rounded-3xl overflow-hidden p-6 sm:p-7 text-center">
+          <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
+            <Icon name="lucide:check-circle-2" class="text-3xl" />
+          </div>
+          <h3 class="text-lg font-bold text-gray-900 mb-1">Consultation Completed & Saved!</h3>
+          <p class="text-xs text-gray-500 mb-6 leading-relaxed">
+            Clinical notes and assessment findings have been committed. How would you like to handle the patient's prescription?
+          </p>
+
+          <div class="flex flex-col gap-2.5">
+            <button
+              type="button"
+              :disabled="isDownloadingRxPdf"
+              @click="handleDownloadRxPdf"
+              class="w-full flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors disabled:opacity-50"
+            >
+              <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-sm" />
+              <Icon v-else name="lucide:download" class="text-sm" />
+              <span>Download Prescription (PDF)</span>
+            </button>
+
+            <button
+              type="button"
+              @click="showPrescriptionPadModal = true"
+              class="w-full flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
+            >
+              <Icon name="lucide:printer" class="text-sm" />
+              <span>Preview & Print Prescription (Rx)</span>
+            </button>
+
+            <button
+              type="button"
+              @click="handleFinishAndExit"
+              class="w-full px-5 py-2.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors mt-1"
+            >
+              Done & Return to Scans
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

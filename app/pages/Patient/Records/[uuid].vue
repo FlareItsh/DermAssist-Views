@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRoute, navigateTo } from '#app'
+  import { $api } from '~/composables/useApi'
   import { recordService, type RecordItem } from '~/api/record/RecordService'
   import { DISEASE_DATABASE, COLOR_MAP } from '~/composables/useDiagnosis'
   import { useStorage } from '~/composables/useStorage'
@@ -25,6 +26,32 @@
   const prescriptionText = computed(() => {
     return record.value?.clinical_note?.prescription || record.value?.prescription || null
   })
+  const showPrescriptionPad = ref(false)
+  const isDownloadingRxPdf = ref(false)
+
+  const downloadPrescriptionPdf = async () => {
+    if (!record.value?.uuid) return
+    isDownloadingRxPdf.value = true
+    try {
+      const blob = await $api<Blob>(`/diagnoses/${record.value.uuid}/prescription/pdf`, {
+        responseType: 'blob'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `prescription-${record.value.uuid.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Prescription PDF downloaded successfully')
+    } catch (err: any) {
+      console.error('Failed to download prescription PDF:', err)
+      toast.error('Failed to download PDF.')
+    } finally {
+      isDownloadingRxPdf.value = false
+    }
+  }
 
   const activeDiseaseInfo = computed(() => {
     if (!record.value) return null
@@ -262,13 +289,35 @@
             v-if="prescriptionText"
             class="flex flex-col gap-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs"
           >
-            <div class="flex items-center gap-2 text-gray-800">
-              <Icon
-                name="material-symbols:prescriptions-outline-rounded"
-                size="18"
-                class="text-indigo-600"
-              />
-              <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">Prescription</h4>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2 text-gray-800">
+                <Icon
+                  name="material-symbols:prescriptions-outline-rounded"
+                  size="18"
+                  class="text-indigo-600"
+                />
+                <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">Prescription</h4>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  type="button"
+                  :disabled="isDownloadingRxPdf"
+                  @click="downloadPrescriptionPdf"
+                  class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
+                  <Icon v-else name="lucide:download" class="text-xs" />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  type="button"
+                  @click="showPrescriptionPad = true"
+                  class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                >
+                  <Icon name="lucide:printer" class="text-xs" />
+                  <span>Print Rx</span>
+                </button>
+              </div>
             </div>
             <div
               class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-800 select-text"
@@ -514,6 +563,13 @@
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Official Prescription Pad Modal -->
+    <AppPrescriptionPrescriptionPadModal
+      v-model="showPrescriptionPad"
+      :record-uuid="record?.uuid"
+      :allow-edit-credentials="false"
+    />
   </div>
 </template>
 
