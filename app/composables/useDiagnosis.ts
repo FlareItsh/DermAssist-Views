@@ -489,6 +489,30 @@ export const useDiagnosis = () => {
     return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'Clear'
   })
 
+  const isTechnicalFailure = computed(() => {
+    return !!(currentDiagnosis.value as any)?.is_technical_failure
+  })
+
+  const canRefineDiagnosis = computed(() => {
+    if (!currentDiagnosis.value) return false
+    if (
+      isOutOfScopeState.value ||
+      isHealthyState.value ||
+      isNoneState.value ||
+      isTechnicalFailure.value
+    ) {
+      return false
+    }
+    const label = currentDiagnosis.value.label
+    if (label === 'Failed' || label === 'Error' || label === 'No lesion') return false
+    return true
+  })
+
+  const hasCompetingDiseases = computed(() => {
+    if (!currentDiagnosis.value || !chartData.value) return false
+    return chartData.value.filter(d => typeof d.value === 'number' && d.value >= 5).length > 1
+  })
+
   const chartData = computed(() => {
     if (!currentDiagnosis.value) {
       return [{ label: 'Normal', value: 100, color: '#f3f4f6' }]
@@ -545,10 +569,10 @@ export const useDiagnosis = () => {
     }
 
     return Object.entries(targetProbs)
-      .filter(([label, value]) => value > 0.02)
+      .filter(([label, value]) => value > 0.005)
       .map(([label, value]) => ({
         label,
-        value: Math.round(value * 100),
+        value: Math.max(1, Math.round(value * 100)),
         color: COLOR_MAP[label] || '#475569'
       }))
   })
@@ -603,6 +627,9 @@ export const useDiagnosis = () => {
     isInconclusiveState,
     isOutOfScopeState,
     isNoneState,
+    isTechnicalFailure,
+    canRefineDiagnosis,
+    hasCompetingDiseases,
     chartData,
     setDiagnosis,
     clearDiagnosis,

@@ -27,6 +27,8 @@
     isInconclusiveState,
     isOutOfScopeState,
     isNoneState,
+    canRefineDiagnosis,
+    hasCompetingDiseases,
     chartData,
     resetScanner,
     patientUuid,
@@ -784,34 +786,52 @@
         />
 
         <div
-          v-else-if="
-            props.role === 'patient' &&
-            isScanned &&
-            isInconclusiveState &&
-            !isOutOfScopeState &&
-            !isHealthyState &&
-            !isNoneState &&
-            !isTechnicalFailure
-          "
+          v-else-if="isScanned && canRefineDiagnosis"
           class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
         >
           <div class="flex items-start gap-3">
             <div
-              class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              :class="
+                isInconclusiveState || hasCompetingDiseases
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-primary/10 text-primary'
+              "
             >
               <Icon
-                name="lucide:clipboard-check"
+                :name="
+                  isInconclusiveState || hasCompetingDiseases
+                    ? 'lucide:alert-circle'
+                    : 'lucide:clipboard-check'
+                "
                 class="h-4 w-4"
               />
             </div>
             <div class="min-w-0 flex-1">
-              <h4 class="text-foreground text-xs font-bold">Clarify Ambiguous Scan (Optional)</h4>
+              <div class="flex items-center gap-2">
+                <h4 class="text-foreground text-xs font-bold">
+                  {{
+                    isInconclusiveState || hasCompetingDiseases
+                      ? 'Clarify Ambiguous Scan (Recommended)'
+                      : 'Have Different Symptoms? Verify Diagnosis (Optional)'
+                  }}
+                </h4>
+                <span
+                  v-if="hasCompetingDiseases"
+                  class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                >
+                  Competing Contenders
+                </span>
+              </div>
               <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                Visual AI detected close competing contenders. Answer 4 quick symptom questions to
-                mathematically separate them and reach a conclusive diagnosis.
+                {{
+                  isInconclusiveState || hasCompetingDiseases
+                    ? 'Visual AI detected multiple competing contenders. Answer quick symptom questions to mathematically separate them and reach a conclusive diagnosis.'
+                    : 'If your physical symptoms feel different (e.g. tingling, blistering, burning, or lip border area), answer quick questions to refine or confirm the diagnosis.'
+                }}
               </p>
               <AppButton
-                variant="primary"
+                :variant="isInconclusiveState || hasCompetingDiseases ? 'primary' : 'outline'"
                 size="sm"
                 class="mt-2.5 h-8 rounded-xl px-3.5 text-xs font-bold shadow-xs"
                 @click="openQuestionnaireModal"
@@ -820,7 +840,11 @@
                   name="lucide:sparkles"
                   class="mr-1.5 h-3.5 w-3.5"
                 />
-                Clarify with Questionnaire
+                {{
+                  isInconclusiveState || hasCompetingDiseases
+                    ? 'Clarify with Questionnaire'
+                    : 'Verify Symptoms'
+                }}
               </AppButton>
             </div>
           </div>

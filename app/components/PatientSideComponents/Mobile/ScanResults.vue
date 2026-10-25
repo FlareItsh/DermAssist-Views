@@ -16,6 +16,8 @@
     isInconclusiveState,
     isOutOfScopeState,
     isNoneState,
+    canRefineDiagnosis,
+    hasCompetingDiseases,
     chartData
   } = useDiagnosis()
   const userName = useCookie('user_name')
@@ -568,33 +570,54 @@
     />
 
     <div
-      v-else-if="
-        isInconclusiveState &&
-        !isOutOfScopeState &&
-        !isHealthyState &&
-        !isNoneState &&
-        currentDiagnosis?.uuid
-      "
+      v-else-if="canRefineDiagnosis && currentDiagnosis?.uuid"
       class="border-primary/20 from-primary/5 to-primary/10 flex flex-col gap-2 rounded-2xl border bg-gradient-to-br via-white p-3.5 shadow-xs"
     >
       <div class="flex items-center gap-2">
         <div
-          class="bg-primary/10 text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          :class="
+            isInconclusiveState || hasCompetingDiseases
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              : 'bg-primary/10 text-primary'
+          "
         >
           <Icon
-            name="lucide:clipboard-check"
+            :name="
+              isInconclusiveState || hasCompetingDiseases
+                ? 'lucide:alert-circle'
+                : 'lucide:clipboard-check'
+            "
             size="14"
           />
         </div>
         <div class="min-w-0 flex-1">
-          <h4 class="text-xs font-bold text-gray-900">Clarify Ambiguous Scan (Optional)</h4>
+          <div class="flex items-center gap-2">
+            <h4 class="text-xs font-bold text-gray-900">
+              {{
+                isInconclusiveState || hasCompetingDiseases
+                  ? 'Clarify Ambiguous Scan (Recommended)'
+                  : 'Have Different Symptoms? Verify Diagnosis (Optional)'
+              }}
+            </h4>
+            <span
+              v-if="hasCompetingDiseases"
+              class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+            >
+              Competing
+            </span>
+          </div>
           <p class="text-[11px] text-gray-500">
-            Answer quick symptom questions to mathematically separate close contenders.
+            {{
+              isInconclusiveState || hasCompetingDiseases
+                ? 'Answer quick symptom questions to mathematically separate close contenders.'
+                : 'If your physical symptoms feel different (e.g. tingling, blistering, burning), answer quick questions to verify.'
+            }}
           </p>
         </div>
       </div>
       <AppButton
-        variant="primary"
+        :variant="isInconclusiveState || hasCompetingDiseases ? 'primary' : 'outline'"
         size="sm"
         class="h-8 rounded-xl text-xs font-bold shadow-xs"
         @click="openQuestionnaireModal"
@@ -603,7 +626,11 @@
           name="lucide:sparkles"
           class="mr-1.5 h-3.5 w-3.5"
         />
-        Clarify with Questionnaire
+        {{
+          isInconclusiveState || hasCompetingDiseases
+            ? 'Clarify with Questionnaire'
+            : 'Verify Symptoms'
+        }}
       </AppButton>
     </div>
 
