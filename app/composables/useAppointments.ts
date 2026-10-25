@@ -206,7 +206,8 @@ export const useAppointments = () => {
       is_awaiting_attendance_review: isAwaitingAttendanceReview,
       active_reschedule_proposal: appt.active_reschedule_proposal || appt.activeRescheduleProposal,
       reschedule_proposals: appt.reschedule_proposals || appt.rescheduleProposals || [],
-      events: appt.events || []
+      events: appt.events || [],
+      raw: appt
     }
   }
 
@@ -422,8 +423,18 @@ export const useAppointments = () => {
 
   const todayAppointmentsCount = computed(() => todayAppointments.value.length)
 
+  const allAppointments = computed<Appointment[]>(() => [
+    ...appointments.value,
+    ...completedAppointments.value,
+    ...pendingAppointments.value,
+    ...declinedAppointments.value,
+    ...noShowAppointments.value,
+    ...cancelledAppointments.value
+  ])
+
   return {
     appointments,
+    allAppointments,
     pendingAppointments,
     declinedAppointments,
     completedAppointments,

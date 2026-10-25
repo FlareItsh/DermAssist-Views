@@ -9,8 +9,13 @@
   })
 
   // ─── Composables ─────────────────────────────────────────────────────────────
-  const { appointments, completedAppointments, todayAppointments, fetchAppointments } =
-    useAppointments()
+  const {
+    appointments,
+    completedAppointments,
+    todayAppointments,
+    allAppointments,
+    fetchAppointments
+  } = useAppointments()
   const { priorityIds, addToPriority, removeFromPriority, isInPriority } = usePriorityList()
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
@@ -19,10 +24,13 @@
     useFormSanitizer()
   const { pendingPatientRegistration } = useDiagnosis()
   const showPassword = ref(false)
+  const currentDoctorUuid = useCookie('user_uuid')
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
+  const doctorConversations = ref<any[]>([])
   const isLoadingPatients = ref(false)
+  const isLoadingConversations = ref(false)
   const route = useRoute()
   const localSearch = ref((route.query.search as string) || '')
   const activeTab = ref<'all' | 'priority' | 'registered' | 'recent'>('all')
@@ -84,7 +92,7 @@
   const generatedTempPassword = ref('')
   const tempPasswordIssued = ref(false)
 
-  // ─── Fetch Doctor-Registered Patients ─────────────────────────────────────────
+  // ─── Fetch Doctor-Registered Patients & Conversations ────────────────────────
   const fetchRegisteredPatients = async () => {
     try {
       isLoadingPatients.value = true
@@ -98,17 +106,30 @@
     }
   }
 
+  const fetchConversations = async () => {
+    try {
+      isLoadingConversations.value = true
+      const response = await conversationService.list({ per_page: 100 })
+      const raw = response?.data ?? response ?? []
+      doctorConversations.value = Array.isArray(raw) ? raw : []
+    } catch (e) {
+      console.error('Failed to fetch conversations:', e)
+    } finally {
+      isLoadingConversations.value = false
+    }
+  }
+
   onMounted(() => {
     fetchRegisteredPatients()
-    if (!appointments.value.length) {
-      fetchAppointments()
-    }
+    fetchConversations()
+    fetchAppointments()
   })
 
   watch(
     () => route.fullPath,
     () => {
       fetchRegisteredPatients()
+      fetchConversations()
       fetchAppointments()
     }
   )
@@ -219,6 +240,12 @@
 
     // 1. Process Doctor-Registered Patients first
     for (const p of doctorRegisteredPatients.value) {
+      if (
+        (p.uuid && p.uuid === currentDoctorUuid.value) ||
+        (p.role && p.role !== 'patient')
+      ) {
+        continue
+      }
       const key = p.uuid || `reg_${p.id}`
       const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown Patient'
       const address =
@@ -249,7 +276,7 @@
         province: p.province || '',
         location: address,
         avatar: p.avatar_path ? getStorageUrl(p.avatar_path) : null,
-        isRegistered: true,
+        isRegistered: Boolean(p.is_doctor_registered || p.registered_by_doctor_id),
         isWalkIn,
         accountStatus: p.account_status || 'active',
         accountAction: p.account_action,
@@ -266,12 +293,21 @@
     }
 
     // 2. Merge consultation appointments
-    for (const appt of appointments.value) {
+    for (const appt of allAppointments.value) {
       const patientObj = (appt as any).raw?.patient || (appt as any).patient
       const patientUuid = (appt as any).patient_uuid || patientObj?.uuid
       const patientId = appt.patient_id || patientObj?.id
 
       if (!patientUuid && !patientId) continue
+
+      if (
+        (patientUuid && patientUuid === currentDoctorUuid.value) ||
+        patientObj?.role === 'doctor' ||
+        patientObj?.role === 'secretary' ||
+        patientObj?.role === 'admin'
+      ) {
+        continue
+      }
 
       const patientName = patientObj
         ? [patientObj.first_name, patientObj.last_name].filter(Boolean).join(' ')
@@ -375,7 +411,122 @@
       }
     }
 
-    // 3. Normalize latest appointment, visit date, and condition for all patients
+    // 3. Merge conversations
+    for (const conv of doctorConversations.value) {
+      const patientObj = conv.patient
+      if (!patientObj) continue
+
+      const patientUuid =
+        patientObj.uuid ||
+        (typeof patientObj.id === 'string' && patientObj.id.includes('-')
+          ? patientObj.id
+          : undefined)
+      const patientId =
+        patientObj.user_id || (typeof patientObj.id === 'number' ? patientObj.id : undefined)
+
+      if (!patientUuid && !patientId) continue
+
+      if (
+        (patientUuid && patientUuid === currentDoctorUuid.value) ||
+        patientObj?.role === 'doctor' ||
+        patientObj?.role === 'secretary' ||
+        patientObj?.role === 'admin'
+      ) {
+        continue
+      }
+
+      const patientName = patientObj.name ||
+        [patientObj.first_name, patientObj.last_name].filter(Boolean).join(' ') ||
+        'Patient'
+
+      if (patientName.startsWith('Dr.')) continue
+
+      let existing: PatientDirectoryItem | undefined = undefined
+      if (patientUuid && map.has(patientUuid)) {
+        existing = map.get(patientUuid)
+      } else if (patientId && map.has(`id_${patientId}`)) {
+        existing = map.get(`id_${patientId}`)
+      } else if (patientId && map.has(`reg_${patientId}`)) {
+        existing = map.get(`reg_${patientId}`)
+      } else {
+        existing = Array.from(map.values()).find(
+          m =>
+            (patientUuid && m.uuid === patientUuid) ||
+            (patientId && m.id && Number(m.id) === Number(patientId))
+        )
+      }
+
+      const convUuid = conv.uuid || conv.id
+
+      if (existing) {
+        if (!existing.conversationUuid) {
+          existing.conversationUuid = convUuid
+        }
+      } else {
+        const address =
+          [patientObj.barangay, patientObj.city, patientObj.province].filter(Boolean).join(', ') ||
+          patientObj.location ||
+          'Cruz Skin Clinic'
+
+        const isWalkIn = Boolean(
+          patientObj.is_walk_in ||
+          (patientObj.email &&
+            patientObj.email.startsWith('walkin.') &&
+            patientObj.email.endsWith('@clinic.local'))
+        )
+
+        const isPrio =
+          (patientUuid && isInPriority(patientUuid)) ||
+          (patientId && isInPriority(String(patientId)))
+
+        const isRegisteredPatient = Boolean(
+          patientObj.is_doctor_registered || patientObj.registered_by_doctor_id
+        )
+
+        const key = patientUuid || (patientId ? `id_${patientId}` : `conv_${convUuid}`)
+
+        map.set(key, {
+          uuid: patientUuid || `temp_${patientId}`,
+          id: patientId,
+          name: patientName,
+          firstName: patientObj.first_name || patientName.split(' ')[0] || '',
+          middleName: patientObj.middle_name || '',
+          lastName: patientObj.last_name || patientName.split(' ').slice(1).join(' ') || '',
+          email: patientObj.email || '',
+          contact_number: patientObj.contact_number || patientObj.phone || null,
+          date_of_birth: patientObj.date_of_birth || null,
+          age: calculateAge(patientObj.date_of_birth) ?? patientObj.age ?? 'N/A',
+          gender: patientObj.gender || 'N/A',
+          street: patientObj.street || '',
+          barangay: patientObj.barangay || '',
+          city: patientObj.city || '',
+          province: patientObj.province || '',
+          location: address,
+          avatar:
+            patientObj.avatar ||
+            (patientObj.avatar_path ? getStorageUrl(patientObj.avatar_path) : null),
+          isRegistered: isRegisteredPatient,
+          isWalkIn,
+          accountStatus: patientObj.account_status || 'active',
+          accountAction: patientObj.account_action,
+          accountActionScheduledAt: patientObj.account_action_scheduled_at,
+          totalScans: patientObj.total_scans || 0,
+          isPriority: isPrio,
+          appointments: [],
+          latestAppointment: null,
+          lastVisit: conv.updated_at
+            ? formatDateTime(conv.updated_at)
+            : conv.created_at
+              ? formatDateTime(conv.created_at)
+              : 'Chat Consultation',
+          latestCondition: 'Chat Consultation',
+          conversationUuid: convUuid,
+          createdAt: conv.created_at
+        })
+      }
+    }
+
+    // 4. Normalize latest appointment, visit date, and condition for all patients
     const patientList = Array.from(map.values())
     for (const patient of patientList) {
       if (patient.appointments.length > 0) {
@@ -599,8 +750,9 @@
     if (patient.id || patient.uuid) {
       isOpeningChat.value = true
       try {
-        const payload: Record<string, any> = {}
-        if (patient.id) payload.patient_id = patient.id
+        const payload: Record<string, any> = {
+          patient_id: patient.id || patient.uuid
+        }
         if (patient.uuid) payload.patient_uuid = patient.uuid
         const res = await conversationService.create(payload)
         const convUuid = res?.data?.id || res?.data?.uuid || res?.uuid || res?.id

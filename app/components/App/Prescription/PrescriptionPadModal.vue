@@ -274,8 +274,16 @@
 
             <!-- 3. Superscription & Medication Orders -->
             <div class="py-2">
-              <div class="text-2xl font-serif font-extrabold text-indigo-700 leading-none mb-3 select-none">
-                ℞
+              <div class="mb-3 select-none flex items-center">
+                <img
+                  :src="prescriptionData.rxSymbolUrl || '/rx_symbol.jpg'"
+                  alt="Rx"
+                  class="h-6 w-auto inline-block select-none"
+                  onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-block'"
+                />
+                <span class="text-2xl font-serif font-extrabold text-indigo-700 leading-none hidden">
+                  R<sub class="italic text-base font-bold">x</sub>
+                </span>
               </div>
 
               <!-- Structured Items -->
@@ -285,8 +293,13 @@
                   :key="idx"
                   class="pb-2.5 border-b border-dashed border-gray-100 last:border-b-0"
                 >
-                  <div class="text-xs font-bold text-gray-900">
-                    {{ idx + 1 }}. {{ item.medication }}
+                  <div class="flex items-baseline justify-between gap-3">
+                    <div class="text-xs font-bold text-gray-900">
+                      {{ idx + 1 }}. {{ item.medication }}
+                    </div>
+                    <div v-if="item.quantity" class="text-xs font-extrabold text-indigo-800 tracking-wide shrink-0 font-mono">
+                      {{ item.quantity.startsWith('#') ? item.quantity : `#${item.quantity}` }}
+                    </div>
                   </div>
                   <div v-if="item.instructions" class="text-[11px] text-gray-700 ml-4 mt-0.5">
                     <span class="font-bold text-gray-900">Sig:</span> {{ item.instructions }}

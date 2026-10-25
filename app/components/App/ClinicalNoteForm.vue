@@ -102,6 +102,8 @@
   const rxUnit = ref<string>('')
   const rxFrequency = ref<string>('')
   const rxDuration = ref<string>('')
+  const rxQuantity = ref<string>('')
+  const isQuantityManuallyEdited = ref<boolean>(false)
   const rxInstructions = ref<string>('')
 
   const currentMedicine = computed<Medicine | null>(() => {
@@ -116,12 +118,97 @@
     return currentVariants.value.find(v => v.uuid === selectedVariantUuid.value) || null
   })
 
+  const calculateSuggestedQuantity = (
+    frequencyStr: string,
+    durationStr: string,
+    unitStr: string,
+    medName: string
+  ): string => {
+    const combinedDesc = `${medName} ${unitStr}`.toLowerCase()
+
+    // 1. Topical / Liquid / Spray detection -> default to #1 tube / bottle
+    if (/cream|ointment|gel|lotion|foam|solution|shampoo|suspension|spray|drops|tube|bottle/i.test(combinedDesc)) {
+      if (/bottle|solution|shampoo|suspension|syrup|drops/i.test(combinedDesc)) {
+        return '#1 bottle'
+      }
+      return '#1 tube'
+    }
+
+    if (!frequencyStr && !durationStr) return ''
+
+    // 2. Parse daily frequency
+    let dailyRate: number | null = null
+    const freq = frequencyStr.toLowerCase()
+
+    if (/once\s*daily|\bod\b|q\.?d\.?|every\s*24\s*h/i.test(freq)) {
+      dailyRate = 1
+    } else if (/twice\s*daily|\bbid\b|q12h|every\s*12\s*h|2x\s*a\s*day/i.test(freq)) {
+      dailyRate = 2
+    } else if (/three\s*times\s*daily|thrice\s*daily|\btid\b|q8h|every\s*8\s*h|3x\s*a\s*day/i.test(freq)) {
+      dailyRate = 3
+    } else if (/four\s*times\s*daily|\bqid\b|q6h|every\s*6\s*h|4x\s*a\s*day/i.test(freq)) {
+      dailyRate = 4
+    } else if (/every\s*other\s*day|\bqod\b/i.test(freq)) {
+      dailyRate = 0.5
+    } else if (/weekly|once\s*a\s*week/i.test(freq)) {
+      dailyRate = 1 / 7
+    } else {
+      const numMatch = freq.match(/(\d+)\s*x/)
+      if (numMatch) {
+        dailyRate = parseInt(numMatch[1], 10)
+      } else {
+        dailyRate = 1
+      }
+    }
+
+    // 3. Parse duration days
+    let days: number | null = null
+    const dur = durationStr.toLowerCase()
+    const num = parseInt(dur.replace(/[^\d]/g, ''), 10)
+
+    if (!isNaN(num) && num > 0) {
+      if (/month/i.test(dur)) {
+        days = num * 30
+      } else if (/week/i.test(dur)) {
+        days = num * 7
+      } else {
+        days = num
+      }
+    } else if (/week/i.test(dur)) {
+      days = 7
+    } else if (/month/i.test(dur)) {
+      days = 30
+    }
+
+    if (dailyRate !== null && days !== null) {
+      const total = Math.ceil(dailyRate * days)
+      const unit = /cap/i.test(unitStr) ? 'capsules' : /tab/i.test(unitStr) ? 'tablets' : 'tablets'
+      return `#${total} ${unit}`
+    }
+
+    return ''
+  }
+
+  const triggerQuantityCalculation = () => {
+    if (isQuantityManuallyEdited.value) return
+    const medName = currentMedicine.value?.name || ''
+    const unit = rxUnit.value || currentVariant.value?.unit || ''
+    const freq = rxFrequency.value || currentVariant.value?.default_frequency || ''
+    const dur = rxDuration.value || ''
+    const calculated = calculateSuggestedQuantity(freq, dur, unit, medName)
+    if (calculated) {
+      rxQuantity.value = calculated
+    }
+  }
+
   // Watch Dropdown 1: Medicine Selection -> auto-selects first variant and auto-fills fields
   watch(selectedMedicineUuid, newMedUuid => {
+    isQuantityManuallyEdited.value = false
     if (!newMedUuid) {
       selectedVariantUuid.value = ''
       rxUnit.value = ''
       rxFrequency.value = ''
+      rxQuantity.value = ''
       return
     }
     const med = availableMedicines.value.find(m => m.uuid === newMedUuid)
@@ -135,6 +222,7 @@
       rxUnit.value = ''
       rxFrequency.value = ''
     }
+    triggerQuantityCalculation()
   })
 
   // Watch Dropdown 2: Strength / Dosage -> reactively updates Unit and Frequency
@@ -145,7 +233,21 @@
       rxUnit.value = v.unit
       rxFrequency.value = v.default_frequency
     }
+    triggerQuantityCalculation()
   })
+
+  watch([rxFrequency, rxDuration], () => {
+    triggerQuantityCalculation()
+  })
+
+  const setQuickQuantity = (val: string) => {
+    rxQuantity.value = val
+    isQuantityManuallyEdited.value = true
+  }
+
+  const onQuantityInput = () => {
+    isQuantityManuallyEdited.value = true
+  }
 
   const handleAddMedicationToPrescription = () => {
     if (!currentMedicine.value || !currentVariant.value) {
@@ -155,17 +257,26 @@
 
     const medName = currentMedicine.value.name
     const strength = `${currentVariant.value.dosage}${rxUnit.value ? ` ${rxUnit.value}` : ''}`
+    const qtyPart = rxQuantity.value.trim()
+      ? ` #${rxQuantity.value.trim().replace(/^#\s*/, '')}`
+      : ''
     const freq = rxFrequency.value.trim() || currentVariant.value.default_frequency
     const durationPart = rxDuration.value.trim() ? ` for ${rxDuration.value.trim()}` : ''
     const instructPart = rxInstructions.value.trim() ? ` (${rxInstructions.value.trim()})` : ''
 
-    const entry = `• ${medName} ${strength} — ${freq}${durationPart}${instructPart}`
+    const entry = `• ${medName} ${strength}${qtyPart} — ${freq}${durationPart}${instructPart}`
 
     if (note.value.prescription && note.value.prescription.trim()) {
       note.value.prescription = `${note.value.prescription.trim()}\n${entry}`
     } else {
       note.value.prescription = entry
     }
+
+    // Reset modifier inputs
+    rxDuration.value = ''
+    rxQuantity.value = ''
+    rxInstructions.value = ''
+    isQuantityManuallyEdited.value = false
 
     toast.success(`Added ${medName} to prescription draft.`)
   }
@@ -1333,18 +1444,43 @@
             </div>
 
             <!-- Modifiers & Add Button -->
-            <div class="grid gap-3 pt-2 sm:grid-cols-12 sm:items-center">
-              <div class="sm:col-span-4">
+            <div class="grid gap-2.5 pt-2 sm:grid-cols-12 sm:items-center">
+              <div class="sm:col-span-3">
+                <label class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                  Duration
+                </label>
                 <input
                   type="text"
                   v-model="rxDuration"
                   :disabled="!selectedVariantUuid"
-                  placeholder="Duration (e.g. 7 days)"
+                  placeholder="e.g. 7 days"
                   class="w-full rounded-xl border-0 bg-white p-2 text-xs text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
 
-              <div class="sm:col-span-5">
+              <div class="sm:col-span-3">
+                <div class="mb-1 flex items-center justify-between">
+                  <label class="block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                    Quantity (#)
+                  </label>
+                  <span v-if="!isQuantityManuallyEdited && rxQuantity" class="text-[9px] font-semibold text-emerald-600">
+                    Auto
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  v-model="rxQuantity"
+                  @input="onQuantityInput"
+                  :disabled="!selectedVariantUuid"
+                  placeholder="e.g. #14 capsules"
+                  class="w-full rounded-xl border-0 bg-white p-2 text-xs font-semibold text-gray-900 ring-1 ring-gray-200 focus:ring-2 focus:ring-amber-500 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400"
+                />
+              </div>
+
+              <div class="sm:col-span-4">
+                <label class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                  Instructions / Sig
+                </label>
                 <input
                   type="text"
                   v-model="rxInstructions"
@@ -1354,20 +1490,37 @@
                 />
               </div>
 
-              <div class="flex justify-end sm:col-span-3">
+              <div class="flex justify-end sm:col-span-2 sm:pt-3">
                 <button
                   type="button"
                   @click="handleAddMedicationToPrescription"
                   :disabled="!selectedMedicineUuid || !selectedVariantUuid"
-                  class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-amber-700 disabled:opacity-40 sm:w-auto"
+                  class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-amber-700 disabled:opacity-40"
                 >
                   <Icon
                     name="lucide:plus"
                     class="text-sm"
                   />
-                  <span>Add Medication</span>
+                  <span>Add</span>
                 </button>
               </div>
+            </div>
+
+            <!-- Quick Quantity Chips -->
+            <div
+              v-if="selectedVariantUuid"
+              class="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 pt-1"
+            >
+              <span class="text-[10px] font-semibold text-gray-400">Quick # Dispense:</span>
+              <button
+                v-for="chip in ['#1 tube', '#1 bottle', '#7 capsules', '#14 capsules', '#21 tablets', '#30 tablets']"
+                :key="chip"
+                type="button"
+                @click="setQuickQuantity(chip)"
+                class="px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors bg-white hover:bg-amber-50 border border-gray-200 hover:border-amber-300 text-gray-700 hover:text-amber-700 cursor-pointer"
+              >
+                {{ chip }}
+              </button>
             </div>
 
             <!-- Prescription Draft Textarea -->
