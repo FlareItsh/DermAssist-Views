@@ -773,29 +773,15 @@
         </div>
 
         <!-- Bayesian Multimodal Refinement Indicator / Trigger Card -->
-        <div
-          v-if="currentDiagnosis?.is_questionnaire_refined"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3"
-        >
-          <div class="flex items-center gap-2">
-            <span
-              class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400"
-            >
-              <Icon
-                name="lucide:sparkles"
-                class="h-3.5 w-3.5"
-              />
-              Multimodal Bayesian Verified
-            </span>
-          </div>
-          <button
-            type="button"
-            class="text-primary text-xs font-bold hover:underline"
-            @click="openQuestionnaireModal"
-          >
-            Retake Questionnaire
-          </button>
-        </div>
+        <AppQuestionnaireAnswersCard
+          v-if="
+            currentDiagnosis?.is_questionnaire_refined ||
+            (currentDiagnosis?.questionnaire_answers &&
+              Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
+          "
+          :diagnosis="currentDiagnosis"
+          @retake="openQuestionnaireModal"
+        />
 
         <div
           v-else-if="

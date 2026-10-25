@@ -52,6 +52,16 @@
     secretion: 'Fluid & Secretion'
   }
 
+  const DIMENSION_ICONS: Record<string, string> = {
+    sensation: 'lucide:flame',
+    texture: 'lucide:layers',
+    progression: 'lucide:timer',
+    distribution: 'lucide:map-pin',
+    triggers: 'lucide:sparkles',
+    history: 'lucide:dna',
+    secretion: 'lucide:droplets'
+  }
+
   const formatOptionLabel = (val?: string) => {
     if (!val) return 'Not reported'
     if (val === 'unsure') return "Patient marked 'Unsure'"
@@ -220,11 +230,21 @@
           <div
             v-for="(ans, dimKey) in diagnosis!.questionnaire_answers"
             :key="dimKey"
-            class="flex items-start justify-between gap-4 p-3.5 text-xs"
+            class="flex items-center justify-between gap-4 p-3.5 text-xs"
           >
-            <span class="text-muted-foreground font-semibold">
-              {{ DIMENSION_TITLES[dimKey] || dimKey }}
-            </span>
+            <div class="flex items-center gap-2.5">
+              <div
+                class="bg-primary/10 text-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
+              >
+                <Icon
+                  :name="DIMENSION_ICONS[String(dimKey)] || 'lucide:circle-dot'"
+                  class="h-3.5 w-3.5"
+                />
+              </div>
+              <span class="text-muted-foreground font-semibold">
+                {{ DIMENSION_TITLES[dimKey] || dimKey }}
+              </span>
+            </div>
             <span class="text-foreground text-right font-bold">
               {{ formatOptionLabel(ans) }}
             </span>

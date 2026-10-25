@@ -58,31 +58,31 @@
           label: 'Intense itching',
           description:
             'Severe, irritating itch that makes you want to scratch, especially at night or when warm',
-          icon: '🔴'
+          icon: 'lucide:flame'
         },
         {
           id: 'burning_tingling',
           label: 'Tingling, burning, or prickling',
           description: 'Hot, stinging, or electric tingling that started before the bumps appeared',
-          icon: '⚡'
+          icon: 'lucide:zap'
         },
         {
           id: 'tender_sore',
           label: 'Sore or tender pressure',
           description: 'Achy or tender when pressed or bumped, but does not constantly itch',
-          icon: '🩹'
+          icon: 'lucide:bandage'
         },
         {
           id: 'painless',
           label: 'Painless / No sensation',
           description: 'Does not hurt, sting, or itch at all; only noticed visually',
-          icon: '⚪'
+          icon: 'lucide:shield-check'
         },
         {
           id: 'unsure',
           label: "I'm not sure",
           description: 'Hard to describe or varies throughout the day',
-          icon: '❓'
+          icon: 'lucide:help-circle'
         }
       ]
     },
@@ -95,26 +95,26 @@
           id: 'pimples_clogged',
           label: 'Pimples or clogged bumps',
           description: 'Raised red bumps, whiteheads, blackheads, or spots with white/yellow pus',
-          icon: '🔴'
+          icon: 'lucide:circle-dot'
         },
         {
           id: 'rough_dry_scaly',
           label: 'Dry, rough, or flaky',
           description: 'Sandpaper-like, rough, scaly patches that feel tight or peel',
-          icon: '🌾'
+          icon: 'lucide:layers'
         },
         {
           id: 'clustered_blisters',
           label: 'Clustered tiny blisters',
           description:
             'A tight cluster of small, delicate bubbles filled with clear fluid that pop and crust',
-          icon: '💧'
+          icon: 'lucide:droplets'
         },
         {
           id: 'unsure',
           label: "I'm not sure",
           description: 'Surface texture is indistinct or mixed',
-          icon: '❓'
+          icon: 'lucide:help-circle'
         }
       ]
     },
@@ -127,27 +127,27 @@
           id: 'ongoing_breakouts',
           label: 'Ongoing daily breakouts',
           description: 'New bumps appear continuously over weeks or months in oily areas',
-          icon: '🔄'
+          icon: 'lucide:refresh-cw'
         },
         {
           id: 'rapid_blister_cycle',
           label: 'Rapid cycle (1–2 weeks)',
           description:
             'Appeared suddenly, formed small sores, and is drying into scabs within 7–10 days',
-          icon: '⚡'
+          icon: 'lucide:timer'
         },
         {
           id: 'chronic_flares',
           label: 'Periodic flare-ups',
           description:
             'Comes and goes over months; calms down with moisturizing and flares up again',
-          icon: '📈'
+          icon: 'lucide:trending-up'
         },
         {
           id: 'unsure',
           label: "I'm not sure",
           description: 'First time observing or uncertain of onset',
-          icon: '❓'
+          icon: 'lucide:help-circle'
         }
       ]
     },
@@ -160,32 +160,32 @@
           id: 'face_chest_back',
           label: 'Face, forehead, cheeks, chest, or upper back',
           description: 'Common on the T-zone, cheeks, jawline, upper chest, or shoulder blades',
-          icon: '👤'
+          icon: 'lucide:user'
         },
         {
           id: 'flexural_creases',
           label: 'Inside elbows, behind knees, wrists, or neck',
           description: 'Inside creases of the arms, behind the knees, around the wrists, or hands',
-          icon: '🦾'
+          icon: 'lucide:activity'
         },
         {
           id: 'lips_vermilion_mucosa',
           label: 'Along the lip border, mouth, or sensitive areas',
           description:
             'Right along the edge of the lip (cold sore area) or sensitive personal areas',
-          icon: '👄'
+          icon: 'lucide:smile'
         },
         {
           id: 'single_isolated',
           label: 'Only in this single isolated spot',
           description: 'Nowhere else on the entire body',
-          icon: '📍'
+          icon: 'lucide:map-pin'
         },
         {
           id: 'unsure',
           label: "I'm not sure",
           description: 'Affects various unlisted regions',
-          icon: '❓'
+          icon: 'lucide:help-circle'
         }
       ]
     }
@@ -357,6 +357,46 @@
     },
     { immediate: true }
   )
+
+  const getOptionIcon = (opt?: QuestionOption | null): string => {
+    if (!opt) return 'lucide:help-circle'
+    if (opt.icon && opt.icon.startsWith('lucide:')) return opt.icon
+
+    const ID_ICON_MAP: Record<string, string> = {
+      itchy: 'lucide:flame',
+      burning_tingling: 'lucide:zap',
+      tender_sore: 'lucide:bandage',
+      painless: 'lucide:shield-check',
+      unsure: 'lucide:help-circle',
+      pimples_clogged: 'lucide:circle-dot',
+      rough_dry_scaly: 'lucide:layers',
+      clustered_blisters: 'lucide:droplets',
+      ongoing_breakouts: 'lucide:refresh-cw',
+      rapid_blister_cycle: 'lucide:timer',
+      chronic_flares: 'lucide:trending-up',
+      face_chest_back: 'lucide:user',
+      flexural_creases: 'lucide:activity',
+      lips_vermilion_mucosa: 'lucide:smile',
+      single_isolated: 'lucide:map-pin',
+      oils_cosmetics_sweat: 'lucide:sparkles',
+      cold_dry_air_soaps: 'lucide:cloud-snow',
+      stress_sun_illness: 'lucide:sun',
+      atopic_triad: 'lucide:dna',
+      previous_cold_sores: 'lucide:repeat',
+      family_acne: 'lucide:users',
+      none: 'lucide:shield',
+      pus_thick: 'lucide:alert-circle',
+      clear_fluid_blister: 'lucide:droplet',
+      weeping_watery: 'lucide:waves',
+      dry_no_fluid: 'lucide:feather'
+    }
+
+    if (opt.id && ID_ICON_MAP[opt.id]) {
+      return ID_ICON_MAP[opt.id]
+    }
+
+    return 'lucide:circle-dot'
+  }
 </script>
 
 <template>
@@ -503,12 +543,17 @@
           @click="handleSelectOption(activeQuestion.id, opt.id)"
         >
           <div
-            class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl text-base"
+            class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl transition-colors"
             :class="[
-              selectedAnswers[activeQuestion.id] === opt.id ? 'bg-primary/20' : 'bg-muted/60'
+              selectedAnswers[activeQuestion.id] === opt.id
+                ? 'bg-primary/20 text-primary'
+                : 'bg-muted/60 text-muted-foreground'
             ]"
           >
-            {{ opt.icon }}
+            <Icon
+              :name="getOptionIcon(opt)"
+              class="h-4 w-4"
+            />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center justify-between">

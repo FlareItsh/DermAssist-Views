@@ -557,26 +557,15 @@
     </div>
 
     <!-- Multimodal Questionnaire Banner (Mobile) -->
-    <div
-      v-if="currentDiagnosis?.is_questionnaire_refined"
-      class="flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-50 p-3 shadow-xs"
-    >
-      <div class="flex items-center gap-2">
-        <Icon
-          name="lucide:sparkles"
-          class="text-emerald-600"
-          size="16"
-        />
-        <span class="text-xs font-bold text-emerald-800">Multimodal Bayesian Verified</span>
-      </div>
-      <button
-        type="button"
-        class="text-primary text-xs font-bold hover:underline"
-        @click="openQuestionnaireModal"
-      >
-        Retake
-      </button>
-    </div>
+    <AppQuestionnaireAnswersCard
+      v-if="
+        currentDiagnosis?.is_questionnaire_refined ||
+        (currentDiagnosis?.questionnaire_answers &&
+          Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
+      "
+      :diagnosis="currentDiagnosis"
+      @retake="openQuestionnaireModal"
+    />
 
     <div
       v-else-if="

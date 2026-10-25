@@ -1323,6 +1323,22 @@
     doctorCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const isQuestionnaireModalOpen = ref(false)
+
+  const handleOpenQuestionnaireModal = () => {
+    isQuestionnaireModalOpen.value = true
+  }
+
+  const handleQuestionnaireRefined = (updated: any) => {
+    if (updated && currentDiagnosis.value) {
+      currentDiagnosis.value = {
+        ...currentDiagnosis.value,
+        ...updated
+      }
+      saveActiveDiagnosisState()
+    }
+  }
+
   onMounted(() => {
     fetchUserAge()
     fetchNearestDoctor()
@@ -1968,6 +1984,58 @@
         v-else
         class="flex flex-col gap-6 sm:gap-8"
       >
+        <!-- Clinical Questionnaire & Patient Anamnesis Answers Card -->
+        <AppQuestionnaireAnswersCard
+          v-if="
+            currentDiagnosis?.is_questionnaire_refined ||
+            (currentDiagnosis?.questionnaire_answers &&
+              Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
+          "
+          :diagnosis="currentDiagnosis"
+          @retake="handleOpenQuestionnaireModal"
+        />
+
+        <!-- Ambiguous Scan Clarify Trigger (In-Scope & Inconclusive only) -->
+        <div
+          v-else-if="
+            isInconclusive &&
+            activeDisease !== 'OutOfScope' &&
+            activeDisease !== 'None' &&
+            activeDisease !== 'Clear'
+          "
+          class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
+        >
+          <div class="flex items-start gap-3">
+            <div
+              class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+            >
+              <Icon
+                name="lucide:clipboard-check"
+                class="h-4 w-4"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <h4 class="text-foreground text-xs font-bold">Clarify Ambiguous Scan (Optional)</h4>
+              <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                Visual AI detected close competing contenders. Answer 4 quick symptom questions to
+                mathematically separate them and reach a conclusive diagnosis.
+              </p>
+              <AppButton
+                variant="primary"
+                size="sm"
+                class="mt-2.5 h-8 rounded-xl px-3.5 text-xs font-bold shadow-xs"
+                @click="handleOpenQuestionnaireModal"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="mr-1.5 h-3.5 w-3.5"
+                />
+                Clarify with Questionnaire
+              </AppButton>
+            </div>
+          </div>
+        </div>
+
         <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
@@ -3516,6 +3584,16 @@
       :doctor="nearestDoctor"
       :diagnosis-uuid="targetDiagnosisUuid"
       @booked="handleAppointmentBooked"
+    />
+
+    <!-- Clinical Questionnaire Modal for Patient Results Page -->
+    <AppModalClinicalQuestionnaireModal
+      v-model="isQuestionnaireModalOpen"
+      :diagnosis-uuid="props.diagnosisUuid || currentDiagnosis?.uuid"
+      :prior-label="currentDiagnosis?.label"
+      :prior-confidence="currentDiagnosis?.confidence"
+      :prior-probabilities="currentDiagnosis?.all_probabilities || currentDiagnosis?.probabilities"
+      @refined="handleQuestionnaireRefined"
     />
   </div>
 </template>
