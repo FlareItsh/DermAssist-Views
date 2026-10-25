@@ -311,6 +311,41 @@
     }
   }
 
+  const detectedConditions = computed(() => {
+    const rawProbs =
+      props.priorProbabilities && Object.keys(props.priorProbabilities).length > 0
+        ? props.priorProbabilities
+        : currentDiagnosis.value?.all_probabilities || {}
+
+    return Object.entries(rawProbs)
+      .filter(([name]) => ['Acne', 'Eczema', 'Herpes'].includes(name))
+      .map(([name, prob]) => ({
+        name,
+        percentage: Math.round(Number(prob) * 100),
+        rawProb: Number(prob)
+      }))
+      .sort((a, b) => b.percentage - a.percentage)
+  })
+
+  const isContenderBattle = computed(() => {
+    if (detectedConditions.value.length < 2) return false
+    const top1 = detectedConditions.value[0]?.percentage ?? 0
+    const top2 = detectedConditions.value[1]?.percentage ?? 0
+    return Math.abs(top1 - top2) <= 20
+  })
+
+  const purposeExplanation = computed(() => {
+    if (detectedConditions.value.length < 2) {
+      return 'These symptom questions verify physical sensations against image features to enhance diagnostic accuracy.'
+    }
+    const top1 = detectedConditions.value[0]?.name
+    const top2 = detectedConditions.value[1]?.name
+    if (isContenderBattle.value) {
+      return `Visual AI detected close competing patterns between ${top1} and ${top2}. These symptom questions mathematically separate them to establish a decisive diagnosis.`
+    }
+    return `Visual AI identified ${top1} as primary with minor overlapping features of ${top2}. These questions verify clinical history to maximize diagnostic confidence.`
+  })
+
   watch(
     () => props.modelValue,
     visible => {
@@ -334,9 +369,75 @@
     @update:model-value="emit('update:modelValue', $event)"
     @close="handleClose"
   >
-    <!-- Visual Prior Pill -->
+    <!-- Visual AI Screened Conditions & Clarification Purpose Card -->
     <div
-      v-if="priorLabel"
+      v-if="detectedConditions.length > 0"
+      class="bg-card border-border/80 -mt-1 mb-4 rounded-2xl border p-3.5 shadow-xs"
+    >
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+          Visual AI Detected Conditions
+        </span>
+        <span
+          class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold"
+          :class="
+            isContenderBattle
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              : 'bg-primary/10 text-primary'
+          "
+        >
+          <Icon
+            :name="isContenderBattle ? 'lucide:scale' : 'lucide:badge-check'"
+            class="h-3 w-3"
+          />
+          {{
+            isContenderBattle ? 'Differentiating Close Contenders' : 'Enhancing Diagnostic Accuracy'
+          }}
+        </span>
+      </div>
+
+      <!-- Condition Pills -->
+      <div class="mt-2.5 flex flex-wrap items-center gap-2">
+        <div
+          v-for="(c, idx) in detectedConditions"
+          :key="c.name"
+          class="flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-all"
+          :class="[
+            idx === 0
+              ? 'border-primary/30 bg-primary/10 text-primary font-bold'
+              : c.percentage >= 15
+                ? 'border-border/80 bg-muted/40 text-foreground'
+                : 'border-border/40 bg-muted/10 text-muted-foreground'
+          ]"
+        >
+          <span
+            class="h-2 w-2 rounded-full"
+            :class="[
+              c.name === 'Acne'
+                ? 'bg-rose-500'
+                : c.name === 'Eczema'
+                  ? 'bg-amber-500'
+                  : 'bg-purple-600'
+            ]"
+          ></span>
+          <span>{{ c.name }}</span>
+          <span class="font-mono text-[11px] font-bold opacity-80">{{ c.percentage }}%</span>
+        </div>
+      </div>
+
+      <!-- Explanatory Context Note -->
+      <p class="text-muted-foreground mt-2.5 text-[11px] leading-relaxed">
+        <Icon
+          name="lucide:info"
+          class="text-primary mr-1 inline-block h-3.5 w-3.5 align-sub"
+        />
+        {{ purposeExplanation }}
+      </p>
+    </div>
+
+    <!-- Fallback Visual Prior Pill if no distribution -->
+    <div
+      v-else-if="priorLabel"
       class="bg-card border-border/80 text-muted-foreground -mt-1 mb-3.5 flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium shadow-xs"
     >
       <span class="text-primary font-bold">Visual AI Prior:</span>
