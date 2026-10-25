@@ -100,6 +100,13 @@
 
   let animationFrameId: number | null = null
   let resizeObserver: ResizeObserver | null = null
+  let intersectionObserver: IntersectionObserver | null = null
+  let isVisible = true
+  let lastRenderTime = 0
+  const MOBILE_BREAKPOINT = 768
+  const MOBILE_TARGET_FPS = 30
+  const DESKTOP_TARGET_FPS = 60
+
   let glContext: WebGLRenderingContext | null = null
   let glProgram: WebGLProgram | null = null
   let vertexShader: WebGLShader | null = null
@@ -118,13 +125,20 @@
   let targetActive = 0
   let currentActive = 0
 
+  function getDpr(): number {
+    const isMobile = window.innerWidth < MOBILE_BREAKPOINT
+    return isMobile
+      ? Math.max(0.75, Math.min(window.devicePixelRatio || 1, 1.5) * 0.75)
+      : Math.min(window.devicePixelRatio || 1, 2)
+  }
+
   function handlePointerMove(e: PointerEvent) {
     const container = containerRef.value
     const canvas = canvasRef.value
     if (!container || !canvas) return
 
     const rect = container.getBoundingClientRect()
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const dpr = getDpr()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
@@ -149,7 +163,11 @@
 `
 
   const FRAGMENT_SHADER_SOURCE = `
-  precision highp float;
+  #ifdef GL_FRAGMENT_PRECISION_HIGH
+    precision highp float;
+  #else
+    precision mediump float;
+  #endif
   uniform vec2 u_resolution;
   uniform float u_time;
   uniform vec2 u_mouse;
@@ -359,7 +377,7 @@
     if (!canvas || !container) return
 
     const rect = container.getBoundingClientRect()
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const dpr = getDpr()
     const displayWidth = Math.floor(rect.width * dpr)
     const displayHeight = Math.floor(rect.height * dpr)
 
@@ -451,7 +469,52 @@
 
   let startTime = 0
 
+  function startAnimationLoop() {
+    if (animationFrameId === null && isVisible) {
+      animationFrameId = requestAnimationFrame(animate)
+    }
+  }
+
+  function stopAnimationLoop() {
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId)
+      animationFrameId = null
+    }
+  }
+
+  function handleVisibilityChange() {
+    if (document.hidden) {
+      isVisible = false
+      stopAnimationLoop()
+    } else {
+      isVisible = true
+      lastRenderTime = performance.now()
+      startAnimationLoop()
+    }
+  }
+
   function animate(currentTime: number) {
+    if (!isVisible) {
+      animationFrameId = null
+      return
+    }
+
+    // Always schedule next frame first
+    animationFrameId = requestAnimationFrame(animate)
+
+    // Framerate pacing: Mobile target 30 FPS (~33.3ms), Desktop 60 FPS (~16.6ms)
+    const isMobile = window.innerWidth < MOBILE_BREAKPOINT
+    const targetFps = isMobile ? MOBILE_TARGET_FPS : DESKTOP_TARGET_FPS
+    const frameInterval = 1000 / targetFps
+
+    const delta = currentTime - lastRenderTime
+    if (delta < frameInterval) {
+      return
+    }
+
+    // Maintain consistent frame pacing cadence without drift
+    lastRenderTime = currentTime - (delta % frameInterval)
+
     if (!startTime) startTime = currentTime
     const elapsedTime = (currentTime - startTime) * 0.001
 
@@ -489,8 +552,6 @@
     if (!isReady.value) {
       isReady.value = true
     }
-
-    animationFrameId = requestAnimationFrame(animate)
   }
 
   onMounted(() => {
@@ -514,26 +575,53 @@
       resizeObserver.observe(container)
     }
 
-    // Interactive pointer listeners
-    container.addEventListener('pointermove', handlePointerMove)
-    container.addEventListener('pointerdown', handlePointerMove)
-    container.addEventListener('pointerleave', handlePointerLeave)
-    container.addEventListener('pointercancel', handlePointerLeave)
+    // Viewport intersection observer: pause loop when off-screen
+    if (typeof IntersectionObserver !== 'undefined') {
+      intersectionObserver = new IntersectionObserver(
+        (entries) => {
+          const entry = entries[0]
+          const nowVisible = entry ? entry.isIntersecting : true
+          if (nowVisible !== isVisible) {
+            isVisible = nowVisible
+            if (isVisible) {
+              lastRenderTime = performance.now()
+              startAnimationLoop()
+            } else {
+              stopAnimationLoop()
+            }
+          }
+        },
+        { threshold: 0.02 }
+      )
+      intersectionObserver.observe(container)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Interactive pointer listeners with passive option for smooth mobile scrolling
+    container.addEventListener('pointermove', handlePointerMove, { passive: true })
+    container.addEventListener('pointerdown', handlePointerMove, { passive: true })
+    container.addEventListener('pointerleave', handlePointerLeave, { passive: true })
+    container.addEventListener('pointercancel', handlePointerLeave, { passive: true })
 
     // Start animation loop
-    animationFrameId = requestAnimationFrame(animate)
+    startAnimationLoop()
   })
 
   onUnmounted(() => {
-    if (animationFrameId !== null) {
-      cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
+    stopAnimationLoop()
 
     if (resizeObserver) {
       resizeObserver.disconnect()
       resizeObserver = null
     }
+
+    if (intersectionObserver) {
+      intersectionObserver.disconnect()
+      intersectionObserver = null
+    }
+
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
 
     if (containerRef.value) {
       const container = containerRef.value
