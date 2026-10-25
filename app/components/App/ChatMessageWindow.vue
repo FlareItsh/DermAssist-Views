@@ -494,6 +494,18 @@
       .replace(/'/g, '&#039;')
   }
 
+  const restoreSafeFormatting = (html: string): string => {
+    return html
+      .replace(/&lt;b&gt;/gi, '<b class="font-bold">')
+      .replace(/&lt;\/b&gt;/gi, '</b>')
+      .replace(/&lt;strong&gt;/gi, '<strong class="font-bold">')
+      .replace(/&lt;\/strong&gt;/gi, '</strong>')
+      .replace(/&lt;i&gt;/gi, '<i class="italic">')
+      .replace(/&lt;\/i&gt;/gi, '</i>')
+      .replace(/&lt;em&gt;/gi, '<em class="italic">')
+      .replace(/&lt;\/em&gt;/gi, '</em>')
+  }
+
   const escapeRegex = (string: string): string => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
@@ -502,9 +514,10 @@
   const formatHighlightedText = (text: string | null | undefined, messageId?: string): string => {
     if (!text) return ''
     const escaped = escapeHtml(text)
+    const formatted = restoreSafeFormatting(escaped)
     const q = committedSearchQuery.value.trim()
     if (!isSearchingInConversation.value || !q) {
-      return escaped
+      return formatted
     }
     const isCurrentMatch = currentSearchMatchMessageId.value === messageId
     const markClass = isCurrentMatch
@@ -512,10 +525,10 @@
       : 'bg-amber-200/90 dark:bg-amber-400/40 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded'
 
     try {
-      const regex = new RegExp(`(${escapeRegex(q)})`, 'gi')
-      return escaped.replace(regex, `<mark class="${markClass}">$1</mark>`)
+      const regex = new RegExp(`(?![^<]*>)(${escapeRegex(q)})`, 'gi')
+      return formatted.replace(regex, `<mark class="${markClass}">$1</mark>`)
     } catch {
-      return escaped
+      return formatted
     }
   }
 
