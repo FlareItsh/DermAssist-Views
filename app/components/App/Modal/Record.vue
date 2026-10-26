@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
+  import { $api } from '~/composables/useApi'
   import { DISEASE_DATABASE, COLOR_MAP } from '~/composables/useDiagnosis'
   import { useStorage } from '~/composables/useStorage'
   import { recordService } from '~/api/record/RecordService'
@@ -33,6 +34,32 @@
 
   // Selected disease for dynamic characteristics and symptoms switching
   const selectedDisease = ref<string>('Acne')
+  const showPrescriptionPad = ref(false)
+  const isDownloadingRxPdf = ref(false)
+
+  const downloadPrescriptionPdf = async () => {
+    if (!props.record?.uuid) return
+    isDownloadingRxPdf.value = true
+    try {
+      const blob = await $api<Blob>(`/diagnoses/${props.record.uuid}/prescription/pdf`, {
+        responseType: 'blob'
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `prescription-${props.record.uuid.slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast.success('Prescription PDF downloaded successfully')
+    } catch (err: any) {
+      console.error('Failed to download prescription PDF:', err)
+      toast.error('Failed to download PDF.')
+    } finally {
+      isDownloadingRxPdf.value = false
+    }
+  }
 
   watch(
     () => props.record,
@@ -330,13 +357,35 @@
           v-if="prescriptionText"
           class="rounded-2xl border border-gray-200 bg-white p-4 shadow-2xs"
         >
-          <div class="mb-2 flex items-center gap-1.5 font-semibold text-gray-900">
-            <Icon
-              name="material-symbols:prescriptions-outline-rounded"
-              size="18"
-              class="text-indigo-600"
-            />
-            <span class="text-xs font-bold tracking-wider uppercase">Prescription</span>
+          <div class="mb-2 flex items-center justify-between">
+            <div class="flex items-center gap-1.5 font-semibold text-gray-900">
+              <Icon
+                name="material-symbols:prescriptions-outline-rounded"
+                size="18"
+                class="text-indigo-600"
+              />
+              <span class="text-xs font-bold tracking-wider uppercase">Prescription</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                :disabled="isDownloadingRxPdf"
+                @click="downloadPrescriptionPdf"
+                class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
+                <Icon v-else name="lucide:download" class="text-xs" />
+                <span>Download PDF</span>
+              </button>
+              <button
+                type="button"
+                @click="showPrescriptionPad = true"
+                class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+              >
+                <Icon name="lucide:printer" class="text-xs" />
+                <span>Print Rx</span>
+              </button>
+            </div>
           </div>
           <div
             class="rounded-xl border border-gray-100 bg-gray-50/70 p-3.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-800 select-text"
@@ -648,6 +697,12 @@
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Official Prescription Pad Modal -->
+  <AppPrescriptionPrescriptionPadModal
+    v-model="showPrescriptionPad"
+    :record-uuid="props.record?.uuid"
+  />
 </template>
 
 <style scoped>

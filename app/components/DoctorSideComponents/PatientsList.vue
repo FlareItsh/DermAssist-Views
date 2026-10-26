@@ -1,7 +1,8 @@
 <script setup lang="ts">
-  const { appointments } = useAppointments()
+  const { appointments, allAppointments } = useAppointments()
   const { getStorageUrl } = useStorage()
   const { addToPriority, removeFromPriority, isInPriority } = usePriorityList()
+  const currentDoctorUuid = useCookie('user_uuid')
 
   const getInitials = (firstName: string, lastName: string, fallback: string): string => {
     if (firstName || lastName) {
@@ -14,7 +15,7 @@
   }
 
   const filteredPatients = computed(() => {
-    let list = appointments.value
+    let list = allAppointments.value
 
     // Use a map to get unique patients
     const uniquePatientsMap = new Map()
@@ -32,6 +33,16 @@
 
       const pUuid = a.patient_uuid || patientObj?.uuid
       const pId = a.patient_id || patientObj?.id
+
+      if (
+        (pUuid && pUuid === currentDoctorUuid.value) ||
+        patientObj?.role === 'doctor' ||
+        patientObj?.role === 'secretary' ||
+        patientObj?.role === 'admin'
+      ) {
+        continue
+      }
+
       const uniqueKey = pUuid || (pId ? String(pId) : a.id)
 
       if (!uniquePatientsMap.has(uniqueKey)) {
@@ -107,7 +118,7 @@
     if (patient.id && isInPriority(patient.id)) return true
 
     if (pUuid || pId) {
-      return appointments.value.some(a => {
+      return allAppointments.value.some(a => {
         const aPatientUuid = a.patient_uuid || a.patient?.uuid
         const aPatientId = a.patient_id || a.patient?.id
         const matches = (pUuid && aPatientUuid === pUuid) || (pId && aPatientId == pId)
@@ -129,7 +140,7 @@
       if (pUuid) removeFromPriority(pUuid)
       if (pId) removeFromPriority(String(pId))
       if (patient.id) removeFromPriority(patient.id)
-      appointments.value.forEach(a => {
+      allAppointments.value.forEach(a => {
         const aPatientUuid = a.patient_uuid || a.patient?.uuid
         const aPatientId = a.patient_id || a.patient?.id
         if ((pUuid && aPatientUuid === pUuid) || (pId && aPatientId == pId)) {
@@ -141,7 +152,7 @@
       if (pUuid) addToPriority(pUuid)
       if (pId) addToPriority(String(pId))
       if (patient.id) addToPriority(patient.id)
-      appointments.value.forEach(a => {
+      allAppointments.value.forEach(a => {
         const aPatientUuid = a.patient_uuid || a.patient?.uuid
         const aPatientId = a.patient_id || a.patient?.id
         if ((pUuid && aPatientUuid === pUuid) || (pId && aPatientId == pId)) {
