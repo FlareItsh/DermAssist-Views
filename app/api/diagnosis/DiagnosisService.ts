@@ -30,6 +30,14 @@ export class DiagnosisService extends BaseService {
   async recordTechnicalFailure(payload: FormData | object): Promise<any> {
     return await this.request(`${this.resource}/technical-failure`, 'POST', payload)
   }
+
+  async getQuestionnaire(uuid: string): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/questionnaire`, 'GET')
+  }
+
+  async refineDiagnosis(uuid: string, answers: Record<string, string>): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/refine`, 'POST', { answers })
+  }
 }
 
 export const diagnosisService = new DiagnosisService()

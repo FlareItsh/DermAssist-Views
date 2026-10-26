@@ -23,6 +23,12 @@ export interface DiagnosisResult {
   is_out_of_scope?: boolean
   out_of_scope_category?: string | null
   clinical_feedback?: string
+  is_questionnaire_refined?: boolean
+  questionnaire_answers?: Record<string, string>
+  refined_label?: string
+  refined_confidence?: number
+  refined_probabilities?: Record<string, number>
+  clinical_evidence?: string[]
 }
 
 export type DiseaseName =
@@ -462,6 +468,7 @@ export const useDiagnosis = () => {
 
   const isInconclusiveState = computed(() => {
     if (!currentDiagnosis.value) return false
+    if (isOutOfScopeState.value) return false
     return (
       currentDiagnosis.value.is_inconclusive === true ||
       currentDiagnosis.value.label === 'Inconclusive' ||
@@ -482,13 +489,37 @@ export const useDiagnosis = () => {
     return currentDiagnosis.value.confidence < 0.35 || currentDiagnosis.value.label === 'Clear'
   })
 
+  const isTechnicalFailure = computed(() => {
+    return !!(currentDiagnosis.value as any)?.is_technical_failure
+  })
+
+  const canRefineDiagnosis = computed(() => {
+    if (!currentDiagnosis.value) return false
+    if (
+      isOutOfScopeState.value ||
+      isHealthyState.value ||
+      isNoneState.value ||
+      isTechnicalFailure.value
+    ) {
+      return false
+    }
+    const label = currentDiagnosis.value.label
+    if (label === 'Failed' || label === 'Error' || label === 'No lesion') return false
+    return true
+  })
+
+  const hasCompetingDiseases = computed(() => {
+    if (!currentDiagnosis.value || !chartData.value) return false
+    return chartData.value.filter(d => typeof d.value === 'number' && d.value >= 5).length > 1
+  })
+
   const chartData = computed(() => {
     if (!currentDiagnosis.value) {
       return [{ label: 'Normal', value: 100, color: '#f3f4f6' }]
     }
 
     if (isNoneState.value) {
-      return [{ label: 'Non-Skin Image Detected', value: 100, color: COLOR_MAP['None'] }]
+      return [{ label: 'Non-Skin/No Skin Disease Detected', value: 100, color: COLOR_MAP['None'] }]
     }
 
     if (isOutOfScopeState.value) {
@@ -509,25 +540,39 @@ export const useDiagnosis = () => {
       return [{ label: 'No skin disease detected', value: 100, color: COLOR_MAP['Clear'] }]
     }
 
-    if (
-      !currentDiagnosis.value.all_probabilities ||
-      Object.keys(currentDiagnosis.value.all_probabilities).length === 0
-    ) {
-      const label = currentDiagnosis.value.label || 'Inconclusive'
+    const targetProbs =
+      currentDiagnosis.value.is_questionnaire_refined &&
+      currentDiagnosis.value.refined_probabilities &&
+      Object.keys(currentDiagnosis.value.refined_probabilities).length > 0
+        ? currentDiagnosis.value.refined_probabilities
+        : currentDiagnosis.value.all_probabilities
+
+    if (!targetProbs || Object.keys(targetProbs).length === 0) {
+      const label =
+        (currentDiagnosis.value.is_questionnaire_refined
+          ? currentDiagnosis.value.refined_label
+          : null) ||
+        currentDiagnosis.value.label ||
+        'Inconclusive'
+      const conf =
+        currentDiagnosis.value.is_questionnaire_refined &&
+        currentDiagnosis.value.refined_confidence != null
+          ? currentDiagnosis.value.refined_confidence
+          : currentDiagnosis.value.confidence
       return [
         {
           label,
-          value: Math.round(currentDiagnosis.value.confidence * 100),
+          value: Math.round(conf * 100),
           color: COLOR_MAP[label] || '#475569'
         }
       ]
     }
 
-    return Object.entries(currentDiagnosis.value.all_probabilities)
-      .filter(([label, value]) => value > 0.02)
+    return Object.entries(targetProbs)
+      .filter(([label, value]) => value > 0.005)
       .map(([label, value]) => ({
         label,
-        value: Math.round(value * 100),
+        value: Math.max(1, Math.round(value * 100)),
         color: COLOR_MAP[label] || '#475569'
       }))
   })
@@ -582,6 +627,9 @@ export const useDiagnosis = () => {
     isInconclusiveState,
     isOutOfScopeState,
     isNoneState,
+    isTechnicalFailure,
+    canRefineDiagnosis,
+    hasCompetingDiseases,
     chartData,
     setDiagnosis,
     clearDiagnosis,
