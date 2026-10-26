@@ -523,9 +523,9 @@
           </div>
 
           <div class="flex items-center gap-3 lg:justify-end">
-            <!-- Available Scans Pill -->
+            <!-- Available Scans Pill (Doctors and Patients only) -->
             <div
-              v-if="user.scan_quota"
+              v-if="(getUserRole(user) === 'doctor' || getUserRole(user) === 'patient') && user.scan_quota"
               class="hidden items-center gap-1.5 rounded-full border border-gray-200/90 bg-gray-50/80 px-2.5 py-0.5 text-[11px] font-bold text-gray-700 sm:inline-flex"
               :title="getScanQuotaTooltip(user)"
             >
