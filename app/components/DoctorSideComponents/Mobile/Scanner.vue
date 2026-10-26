@@ -10,6 +10,7 @@
   import { useFormSanitizer } from '~/composables/useFormSanitizer'
   import { useStorage } from '~/composables/useStorage'
   import { useScanQuota } from '~/composables/useScanQuota'
+  import { parseScanError, parseCameraError } from '~/utils/scannerErrorHandler'
 
   const router = useRouter()
   const {
@@ -103,6 +104,7 @@
       toast.error('Please upload or drop a valid image file (JPEG, PNG, WEBP).')
       return
     }
+    errorMessage.value = ''
     selectedFile.value = file
     isScanned.value = false
     uploadQualityWarning.value = null
@@ -482,15 +484,9 @@
       stream = await acquireStream()
     } catch (err: any) {
       console.error('Camera error:', err)
-      if (err.name === 'NotReadableError') {
-        errorMessage.value =
-          'Camera is in use by another app or tab. Please close other camera apps and try again.'
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage.value =
-          'Camera permission denied. Please allow camera access in browser settings.'
-      } else {
-        errorMessage.value = `Camera error: ${err.name} — ${err.message}`
-      }
+      const { headerMessage, toastMessage } = parseCameraError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
       isCameraOn.value = false
       return
     }
@@ -593,6 +589,7 @@
         console.error('Failed to clean up retaken scan', e)
       }
     }
+    errorMessage.value = ''
     clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
@@ -1293,7 +1290,9 @@
       if (err.status === 429 || err.statusCode === 429) {
         await fetchQuota(true)
       }
-      errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
+      const { headerMessage, toastMessage } = parseScanError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
     } finally {
       isScanning.value = false
     }

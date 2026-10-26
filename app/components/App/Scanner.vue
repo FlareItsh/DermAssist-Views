@@ -3,6 +3,7 @@
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { toast } from 'vue-sonner'
   import { useScanQuota } from '~/composables/useScanQuota'
+  import { parseScanError, parseCameraError } from '~/utils/scannerErrorHandler'
 
   const {
     currentDiagnosis,
@@ -86,6 +87,7 @@
       toast.error('Please upload or drop a valid image file (JPEG, PNG, WEBP).')
       return
     }
+    errorMessage.value = ''
     selectedFile.value = file
     isScanned.value = false
     uploadQualityWarning.value = null
@@ -285,6 +287,7 @@
         console.error('Failed to clean up retaken scan', e)
       }
     }
+    errorMessage.value = ''
     clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
@@ -398,7 +401,9 @@
       startQualityLoop()
     } catch (err: any) {
       console.error('Camera access error:', err)
-      errorMessage.value = `Camera access error: ${err.name} (${err.message})`
+      const { headerMessage, toastMessage } = parseCameraError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
       isCameraOn.value = false // Reset state on error to keep UI responsive
     }
   }
@@ -619,7 +624,9 @@
       if (err.status === 429 || err.statusCode === 429) {
         await fetchQuota(true)
       }
-      errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
+      const { headerMessage, toastMessage } = parseScanError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
     } finally {
       isScanning.value = false
     }
