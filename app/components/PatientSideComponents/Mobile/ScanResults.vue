@@ -16,6 +16,8 @@
     isInconclusiveState,
     isOutOfScopeState,
     isNoneState,
+    canRefineDiagnosis,
+    hasCompetingDiseases,
     chartData
   } = useDiagnosis()
   const userName = useCookie('user_name')
@@ -27,9 +29,12 @@
 
   const activeDiseaseLabel = computed(() => {
     if (!currentDiagnosis.value) return 'None'
-    if (isNoneState.value) return 'Non-Skin Image Detected'
+    if (isNoneState.value) return 'Non-Skin/No Skin Disease Detected'
     if (isOutOfScopeState.value) return 'Out of Scope Condition'
     if (isInconclusiveState.value) return 'Inconclusive Result'
+    if (currentDiagnosis.value.is_questionnaire_refined && currentDiagnosis.value.refined_label) {
+      return currentDiagnosis.value.refined_label
+    }
     return currentDiagnosis.value.label
   })
 
@@ -43,8 +48,24 @@
 
   const confidencePercent = computed(() => {
     if (!currentDiagnosis.value) return 0
+    if (
+      currentDiagnosis.value.is_questionnaire_refined &&
+      currentDiagnosis.value.refined_confidence != null
+    ) {
+      return Math.round(currentDiagnosis.value.refined_confidence * 100)
+    }
     return Math.round(currentDiagnosis.value.confidence * 100)
   })
+
+  const showQuestionnaireModal = ref(false)
+
+  const openQuestionnaireModal = () => {
+    showQuestionnaireModal.value = true
+  }
+
+  const handleRefinedDiagnosis = () => {
+    showQuestionnaireModal.value = false
+  }
 
   const formatCategory = (cat?: string | null) => {
     if (!cat) return ''
@@ -529,12 +550,88 @@
             size="14"
           />
         </div>
-        <span>Non-Skin Image Detected</span>
+        <span>Non-Skin / No Skin Disease Detected</span>
       </div>
       <p class="text-xs leading-relaxed font-normal text-gray-600">
         The uploaded image does not appear to be a human skin photo. Please retake or upload a
         clear, focused photo of the skin lesion.
       </p>
+    </div>
+
+    <!-- Multimodal Questionnaire Banner (Mobile) -->
+    <AppQuestionnaireAnswersCard
+      v-if="
+        currentDiagnosis?.is_questionnaire_refined ||
+        (currentDiagnosis?.questionnaire_answers &&
+          Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
+      "
+      :diagnosis="currentDiagnosis"
+      @retake="openQuestionnaireModal"
+    />
+
+    <div
+      v-else-if="canRefineDiagnosis && currentDiagnosis?.uuid"
+      class="border-primary/20 from-primary/5 to-primary/10 flex flex-col gap-2 rounded-2xl border bg-gradient-to-br via-white p-3.5 shadow-xs"
+    >
+      <div class="flex items-center gap-2">
+        <div
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          :class="
+            isInconclusiveState || hasCompetingDiseases
+              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              : 'bg-primary/10 text-primary'
+          "
+        >
+          <Icon
+            :name="
+              isInconclusiveState || hasCompetingDiseases
+                ? 'lucide:alert-circle'
+                : 'lucide:clipboard-check'
+            "
+            size="14"
+          />
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <h4 class="text-xs font-bold text-gray-900">
+              {{
+                isInconclusiveState || hasCompetingDiseases
+                  ? 'Clarify Ambiguous Scan (Recommended)'
+                  : 'Have Different Symptoms? Verify Diagnosis (Optional)'
+              }}
+            </h4>
+            <span
+              v-if="hasCompetingDiseases"
+              class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400"
+            >
+              Competing
+            </span>
+          </div>
+          <p class="text-[11px] text-gray-500">
+            {{
+              isInconclusiveState || hasCompetingDiseases
+                ? 'Answer quick symptom questions to mathematically separate close contenders.'
+                : 'If your physical symptoms feel different (e.g. tingling, blistering, burning), answer quick questions to verify.'
+            }}
+          </p>
+        </div>
+      </div>
+      <AppButton
+        :variant="isInconclusiveState || hasCompetingDiseases ? 'primary' : 'outline'"
+        size="sm"
+        class="h-8 rounded-xl text-xs font-bold shadow-xs"
+        @click="openQuestionnaireModal"
+      >
+        <Icon
+          name="lucide:sparkles"
+          class="mr-1.5 h-3.5 w-3.5"
+        />
+        {{
+          isInconclusiveState || hasCompetingDiseases
+            ? 'Clarify with Questionnaire'
+            : 'Verify Symptoms'
+        }}
+      </AppButton>
     </div>
 
     <!-- Probability Distribution -->
@@ -875,6 +972,16 @@
       :doctor="nearestDoctor"
       :diagnosis-uuid="currentDiagnosis?.uuid || ''"
       @booked="handleAppointmentBooked"
+    />
+
+    <!-- Clinical Questionnaire Modal (Mobile) -->
+    <AppModalClinicalQuestionnaireModal
+      v-model="showQuestionnaireModal"
+      :diagnosis-uuid="currentDiagnosis?.uuid"
+      :prior-label="currentDiagnosis?.label"
+      :prior-confidence="currentDiagnosis?.confidence"
+      :prior-probabilities="currentDiagnosis?.all_probabilities"
+      @refined="handleRefinedDiagnosis"
     />
   </div>
 </template>

@@ -200,7 +200,7 @@
           {{ patient.first_name }} {{ patient.last_name }}
         </h3>
         <p class="mt-1 flex items-center gap-2 text-xs text-gray-500">
-          <span>{{ displayAge !== null ? `${displayAge} yrs` : 'N/A' }}</span>
+        <span>{{ displayAge !== null ? `${displayAge} yrs` : 'N/A' }}</span>
           <span class="h-1 w-1 rounded-full bg-gray-300"></span>
           <span>{{ patient.gender || 'N/A' }}</span>
         </p>

@@ -1266,8 +1266,8 @@
           errorMessage.value = 'Healthy skin detected. No disease present.'
           toast.info('Healthy skin detected. No disease present.')
         } else if (isNoneState.value) {
-          errorMessage.value = 'Non-skin image detected. Scan skin to proceed.'
-          toast.error('Non-skin image detected. Scan skin to proceed.')
+          errorMessage.value = 'Non-Skin/No Skin Disease Detected. Scan skin to proceed.'
+          toast.error('Non-Skin/No Skin Disease Detected. Scan skin to proceed.')
         } else {
           // Link patient to diagnosis explicitly
           try {

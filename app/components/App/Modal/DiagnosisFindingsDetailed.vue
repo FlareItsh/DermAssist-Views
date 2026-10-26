@@ -881,7 +881,7 @@
       if (
         newVal === 'None' ||
         newVal === 'Non-Skin' ||
-        newVal === 'Non-Skin Image Detected' ||
+        newVal === 'Non-Skin/No Skin Disease Detected' ||
         newVal === 'Non-Skin / Out of Scope'
       ) {
         activeDisease.value = 'None'
@@ -967,6 +967,19 @@
         currentDiagnosis.value.confidence < 0.55 &&
         currentDiagnosis.value.label !== 'None' &&
         currentDiagnosis.value.label !== 'Clear')
+    )
+  })
+
+  const hasCompetingContenders = computed(() => {
+    const valid = displayChartData.value.filter(d => typeof d.value === 'number' && d.value >= 5)
+    return valid.length > 1
+  })
+
+  const canRefineDetailed = computed(() => {
+    return (
+      activeDisease.value !== 'OutOfScope' &&
+      activeDisease.value !== 'None' &&
+      activeDisease.value !== 'Clear'
     )
   })
 
@@ -1323,6 +1336,22 @@
     doctorCardRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  const isQuestionnaireModalOpen = ref(false)
+
+  const handleOpenQuestionnaireModal = () => {
+    isQuestionnaireModalOpen.value = true
+  }
+
+  const handleQuestionnaireRefined = (updated: any) => {
+    if (updated && currentDiagnosis.value) {
+      currentDiagnosis.value = {
+        ...currentDiagnosis.value,
+        ...updated
+      }
+      saveActiveDiagnosisState()
+    }
+  }
+
   onMounted(() => {
     fetchUserAge()
     fetchNearestDoctor()
@@ -1354,7 +1383,7 @@
               >
                 {{
                   activeDisease === 'None'
-                    ? 'Non-Skin Image Detected'
+                    ? 'Non-Skin/No Skin Disease Detected'
                     : activeDisease === 'OutOfScope'
                       ? 'Out-of-Scope Condition'
                       : activeDisease === 'Inconclusive'
@@ -1968,6 +1997,83 @@
         v-else
         class="flex flex-col gap-6 sm:gap-8"
       >
+        <!-- Clinical Questionnaire & Patient Anamnesis Answers Card -->
+        <AppQuestionnaireAnswersCard
+          v-if="
+            currentDiagnosis?.is_questionnaire_refined ||
+            (currentDiagnosis?.questionnaire_answers &&
+              Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
+          "
+          :diagnosis="currentDiagnosis"
+          @retake="handleOpenQuestionnaireModal"
+        />
+
+        <!-- Anamnesis / Refinement Trigger (In-Scope diagnoses) -->
+        <div
+          v-else-if="canRefineDetailed"
+          class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
+        >
+          <div class="flex items-start gap-3">
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+              :class="
+                isInconclusive || hasCompetingContenders
+                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  : 'bg-primary/10 text-primary'
+              "
+            >
+              <Icon
+                :name="
+                  isInconclusive || hasCompetingContenders
+                    ? 'lucide:alert-circle'
+                    : 'lucide:clipboard-check'
+                "
+                class="h-4 w-4"
+              />
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <h4 class="text-foreground text-xs font-bold">
+                  {{
+                    isInconclusive || hasCompetingContenders
+                      ? 'Clarify Ambiguous Scan (Recommended)'
+                      : 'Have Different Symptoms? Verify Diagnosis (Optional)'
+                  }}
+                </h4>
+                <span
+                  v-if="hasCompetingContenders"
+                  class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400"
+                >
+                  Competing Contenders
+                </span>
+              </div>
+              <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                {{
+                  isInconclusive || hasCompetingContenders
+                    ? 'Visual AI detected multiple competing contenders. Answer quick symptom questions to mathematically separate them and reach a conclusive diagnosis.'
+                    : 'If your physical symptoms feel different (e.g. tingling, blistering, burning, or lip border area), answer quick questions to refine or confirm the diagnosis.'
+                }}
+              </p>
+              <AppButton
+                :variant="isInconclusive || hasCompetingContenders ? 'primary' : 'outline'"
+                size="sm"
+                class="mt-2.5 h-8 rounded-xl px-3.5 text-xs font-bold shadow-xs"
+                @click="handleOpenQuestionnaireModal"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="mr-1.5 h-3.5 w-3.5"
+                />
+                {{
+                  isInconclusive || hasCompetingContenders
+                    ? 'Clarify with Questionnaire'
+                    : 'Verify Symptoms'
+                }}
+              </AppButton>
+            </div>
+          </div>
+        </div>
+
         <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
@@ -3516,6 +3622,16 @@
       :doctor="nearestDoctor"
       :diagnosis-uuid="targetDiagnosisUuid"
       @booked="handleAppointmentBooked"
+    />
+
+    <!-- Clinical Questionnaire Modal for Patient Results Page -->
+    <AppModalClinicalQuestionnaireModal
+      v-model="isQuestionnaireModalOpen"
+      :diagnosis-uuid="props.diagnosisUuid || currentDiagnosis?.uuid"
+      :prior-label="currentDiagnosis?.label"
+      :prior-confidence="currentDiagnosis?.confidence"
+      :prior-probabilities="currentDiagnosis?.all_probabilities || currentDiagnosis?.probabilities"
+      @refined="handleQuestionnaireRefined"
     />
   </div>
 </template>

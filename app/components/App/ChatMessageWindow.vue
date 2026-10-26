@@ -352,6 +352,20 @@
     previewImageUrl.value = url
   }
 
+  // Patient clinical questionnaire inspection modal for doctor & attendees
+  const selectedDiagnosisForQuestionnaire = ref<any>(null)
+  const showPatientQuestionnaireModal = ref(false)
+
+  const openPatientQuestionnaireModal = (diagnosisData: any) => {
+    selectedDiagnosisForQuestionnaire.value = diagnosisData
+    showPatientQuestionnaireModal.value = true
+  }
+
+  const handleClosePatientQuestionnaireModal = () => {
+    showPatientQuestionnaireModal.value = false
+    selectedDiagnosisForQuestionnaire.value = null
+  }
+
   // Deduplicated displayed messages to filter out duplicate system cards
   const deduplicatedMessages = computed(() => {
     const valid = allMessages.value.filter(m => m && m.id)
@@ -480,6 +494,18 @@
       .replace(/'/g, '&#039;')
   }
 
+  const restoreSafeFormatting = (html: string): string => {
+    return html
+      .replace(/&lt;b&gt;/gi, '<b class="font-bold">')
+      .replace(/&lt;\/b&gt;/gi, '</b>')
+      .replace(/&lt;strong&gt;/gi, '<strong class="font-bold">')
+      .replace(/&lt;\/strong&gt;/gi, '</strong>')
+      .replace(/&lt;i&gt;/gi, '<i class="italic">')
+      .replace(/&lt;\/i&gt;/gi, '</i>')
+      .replace(/&lt;em&gt;/gi, '<em class="italic">')
+      .replace(/&lt;\/em&gt;/gi, '</em>')
+  }
+
   const escapeRegex = (string: string): string => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
@@ -488,9 +514,10 @@
   const formatHighlightedText = (text: string | null | undefined, messageId?: string): string => {
     if (!text) return ''
     const escaped = escapeHtml(text)
+    const formatted = restoreSafeFormatting(escaped)
     const q = committedSearchQuery.value.trim()
     if (!isSearchingInConversation.value || !q) {
-      return escaped
+      return formatted
     }
     const isCurrentMatch = currentSearchMatchMessageId.value === messageId
     const markClass = isCurrentMatch
@@ -498,10 +525,10 @@
       : 'bg-amber-200/90 dark:bg-amber-400/40 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded'
 
     try {
-      const regex = new RegExp(`(${escapeRegex(q)})`, 'gi')
-      return escaped.replace(regex, `<mark class="${markClass}">$1</mark>`)
+      const regex = new RegExp(`(?![^<]*>)(${escapeRegex(q)})`, 'gi')
+      return formatted.replace(regex, `<mark class="${markClass}">$1</mark>`)
     } catch {
-      return escaped
+      return formatted
     }
   }
 
@@ -2463,6 +2490,48 @@
                           </div>
                         </div>
                       </div>
+
+                      <!-- Doctor / Attendees Button for Patient Clinical Anamnesis Answers -->
+                      <div
+                        v-if="
+                          msg.appointment_data?.diagnosis?.is_questionnaire_refined ||
+                          (msg.appointment_data?.diagnosis as any)?.questionnaire_answers
+                        "
+                        class="border-border/40 mt-3 border-t pt-2.5"
+                      >
+                        <button
+                          type="button"
+                          class="border-primary/20 bg-primary/5 text-primary hover:bg-primary/10 flex w-full items-center justify-between rounded-xl border px-3 py-1.5 text-xs font-bold transition-all active:scale-98"
+                          @click.stop="
+                            openPatientQuestionnaireModal(msg.appointment_data.diagnosis)
+                          "
+                        >
+                          <div class="flex items-center gap-1.5">
+                            <Icon
+                              name="lucide:folder-heart"
+                              class="h-4 w-4"
+                            />
+                            <span>Patient Anamnesis Answers</span>
+                          </div>
+                          <span class="text-primary/80 text-[10px] font-black uppercase">
+                            View Answers →
+                          </span>
+                        </button>
+                      </div>
+
+                      <div
+                        v-else-if="
+                          userRole?.toLowerCase() === 'doctor' ||
+                          userRole?.toLowerCase() === 'secretary'
+                        "
+                        class="text-muted-foreground/80 mt-2 flex items-center gap-1.5 text-[10px] italic"
+                      >
+                        <Icon
+                          name="lucide:info"
+                          class="h-3.5 w-3.5 shrink-0"
+                        />
+                        <span>Visual scan only (No questionnaire submitted)</span>
+                      </div>
                     </div>
 
                     <!-- Only show buttons for actual Appointment Requests and only if no appointment is active -->
@@ -3848,6 +3917,13 @@
           </div>
         </Transition>
       </Teleport>
+
+      <!-- Patient Questionnaire Answers Modal (Doctor View) -->
+      <AppModalPatientQuestionnaireAnswersModal
+        v-model="showPatientQuestionnaireModal"
+        :diagnosis="selectedDiagnosisForQuestionnaire"
+        @update:model-value="handleClosePatientQuestionnaireModal"
+      />
     </ClientOnly>
   </div>
 </template>
