@@ -40,6 +40,11 @@
     gender: '',
     affiliation: '',
     prcNumber: '',
+    ptrNumber: '',
+    tinNumber: '',
+    s2Number: '',
+    signature: null as string | null,
+    signatureUrl: null as string | null,
     idPhoto: null as string | null
   })
 
@@ -317,6 +322,16 @@
     { immediate: true }
   )
 
+  // Prescription Signature Modal
+  const showSignatureModal = ref(false)
+  const handleSignatureSaved = (data: any) => {
+    if (data.ptr_number) form.ptrNumber = data.ptr_number
+    if (data.tin_number) form.tinNumber = data.tin_number
+    if (data.s2_number) form.s2Number = data.s2_number
+    if (data.signature_url) form.signatureUrl = data.signature_url
+    refresh()
+  }
+
   // Clinic Management
   const { clinics, fetchClinics, addClinic, updateClinic, removeClinic } = useDoctorClinics()
   const showAddClinicModal = ref(false)
@@ -325,7 +340,9 @@
     name: '',
     address: '',
     phone: '',
-    email: ''
+    email: '',
+    logo: '',
+    logoPreview: ''
   })
   const clinicError = ref('')
 
@@ -339,8 +356,39 @@
     address: '',
     phone: '',
     email: '',
-    is_active: true
+    is_active: true,
+    logo: '',
+    logoPreview: ''
   })
+
+  const handleClinicLogoUpload = (e: Event, isEdit: boolean) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (PNG, JPG, or WebP).')
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Clinic logo must be under 2MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = ev => {
+      const base64 = ev.target?.result as string
+      if (isEdit) {
+        editClinicForm.logo = base64
+        editClinicForm.logoPreview = base64
+      } else {
+        clinicForm.logo = base64
+        clinicForm.logoPreview = base64
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const openEditClinicModal = (clinic: any) => {
     editingClinic.value = clinic
@@ -349,6 +397,8 @@
     editClinicForm.phone = clinic.phone || ''
     editClinicForm.email = clinic.email || ''
     editClinicForm.is_active = clinic.is_active !== false
+    editClinicForm.logo = ''
+    editClinicForm.logoPreview = clinic.logo_url || clinic.logo_path || ''
     editClinicError.value = ''
     showEditClinicModal.value = true
   }
@@ -370,13 +420,19 @@
     editClinicError.value = ''
     try {
       const targetUuid = editingClinic.value.uuid || editingClinic.value.id
-      await updateClinic(targetUuid, {
+      const updatePayload: Record<string, any> = {
         name: editClinicForm.name.trim(),
         address: editClinicForm.address.trim() || null,
         phone: editClinicForm.phone.trim() || null,
         email: editClinicForm.email.trim() || null,
         is_active: editClinicForm.is_active
-      })
+      }
+      if (editClinicForm.logo) {
+        updatePayload.logo = editClinicForm.logo
+      } else if (!editClinicForm.logoPreview && editingClinic.value.logo_path) {
+        updatePayload.logo = null
+      }
+      await updateClinic(targetUuid, updatePayload)
       toast.success(`Clinic "${editClinicForm.name.trim()}" updated successfully.`)
       closeEditClinicModal()
     } catch (err: any) {
@@ -403,7 +459,8 @@
         name: clinicForm.name.trim(),
         address: clinicForm.address.trim() || null,
         phone: clinicForm.phone.trim() || null,
-        email: clinicForm.email.trim() || null
+        email: clinicForm.email.trim() || null,
+        logo: clinicForm.logo || null
       })
       toast.success(`Clinic "${clinicForm.name.trim()}" added successfully.`)
       showAddClinicModal.value = false
@@ -411,6 +468,8 @@
       clinicForm.address = ''
       clinicForm.phone = ''
       clinicForm.email = ''
+      clinicForm.logo = ''
+      clinicForm.logoPreview = ''
     } catch (err: any) {
       clinicError.value = err.data?.message || err.message || 'Failed to add clinic branch.'
       toast.error(clinicError.value)
@@ -1434,6 +1493,10 @@
           userData.doctor_verification?.prcNumber ||
           userData.doctor_verification?.prc_number ||
           ''
+        form.ptrNumber = userData.ptr_number || userData.ptrNumber || ''
+        form.tinNumber = userData.tin_number || userData.tinNumber || ''
+        form.s2Number = userData.s2_number || userData.s2Number || ''
+        form.signatureUrl = userData.signature_url || null
 
         loaded.value = true
         initialFormState.value = JSON.stringify(form)
@@ -2253,6 +2316,85 @@
                         <p class="text-muted-foreground mt-0.5 text-[11px]">
                           Supports JPG, PNG, WebP (up to 10MB)
                         </p>
+                      </div>
+                    </div>
+
+                    <!-- Prescription Credentials & Digital Signature -->
+                    <div class="col-span-full rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 sm:p-5 flex flex-col gap-4">
+                      <div class="flex items-center justify-between border-b border-indigo-100/80 pb-2.5">
+                        <div class="flex items-center gap-2">
+                          <Icon name="material-symbols:prescriptions-outline-rounded" class="text-xl text-indigo-600" />
+                          <div>
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-950">Prescription Credentials & Signature</h4>
+                            <p class="text-[11px] text-gray-500">Required on official Rx slips (Philippine FDA / BIR regulations)</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          @click="showSignatureModal = true"
+                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors shadow-2xs"
+                        >
+                          <Icon name="lucide:pen-tool" class="text-xs" />
+                          <span>{{ form.signatureUrl ? 'Update Signature' : 'Sign / Upload' }}</span>
+                        </button>
+                      </div>
+
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="flex flex-col gap-1">
+                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">PTR Number</label>
+                          <input
+                            v-model="form.ptrNumber"
+                            type="text"
+                            placeholder="e.g. PTR-1234567"
+                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                          />
+                          <span class="text-[9px] text-gray-400">Professional Tax Receipt</span>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">TIN Number</label>
+                          <input
+                            v-model="form.tinNumber"
+                            type="text"
+                            placeholder="e.g. 123-456-789-000"
+                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                          />
+                          <span class="text-[9px] text-gray-400">Tax Identification Number</span>
+                        </div>
+
+                        <div class="flex flex-col gap-1">
+                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">PDEA S2 License</label>
+                          <input
+                            v-model="form.s2Number"
+                            type="text"
+                            placeholder="Optional (leave blank if none)"
+                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                          />
+                          <span class="text-[9px] text-gray-400">Dangerous Drugs License</span>
+                        </div>
+                      </div>
+
+                      <!-- Signature Preview Box -->
+                      <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100">
+                        <div class="flex items-center gap-3">
+                          <div class="w-24 h-12 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden p-1">
+                            <img v-if="form.signatureUrl" :src="form.signatureUrl" class="max-h-full max-w-full object-contain" alt="Signature preview" />
+                            <span v-else class="text-[10px] text-gray-400 font-semibold italic">No signature</span>
+                          </div>
+                          <div>
+                            <span class="text-xs font-bold text-gray-800 block">Digital Prescription Signature</span>
+                            <span class="text-[11px] text-gray-500">
+                              {{ form.signatureUrl ? 'Configured & active on all Rx printouts' : 'Draw or upload to authenticate electronic prescriptions' }}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          @click="showSignatureModal = true"
+                          class="text-xs font-semibold text-indigo-600 hover:underline"
+                        >
+                          {{ form.signatureUrl ? 'Change Signature' : 'Set Signature' }}
+                        </button>
                       </div>
                     </div>
 
@@ -4363,6 +4505,25 @@
               </div>
             </div>
 
+            <!-- Clinic Logo Upload (for Prescriptions) -->
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Clinic Logo (for Prescription Pad Header)</label>
+              <div class="flex items-center gap-3">
+                <div v-if="clinicForm.logoPreview" class="relative w-12 h-12 rounded-xl border border-border bg-card overflow-hidden flex items-center justify-center p-1">
+                  <img :src="clinicForm.logoPreview" class="max-h-full max-w-full object-contain" alt="Clinic Logo" />
+                  <button type="button" @click="clinicForm.logo = ''; clinicForm.logoPreview = ''" class="absolute top-0 right-0 p-0.5 bg-rose-500 text-white rounded-bl-lg">
+                    <Icon name="lucide:x" class="text-[10px]" />
+                  </button>
+                </div>
+                <label class="flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-dashed border-border hover:border-primary rounded-xl cursor-pointer bg-foreground/5 hover:bg-foreground/10 transition-colors">
+                  <Icon name="lucide:image" class="text-sm text-primary" />
+                  <span>{{ clinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)' }}</span>
+                  <input type="file" accept="image/png, image/jpeg, image/webp" class="hidden" @change="handleClinicLogoUpload($event, false)" />
+                </label>
+              </div>
+              <p class="text-[10px] text-muted-foreground">Appears at top-left of prescription slips. If empty, DermAssist logo is used by default.</p>
+            </div>
+
             <div class="flex items-center justify-end gap-3 pt-2">
               <AppButton
                 type="button"
@@ -4476,6 +4637,25 @@
                   class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
                 />
               </div>
+            </div>
+
+            <!-- Clinic Logo Upload (for Prescriptions) -->
+            <div class="space-y-1.5">
+              <label class="text-foreground text-xs font-bold">Clinic Logo (for Prescription Pad Header)</label>
+              <div class="flex items-center gap-3">
+                <div v-if="editClinicForm.logoPreview" class="relative w-12 h-12 rounded-xl border border-border bg-card overflow-hidden flex items-center justify-center p-1">
+                  <img :src="editClinicForm.logoPreview" class="max-h-full max-w-full object-contain" alt="Clinic Logo" />
+                  <button type="button" @click="editClinicForm.logo = ''; editClinicForm.logoPreview = ''" class="absolute top-0 right-0 p-0.5 bg-rose-500 text-white rounded-bl-lg">
+                    <Icon name="lucide:x" class="text-[10px]" />
+                  </button>
+                </div>
+                <label class="flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-dashed border-border hover:border-primary rounded-xl cursor-pointer bg-foreground/5 hover:bg-foreground/10 transition-colors">
+                  <Icon name="lucide:image" class="text-sm text-primary" />
+                  <span>{{ editClinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)' }}</span>
+                  <input type="file" accept="image/png, image/jpeg, image/webp" class="hidden" @change="handleClinicLogoUpload($event, true)" />
+                </label>
+              </div>
+              <p class="text-[10px] text-muted-foreground">Appears at top-left of prescription slips. If empty, DermAssist logo is used by default.</p>
             </div>
 
             <!-- Active Status Toggle -->
@@ -5153,6 +5333,16 @@
       :slot-data="slotToEdit"
       :clinics="clinics"
       @saved="handleEditSlotSaved"
+    />
+
+    <!-- Doctor Prescription Signature Modal -->
+    <AppPrescriptionDoctorSignatureModal
+      v-model="showSignatureModal"
+      :initial-ptr="form.ptrNumber"
+      :initial-tin="form.tinNumber"
+      :initial-s2="form.s2Number"
+      :initial-signature-url="form.signatureUrl"
+      @saved="handleSignatureSaved"
     />
   </div>
 </template>

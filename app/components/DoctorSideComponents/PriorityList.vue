@@ -16,10 +16,11 @@
     raw?: any
   }
 
-  const { appointments, fetchAppointments } = useAppointments()
+  const { appointments, allAppointments, fetchAppointments } = useAppointments()
   const { getStorageUrl } = useStorage()
   const { priorityIds, removeFromPriority, isInPriority } = usePriorityList()
   const { searchQuery } = useSearch()
+  const currentDoctorUuid = useCookie('user_uuid')
 
   const registeredPatients = ref<any[]>([])
   const isLoading = ref(false)
@@ -59,6 +60,14 @@
     for (const p of registeredPatients.value) {
       const pUuid = p.uuid
       const pId = p.id ? String(p.id) : null
+
+      if (
+        (pUuid && pUuid === currentDoctorUuid.value) ||
+        (p.role && p.role !== 'patient')
+      ) {
+        continue
+      }
+
       const isPrio = (pUuid && isInPriority(pUuid)) || (pId && isInPriority(pId))
 
       if (isPrio) {
@@ -83,11 +92,20 @@
     }
 
     // 2. Check all appointments (accepted, pending, etc.)
-    for (const a of appointments.value) {
+    for (const a of allAppointments.value) {
       const patientObj = a.patient || (a as any).raw?.patient
       const pUuid = a.patient_uuid || patientObj?.uuid
       const pId = a.patient_id || patientObj?.id ? String(a.patient_id || patientObj?.id) : null
       const apptId = a.id
+
+      if (
+        (pUuid && pUuid === currentDoctorUuid.value) ||
+        patientObj?.role === 'doctor' ||
+        patientObj?.role === 'secretary' ||
+        patientObj?.role === 'admin'
+      ) {
+        continue
+      }
 
       // Patient is in priority if their UUID, numeric ID, or appointment ID was saved
       const isPrio =
