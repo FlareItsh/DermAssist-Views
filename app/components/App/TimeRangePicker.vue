@@ -9,6 +9,7 @@
     durationLabel: string
     isAvailable: boolean
     isCurrentApptTime?: boolean
+    isPassed?: boolean
     clinicName?: string
   }
 
@@ -52,6 +53,14 @@
 
   // ─── Helpers: Time <-> Minutes ──────────────────────────────────────────────
 
+  const getTodayStr = (): string => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
   const timeToMinutes = (t: string): number => {
     if (!t) return 0
     const [h, m] = t.split(':').map(Number)
@@ -88,6 +97,18 @@
   })
 
   // ─── Available Time Slots Computation ─────────────────────────────────────────
+
+  const isSlotPassed = (startM: number): boolean => {
+    if (!props.date) return false
+    const todayStr = getTodayStr()
+    if (props.date < todayStr) return true
+    if (props.date === todayStr) {
+      const now = new Date()
+      const currentM = now.getHours() * 60 + now.getMinutes()
+      return startM <= currentM
+    }
+    return false
+  }
 
   const availableTimeSlots = computed<TimeSlotOption[]>(() => {
     const duration = props.durationMinutes || 60
@@ -140,10 +161,11 @@
           const endMm = String(endM % 60).padStart(2, '0')
           const endTime24 = `${endHh}:${endMm}`
 
+          const passed = isSlotPassed(m)
           const isCurrent = props.currentStartTime
             ? time24 === props.currentStartTime.slice(0, 5)
             : false
-          const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
+          const isAvail = !passed && !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
 
           slots.push({
             time24,
@@ -153,6 +175,7 @@
             durationLabel,
             isAvailable: isAvail,
             isCurrentApptTime: isCurrent,
+            isPassed: passed,
             clinicName
           })
         }
@@ -174,10 +197,11 @@
         const endMm = String(endM % 60).padStart(2, '0')
         const endTime24 = `${endHh}:${endMm}`
 
+        const passed = isSlotPassed(m)
         const isCurrent = props.currentStartTime
           ? time24 === props.currentStartTime.slice(0, 5)
           : false
-        const isAvail = !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
+        const isAvail = !passed && !isCurrent && !isSlotBlocked(m) && !isSlotBooked(m)
 
         slots.push({
           time24,
@@ -186,7 +210,8 @@
           endLabel: format12H(endTime24),
           durationLabel,
           isAvailable: isAvail,
-          isCurrentApptTime: isCurrent
+          isCurrentApptTime: isCurrent,
+          isPassed: passed
         })
       }
     }
@@ -200,7 +225,9 @@
 
   const selectedSlotInfo = computed(() => {
     if (!normalizedStartTime.value) return null
-    return availableTimeSlots.value.find(s => s.time24 === normalizedStartTime.value) || null
+    const found = availableTimeSlots.value.find(s => s.time24 === normalizedStartTime.value)
+    if (!found || !found.isAvailable) return null
+    return found
   })
 
   const selectTimeSlot = (slot: TimeSlotOption) => {
@@ -308,7 +335,7 @@
           class="text-[10px]"
           :class="isSlotSelected(slot) ? 'text-white/80' : 'text-muted-foreground'"
         >
-          until {{ slot.endLabel }}
+          {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
         </span>
         <span
           v-if="slot.isCurrentApptTime"

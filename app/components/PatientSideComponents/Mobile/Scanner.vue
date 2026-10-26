@@ -5,6 +5,7 @@
   import { useDiagnosis } from '~/composables/useDiagnosis'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
   import { useScanQuota } from '~/composables/useScanQuota'
+  import { parseScanError, parseCameraError } from '~/utils/scannerErrorHandler'
   import {
     acquireOptimizedMediaStream,
     captureHighQualityPhoto,
@@ -441,15 +442,9 @@
       stream = await acquireStream()
     } catch (err: any) {
       console.error('Camera error:', err)
-      if (err.name === 'NotReadableError') {
-        errorMessage.value =
-          'Camera is in use by another app or tab. Please close other camera apps and try again.'
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        errorMessage.value =
-          'Camera permission denied. Please allow camera access in browser settings.'
-      } else {
-        errorMessage.value = `Camera error: ${err.name} — ${err.message}`
-      }
+      const { headerMessage, toastMessage } = parseCameraError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
       isCameraOn.value = false
       return
     }
@@ -599,8 +594,11 @@
           errorMessage.value = 'Healthy skin detected. No disease present.'
           toast.info('Healthy skin detected. No disease present.')
         } else if (isNoneState.value) {
-          errorMessage.value = 'Non-Skin/No Skin Disease Detected. Scan skin to proceed.'
-          toast.error('Non-Skin/No Skin Disease Detected. Scan skin to proceed.')
+          errorMessage.value = 'Scan Failed. Please Try Again'
+          toast.error(
+            (response as any).clinical_feedback ||
+              'The uploaded image does not appear to be human skin. Please try again with a clear, close-up photo.'
+          )
         } else {
           try {
             const diagUuid = (response as any)?.uuid || (response as any)?.id
@@ -614,10 +612,10 @@
         }
       }
     } catch (err: any) {
-      if (err.status === 429 || err.statusCode === 429) {
-        await fetchQuota(true)
-      }
-      errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
+      await fetchQuota(true)
+      const { headerMessage, toastMessage } = parseScanError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
     } finally {
       isScanning.value = false
     }

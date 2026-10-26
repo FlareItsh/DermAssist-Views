@@ -678,10 +678,8 @@
       followUpTimeOnly.value = earliestSlot.start
       followUpEndTimeOnly.value = earliestSlot.end
     } else {
-      const dayDuties = getDutySlotsForDate(date)
-      if (dayDuties.length > 0) {
-        followUpTimeOnly.value = dayDuties[0].start_time.slice(0, 5)
-      }
+      followUpTimeOnly.value = ''
+      followUpEndTimeOnly.value = ''
     }
   }
 
@@ -791,6 +789,28 @@
     if (!noFollowUp.value && !followUpDateOnly.value) {
       followUpError.value =
         "Please select a follow-up appointment date & time, or check 'No follow-up appointment required'."
+      if (followUpSectionRef.value) {
+        followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+      return
+    }
+
+    const isFollowUpPassed = (() => {
+      if (!followUpDateOnly.value || !followUpTimeOnly.value) return false
+      const now = new Date()
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+      if (followUpDateOnly.value < todayStr) return true
+      if (followUpDateOnly.value === todayStr) {
+        const currentM = now.getHours() * 60 + now.getMinutes()
+        const [h, m] = followUpTimeOnly.value.split(':').map(Number)
+        return (h * 60 + (m || 0)) <= currentM
+      }
+      return false
+    })()
+
+    if (!noFollowUp.value && isFollowUpPassed) {
+      followUpError.value =
+        'The selected follow-up appointment time has already passed. Please choose a future time.'
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }

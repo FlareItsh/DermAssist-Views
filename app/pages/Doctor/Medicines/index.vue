@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, reactive, computed } from 'vue'
+  import { ref, reactive, computed, watch } from 'vue'
   import { toast } from 'vue-sonner'
   import {
     medicineService,
@@ -44,6 +44,26 @@
   const totalVariantsCount = computed(() =>
     medicines.value.reduce((acc, med) => acc + (med.variants?.length || 0), 0)
   )
+
+  // Pagination
+  const medicinesPerPage = 9
+  const currentPage = ref(1)
+
+  const paginatedMedicines = computed(() => {
+    const start = (currentPage.value - 1) * medicinesPerPage
+    return filteredMedicines.value.slice(start, start + medicinesPerPage)
+  })
+
+  watch(searchQuery, () => {
+    currentPage.value = 1
+  })
+
+  watch(filteredMedicines, () => {
+    const totalPages = Math.max(1, Math.ceil(filteredMedicines.value.length / medicinesPerPage))
+    if (currentPage.value > totalPages) {
+      currentPage.value = totalPages
+    }
+  })
 
   // Form & Modal State
   const showModal = ref(false)
@@ -377,109 +397,121 @@
       </button>
     </div>
 
-    <!-- Medicines Grid -->
+    <!-- Medicines Grid & Pagination -->
     <div
       v-else
-      class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      class="space-y-4"
     >
-      <div
-        v-for="med in filteredMedicines"
-        :key="med.uuid"
-        class="group flex flex-col justify-between rounded-3xl border border-gray-100 bg-white p-5 shadow-2xs transition-all hover:border-gray-200 hover:shadow-md"
-      >
-        <div>
-          <!-- Card Header -->
-          <div class="flex items-start justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition-colors group-hover:bg-amber-100"
-              >
-                <Icon
-                  name="lucide:pill"
-                  class="text-lg"
-                />
-              </div>
-              <div>
-                <h3 class="text-sm font-bold text-gray-900 sm:text-base">
-                  {{ med.name }}
-                </h3>
-                <span
-                  class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          v-for="med in paginatedMedicines"
+          :key="med.uuid"
+          class="group flex flex-col justify-between rounded-3xl border border-gray-100 bg-white p-5 shadow-2xs transition-all hover:border-gray-200 hover:shadow-md"
+        >
+          <div>
+            <!-- Card Header -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <div
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition-colors group-hover:bg-amber-100"
                 >
                   <Icon
-                    name="lucide:layers"
-                    class="text-[11px]"
+                    name="lucide:pill"
+                    class="text-lg"
                   />
-                  {{ med.variants?.length || 0 }} variant{{
-                    (med.variants?.length || 0) === 1 ? '' : 's'
-                  }}
-                </span>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-gray-900 sm:text-base">
+                    {{ med.name }}
+                  </h3>
+                  <span
+                    class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+                  >
+                    <Icon
+                      name="lucide:layers"
+                      class="text-[11px]"
+                    />
+                    {{ med.variants?.length || 0 }} variant{{
+                      (med.variants?.length || 0) === 1 ? '' : 's'
+                    }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Card Actions -->
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  @click="openEditModal(med)"
+                  class="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                  title="Edit medicine"
+                >
+                  <Icon
+                    name="lucide:pencil"
+                    class="text-sm"
+                  />
+                </button>
+                <button
+                  type="button"
+                  @click="promptDelete(med)"
+                  class="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                  title="Delete medicine"
+                >
+                  <Icon
+                    name="lucide:trash-2"
+                    class="text-sm"
+                  />
+                </button>
               </div>
             </div>
 
-            <!-- Card Actions -->
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                @click="openEditModal(med)"
-                class="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                title="Edit medicine"
-              >
-                <Icon
-                  name="lucide:pencil"
-                  class="text-sm"
-                />
-              </button>
-              <button
-                type="button"
-                @click="promptDelete(med)"
-                class="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600"
-                title="Delete medicine"
-              >
-                <Icon
-                  name="lucide:trash-2"
-                  class="text-sm"
-                />
-              </button>
-            </div>
-          </div>
-
-          <!-- Description -->
-          <p
-            v-if="med.description"
-            class="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500"
-          >
-            {{ med.description }}
-          </p>
-
-          <!-- Variants List -->
-          <div class="mt-4 space-y-2 border-t border-gray-100 pt-3.5">
-            <div
-              class="flex items-center justify-between text-[10px] font-bold tracking-wider text-gray-400 uppercase"
+            <!-- Description -->
+            <p
+              v-if="med.description"
+              class="mt-3 line-clamp-2 text-xs leading-relaxed text-gray-500"
             >
-              <span>Dosage Variants</span>
-              <span>{{ med.variants?.length || 0 }} total</span>
-            </div>
+              {{ med.description }}
+            </p>
 
-            <div class="flex flex-wrap gap-1.5">
+            <!-- Variants List -->
+            <div class="mt-4 space-y-2 border-t border-gray-100 pt-3.5">
               <div
-                v-for="v in med.variants"
-                :key="v.uuid"
-                class="flex items-center gap-1.5 rounded-xl border border-gray-200/60 bg-gray-50/70 px-2.5 py-1 text-xs transition-colors hover:bg-gray-100"
+                class="flex items-center justify-between text-[10px] font-bold tracking-wider text-gray-400 uppercase"
               >
-                <span class="font-bold text-gray-900"> {{ v.dosage }} {{ v.unit }} </span>
-                <span class="text-gray-300">•</span>
-                <span class="max-w-[140px] truncate text-[11px] font-medium text-gray-600">
-                  {{ v.default_frequency }}
-                </span>
+                <span>Dosage Variants</span>
+                <span>{{ med.variants?.length || 0 }} total</span>
+              </div>
+
+              <div class="flex flex-wrap gap-1.5">
+                <div
+                  v-for="v in med.variants"
+                  :key="v.uuid"
+                  class="flex items-center gap-1.5 rounded-xl border border-gray-200/60 bg-gray-50/70 px-2.5 py-1 text-xs transition-colors hover:bg-gray-100"
+                >
+                  <span class="font-bold text-gray-900"> {{ v.dosage }} {{ v.unit }} </span>
+                  <span class="text-gray-300">•</span>
+                  <span class="max-w-[140px] truncate text-[11px] font-medium text-gray-600">
+                    {{ v.default_frequency }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div class="mt-4 flex justify-end border-t border-gray-50 pt-2 text-[11px] text-gray-400">
-          <span class="font-mono text-[10px]">#{{ med.uuid.slice(0, 8) }}</span>
+          <div class="mt-4 flex justify-end border-t border-gray-50 pt-2 text-[11px] text-gray-400">
+            <span class="font-mono text-[10px]">#{{ med.uuid.slice(0, 8) }}</span>
+          </div>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div class="overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-2xs">
+        <AppPagination
+          v-model:currentPage="currentPage"
+          :total-items="filteredMedicines.length"
+          :per-page="medicinesPerPage"
+          item-label="medicines"
+        />
       </div>
     </div>
 

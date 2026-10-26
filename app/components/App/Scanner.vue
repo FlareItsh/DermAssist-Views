@@ -22,7 +22,9 @@
     selectedFile,
     patientUuid,
     appointmentUuid,
-    pendingPatientRegistration
+    pendingPatientRegistration,
+    isHealthyState,
+    isNoneState
   } = useDiagnosis()
   const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
   const userUuid = useCookie('user_uuid')
@@ -527,11 +529,16 @@
         if ((response as any).scan_quota) {
           applyQuota((response as any).scan_quota)
         }
+        if (isNoneState.value) {
+          errorMessage.value = 'Scan Failed. Please Try Again'
+          toast.error(
+            (response as any).clinical_feedback ||
+              'The uploaded image does not appear to be human skin. Please try again with a clear, close-up photo.'
+          )
+        }
       }
     } catch (err: any) {
-      if (err.status === 429 || err.statusCode === 429) {
-        await fetchQuota(true)
-      }
+      await fetchQuota(true)
       const { headerMessage, toastMessage } = parseScanError(err)
       errorMessage.value = headerMessage
       toast.error(toastMessage)

@@ -79,8 +79,8 @@
   }
 
   const selectedDate = ref('')
-  const scheduleTime = ref('09:00')
-  const scheduleEndTime = ref('10:00')
+  const scheduleTime = ref('')
+  const scheduleEndTime = ref('')
   const scheduleLocation = ref('')
   const customLocationInput = ref('')
   const schedulePurpose = ref('')
@@ -201,16 +201,18 @@
 
   // When selectedDate changes, smart-default to earliest conflict-free slot on this date
   watch(selectedDate, newDate => {
-    if (!newDate) return
+    if (!newDate) {
+      scheduleTime.value = ''
+      scheduleEndTime.value = ''
+      return
+    }
     const earliestSlot = findEarliestAvailableSlot(newDate, 60, existingApptSlotsForDate.value)
     if (earliestSlot) {
       scheduleTime.value = earliestSlot.start
       scheduleEndTime.value = earliestSlot.end
     } else {
-      const dayDuties = getDutySlotsForDate(newDate)
-      if (dayDuties.length > 0) {
-        scheduleTime.value = dayDuties[0].start_time.slice(0, 5)
-      }
+      scheduleTime.value = ''
+      scheduleEndTime.value = ''
     }
   })
 
@@ -278,8 +280,8 @@
 
   const resetForm = () => {
     selectedDate.value = ''
-    scheduleTime.value = '09:00'
-    scheduleEndTime.value = '10:00'
+    scheduleTime.value = ''
+    scheduleEndTime.value = ''
     scheduleLocation.value = ''
     schedulePurpose.value = ''
     scheduleError.value = ''
@@ -294,6 +296,19 @@
       return customLocationInput.value.trim()
     }
     return scheduleLocation.value.trim()
+  })
+
+  const isTimePassed = computed(() => {
+    if (!selectedDate.value || !scheduleTime.value) return false
+    const todayStr = getTodayStr()
+    if (selectedDate.value < todayStr) return true
+    if (selectedDate.value === todayStr) {
+      const now = new Date()
+      const currentM = now.getHours() * 60 + now.getMinutes()
+      const [h, m] = scheduleTime.value.split(':').map(Number)
+      return (h * 60 + (m || 0)) <= currentM
+    }
+    return false
   })
 
   const overlappingAppointment = computed(() => {
@@ -314,6 +329,7 @@
       !!scheduleEndTime.value &&
       !!effectiveLocation.value &&
       !!schedulePurpose.value &&
+      !isTimePassed.value &&
       !isSelectedTimeBlocked.value &&
       !isTimeRangeInvalid.value &&
       !isOutsideDutyHours.value &&
@@ -322,7 +338,13 @@
   )
 
   const confirmSchedule = async () => {
-    if (!isFormValid.value || !selectedPatient.value) return
+    if (!isFormValid.value || !selectedPatient.value) {
+      if (isTimePassed.value) {
+        scheduleError.value =
+          'The selected appointment time has already passed. Please choose a future time.'
+      }
+      return
+    }
     isScheduling.value = true
     scheduleError.value = ''
     try {
