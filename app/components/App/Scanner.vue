@@ -3,6 +3,13 @@
   import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { toast } from 'vue-sonner'
   import { useScanQuota } from '~/composables/useScanQuota'
+  import { parseScanError, parseCameraError } from '~/utils/scannerErrorHandler'
+  import {
+    acquireOptimizedMediaStream,
+    captureHighQualityPhoto,
+    compressImage,
+    validateImageQuality
+  } from '~/composables/useCameraQuality'
 
   const {
     currentDiagnosis,
@@ -41,6 +48,11 @@
   const videoDevices = ref<MediaDeviceInfo[]>([])
   const selectedDeviceId = ref<string>('')
   const currentDeviceIndex = ref(0)
+  const isMirrored = ref(false)
+
+  const toggleMirror = () => {
+    isMirrored.value = !isMirrored.value
+  }
 
   const isMicroscopeActive = computed(() => {
     if (!selectedDeviceId.value) return false
@@ -86,6 +98,7 @@
       toast.error('Please upload or drop a valid image file (JPEG, PNG, WEBP).')
       return
     }
+    errorMessage.value = ''
     selectedFile.value = file
     isScanned.value = false
     uploadQualityWarning.value = null
@@ -285,6 +298,7 @@
         console.error('Failed to clean up retaken scan', e)
       }
     }
+    errorMessage.value = ''
     clearDiagnosis()
     previewImage.value = null
     selectedFile.value = null
@@ -346,26 +360,10 @@
   }
 
   const acquireStream = async () => {
-    if (selectedDeviceId.value) {
-      try {
-        return await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: selectedDeviceId.value } }
-        })
-      } catch (err) {
-        try {
-          return await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: { ideal: selectedDeviceId.value } }
-          })
-        } catch (_) {}
-      }
-    }
-    try {
-      return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'user' } }
-      })
-    } catch (_) {
-      return await navigator.mediaDevices.getUserMedia({ video: true })
-    }
+    return await acquireOptimizedMediaStream({
+      deviceId: selectedDeviceId.value || undefined,
+      facingMode: 'user'
+    })
   }
 
   const startCamera = async () => {
@@ -398,7 +396,9 @@
       startQualityLoop()
     } catch (err: any) {
       console.error('Camera access error:', err)
-      errorMessage.value = `Camera access error: ${err.name} (${err.message})`
+      const { headerMessage, toastMessage } = parseCameraError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
       isCameraOn.value = false // Reset state on error to keep UI responsive
     }
   }
@@ -446,45 +446,6 @@
     img.src = dataUrl
   }
 
-  const validateImageQuality = (
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number
-  ): string | null => {
-    const imageData = ctx.getImageData(0, 0, width, height)
-    const data = imageData.data
-    let totalLum = 0
-    let variance = 0
-    const pixelCount = data.length / 4
-
-    for (let i = 0; i < data.length; i += 4) {
-      const r = (data as any)[i]
-      const g = (data as any)[i + 1]
-      const b = (data as any)[i + 2]
-      totalLum += 0.299 * r + 0.587 * g + 0.114 * b
-    }
-
-    const avgLum = totalLum / pixelCount
-
-    // STRICTER BRIGHTNESS: From 30 -> 80
-    if (avgLum < 80) return 'Too dark - use more light'
-    // STRICTER GLARE: From 245 -> 230
-    if (avgLum > 230) return 'Too much glare - avoid direct reflection'
-
-    for (let i = 0; i < data.length; i += 8) {
-      const r = (data as any)[i]
-      const g = (data as any)[i + 1]
-      const b = (data as any)[i + 2]
-      const lum = (r + g + b) / 3
-      variance += Math.abs(lum - avgLum)
-    }
-
-    // STRICTER DETAIL: From 10 -> 20 (Ensures texture is visible)
-    if (variance / (pixelCount / 2) < 20) return 'Get closer or fix focus...'
-
-    return null
-  }
-
   const captureAndScan = async () => {
     if (isScanning.value) return
 
@@ -500,76 +461,28 @@
     }
 
     // Case 2: Capturing from live camera
-    if (!videoRef.value || !canvasRef.value || qualityError.value || !isCameraOn.value) return
+    if (!videoRef.value || qualityError.value || !isCameraOn.value || !stream) return
 
     const video = videoRef.value
-    const canvas = canvasRef.value
-    const context = canvas.getContext('2d', { willReadFrequently: true })
-    if (!context) return
+    const shouldMirror = isMirrored.value
 
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
+    try {
+      const result = await captureHighQualityPhoto(stream, video, {
+        mirror: shouldMirror,
+        maxSide: 2048,
+        quality: 0.92
+      })
 
-    if (!isMicroscopeActive.value) {
-      context.save()
-      context.scale(-1, 1)
-      context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height)
-      context.restore()
-    } else {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      previewImage.value = result.dataUrl
+      selectedFile.value = result.file
+      stopCamera()
+      isCameraOn.value = false
+
+      await performDiagnosis(result.file)
+    } catch (err) {
+      console.error('High-resolution capture failed:', err)
+      toast.error('Failed to capture high resolution photo. Please try again.')
     }
-
-    previewImage.value = canvas.toDataURL('image/jpeg')
-    stopCamera()
-    isCameraOn.value = false
-
-    canvas.toBlob(
-      async blob => {
-        if (blob) {
-          const file = new File([blob], 'scan.jpg', { type: 'image/jpeg' })
-          selectedFile.value = file
-          await performDiagnosis(file)
-        }
-      },
-      'image/jpeg',
-      0.85
-    )
-  }
-
-  const compressImage = (file: File): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-        const maxSide = 1024
-
-        if (width > height && width > maxSide) {
-          height *= maxSide / width
-          width = maxSide
-        } else if (height > maxSide) {
-          width *= maxSide / height
-          height = maxSide
-        }
-
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return reject('Could not get canvas context')
-        ctx.drawImage(img, 0, 0, width, height)
-        canvas.toBlob(
-          blob => {
-            if (blob) resolve(blob)
-            else reject('Compression failed')
-          },
-          'image/jpeg',
-          0.85
-        )
-      }
-      img.onerror = reject
-      img.src = URL.createObjectURL(file)
-    })
   }
 
   const performDiagnosis = async (file: File) => {
@@ -582,8 +495,8 @@
     errorMessage.value = ''
 
     try {
-      // Compress before sending
-      const compressedBlob = await compressImage(file)
+      // Compress before sending with high quality (2048px, 0.92)
+      const compressedBlob = await compressImage(file, 2048, 0.92)
       const finalFile = new File([compressedBlob], 'scan.jpg', { type: 'image/jpeg' })
 
       const formData = new FormData()
@@ -619,7 +532,9 @@
       if (err.status === 429 || err.statusCode === 429) {
         await fetchQuota(true)
       }
-      errorMessage.value = err.data?.error || err.statusMessage || err.message || 'Scanning error.'
+      const { headerMessage, toastMessage } = parseScanError(err)
+      errorMessage.value = headerMessage
+      toast.error(toastMessage)
     } finally {
       isScanning.value = false
     }
@@ -845,17 +760,34 @@
             muted
             class="absolute inset-0 h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500"
             :class="{
-              '-scale-x-100': !isMicroscopeActive,
+              '-scale-x-100': isMirrored,
               'pointer-events-none opacity-30': isScanning
             }"
           ></video>
 
-          <!-- Desktop Camera Switcher (Only visible when 2+ cameras exist, e.g. USB microscope plugged in) -->
+          <!-- Camera Controls Overlay (Switch camera & Mirror Toggle) -->
           <div
-            v-if="isCameraOn && !previewImage && !isScanning && videoDevices.length > 1"
-            class="absolute top-4 right-4 z-20"
+            v-if="isCameraOn && !previewImage && !isScanning"
+            class="absolute top-4 right-4 z-20 flex items-center gap-2"
           >
+            <!-- Mirror Toggle -->
             <button
+              type="button"
+              @click="toggleMirror"
+              class="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
+              :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
+            >
+              <Icon
+                :name="isMirrored ? 'lucide:flip-horizontal-2' : 'lucide:flip-horizontal'"
+                class="text-base"
+                :class="{ 'text-primary-400': isMirrored }"
+              />
+              <span>{{ isMirrored ? 'Mirrored' : 'Natural' }}</span>
+            </button>
+
+            <!-- Desktop Camera Switcher (Only visible when 2+ cameras exist, e.g. USB microscope plugged in) -->
+            <button
+              v-if="videoDevices.length > 1"
               type="button"
               @click="cycleDevice"
               class="flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"

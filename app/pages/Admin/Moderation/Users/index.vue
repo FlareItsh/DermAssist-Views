@@ -449,7 +449,7 @@
           v-for="user in users"
           :key="user.uuid || user.id"
           :to="`/admin/moderation/users/${user.uuid}`"
-          class="grid gap-2 px-4 py-3 transition hover:bg-gray-50 md:px-5 md:py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_auto] lg:gap-4"
+          class="grid gap-2 px-4 py-3 transition hover:bg-gray-50 md:px-5 md:py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)] lg:items-center lg:gap-4"
         >
           <div class="flex min-w-0 items-center gap-4">
             <div
@@ -523,9 +523,9 @@
           </div>
 
           <div class="flex items-center gap-3 lg:justify-end">
-            <!-- Available Scans Pill -->
+            <!-- Available Scans Pill (Doctors and Patients only) -->
             <div
-              v-if="user.scan_quota"
+              v-if="(getUserRole(user) === 'doctor' || getUserRole(user) === 'patient') && user.scan_quota"
               class="hidden items-center gap-1.5 rounded-full border border-gray-200/90 bg-gray-50/80 px-2.5 py-0.5 text-[11px] font-bold text-gray-700 sm:inline-flex"
               :title="getScanQuotaTooltip(user)"
             >
