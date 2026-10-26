@@ -1449,6 +1449,25 @@
 
     <!-- === FLIP, TORCH & RETAKE BUTTONS === -->
     <div class="absolute top-36 right-4 z-30 flex flex-col gap-2 sm:top-40">
+      <!-- Mirror / Natural toggle button -->
+      <button
+        v-if="isCameraOn && !previewImage && !isScanning"
+        type="button"
+        @click="toggleMirror"
+        class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
+        :class="
+          isMirrored
+            ? 'border-primary/80 bg-primary/80 text-white shadow-lg'
+            : 'border-white/20 bg-black/50 text-white'
+        "
+        :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
+      >
+        <Icon
+          :name="isMirrored ? 'lucide:flip-horizontal-2' : 'lucide:flip-horizontal'"
+          size="20"
+        />
+      </button>
+
       <!-- Flip / cycle camera button (only when camera is live and multiple cameras exist) -->
       <button
         v-if="isCameraOn && !previewImage && !isScanning && canCycleCamera"
