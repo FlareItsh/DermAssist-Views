@@ -47,6 +47,11 @@
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
   const currentFacingMode = ref<'user' | 'environment'>('environment')
+  const isMirrored = ref(false)
+
+  const toggleMirror = () => {
+    isMirrored.value = !isMirrored.value
+  }
   const videoDevices = ref<MediaDeviceInfo[]>([])
   const currentDeviceIndex = ref(0)
   const selectedDeviceId = ref<string>('')
@@ -540,7 +545,7 @@
     }
 
     const video = videoRef.value
-    const shouldMirror = currentFacingMode.value === 'user' && !isMicroscopeActive.value
+    const shouldMirror = isMirrored.value
 
     try {
       const result = await captureHighQualityPhoto(stream, video, {
@@ -720,7 +725,7 @@
       playsinline
       muted
       class="absolute inset-0 h-full w-full object-cover"
-      :class="{ '-scale-x-100': currentFacingMode === 'user' && !isMicroscopeActive }"
+      :class="{ '-scale-x-100': isMirrored }"
     ></video>
 
     <img

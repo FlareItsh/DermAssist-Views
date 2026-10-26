@@ -48,6 +48,11 @@
   const videoDevices = ref<MediaDeviceInfo[]>([])
   const selectedDeviceId = ref<string>('')
   const currentDeviceIndex = ref(0)
+  const isMirrored = ref(false)
+
+  const toggleMirror = () => {
+    isMirrored.value = !isMirrored.value
+  }
 
   const isMicroscopeActive = computed(() => {
     if (!selectedDeviceId.value) return false
@@ -459,7 +464,7 @@
     if (!videoRef.value || qualityError.value || !isCameraOn.value || !stream) return
 
     const video = videoRef.value
-    const shouldMirror = !isMicroscopeActive.value
+    const shouldMirror = isMirrored.value
 
     try {
       const result = await captureHighQualityPhoto(stream, video, {
@@ -755,17 +760,34 @@
             muted
             class="absolute inset-0 h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500"
             :class="{
-              '-scale-x-100': !isMicroscopeActive,
+              '-scale-x-100': isMirrored,
               'pointer-events-none opacity-30': isScanning
             }"
           ></video>
 
-          <!-- Desktop Camera Switcher (Only visible when 2+ cameras exist, e.g. USB microscope plugged in) -->
+          <!-- Camera Controls Overlay (Switch camera & Mirror Toggle) -->
           <div
-            v-if="isCameraOn && !previewImage && !isScanning && videoDevices.length > 1"
-            class="absolute top-4 right-4 z-20"
+            v-if="isCameraOn && !previewImage && !isScanning"
+            class="absolute top-4 right-4 z-20 flex items-center gap-2"
           >
+            <!-- Mirror Toggle -->
             <button
+              type="button"
+              @click="toggleMirror"
+              class="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
+              :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
+            >
+              <Icon
+                :name="isMirrored ? 'lucide:flip-horizontal-2' : 'lucide:flip-horizontal'"
+                class="text-base"
+                :class="{ 'text-primary-400': isMirrored }"
+              />
+              <span>{{ isMirrored ? 'Mirrored' : 'Natural' }}</span>
+            </button>
+
+            <!-- Desktop Camera Switcher (Only visible when 2+ cameras exist, e.g. USB microscope plugged in) -->
+            <button
+              v-if="videoDevices.length > 1"
               type="button"
               @click="cycleDevice"
               class="flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
