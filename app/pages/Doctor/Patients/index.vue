@@ -842,11 +842,22 @@
     }
   }
 
+  const getCurrentTimeStr = () => {
+    const now = new Date()
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  }
+
+  const isTimePassedToday = (timeVal: string) => {
+    if (scheduleActionDate.value !== getTodayStr()) return false
+    return timeVal <= getCurrentTimeStr()
+  }
+
   // Schedule auto-action
   const promptScheduleAction = (patient: PatientDirectoryItem) => {
     patientToManage.value = patient
     scheduleActionDate.value = getTodayStr()
-    scheduleActionTime.value = '09:00'
+    const firstValid = availableTimeOptions.find(opt => !isTimePassedToday(opt.value))
+    scheduleActionTime.value = firstValid ? firstValid.value : '23:59'
     scheduleActionType.value = 'delete'
     scheduleActionError.value = null
     showScheduleActionModal.value = true
@@ -2490,8 +2501,9 @@
                 v-for="opt in availableTimeOptions"
                 :key="opt.value"
                 :value="opt.value"
+                :disabled="isTimePassedToday(opt.value)"
               >
-                {{ opt.label }}
+                {{ opt.label }} {{ isTimePassedToday(opt.value) ? '(Passed)' : '' }}
               </option>
             </select>
           </div>

@@ -246,6 +246,14 @@ export const useBlockedDates = () => {
     existingAppts: Array<{ start_time: string; end_time: string }> = []
   ): { start: string; end: string } | null => {
     if (!dateStr) return null
+
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (dateStr < todayStr) return null
+
+    const isToday = dateStr === todayStr
+    const currentMins = now.getHours() * 60 + now.getMinutes()
+
     const dayDutySlots = getDutySlotsForDate(dateStr)
     if (!dayDutySlots.length) return null
 
@@ -269,6 +277,8 @@ export const useBlockedDates = () => {
 
       // Step by 30-minute intervals
       for (let candStart = dStartMins; candStart + durationMinutes <= dEndMins; candStart += 30) {
+        if (isToday && candStart <= currentMins) continue
+
         const candEnd = candStart + durationMinutes
 
         // Check blocked slot overlaps

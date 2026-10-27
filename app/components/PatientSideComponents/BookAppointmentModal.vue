@@ -208,11 +208,19 @@
       return apptDate === dateStr && a.status !== 'declined'
     })
 
+    const now = new Date()
+    const currentM = now.getHours() * 60 + now.getMinutes()
+    const isTodayDate = dateStr === today
+    const isDateInPast = dateStr < today
+
     for (const duty of dayDuties) {
       const dutyStart = toMins(duty.start_time)
       const dutyEnd = toMins(duty.end_time)
 
       for (let m = dutyStart; m + DURATION_MINS <= dutyEnd; m += 30) {
+        if (isDateInPast) continue
+        if (isTodayDate && m <= currentM) continue
+
         const endM = m + DURATION_MINS
 
         const isBlocked = dayBlocked.some((b: any) => {
@@ -399,6 +407,7 @@
     endLabel: string
     durationLabel: string
     isAvailable: boolean
+    isPassed?: boolean
     clinicName?: string
   }
 
@@ -433,6 +442,17 @@
     })
 
     const DURATION_MINS = 60 // 1-hour consultation standard
+
+    const now = new Date()
+    const currentM = now.getHours() * 60 + now.getMinutes()
+    const isTodayDate = dateStr === today
+    const isDateInPast = dateStr < today
+
+    const isSlotPassed = (startM: number) => {
+      if (isDateInPast) return true
+      if (isTodayDate && startM <= currentM) return true
+      return false
+    }
 
     const isSlotBlocked = (startM: number) => {
       const endM = startM + DURATION_MINS
@@ -480,7 +500,8 @@
           const endMm = String(endM % 60).padStart(2, '0')
           const endTime24 = `${endHh}:${endMm}`
 
-          const isAvail = !isSlotBlocked(m) && !isSlotBooked(m)
+          const passed = isSlotPassed(m)
+          const isAvail = !passed && !isSlotBlocked(m) && !isSlotBooked(m)
 
           slots.push({
             time24,
@@ -489,6 +510,7 @@
             endLabel: formatTime12H(endTime24),
             durationLabel: '1 hr',
             isAvailable: isAvail,
+            isPassed: passed,
             clinicName
           })
         }
@@ -505,7 +527,8 @@
         const endMm = String(endM % 60).padStart(2, '0')
         const endTime24 = `${endHh}:${endMm}`
 
-        const isAvail = !isSlotBlocked(m) && !isSlotBooked(m)
+        const passed = isSlotPassed(m)
+        const isAvail = !passed && !isSlotBlocked(m) && !isSlotBooked(m)
 
         slots.push({
           time24,
@@ -513,12 +536,22 @@
           label: formatTime12H(time24),
           endLabel: formatTime12H(endTime24),
           durationLabel: '1 hr',
-          isAvailable: isAvail
+          isAvailable: isAvail,
+          isPassed: passed
         })
       }
     }
 
     return slots
+  })
+
+  watch([selectedDate, availableTimeSlots], () => {
+    if (selectedTime.value) {
+      const current = availableTimeSlots.value.find(s => s.time24 === selectedTime.value)
+      if (!current || !current.isAvailable) {
+        selectedTime.value = ''
+      }
+    }
   })
 
   const selectTimeSlot = (slot: TimeSlotOption) => {
@@ -545,6 +578,11 @@
     }
     if (!selectedTime.value) {
       toast.error('Please select an available consultation time slot.')
+      return
+    }
+    const chosenSlot = availableTimeSlots.value.find(s => s.time24 === selectedTime.value)
+    if (!chosenSlot || !chosenSlot.isAvailable) {
+      toast.error('The selected time slot is no longer available or has already passed.')
       return
     }
 
@@ -864,7 +902,7 @@
                 class="text-[9px]"
                 :class="selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'"
               >
-                until {{ slot.endLabel }}
+                {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
               </span>
             </button>
           </div>
@@ -1354,7 +1392,7 @@
                           selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'
                         "
                       >
-                        until {{ slot.endLabel }}
+                        {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
                       </span>
                     </button>
                   </div>

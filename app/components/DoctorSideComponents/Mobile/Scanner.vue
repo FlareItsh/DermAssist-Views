@@ -1160,8 +1160,11 @@
           errorMessage.value = 'Healthy skin detected. No disease present.'
           toast.info('Healthy skin detected. No disease present.')
         } else if (isNoneState.value) {
-          errorMessage.value = 'Non-Skin/No Skin Disease Detected. Scan skin to proceed.'
-          toast.error('Non-Skin/No Skin Disease Detected. Scan skin to proceed.')
+          errorMessage.value = 'Scan Failed. Please Try Again'
+          toast.error(
+            (response as any).clinical_feedback ||
+              'The uploaded image does not appear to be human skin. Please try again with a clear, close-up photo.'
+          )
         } else {
           // Link patient to diagnosis explicitly
           try {
@@ -1181,9 +1184,7 @@
         }
       }
     } catch (err: any) {
-      if (err.status === 429 || err.statusCode === 429) {
-        await fetchQuota(true)
-      }
+      await fetchQuota(true)
       const { headerMessage, toastMessage } = parseScanError(err)
       errorMessage.value = headerMessage
       toast.error(toastMessage)
