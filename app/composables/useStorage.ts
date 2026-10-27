@@ -1,32 +1,67 @@
 export const useStorage = () => {
   const config = useRuntimeConfig()
-  const storageBase = config.public.storageBase
 
   /**
-   * Helper to construct a full storage URL from a relative path.
-   * Path: "profile/user1.jpg" -> "http://localhost:8000/storage/profile/user1.jpg"
+   * Resolve the canonical base storage URL:
+   * 1. Explicit `storageBase` (NUXT_PUBLIC_STORAGE_BASE)
+   * 2. Derived from `backendUrl` (NUXT_PUBLIC_BACKEND_URL + '/storage')
+   * 3. Derived from `apiBase` (NUXT_PUBLIC_API_BASE minus '/api' + '/storage')
+   * 4. Empty string fallback (routes to local relative '/storage')
+   */
+  const resolveBaseUrl = (): string => {
+    const rawStorage = (config.public.storageBase as string)?.trim()
+    if (rawStorage) {
+      return rawStorage.replace(/\/+$/, '')
+    }
+
+    const rawBackend = (config.public.backendUrl as string)?.trim()
+    if (rawBackend) {
+      return `${rawBackend.replace(/\/+$/, '')}/storage`
+    }
+
+    const rawApi = (config.public.apiBase as string)?.trim()
+    if (rawApi) {
+      const root = rawApi.replace(/\/api\/?$/, '')
+      if (root) {
+        return `${root.replace(/\/+$/, '')}/storage`
+      }
+    }
+
+    return ''
+  }
+
+  const defaultStorageBase = resolveBaseUrl()
+
+  /**
+   * Helper to construct a full, accessible storage URL from a relative path or legacy URL.
+   * e.g. "avatars/photo.jpg" -> "https://api.laravel.cloud/storage/avatars/photo.jpg"
    */
   const getStorageUrl = (path: string | null | undefined): string => {
-    if (!path) {
+    if (!path || typeof path !== 'string') {
       return ''
     }
 
-    let cleanPath = path
+    let cleanPath = path.trim()
+    if (!cleanPath) {
+      return ''
+    }
 
-    // If it's a full URL
+    // Handle full external URLs (Google avatars, UI-Avatars, Cloudflare R2, AWS S3, etc.)
     if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
-      // If it points to an external service like ui-avatars.com, return as-is
+      // If pointing to external third-party service or public cloud CDN, return as-is
       if (
         !cleanPath.includes('localhost') &&
         !cleanPath.includes('127.0.0.1') &&
         !cleanPath.includes('192.168.') &&
+        !cleanPath.includes('10.') &&
         !cleanPath.includes('DermAssist-API.test') &&
         !cleanPath.includes('ngrok')
       ) {
         return cleanPath
       }
 
-      // Extract path after /storage/
+      // If it's a legacy local or loopback URL stored in DB (e.g. from local seeder or ngrok)
+      // Extract the relative path after '/storage/'
       const storageIndex = cleanPath.indexOf('/storage/')
       if (storageIndex !== -1) {
         cleanPath = cleanPath.substring(storageIndex + 9)
@@ -34,45 +69,32 @@ export const useStorage = () => {
         try {
           const urlObj = new URL(cleanPath)
           cleanPath = urlObj.pathname.startsWith('/') ? urlObj.pathname.slice(1) : urlObj.pathname
-        } catch (e) {
-          // Ignore
+        } catch {
+          // ignore parsing error
         }
       }
     }
 
-    // Clean leading slash or storage/ prefix
+    // Clean leading slashes and redundant 'storage/' prefixes
     cleanPath = cleanPath.startsWith('/') ? cleanPath.slice(1) : cleanPath
     if (cleanPath.startsWith('storage/')) {
       cleanPath = cleanPath.substring(8)
     }
 
-    // If storageBase is configured (e.g. http://localhost:8000/storage), use it
-    if (storageBase) {
-      let base = storageBase.endsWith('/') ? storageBase.slice(0, -1) : storageBase
+    // If a base storage URL is resolved (from storageBase, backendUrl, or apiBase)
+    if (defaultStorageBase) {
+      let base = defaultStorageBase
+
       if (typeof window !== 'undefined') {
         const currentHost = window.location.hostname
-        if (currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+        // Wi-Fi / LAN IP mobile testing ONLY:
+        // When tester accesses the app from a phone on private Wi-Fi (e.g. 192.168.x.x or 10.x.x.x),
+        // adjust localhost URLs to point to that local LAN IP.
+        const isPrivateLan = /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(currentHost)
+        if (isPrivateLan) {
           try {
             const url = new URL(base)
-            if (
-              url.hostname === 'localhost' ||
-              url.hostname === '127.0.0.1' ||
-              /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(url.hostname)
-            ) {
-              url.hostname = currentHost
-              base = url.toString().replace(/\/+$/, '')
-            }
-          } catch {
-            // ignore
-          }
-        } else {
-          try {
-            const url = new URL(base)
-            if (
-              url.hostname !== 'localhost' &&
-              url.hostname !== '127.0.0.1' &&
-              /^(10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(url.hostname)
-            ) {
+            if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
               url.hostname = currentHost
               base = url.toString().replace(/\/+$/, '')
             }
@@ -81,10 +103,11 @@ export const useStorage = () => {
           }
         }
       }
+
       return `${base}/${cleanPath}`
     }
 
-    // Otherwise route through the Nuxt proxy endpoint /storage/...
+    // Final fallback (local development without explicit backend env vars)
     return `/storage/${cleanPath}`
   }
 

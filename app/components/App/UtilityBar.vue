@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue'
+  import { ref, onMounted, onUnmounted, watch } from 'vue'
   import { authService } from '~/api/auth/AuthService'
   import { userService } from '~/api/user/UserService'
   import type { AppNotification } from '~/composables/useAppNotifications'
@@ -78,6 +78,18 @@
     if (userRole.value === 'doctor') return 'DR'
     return 'U'
   })
+
+  const avatarError = ref(false)
+  const handleAvatarError = () => {
+    avatarError.value = true
+  }
+
+  watch(
+    () => ((userProfile.value as any)?.data ?? userProfile.value)?.avatar_path,
+    () => {
+      avatarError.value = false
+    }
+  )
 
   // --- Appointments (both doctor and patient) ---
   const {
@@ -606,11 +618,12 @@
           "
         >
           <NuxtImg
-            v-if="userProfile?.avatar_path"
+            v-if="userProfile?.avatar_path && !avatarError"
             :src="getStorageUrl(userProfile.avatar_path)"
             class="h-full w-full object-cover"
             alt="Profile"
             placeholder
+            @error="handleAvatarError"
           />
           <div
             v-else
