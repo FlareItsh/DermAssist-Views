@@ -10,6 +10,19 @@
   import { useStorage } from '~/composables/useStorage'
 
   const router = useRouter()
+
+  interface Props {
+    embedded?: boolean
+  }
+
+  const props = withDefaults(defineProps<Props>(), {
+    embedded: false
+  })
+
+  const emit = defineEmits<{
+    (e: 'close'): void
+    (e: 'retake'): void
+  }>()
   const {
     currentDiagnosis,
     isHealthyState,
@@ -27,11 +40,14 @@
   const { appointments, pendingAppointments } = useAppointments()
   const { selectedDoctorUuid, clearSelection } = useDoctorSelection()
 
+  const isNonDiseaseResult = computed(() => isHealthyState.value || isNoneState.value)
+
   const activeDiseaseLabel = computed(() => {
     if (!currentDiagnosis.value) return 'None'
     if (isNoneState.value) return 'Non-Skin/No Skin Disease Detected'
     if (isOutOfScopeState.value) return 'Out of Scope Condition'
     if (isInconclusiveState.value) return 'Inconclusive Result'
+    if (isHealthyState.value) return 'No Skin Disease Detected'
     if (currentDiagnosis.value.is_questionnaire_refined && currentDiagnosis.value.refined_label) {
       return currentDiagnosis.value.refined_label
     }
@@ -42,9 +58,26 @@
     if (isNoneState.value) return DISEASE_DATABASE['None']
     if (isOutOfScopeState.value) return DISEASE_DATABASE['OutOfScope']
     if (isInconclusiveState.value) return DISEASE_DATABASE['Inconclusive']
+    if (isHealthyState.value) return DISEASE_DATABASE['Clear']
     const label = activeDiseaseLabel.value
     return DISEASE_DATABASE[label] || DISEASE_DATABASE['None']
   })
+
+  const handleBack = () => {
+    if (props.embedded) {
+      emit('close')
+      return
+    }
+    router.push('/Patient/Scan')
+  }
+
+  const handleScanAgain = () => {
+    if (props.embedded) {
+      emit('retake')
+      return
+    }
+    router.push('/Patient/Scan')
+  }
 
   const confidencePercent = computed(() => {
     if (!currentDiagnosis.value) return 0
@@ -396,8 +429,10 @@
   }
 
   onMounted(() => {
-    if (isHealthyState.value || isNoneState.value) {
-      navigateTo('/Patient/Scan')
+    if (isNonDiseaseResult.value) {
+      if (!props.embedded) {
+        navigateTo('/Patient/Scan')
+      }
       return
     }
     fetchNearestDoctor()
@@ -410,14 +445,17 @@
     <div class="mt-3 flex items-center justify-between">
       <h2 class="text-base font-semibold tracking-tight text-gray-900">Analysis Results</h2>
       <button
-        @click="router.push('/Patient/Scan')"
+        type="button"
+        @click="handleBack"
         class="text-primary hover:text-primary/80 flex items-center gap-1 text-xs font-medium transition-colors"
       >
         <Icon
-          name="material-symbols:arrow-back-rounded"
+          :name="
+            embedded ? 'material-symbols:close-rounded' : 'material-symbols:arrow-back-rounded'
+          "
           size="16"
         />
-        Back
+        {{ embedded ? 'Close' : 'Back' }}
       </button>
     </div>
 
@@ -433,7 +471,7 @@
         }"
       >
         <Icon
-          name="solar:shield-check-bold-duotone"
+          :name="isNoneState ? 'lucide:image-off' : 'solar:shield-check-bold-duotone'"
           size="22"
         />
       </div>
@@ -446,6 +484,7 @@
         </h3>
         <div class="mt-1 flex flex-wrap items-center gap-1.5">
           <span
+            v-if="!isNonDiseaseResult"
             class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
             :style="{
               backgroundColor: `${activeDiseaseInfo?.color || '#7B5EF5'}15`,
@@ -553,8 +592,32 @@
         <span>Non-Skin / No Skin Disease Detected</span>
       </div>
       <p class="text-xs leading-relaxed font-normal text-gray-600">
-        The uploaded image does not appear to be a human skin photo. Please retake or upload a
-        clear, focused photo of the skin lesion.
+        {{
+          currentDiagnosis?.clinical_feedback ||
+          'The uploaded image does not appear to be a human skin photo. Please retake or upload a clear, focused photo of the skin lesion.'
+        }}
+      </p>
+    </div>
+
+    <!-- Healthy Skin Advisory Banner (Mobile) -->
+    <div
+      v-else-if="isHealthyState"
+      class="flex flex-col gap-2 rounded-2xl border border-emerald-100 bg-white p-4 shadow-xs"
+    >
+      <div class="flex items-center gap-2 text-xs font-semibold text-gray-900">
+        <div
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"
+        >
+          <Icon
+            name="lucide:shield-check"
+            size="14"
+          />
+        </div>
+        <span>No Skin Disease Detected</span>
+      </div>
+      <p class="text-xs leading-relaxed font-normal text-gray-600">
+        No signs of Acne, Eczema, or Herpes were found in this photo. If you still notice changes or
+        discomfort, consult a licensed dermatologist.
       </p>
     </div>
 
@@ -617,7 +680,7 @@
         </div>
       </div>
       <AppButton
-        :variant="isInconclusiveState || hasCompetingDiseases ? 'primary' : 'outline'"
+        :variant="isInconclusiveState || hasCompetingDiseases ? 'solid' : 'outline'"
         size="sm"
         class="h-8 rounded-xl text-xs font-bold shadow-xs"
         @click="openQuestionnaireModal"
@@ -628,7 +691,7 @@
         />
         {{
           isInconclusiveState || hasCompetingDiseases
-            ? 'Clarify with Questionnaire'
+            ? 'Clarify with Clinical Assessment'
             : 'Verify Symptoms'
         }}
       </AppButton>
@@ -731,7 +794,10 @@
     </div>
 
     <!-- Recommended Doctor Section -->
-    <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs">
+    <div
+      v-if="!isNonDiseaseResult"
+      class="rounded-2xl border border-gray-100 bg-white p-4 shadow-xs"
+    >
       <h3 class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
         {{
           isDoctorRegistered
@@ -924,7 +990,27 @@
     </div>
 
     <!-- Actions -->
-    <div :class="isDoctorRegistered ? 'mt-1 flex' : 'mt-1 grid grid-cols-2 gap-2.5'">
+    <div
+      v-if="isNonDiseaseResult"
+      class="mt-1 flex"
+    >
+      <button
+        type="button"
+        @click="handleScanAgain"
+        class="bg-primary hover:bg-primary/95 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold text-white shadow-md transition-all active:scale-95"
+      >
+        <Icon
+          name="lucide:aperture"
+          size="16"
+          class="shrink-0"
+        />
+        <span class="truncate">Scan Again</span>
+      </button>
+    </div>
+    <div
+      v-else
+      :class="isDoctorRegistered ? 'mt-1 flex' : 'mt-1 grid grid-cols-2 gap-2.5'"
+    >
       <button
         v-if="!isDoctorRegistered"
         @click="goToSelectDoctor"
@@ -939,7 +1025,7 @@
       </button>
       <button
         @click="handleDoctorAction"
-        :disabled="isSending || !nearestDoctor || isHealthyState || isNoneState"
+        :disabled="isSending || !nearestDoctor"
         class="bg-primary hover:bg-primary/95 flex h-12 w-full items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon
@@ -955,13 +1041,7 @@
           class="shrink-0"
         />
         <span class="truncate">{{
-          isHealthyState || isNoneState
-            ? 'Invalid Scan'
-            : isSending
-              ? 'Sending...'
-              : hasActiveAppointment
-                ? 'Send Findings'
-                : 'Book Consultation'
+          isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Book Consultation'
         }}</span>
       </button>
     </div>

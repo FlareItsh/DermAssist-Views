@@ -91,7 +91,7 @@
 
           <!-- Scrollable Body with Internal Page-Consistent Custom Scrollbar -->
           <div
-            class="custom-scrollbar my-3 mr-1.5 min-h-0 flex-1 overflow-y-auto overscroll-contain sm:mr-2.5"
+            class="custom-scrollbar my-3 mr-1.5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain sm:mr-2.5"
             :class="[
               hideScrollbar ? 'scrollbar-none' : '',
               compact ? 'p-4 sm:p-6 md:p-7' : 'p-4 sm:p-6 md:p-10'

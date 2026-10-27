@@ -2296,7 +2296,7 @@
               v-for="msg in displayedMessages"
               :key="msg.id"
               :id="'msg-' + msg.id"
-              class="group flex items-end gap-2 sm:gap-3 rounded-2xl transition-all duration-300"
+              class="group flex items-end gap-2 rounded-2xl transition-all duration-300 sm:gap-3"
               :class="[
                 msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row',
                 currentSearchMatchMessageId === msg.id
@@ -2305,7 +2305,9 @@
               ]"
               @contextmenu="openContextMenu($event, msg)"
             >
-              <div class="border-border/50 h-8 w-8 sm:h-10 sm:w-10 shrink-0 overflow-hidden rounded-full border">
+              <div
+                class="border-border/50 h-8 w-8 shrink-0 overflow-hidden rounded-full border sm:h-10 sm:w-10"
+              >
                 <img
                   v-if="msg.sender?.avatar && !hasMessageAvatarError(msg.id)"
                   :src="getStorageUrl(msg.sender.avatar)"
@@ -2315,7 +2317,7 @@
                 />
                 <div
                   v-else
-                  class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-xs sm:text-sm font-bold uppercase"
+                  class="bg-primary/10 text-primary flex h-full w-full items-center justify-center text-xs font-bold uppercase sm:text-sm"
                 >
                   {{ (msg.sender?.name || '?').charAt(0) }}
                 </div>
@@ -2375,19 +2377,19 @@
                     "
                   >
                     <div class="mb-2.5 sm:mb-3">
-                      <div class="flex items-center gap-2 mb-1.5">
+                      <div class="mb-1.5 flex items-center gap-2">
                         <Icon
                           :name="
                             msg.message.includes('[APPOINTMENT_REQUEST:')
                               ? 'material-symbols:calendar-month-rounded'
                               : 'material-symbols:diagnosis-outline-rounded'
                           "
-                          class="text-2xl sm:text-3xl shrink-0"
+                          class="shrink-0 text-2xl sm:text-3xl"
                           :class="
                             msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
                           "
                         />
-                        <p class="text-base sm:text-lg font-bold leading-tight">
+                        <p class="text-base leading-tight font-bold sm:text-lg">
                           {{
                             msg.message.includes('[APPOINTMENT_REQUEST:')
                               ? 'Appointment Request'
@@ -2396,7 +2398,7 @@
                         </p>
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/90' : 'opacity-80'
                         "
@@ -2407,7 +2409,7 @@
                     <!-- Requested Schedule Information Card -->
                     <div
                       v-if="getAppointmentScheduleFromMsg(msg)"
-                      class="mt-2.5 sm:mt-3 rounded-2xl border p-3 sm:p-3.5 shadow-xs"
+                      class="mt-2.5 rounded-2xl border p-3 shadow-xs sm:mt-3 sm:p-3.5"
                       :class="[
                         msg.sender?.id === effectiveUserUuid
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
@@ -2416,7 +2418,7 @@
                     >
                       <div class="flex items-start gap-2.5 sm:gap-3">
                         <div
-                          class="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs dark:bg-indigo-950/60 dark:text-indigo-400"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs sm:h-9 sm:w-9 dark:bg-indigo-950/60 dark:text-indigo-400"
                         >
                           <Icon
                             name="material-symbols:event-available-rounded"
@@ -2425,12 +2427,12 @@
                         </div>
                         <div class="min-w-0 flex-1">
                           <p
-                            class="text-[9px] sm:text-[10px] font-black tracking-wider text-indigo-600 dark:text-indigo-400 uppercase"
+                            class="text-[9px] font-black tracking-wider text-indigo-600 uppercase sm:text-[10px] dark:text-indigo-400"
                           >
                             Requested Consultation Schedule
                           </p>
                           <p
-                            class="text-xs sm:text-sm leading-snug font-black mt-0.5"
+                            class="mt-0.5 text-xs leading-snug font-black sm:text-sm"
                             :class="
                               msg.sender?.id === effectiveUserUuid
                                 ? 'text-gray-900'
@@ -2441,7 +2443,7 @@
                           </p>
                           <p
                             v-if="msg.appointment_data?.purpose"
-                            class="mt-1 text-[11px] sm:text-xs font-semibold leading-tight"
+                            class="mt-1 text-[11px] leading-tight font-semibold sm:text-xs"
                             :class="
                               msg.sender?.id === effectiveUserUuid
                                 ? 'text-gray-600'
@@ -2457,7 +2459,7 @@
                     <!-- Diagnosis Details -->
                     <div
                       v-if="msg.appointment_data && msg.appointment_data.diagnosis"
-                      class="mt-2.5 sm:mt-3 rounded-2xl border p-3 sm:p-4 shadow-sm"
+                      class="mt-2.5 rounded-2xl border p-3 shadow-sm sm:mt-3 sm:p-4"
                       :class="[
                         msg.sender?.id === effectiveUserUuid
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
@@ -2467,13 +2469,19 @@
                       <div class="flex items-center gap-3 sm:gap-4">
                         <img
                           :src="getStorageUrl(msg.appointment_data.diagnosis.image_path)"
-                          class="border-border h-20 w-20 sm:h-24 sm:w-24 shrink-0 cursor-pointer rounded-xl border object-cover shadow-sm transition-opacity hover:opacity-90"
+                          class="border-border h-20 w-20 shrink-0 cursor-pointer rounded-xl border object-cover shadow-sm transition-opacity hover:opacity-90 sm:h-24 sm:w-24"
                           alt="Diagnosis scan"
                           title="Click to view full image"
-                          @click.stop="handlePreviewImage(getStorageUrl(msg.appointment_data.diagnosis.image_path))"
+                          @click.stop="
+                            handlePreviewImage(
+                              getStorageUrl(msg.appointment_data.diagnosis.image_path)
+                            )
+                          "
                         />
                         <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-                          <p class="text-primary text-[9px] sm:text-[10px] font-black tracking-wider uppercase leading-tight">
+                          <p
+                            class="text-primary text-[9px] leading-tight font-black tracking-wider uppercase sm:text-[10px]"
+                          >
                             {{
                               msg.appointment_data?.diagnosis?.scan_type === 'in_clinic'
                                 ? 'Clinical Findings'
@@ -2481,7 +2489,7 @@
                             }}
                           </p>
                           <h4
-                            class="truncate text-base sm:text-lg leading-tight font-black"
+                            class="truncate text-base leading-tight font-black sm:text-lg"
                             :class="
                               msg.sender?.id === effectiveUserUuid
                                 ? 'text-gray-900'
@@ -2503,7 +2511,7 @@
                               {{ msg.appointment_data.diagnosis.patient_name }}
                             </p>
                             <p
-                              class="text-[11px] font-medium leading-snug"
+                              class="text-[11px] leading-snug font-medium"
                               :class="
                                 msg.sender?.id === effectiveUserUuid
                                   ? 'text-gray-500'
@@ -2560,7 +2568,9 @@
                           name="lucide:info"
                           class="h-3.5 w-3.5 shrink-0"
                         />
-                        <span class="leading-tight">Visual scan only (No questionnaire submitted)</span>
+                        <span class="leading-tight"
+                          >Visual scan only (No clinical assessment submitted)</span
+                        >
                       </div>
                     </div>
 
@@ -2572,7 +2582,7 @@
                         msg.message.includes('[APPOINTMENT_REQUEST:') &&
                         !isAppointmentHandled(msg.message)
                       "
-                      class="mt-3.5 flex flex-col sm:flex-row sm:flex-wrap gap-2"
+                      class="mt-3.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
                     >
                       <button
                         v-if="getAppointmentScheduleFromMsg(msg)"
@@ -2582,7 +2592,7 @@
                           extractAppointmentUuid(msg.message, 'REQUEST')
                         "
                         @click.prevent="acceptAppointmentDirectly(msg.message)"
-                        class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 w-full sm:w-auto"
+                        class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 sm:w-auto"
                       >
                         <Icon
                           v-if="
@@ -2590,12 +2600,12 @@
                             extractAppointmentUuid(msg.message, 'REQUEST')
                           "
                           name="svg-spinners:ring-resize"
-                          class="text-sm shrink-0"
+                          class="shrink-0 text-sm"
                         />
                         <Icon
                           v-else
                           name="material-symbols:check-circle-rounded"
-                          class="text-sm shrink-0"
+                          class="shrink-0 text-sm"
                         />
                         <span>Accept Request</span>
                       </button>
@@ -2603,7 +2613,7 @@
                       <button
                         type="button"
                         @click.prevent="openScheduleModal(msg.message)"
-                        class="cursor-pointer rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95 text-center w-full sm:w-auto"
+                        class="w-full cursor-pointer rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
                       >
                         {{
                           getAppointmentScheduleFromMsg(msg)
@@ -2615,7 +2625,7 @@
                       <button
                         type="button"
                         @click.prevent="declineAppointment(msg.message)"
-                        class="bg-foreground/10 hover:bg-foreground/20 cursor-pointer rounded-xl px-4 py-2.5 text-xs font-bold transition-all active:scale-95 text-center w-full sm:w-auto"
+                        class="bg-foreground/10 hover:bg-foreground/20 w-full cursor-pointer rounded-xl px-4 py-2.5 text-center text-xs font-bold transition-all active:scale-95 sm:w-auto"
                       >
                         Decline
                       </button>
@@ -2635,11 +2645,11 @@
                         @click.prevent="
                           requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
                         "
-                        class="text-primary ring-primary/20 inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 w-full sm:w-auto"
+                        class="text-primary ring-primary/20 inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 sm:w-auto"
                       >
                         <Icon
                           name="material-symbols:edit-calendar-rounded"
-                          class="text-sm shrink-0"
+                          class="shrink-0 text-sm"
                         />
                         <span>Request Reschedule</span>
                       </button>
@@ -2654,7 +2664,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-green-600 shadow-sm'
@@ -2667,15 +2677,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-green-700 dark:text-green-400'
                           "
                           >Appointment Confirmed</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2691,11 +2703,11 @@
                         @click.prevent="
                           requestReschedule(extractScheduledAppointmentUuid(msg.message))
                         "
-                        class="text-primary ring-primary/20 mt-3 inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 w-full sm:w-auto"
+                        class="text-primary ring-primary/20 mt-3 inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 sm:w-auto"
                       >
                         <Icon
                           name="material-symbols:edit-calendar-rounded"
-                          class="text-sm shrink-0"
+                          class="shrink-0 text-sm"
                         />
                         <span>{{ isDoctorUser ? 'Reschedule' : 'Request Reschedule' }}</span>
                       </button>
@@ -2705,7 +2717,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-red-500 shadow-sm'
@@ -2718,15 +2730,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-red-600 dark:text-red-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-red-600 dark:text-red-400'
                           "
                           >Appointment Request Declined</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2741,7 +2755,7 @@
                       <!-- Diagnosis Details Preview (if available) -->
                       <div
                         v-if="getDeclinedDiagnosisData(msg)"
-                        class="mt-2.5 sm:mt-3 rounded-2xl border p-3 sm:p-4 shadow-sm"
+                        class="mt-2.5 rounded-2xl border p-3 shadow-sm sm:mt-3 sm:p-4"
                         :class="[
                           msg.sender?.id === effectiveUserUuid
                             ? 'border-white/20 bg-white text-gray-900 shadow-md'
@@ -2752,19 +2766,23 @@
                           <img
                             v-if="getDeclinedDiagnosisData(msg)?.image_path"
                             :src="getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path)"
-                            class="border-border h-18 w-18 sm:h-20 sm:w-20 shrink-0 cursor-pointer rounded-xl border object-cover shadow-sm transition-opacity hover:opacity-90"
+                            class="border-border h-18 w-18 shrink-0 cursor-pointer rounded-xl border object-cover shadow-sm transition-opacity hover:opacity-90 sm:h-20 sm:w-20"
                             alt="Diagnosis scan"
                             title="Click to view full image"
-                            @click.stop="handlePreviewImage(getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path))"
+                            @click.stop="
+                              handlePreviewImage(
+                                getStorageUrl(getDeclinedDiagnosisData(msg)!.image_path)
+                              )
+                            "
                           />
                           <div class="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
                             <p
-                              class="text-primary text-[9px] sm:text-[10px] font-black tracking-wider uppercase leading-tight"
+                              class="text-primary text-[9px] leading-tight font-black tracking-wider uppercase sm:text-[10px]"
                             >
                               Clinical Findings
                             </p>
                             <h4
-                              class="truncate text-base sm:text-lg leading-tight font-black"
+                              class="truncate text-base leading-tight font-black sm:text-lg"
                               :class="
                                 msg.sender?.id === effectiveUserUuid
                                   ? 'text-gray-900'
@@ -2787,7 +2805,7 @@
                               </p>
                               <p
                                 v-if="getDeclinedDiagnosisData(msg)?.date"
-                                class="text-[11px] font-medium leading-snug"
+                                class="text-[11px] leading-snug font-medium"
                                 :class="
                                   msg.sender?.id === effectiveUserUuid
                                     ? 'text-gray-500'
@@ -2810,17 +2828,17 @@
                           type="button"
                           :disabled="isRebookingAppt"
                           @click.prevent="handleRebookAppointment(msg)"
-                          class="bg-primary hover:bg-primary/90 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50 w-full sm:w-auto"
+                          class="bg-primary hover:bg-primary/90 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                         >
                           <Icon
                             v-if="isRebookingAppt"
                             name="svg-spinners:ring-resize"
-                            class="text-sm shrink-0"
+                            class="shrink-0 text-sm"
                           />
                           <Icon
                             v-else
                             name="material-symbols:replay-rounded"
-                            class="text-sm shrink-0"
+                            class="shrink-0 text-sm"
                           />
                           <span>{{ isRebookingAppt ? 'Rebooking...' : 'Rebook Appointment' }}</span>
                         </button>
@@ -2831,7 +2849,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-amber-600 shadow-sm'
@@ -2844,15 +2862,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-800 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-amber-800 dark:text-amber-400'
                           "
                           >Appointment Cancelled</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2869,7 +2889,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-green-600 shadow-sm'
@@ -2882,15 +2902,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-green-700 dark:text-green-400'
                           "
                           >Appointment Completed</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2907,7 +2929,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-amber-600 shadow-sm'
@@ -2920,15 +2942,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-amber-700 dark:text-amber-400'
                           "
                           >Reschedule Proposed</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2947,7 +2971,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-amber-600 shadow-sm'
@@ -2960,15 +2984,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-amber-700 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-amber-700 dark:text-amber-400'
                           "
                           >Reschedule Requested</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
@@ -2987,7 +3013,7 @@
                     <div class="flex flex-col">
                       <div class="mb-2 flex items-center gap-2">
                         <div
-                          class="rounded-full p-1.5 sm:p-2 shrink-0"
+                          class="shrink-0 rounded-full p-1.5 sm:p-2"
                           :class="
                             msg.sender?.id === effectiveUserUuid
                               ? 'bg-white text-green-600 shadow-sm'
@@ -3000,15 +3026,17 @@
                           />
                         </div>
                         <span
-                          class="font-bold text-sm sm:text-base leading-tight"
+                          class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid
+                              ? 'text-white'
+                              : 'text-green-700 dark:text-green-400'
                           "
                           >Reschedule Accepted</span
                         >
                       </div>
                       <p
-                        class="text-xs sm:text-sm leading-relaxed"
+                        class="text-xs leading-relaxed sm:text-sm"
                         :class="
                           msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
                         "
