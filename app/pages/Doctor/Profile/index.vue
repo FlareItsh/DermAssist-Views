@@ -1744,6 +1744,16 @@
     useCookie('auth_user_name').value = null
     navigateTo('/auth/login')
   }
+
+  const clearClinicLogo = () => {
+    clinicForm.logo = ''
+    clinicForm.logoPreview = ''
+  }
+
+  const clearEditClinicLogo = () => {
+    editClinicForm.logo = ''
+    editClinicForm.logoPreview = ''
+  }
 </script>
 
 <template>
@@ -4578,10 +4588,7 @@
                   />
                   <button
                     type="button"
-                    @click="
-                      clinicForm.logo = ''
-                      clinicForm.logoPreview = ''
-                    "
+                    @click="clearClinicLogo"
                     class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
                   >
                     <Icon
@@ -4746,10 +4753,7 @@
                   />
                   <button
                     type="button"
-                    @click="
-                      editClinicForm.logo = ''
-                      editClinicForm.logoPreview = ''
-                    "
+                    @click="clearEditClinicLogo"
                     class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
                   >
                     <Icon
