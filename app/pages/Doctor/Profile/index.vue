@@ -20,6 +20,16 @@
   const user = computed(() => (response.value as any)?.data ?? response.value)
 
   const { getStorageUrl } = useStorage()
+  const avatarError = ref(false)
+  const handleAvatarError = () => {
+    avatarError.value = true
+  }
+  watch(
+    () => user.value?.avatar_path,
+    () => {
+      avatarError.value = false
+    }
+  )
   const { missingDoctorFields, refreshProfile } = useAppNotifications()
 
   const form = reactive({
@@ -1783,10 +1793,12 @@
               class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border bg-linear-to-br p-0.5 shadow-xs"
             >
               <NuxtImg
-                v-if="user?.avatar_path"
+                v-if="user?.avatar_path && !avatarError"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
+                alt="Profile picture"
                 placeholder
+                @error="handleAvatarError"
               />
               <div
                 v-else
@@ -2320,71 +2332,115 @@
                     </div>
 
                     <!-- Prescription Credentials & Digital Signature -->
-                    <div class="col-span-full rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 sm:p-5 flex flex-col gap-4">
-                      <div class="flex items-center justify-between border-b border-indigo-100/80 pb-2.5">
+                    <div
+                      class="col-span-full flex flex-col gap-4 rounded-2xl border border-indigo-100 bg-indigo-50/30 p-4 sm:p-5"
+                    >
+                      <div
+                        class="flex items-center justify-between border-b border-indigo-100/80 pb-2.5"
+                      >
                         <div class="flex items-center gap-2">
-                          <Icon name="material-symbols:prescriptions-outline-rounded" class="text-xl text-indigo-600" />
+                          <Icon
+                            name="material-symbols:prescriptions-outline-rounded"
+                            class="text-xl text-indigo-600"
+                          />
                           <div>
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-indigo-950">Prescription Credentials & Signature</h4>
-                            <p class="text-[11px] text-gray-500">Required on official Rx slips (Philippine FDA / BIR regulations)</p>
+                            <h4 class="text-xs font-bold tracking-wider text-indigo-950 uppercase">
+                              Prescription Credentials & Signature
+                            </h4>
+                            <p class="text-[11px] text-gray-500">
+                              Required on official Rx slips (Philippine FDA / BIR regulations)
+                            </p>
                           </div>
                         </div>
                         <button
                           type="button"
                           @click="showSignatureModal = true"
-                          class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-white border border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors shadow-2xs"
+                          class="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-white px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-2xs transition-colors hover:bg-indigo-50"
                         >
-                          <Icon name="lucide:pen-tool" class="text-xs" />
-                          <span>{{ form.signatureUrl ? 'Update Signature' : 'Sign / Upload' }}</span>
+                          <Icon
+                            name="lucide:pen-tool"
+                            class="text-xs"
+                          />
+                          <span>{{
+                            form.signatureUrl ? 'Update Signature' : 'Sign / Upload'
+                          }}</span>
                         </button>
                       </div>
 
-                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="flex flex-col gap-1">
-                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">PTR Number</label>
+                          <label
+                            class="text-[10px] font-bold tracking-wider text-gray-700 uppercase"
+                            >PTR Number</label
+                          >
                           <input
                             v-model="form.ptrNumber"
                             type="text"
                             placeholder="e.g. PTR-1234567"
-                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                            class="border-border w-full rounded-xl border bg-white px-3 py-2 text-xs outline-none focus:border-indigo-500"
                           />
                           <span class="text-[9px] text-gray-400">Professional Tax Receipt</span>
                         </div>
 
                         <div class="flex flex-col gap-1">
-                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">TIN Number</label>
+                          <label
+                            class="text-[10px] font-bold tracking-wider text-gray-700 uppercase"
+                            >TIN Number</label
+                          >
                           <input
                             v-model="form.tinNumber"
                             type="text"
                             placeholder="e.g. 123-456-789-000"
-                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                            class="border-border w-full rounded-xl border bg-white px-3 py-2 text-xs outline-none focus:border-indigo-500"
                           />
                           <span class="text-[9px] text-gray-400">Tax Identification Number</span>
                         </div>
 
                         <div class="flex flex-col gap-1">
-                          <label class="text-[10px] font-bold uppercase tracking-wider text-gray-700">PDEA S2 License</label>
+                          <label
+                            class="text-[10px] font-bold tracking-wider text-gray-700 uppercase"
+                            >PDEA S2 License</label
+                          >
                           <input
                             v-model="form.s2Number"
                             type="text"
                             placeholder="Optional (leave blank if none)"
-                            class="border-border bg-white focus:border-indigo-500 w-full rounded-xl border px-3 py-2 text-xs outline-none"
+                            class="border-border w-full rounded-xl border bg-white px-3 py-2 text-xs outline-none focus:border-indigo-500"
                           />
                           <span class="text-[9px] text-gray-400">Dangerous Drugs License</span>
                         </div>
                       </div>
 
                       <!-- Signature Preview Box -->
-                      <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-gray-100">
+                      <div
+                        class="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3"
+                      >
                         <div class="flex items-center gap-3">
-                          <div class="w-24 h-12 border border-gray-200 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden p-1">
-                            <img v-if="form.signatureUrl" :src="form.signatureUrl" class="max-h-full max-w-full object-contain" alt="Signature preview" />
-                            <span v-else class="text-[10px] text-gray-400 font-semibold italic">No signature</span>
+                          <div
+                            class="flex h-12 w-24 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-gray-50 p-1"
+                          >
+                            <img
+                              v-if="form.signatureUrl"
+                              :src="form.signatureUrl"
+                              class="max-h-full max-w-full object-contain"
+                              alt="Signature preview"
+                            />
+                            <span
+                              v-else
+                              class="text-[10px] font-semibold text-gray-400 italic"
+                              >No signature</span
+                            >
                           </div>
                           <div>
-                            <span class="text-xs font-bold text-gray-800 block">Digital Prescription Signature</span>
+                            <span class="block text-xs font-bold text-gray-800"
+                              >Digital Prescription Signature</span
+                            >
                             <span class="text-[11px] text-gray-500">
-                              {{ form.signatureUrl ? 'Configured & active on all Rx printouts' : 'Draw or upload to authenticate electronic prescriptions' }}
+                              {{
+                                form.signatureUrl
+                                  ? 'Configured & active on all Rx printouts'
+                                  : 'Draw or upload to authenticate electronic prescriptions'
+                              }}
                             </span>
                           </div>
                         </div>
@@ -4507,21 +4563,55 @@
 
             <!-- Clinic Logo Upload (for Prescriptions) -->
             <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic Logo (for Prescription Pad Header)</label>
+              <label class="text-foreground text-xs font-bold"
+                >Clinic Logo (for Prescription Pad Header)</label
+              >
               <div class="flex items-center gap-3">
-                <div v-if="clinicForm.logoPreview" class="relative w-12 h-12 rounded-xl border border-border bg-card overflow-hidden flex items-center justify-center p-1">
-                  <img :src="clinicForm.logoPreview" class="max-h-full max-w-full object-contain" alt="Clinic Logo" />
-                  <button type="button" @click="clinicForm.logo = ''; clinicForm.logoPreview = ''" class="absolute top-0 right-0 p-0.5 bg-rose-500 text-white rounded-bl-lg">
-                    <Icon name="lucide:x" class="text-[10px]" />
+                <div
+                  v-if="clinicForm.logoPreview"
+                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
+                >
+                  <img
+                    :src="clinicForm.logoPreview"
+                    class="max-h-full max-w-full object-contain"
+                    alt="Clinic Logo"
+                  />
+                  <button
+                    type="button"
+                    @click="
+                      clinicForm.logo = ''
+                      clinicForm.logoPreview = ''
+                    "
+                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="text-[10px]"
+                    />
                   </button>
                 </div>
-                <label class="flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-dashed border-border hover:border-primary rounded-xl cursor-pointer bg-foreground/5 hover:bg-foreground/10 transition-colors">
-                  <Icon name="lucide:image" class="text-sm text-primary" />
-                  <span>{{ clinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)' }}</span>
-                  <input type="file" accept="image/png, image/jpeg, image/webp" class="hidden" @change="handleClinicLogoUpload($event, false)" />
+                <label
+                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
+                >
+                  <Icon
+                    name="lucide:image"
+                    class="text-primary text-sm"
+                  />
+                  <span>{{
+                    clinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)'
+                  }}</span>
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    class="hidden"
+                    @change="handleClinicLogoUpload($event, false)"
+                  />
                 </label>
               </div>
-              <p class="text-[10px] text-muted-foreground">Appears at top-left of prescription slips. If empty, DermAssist logo is used by default.</p>
+              <p class="text-muted-foreground text-[10px]">
+                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
+                default.
+              </p>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2">
@@ -4641,21 +4731,57 @@
 
             <!-- Clinic Logo Upload (for Prescriptions) -->
             <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic Logo (for Prescription Pad Header)</label>
+              <label class="text-foreground text-xs font-bold"
+                >Clinic Logo (for Prescription Pad Header)</label
+              >
               <div class="flex items-center gap-3">
-                <div v-if="editClinicForm.logoPreview" class="relative w-12 h-12 rounded-xl border border-border bg-card overflow-hidden flex items-center justify-center p-1">
-                  <img :src="editClinicForm.logoPreview" class="max-h-full max-w-full object-contain" alt="Clinic Logo" />
-                  <button type="button" @click="editClinicForm.logo = ''; editClinicForm.logoPreview = ''" class="absolute top-0 right-0 p-0.5 bg-rose-500 text-white rounded-bl-lg">
-                    <Icon name="lucide:x" class="text-[10px]" />
+                <div
+                  v-if="editClinicForm.logoPreview"
+                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
+                >
+                  <img
+                    :src="editClinicForm.logoPreview"
+                    class="max-h-full max-w-full object-contain"
+                    alt="Clinic Logo"
+                  />
+                  <button
+                    type="button"
+                    @click="
+                      editClinicForm.logo = ''
+                      editClinicForm.logoPreview = ''
+                    "
+                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="text-[10px]"
+                    />
                   </button>
                 </div>
-                <label class="flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-dashed border-border hover:border-primary rounded-xl cursor-pointer bg-foreground/5 hover:bg-foreground/10 transition-colors">
-                  <Icon name="lucide:image" class="text-sm text-primary" />
-                  <span>{{ editClinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)' }}</span>
-                  <input type="file" accept="image/png, image/jpeg, image/webp" class="hidden" @change="handleClinicLogoUpload($event, true)" />
+                <label
+                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
+                >
+                  <Icon
+                    name="lucide:image"
+                    class="text-primary text-sm"
+                  />
+                  <span>{{
+                    editClinicForm.logoPreview
+                      ? 'Change Clinic Logo'
+                      : 'Upload Clinic Logo (PNG/JPG)'
+                  }}</span>
+                  <input
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    class="hidden"
+                    @change="handleClinicLogoUpload($event, true)"
+                  />
                 </label>
               </div>
-              <p class="text-[10px] text-muted-foreground">Appears at top-left of prescription slips. If empty, DermAssist logo is used by default.</p>
+              <p class="text-muted-foreground text-[10px]">
+                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
+                default.
+              </p>
             </div>
 
             <!-- Active Status Toggle -->
