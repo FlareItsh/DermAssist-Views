@@ -78,6 +78,16 @@
   }
 
   const { getStorageUrl } = useStorage()
+  const avatarError = ref(false)
+  const handleAvatarError = () => {
+    avatarError.value = true
+  }
+  watch(
+    () => user.value?.avatar_path,
+    () => {
+      avatarError.value = false
+    }
+  )
   const {
     missingPatientFields,
     refreshProfile,
@@ -583,10 +593,12 @@
               class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border bg-linear-to-br p-0.5 shadow-xs"
             >
               <NuxtImg
-                v-if="user?.avatar_path"
+                v-if="user?.avatar_path && !avatarError"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
+                alt="Profile picture"
                 placeholder
+                @error="handleAvatarError"
               />
               <div
                 v-else
