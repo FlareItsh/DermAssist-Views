@@ -10,18 +10,31 @@ const apiCandidates = [
 ]
 const apiStoragePath = apiCandidates.find(p => existsSync(p))
 
-// Dynamically extract the host from NUXT_PUBLIC_STORAGE_BASE so @nuxt/image
-// always allows the configured backend domain (ngrok, localhost, LAN IP, etc.)
-const storageBaseEnv = process.env.NUXT_PUBLIC_STORAGE_BASE ?? ''
-const imageDomainsFromEnv: string[] = []
-if (storageBaseEnv) {
-  try {
-    const { hostname } = new URL(storageBaseEnv)
-    if (hostname) {
-      imageDomainsFromEnv.push(hostname)
+// Dynamically extract hosts from all relevant environment variables so @nuxt/image
+// always allows the configured backend domain (Vercel, Laravel Cloud, S3, ngrok, localhost, LAN IP, etc.)
+const candidateEnvUrls = [
+  process.env.NUXT_PUBLIC_STORAGE_BASE ?? '',
+  process.env.NUXT_PUBLIC_BACKEND_URL ?? '',
+  process.env.NUXT_PUBLIC_API_BASE ?? ''
+]
+
+const imageDomainsFromEnv: string[] = [
+  'lh3.googleusercontent.com',
+  'googleusercontent.com',
+  'ui-avatars.com',
+  'images.unsplash.com'
+]
+
+for (const rawUrl of candidateEnvUrls) {
+  if (rawUrl) {
+    try {
+      const { hostname } = new URL(rawUrl)
+      if (hostname && !imageDomainsFromEnv.includes(hostname)) {
+        imageDomainsFromEnv.push(hostname)
+      }
+    } catch {
+      // ignore invalid URL
     }
-  } catch {
-    // ignore invalid URL
   }
 }
 
@@ -51,6 +64,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: '', // Overridden by NUXT_PUBLIC_API_BASE environment variable
+      backendUrl: '', // Overridden by NUXT_PUBLIC_BACKEND_URL environment variable
       storageBase: '', // Overridden by NUXT_PUBLIC_STORAGE_BASE environment variable
       reverbKey: 'k2sz1zlx9d0xc6plrtoy',
       reverbHost: 'localhost',

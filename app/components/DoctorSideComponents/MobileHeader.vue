@@ -27,6 +27,10 @@
   })
 
   const unreadCount = computed(() => unreadNotifications.value.length)
+  const avatarError = ref(false)
+  const handleAvatarError = () => {
+    avatarError.value = true
+  }
 
   const menuLinks = computed(() => [
     { icon: 'solar:user-bold-duotone', label: 'Profile Settings', to: '/doctor/profile' },
@@ -258,9 +262,11 @@
               class="relative z-50 flex h-11 w-11 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-white/40 bg-white/20 focus:outline-none"
             >
               <NuxtImg
-                v-if="user?.avatar_path"
+                v-if="user?.avatar_path && !avatarError"
                 :src="getStorageUrl(user.avatar_path)"
                 class="h-full w-full object-cover"
+                alt="Avatar"
+                @error="handleAvatarError"
               />
               <span
                 v-else
@@ -286,9 +292,11 @@
                     class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black"
                   >
                     <NuxtImg
-                      v-if="user?.avatar_path"
+                      v-if="user?.avatar_path && !avatarError"
                       :src="getStorageUrl(user.avatar_path)"
                       class="h-full w-full object-cover"
+                      alt="Avatar"
+                      @error="handleAvatarError"
                     />
                     <span v-else>{{ doctorInitial }}</span>
                   </div>
