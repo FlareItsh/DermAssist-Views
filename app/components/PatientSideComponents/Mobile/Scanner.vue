@@ -1,6 +1,5 @@
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
-  import { useRouter } from '#app'
+  import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
   import { toast } from 'vue-sonner'
   import { useDiagnosis } from '~/composables/useDiagnosis'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
@@ -13,7 +12,6 @@
     validateImageQuality
   } from '~/composables/useCameraQuality'
 
-  const router = useRouter()
   const {
     currentDiagnosis,
     isScanning,
@@ -27,7 +25,15 @@
     isHealthyState,
     isNoneState
   } = useDiagnosis()
+  const { getStorageUrl } = useStorage()
   const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
+
+  const displayImage = computed(() => {
+    if (previewImage.value) return previewImage.value
+    if (currentDiagnosis.value?.image_url) return currentDiagnosis.value.image_url
+    if (currentDiagnosis.value?.image_path) return getStorageUrl(currentDiagnosis.value.image_path)
+    return null
+  })
 
   const userUuid = useCookie('user_uuid')
   const videoRef = ref<HTMLVideoElement | null>(null)
@@ -44,6 +50,113 @@
     termsInitialTab.value = tab
     showTermsModal.value = true
   }
+
+  const isAiDisclaimerExpanded = ref(false)
+  const toggleAiDisclaimer = () => {
+    isAiDisclaimerExpanded.value = !isAiDisclaimerExpanded.value
+  }
+
+  const dismissUploadWarning = () => {
+    uploadQualityWarning.value = null
+  }
+
+  /**
+   * Results drawer (right side). Opens automatically when a scan finishes and can be
+   * dragged closed / reopened via the arrow handle attached to its left edge.
+   */
+  const hasScanResult = computed(() => !!currentDiagnosis.value && isScanned.value)
+  const isResultsOpen = ref(false)
+  const resultsPanelRef = ref<HTMLElement | null>(null)
+  const resultsPanelWidth = ref(0)
+  const isDraggingPanel = ref(false)
+  const panelDragOffset = ref(0)
+  let panelDragStartX = 0
+  let panelDragStartTime = 0
+  let hasPanelDragMoved = false
+
+  const measureResultsPanel = () => {
+    resultsPanelWidth.value = resultsPanelRef.value?.offsetWidth || window.innerWidth
+  }
+
+  const panelTranslateX = computed(() => {
+    const base = isResultsOpen.value ? 0 : resultsPanelWidth.value
+    return Math.min(Math.max(base + panelDragOffset.value, 0), resultsPanelWidth.value)
+  })
+
+  const resultsPanelStyle = computed(() => {
+    if (isDraggingPanel.value) {
+      return { transform: `translate3d(${panelTranslateX.value}px, 0, 0)` }
+    }
+    return {
+      transform: isResultsOpen.value ? 'translate3d(0, 0, 0)' : 'translate3d(100%, 0, 0)'
+    }
+  })
+
+  const resultsBackdropOpacity = computed(() => {
+    if (!isDraggingPanel.value || !resultsPanelWidth.value) {
+      return isResultsOpen.value ? 1 : 0
+    }
+    return 1 - panelTranslateX.value / resultsPanelWidth.value
+  })
+
+  const handlePanelPointerDown = (e: PointerEvent) => {
+    measureResultsPanel()
+    isDraggingPanel.value = true
+    hasPanelDragMoved = false
+    panelDragStartX = e.clientX
+    panelDragStartTime = performance.now()
+    panelDragOffset.value = 0
+    ;(e.currentTarget as HTMLElement | null)?.setPointerCapture?.(e.pointerId)
+  }
+
+  const handlePanelPointerMove = (e: PointerEvent) => {
+    if (!isDraggingPanel.value) return
+    const deltaX = e.clientX - panelDragStartX
+    if (Math.abs(deltaX) > 4) {
+      hasPanelDragMoved = true
+    }
+    panelDragOffset.value = deltaX
+  }
+
+  const handlePanelPointerUp = (e: PointerEvent) => {
+    if (!isDraggingPanel.value) return
+    const deltaX = e.clientX - panelDragStartX
+    const velocity = deltaX / Math.max(performance.now() - panelDragStartTime, 1)
+    isDraggingPanel.value = false
+    panelDragOffset.value = 0
+
+    if (!hasPanelDragMoved) {
+      isResultsOpen.value = !isResultsOpen.value
+      return
+    }
+
+    const threshold = resultsPanelWidth.value * 0.3
+    if (velocity < -0.4 || deltaX < -threshold) {
+      isResultsOpen.value = true
+    } else if (velocity > 0.4 || deltaX > threshold) {
+      isResultsOpen.value = false
+    }
+  }
+
+  const handlePanelPointerCancel = () => {
+    isDraggingPanel.value = false
+    panelDragOffset.value = 0
+  }
+
+  const closeResultsPanel = () => {
+    isResultsOpen.value = false
+  }
+
+  const handleResultsRetake = async () => {
+    isResultsOpen.value = false
+    await resetToCamera()
+  }
+
+  watch(hasScanResult, hasResult => {
+    if (!hasResult) {
+      isResultsOpen.value = false
+    }
+  })
 
   let stream: MediaStream | null = null
   let qualityCheckInterval: any = null
@@ -590,16 +703,7 @@
         if ((response as any).scan_quota) {
           applyQuota((response as any).scan_quota)
         }
-        if (isHealthyState.value) {
-          errorMessage.value = 'Healthy skin detected. No disease present.'
-          toast.info('Healthy skin detected. No disease present.')
-        } else if (isNoneState.value) {
-          errorMessage.value = 'Scan Failed. Please Try Again'
-          toast.error(
-            (response as any).clinical_feedback ||
-              'The uploaded image does not appear to be human skin. Please try again with a clear, close-up photo.'
-          )
-        } else {
+        if (!isHealthyState.value && !isNoneState.value) {
           try {
             const diagUuid = (response as any)?.uuid || (response as any)?.id
             if (diagUuid) {
@@ -608,8 +712,11 @@
           } catch (e) {
             console.error('Failed to confirm diagnosis status', e)
           }
-          router.push('/Patient/Scan/Results')
         }
+        await nextTick()
+        requestAnimationFrame(() => {
+          isResultsOpen.value = true
+        })
       }
     } catch (err: any) {
       await fetchQuota(true)
@@ -717,7 +824,7 @@
 
     <!-- === FULLSCREEN VIDEO / PREVIEW === -->
     <video
-      v-show="isCameraOn && !previewImage"
+      v-show="isCameraOn && !displayImage"
       ref="videoRef"
       autoplay
       playsinline
@@ -727,14 +834,14 @@
     ></video>
 
     <img
-      v-if="previewImage"
-      :src="previewImage"
-      class="absolute inset-0 h-full w-full object-cover"
+      v-if="displayImage"
+      :src="displayImage"
+      class="absolute inset-0 h-full w-full bg-black object-contain"
     />
 
     <!-- === EMPTY STATE (no camera, no image) === -->
     <div
-      v-if="!isCameraOn && !previewImage"
+      v-if="!isCameraOn && !displayImage"
       class="absolute inset-0 flex flex-col items-center justify-center gap-3 select-none"
     >
       <Icon
@@ -795,6 +902,36 @@
           size="16"
         />
         <span class="text-xs leading-snug font-semibold text-white">{{ errorMessage }}</span>
+      </div>
+
+      <!-- Upload quality warning pill (uptop & closable) -->
+      <div
+        v-if="uploadQualityWarning && displayImage"
+        class="pointer-events-auto flex max-w-xs items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-black/80 px-3.5 py-2 text-white shadow-xl backdrop-blur-md transition-all"
+      >
+        <Icon
+          name="material-symbols:warning-outline-rounded"
+          class="shrink-0 text-lg text-amber-400"
+        />
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black tracking-wider text-amber-400 uppercase">
+            Upload Warning
+          </p>
+          <p class="text-[11px] leading-tight font-medium text-white/90">
+            {{ uploadQualityWarning }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+          @click="dismissUploadWarning"
+          aria-label="Close warning"
+        >
+          <Icon
+            name="lucide:x"
+            class="text-[10px]"
+          />
+        </button>
       </div>
     </div>
 
@@ -864,7 +1001,7 @@
     <div class="absolute top-28 right-4 z-30 flex flex-col gap-2">
       <!-- Mirror / Natural toggle button -->
       <button
-        v-if="isCameraOn && !previewImage && !isScanning"
+        v-if="isCameraOn && !displayImage && !isScanning"
         type="button"
         @click="toggleMirror"
         class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
@@ -883,7 +1020,7 @@
 
       <!-- Flip / cycle camera button (only when camera is live and multiple cameras exist) -->
       <button
-        v-if="isCameraOn && !previewImage && !isScanning && canCycleCamera"
+        v-if="isCameraOn && !displayImage && !isScanning && canCycleCamera"
         @click="cycleCamera"
         class="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90"
         :title="isMicroscopeActive ? 'Switch camera' : 'Flip camera'"
@@ -900,7 +1037,7 @@
 
       <!-- Torch / Flash button (ONLY when torch is supported by current camera hardware) -->
       <button
-        v-if="isCameraOn && !previewImage && !isScanning && isTorchSupported"
+        v-if="isCameraOn && !displayImage && !isScanning && isTorchSupported"
         @click="toggleTorch"
         class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
         :class="
@@ -922,7 +1059,7 @@
 
       <!-- Retake button (only when preview is shown) -->
       <button
-        v-if="previewImage && !isScanning"
+        v-if="displayImage && !isScanning"
         @click="resetToCamera"
         class="flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/50 px-4 text-white backdrop-blur-md transition-all active:scale-90"
       >
@@ -934,38 +1071,36 @@
       </button>
     </div>
 
-    <!-- Upload quality warning AR pill (for uploaded images) -->
-    <div
-      v-if="uploadQualityWarning && previewImage"
-      class="pointer-events-none absolute right-0 bottom-44 left-0 z-30 flex justify-center px-6"
-    >
-      <div
-        class="flex max-w-xs items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-500/40 px-5 py-3 backdrop-blur-sm"
-      >
-        <Icon
-          name="material-symbols:warning-outline-rounded"
-          class="shrink-0 animate-pulse text-xl text-white"
-        />
-        <div>
-          <p class="text-xs font-black tracking-wider text-white uppercase">Upload Warning</p>
-          <p class="mt-0.5 text-sm font-medium text-white/90">{{ uploadQualityWarning }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- AI Disclaimer Banner -->
+    <!-- AI Disclaimer Button & Expandable Modal/Pill -->
     <div
       v-if="!isScanning"
-      class="absolute right-4 bottom-48 left-4 z-30 flex justify-center"
+      class="absolute bottom-44 left-4 z-30 flex items-center"
     >
-      <div
-        class="flex max-w-sm items-center gap-2 rounded-2xl border border-white/20 bg-black/75 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md"
+      <!-- Collapsed: Just the "i" info icon button by default -->
+      <button
+        v-if="!isAiDisclaimerExpanded"
+        type="button"
+        @click="toggleAiDisclaimer"
+        class="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white/80 shadow-lg backdrop-blur-md transition-all hover:bg-black/80 hover:text-white active:scale-90"
+        title="AI Medical Disclaimer & Privacy Info"
+        aria-label="View AI medical disclaimer"
       >
         <Icon
           name="lucide:info"
-          class="text-primary h-3.5 w-3.5 shrink-0"
+          class="text-primary text-base"
         />
-        <p class="text-[10px] leading-tight text-white/90 select-none">
+      </button>
+
+      <!-- Expanded: Opens when clicked -->
+      <div
+        v-else
+        class="animate-in fade-in zoom-in-95 flex max-w-xs items-center gap-2 rounded-2xl border border-white/20 bg-black/85 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md transition-all"
+      >
+        <Icon
+          name="lucide:info"
+          class="text-primary h-4 w-4 shrink-0"
+        />
+        <p class="min-w-0 flex-1 text-[10px] leading-tight text-white/90 select-none">
           AI results are assistive only.
           <button
             type="button"
@@ -983,6 +1118,17 @@
             Privacy Policy
           </button>
         </p>
+        <button
+          type="button"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white"
+          @click="toggleAiDisclaimer"
+          aria-label="Collapse disclaimer"
+        >
+          <Icon
+            name="lucide:x"
+            class="text-[10px]"
+          />
+        </button>
       </div>
     </div>
 
@@ -1018,7 +1164,7 @@
             class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-black/10"
           >
             <Icon
-              v-if="previewImage"
+              v-if="displayImage"
               name="solar:arrow-right-bold"
               size="28"
               class="text-primary"
@@ -1069,5 +1215,60 @@
       :initial-tab="termsInitialTab"
       @accept="agreeToConsent = true"
     />
+
+    <!-- === RESULTS DRAWER (right side, draggable, hardware-accelerated 60fps) === -->
+    <Teleport to="body">
+      <!-- Backdrop: keeps the captured image visible underneath -->
+      <div
+        v-if="hasScanResult"
+        class="fixed inset-0 z-[90] bg-black/40"
+        :class="[
+          isResultsOpen || isDraggingPanel ? 'pointer-events-auto' : 'pointer-events-none',
+          isDraggingPanel ? '' : 'transition-opacity duration-300'
+        ]"
+        :style="{ opacity: resultsBackdropOpacity }"
+        @click="closeResultsPanel"
+      ></div>
+
+      <aside
+        ref="resultsPanelRef"
+        class="fixed inset-y-0 right-0 z-[90] flex w-[calc(100vw-2.5rem)] max-w-md flex-col bg-gray-50 shadow-2xl"
+        :class="isDraggingPanel ? '' : 'transition-transform duration-300 ease-out'"
+        :style="resultsPanelStyle"
+        aria-label="Scan results"
+      >
+        <!-- Drag / toggle handle: only show when there is a scan result -->
+        <button
+          v-if="hasScanResult"
+          type="button"
+          class="absolute top-1/2 -left-8 flex h-20 w-8 -translate-y-1/2 touch-none flex-col items-center justify-center gap-1 rounded-l-2xl border border-r-0 border-gray-200 bg-white text-gray-500 shadow-lg select-none active:bg-gray-50"
+          :aria-label="isResultsOpen ? 'Hide results' : 'Show results'"
+          @pointerdown="handlePanelPointerDown"
+          @pointermove="handlePanelPointerMove"
+          @pointerup="handlePanelPointerUp"
+          @pointercancel="handlePanelPointerCancel"
+        >
+          <Icon
+            :name="isResultsOpen ? 'lucide:chevron-right' : 'lucide:chevron-left'"
+            size="18"
+            class="text-primary"
+          />
+          <span class="h-6 w-1 rounded-full bg-gray-200"></span>
+        </button>
+
+        <div
+          v-if="hasScanResult"
+          class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4"
+          style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom)"
+        >
+          <PatientSideComponentsMobileScanResults
+            :key="currentDiagnosis?.uuid || 'scan-result'"
+            embedded
+            @close="closeResultsPanel"
+            @retake="handleResultsRetake"
+          />
+        </div>
+      </aside>
+    </Teleport>
   </div>
 </template>

@@ -414,7 +414,7 @@
       v-if="detectedConditions.length > 0"
       class="bg-card border-border/80 -mt-1 mb-4 rounded-2xl border p-3.5 shadow-xs"
     >
-      <div class="flex items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
         <span class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
           Visual AI Detected Conditions
         </span>
@@ -556,9 +556,9 @@
             />
           </div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-center justify-between">
+            <div class="flex items-start justify-between gap-2">
               <p
-                class="text-xs font-bold transition-colors sm:text-sm"
+                class="min-w-0 text-xs font-bold break-words transition-colors sm:text-sm"
                 :class="[
                   selectedAnswers[activeQuestion.id] === opt.id
                     ? 'text-primary font-extrabold'
@@ -568,7 +568,7 @@
                 {{ opt.label }}
               </p>
               <div
-                class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all"
+                class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border transition-all"
                 :class="[
                   selectedAnswers[activeQuestion.id] === opt.id
                     ? 'border-primary bg-primary text-white'
@@ -581,7 +581,7 @@
                 ></div>
               </div>
             </div>
-            <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+            <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed break-words">
               {{ opt.description }}
             </p>
           </div>
@@ -591,66 +591,70 @@
 
     <!-- Footer Actions -->
     <template #footer>
-      <div class="flex w-full items-center justify-between gap-3">
+      <div
+        class="flex w-full min-w-0 flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
+      >
         <AppButton
           variant="outline"
           size="sm"
-          class="h-10 rounded-xl px-4 text-xs font-semibold"
+          class="h-10 w-full rounded-xl px-4 text-xs font-semibold sm:w-auto"
           :disabled="loading || currentStep === 0"
           @click="handlePreviousStep"
         >
           <Icon
             name="lucide:arrow-left"
-            class="mr-1.5 h-3.5 w-3.5"
+            class="h-3.5 w-3.5 shrink-0"
           />
           Back
         </AppButton>
 
-        <div class="flex items-center gap-2">
+        <div class="flex w-full min-w-0 items-center gap-2 sm:w-auto">
           <AppButton
             variant="ghost"
             size="sm"
-            class="text-muted-foreground hover:text-foreground h-10 rounded-xl px-3 text-xs"
+            class="text-muted-foreground hover:text-foreground h-10 min-w-0 flex-1 rounded-xl px-3 text-xs sm:flex-none"
             :disabled="loading"
             @click="handleSkipCurrentQuestion"
           >
-            Skip Question
+            <span class="truncate sm:hidden">Skip</span>
+            <span class="hidden truncate sm:inline">Skip Question</span>
           </AppButton>
 
           <AppButton
             v-if="!isLastStep"
-            variant="primary"
+            variant="solid"
             size="sm"
-            class="h-10 rounded-xl px-5 text-xs font-bold"
+            class="h-10 min-w-0 flex-[2] rounded-xl px-5 text-xs font-bold sm:flex-none"
             :disabled="loading || !isCurrentQuestionAnswered"
             @click="handleNextStep"
           >
-            Next
+            <span class="truncate">Next</span>
             <Icon
               name="lucide:arrow-right"
-              class="ml-1.5 h-3.5 w-3.5"
+              class="h-3.5 w-3.5 shrink-0"
             />
           </AppButton>
 
           <AppButton
             v-else
-            variant="primary"
+            variant="solid"
             size="sm"
-            class="h-10 rounded-xl px-6 text-xs font-black shadow-md"
+            class="h-10 min-w-0 flex-[2] rounded-xl px-4 text-xs font-bold sm:flex-none sm:px-6"
             :disabled="loading"
             @click="handleCalculateRefinement"
           >
             <Icon
               v-if="loading"
               name="lucide:loader-2"
-              class="mr-2 h-4 w-4 animate-spin"
+              class="h-4 w-4 shrink-0 animate-spin"
             />
             <Icon
               v-else
               name="lucide:sparkles"
-              class="mr-2 h-4 w-4"
+              class="h-4 w-4 shrink-0"
             />
-            Calculate Refinement
+            <span class="truncate sm:hidden">Calculate</span>
+            <span class="hidden truncate sm:inline">Calculate Refinement</span>
           </AppButton>
         </div>
       </div>

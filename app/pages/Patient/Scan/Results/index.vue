@@ -17,9 +17,9 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  // Redirect to scanner if no diagnosis is present or if scan is healthy/non-skin
+  // Redirect to scanner if no diagnosis is present
   onMounted(() => {
-    if (!currentDiagnosis.value || !isScanned.value || isHealthyState.value || isNoneState.value) {
+    if (!currentDiagnosis.value || !isScanned.value) {
       navigateTo('/Patient/Scan')
     }
   })
