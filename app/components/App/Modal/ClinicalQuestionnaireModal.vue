@@ -402,8 +402,8 @@
 <template>
   <AppModal
     :model-value="modelValue"
-    title="Clinical Symptom Questionnaire"
-    description="Verify your visual scan against medical history & physical sensations"
+    title="Clinical Symptom Assessment"
+    description="Correlate your visual scan with medical history & physical sensations"
     size="2xl"
     compact
     @update:model-value="emit('update:modelValue', $event)"
@@ -490,7 +490,7 @@
     <div class="mb-4">
       <div class="flex items-center justify-between text-[11px] font-semibold">
         <span class="text-muted-foreground">
-          Question {{ currentStep + 1 }} of {{ questions.length }}
+          Assessment Question {{ currentStep + 1 }} of {{ questions.length }}
         </span>
         <span class="text-primary font-bold">{{ progressPercentage }}%</span>
       </div>

@@ -174,7 +174,7 @@
         </div>
         <div>
           <h4 class="text-foreground text-sm font-bold tracking-tight">
-            Reported Clinical Questionnaire & Anamnesis
+            Reported Clinical Assessment & Anamnesis
           </h4>
           <p class="text-muted-foreground text-[11px]">
             Self-reported symptom answers verified via multimodal Bayesian updating

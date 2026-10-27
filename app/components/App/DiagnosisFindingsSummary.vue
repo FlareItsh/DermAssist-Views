@@ -842,7 +842,7 @@
                 />
                 {{
                   isInconclusiveState || hasCompetingDiseases
-                    ? 'Clarify with Questionnaire'
+                    ? 'Clarify with Clinical Assessment'
                     : 'Verify Symptoms'
                 }}
               </AppButton>
