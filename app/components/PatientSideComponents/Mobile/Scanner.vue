@@ -1069,17 +1069,6 @@
         />
         <span class="text-xs font-bold">Retake</span>
       </button>
-
-      <!-- View Results button (when drawer is closed but results exist) -->
-      <button
-        v-if="hasScanResult && !isResultsOpen && !isScanning"
-        type="button"
-        @click="isResultsOpen = true"
-        class="border-primary/40 flex h-11 items-center gap-2 rounded-full border bg-black/60 px-4 text-white shadow-lg backdrop-blur-md transition-all active:scale-90"
-      >
-        <span class="h-2 w-2 animate-pulse rounded-full bg-emerald-400"></span>
-        <span class="text-xs font-bold">View Results</span>
-      </button>
     </div>
 
     <!-- AI Disclaimer Button & Expandable Modal/Pill -->
@@ -1248,6 +1237,20 @@
         :style="resultsPanelStyle"
         aria-label="Scan results"
       >
+        <!-- Drag handle tab with line indicator (arrow removed) -->
+        <button
+          v-if="hasScanResult"
+          type="button"
+          class="absolute top-1/2 -left-6 flex h-20 w-6 -translate-y-1/2 touch-none items-center justify-center rounded-l-2xl border border-r-0 border-gray-200 bg-white shadow-lg select-none active:bg-gray-50"
+          :aria-label="isResultsOpen ? 'Hide results' : 'Show results'"
+          @pointerdown="handlePanelPointerDown"
+          @pointermove="handlePanelPointerMove"
+          @pointerup="handlePanelPointerUp"
+          @pointercancel="handlePanelPointerCancel"
+        >
+          <span class="h-8 w-1 rounded-full bg-gray-300"></span>
+        </button>
+
         <div
           v-if="hasScanResult"
           class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4"
