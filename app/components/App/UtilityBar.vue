@@ -617,12 +617,11 @@
               : 'hover:border-primary/30 border-transparent hover:scale-105'
           "
         >
-          <NuxtImg
-            v-if="userProfile?.avatar_path && !avatarError"
-            :src="getStorageUrl(userProfile.avatar_path)"
+          <img
+            v-if="(userProfile?.avatar_url || userProfile?.avatar_path) && !avatarError"
+            :src="getStorageUrl(userProfile.avatar_url || userProfile.avatar_path)"
             class="h-full w-full object-cover"
             alt="Profile"
-            placeholder
             @error="handleAvatarError"
           />
           <div

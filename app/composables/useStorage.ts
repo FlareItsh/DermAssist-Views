@@ -1,3 +1,5 @@
+import { resolveApiBase } from '~/utils/resolveApiBase'
+
 export const useStorage = () => {
   const config = useRuntimeConfig()
 
@@ -5,7 +7,7 @@ export const useStorage = () => {
    * Resolve the canonical base storage URL:
    * 1. Explicit `storageBase` (NUXT_PUBLIC_STORAGE_BASE)
    * 2. Derived from `backendUrl` (NUXT_PUBLIC_BACKEND_URL + '/storage')
-   * 3. Derived from `apiBase` (NUXT_PUBLIC_API_BASE minus '/api' + '/storage')
+   * 3. Derived from `apiBase` via `resolveApiBase` (minus '/api' + '/storage')
    * 4. Empty string fallback (routes to local relative '/storage')
    */
   const resolveBaseUrl = (): string => {
@@ -19,7 +21,7 @@ export const useStorage = () => {
       return `${rawBackend.replace(/\/+$/, '')}/storage`
     }
 
-    const rawApi = (config.public.apiBase as string)?.trim()
+    const rawApi = resolveApiBase(config.public.apiBase as string)
     if (rawApi) {
       const root = rawApi.replace(/\/api\/?$/, '')
       if (root) {
