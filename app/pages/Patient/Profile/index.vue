@@ -63,6 +63,7 @@
       await userService.update(userUuid, {
         avatar: croppedBase64
       })
+      avatarError.value = false
       toast.success('Profile picture updated successfully.')
       showCropModal.value = false
       rawAvatarSrc.value = ''
@@ -592,12 +593,11 @@
             <div
               class="from-primary/20 to-primary/5 border-primary/20 relative h-full w-full overflow-hidden rounded-full border bg-linear-to-br p-0.5 shadow-xs"
             >
-              <NuxtImg
-                v-if="user?.avatar_path && !avatarError"
-                :src="getStorageUrl(user.avatar_path)"
+              <img
+                v-if="(user?.avatar_url || user?.avatar_path) && !avatarError"
+                :src="getStorageUrl(user.avatar_url || user.avatar_path)"
                 class="h-full w-full rounded-full object-cover"
                 alt="Profile picture"
-                placeholder
                 @error="handleAvatarError"
               />
               <div
