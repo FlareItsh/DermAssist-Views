@@ -798,6 +798,7 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return
     schedulingAppointmentUuid.value = uuid
+    scheduleMode.value = 'reschedule'
     showScheduleModal.value = true
   }
 
@@ -1030,6 +1031,31 @@
     promptAcceptReschedule(uuid)
   }
 
+  const isDecliningReschedule = ref(false)
+  const declineReschedule = async (uuid?: string) => {
+    const targetUuid = uuid || activeAppointment.value?.id || activeAppointment.value?.uuid
+    if (!targetUuid || isDecliningReschedule.value) return
+    isDecliningReschedule.value = true
+    try {
+      await appointmentService.declineReschedule(targetUuid, {
+        reason: 'Reschedule proposal declined'
+      })
+      toast.success('Reschedule proposal declined.')
+      await fetchMessages(1)
+      await fetchAppointments()
+    } catch (e: any) {
+      console.error('Failed to decline reschedule:', e)
+      toast.error(
+        e?.response?._data?.message ||
+          e?.data?.message ||
+          e?.message ||
+          'Failed to decline proposal.'
+      )
+    } finally {
+      isDecliningReschedule.value = false
+    }
+  }
+
   const closeAcceptModal = () => {
     showAcceptConfirmModal.value = false
     pendingAcceptUuid.value = null
@@ -1060,11 +1086,47 @@
     fetchAppointments()
   }
 
+  const extractRescheduleUuid = (message: string): string | null => {
+    const match = message.match(/\[APPOINTMENT_RESCHEDULE_PROPOSED:([a-f0-9-]+)(?::[^\]]+)?\]/i)
+    return match ? match[1] : null
+  }
+
   const isRescheduleProposedByMe = (uuid: string) => {
+    const appt =
+      appointments.value.find(a => a.id === uuid || a.uuid === uuid) || activeAppointment.value
+    const proposal = appt?.active_reschedule_proposal
+    const currentRole = (userRole.value || '').toLowerCase()
+    if (proposal) {
+      if (currentRole === 'patient') {
+        return proposal.proposer_party === 'patient' || proposal.proposer_type === 'patient'
+      }
+      return (
+        proposal.proposer_party === 'practice' ||
+        proposal.proposer_type === 'doctor' ||
+        proposal.proposer_type === 'secretary'
+      )
+    }
     const msg = [...allMessages.value]
       .reverse()
       .find(m => m.message.includes(`[APPOINTMENT_RESCHEDULE_PROPOSED:${uuid}:`))
     return msg ? msg.sender?.id === effectiveUserUuid.value : false
+  }
+
+  const isRescheduleHandled = (message: string): boolean => {
+    const uuid = extractRescheduleUuid(message)
+    if (!uuid) return true
+    const apptInStore = appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    if (apptInStore && apptInStore.status !== 'reschedule_proposed') {
+      return true
+    }
+    return allMessages.value.some(
+      m =>
+        m.message.includes(`[APPOINTMENT_RESCHEDULE_ACCEPTED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_RESCHEDULE_DECLINED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_CANCELLED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_SCHEDULED:${uuid}]`) ||
+        m.message.includes(`[APPOINTMENT_CONFIRMED:${uuid}]`)
+    )
   }
 
   /** Decline a pending appointment directly from the banner. */
@@ -2119,6 +2181,24 @@
                     Accept
                   </button>
                   <button
+                    type="button"
+                    :disabled="isDecliningReschedule"
+                    @click="declineReschedule(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-rose-600 shadow-sm ring-1 ring-rose-200 transition-all hover:bg-rose-50 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                  >
+                    <Icon
+                      v-if="isDecliningReschedule"
+                      name="svg-spinners:ring-resize"
+                      class="text-sm"
+                    />
+                    <Icon
+                      v-else
+                      name="lucide:x-circle"
+                      class="text-sm"
+                    />
+                    Decline
+                  </button>
+                  <button
                     v-if="userRole?.toLowerCase() === 'patient'"
                     type="button"
                     @click="requestReschedule(activeAppointment.id)"
@@ -2965,6 +3045,81 @@
                           )
                         "
                       ></p>
+
+                      <!-- Action Buttons for Recipient when proposal is active -->
+                      <div
+                        v-if="
+                          !isRescheduleHandled(msg.message) && msg.sender?.id !== effectiveUserUuid
+                        "
+                        class="mt-3.5 flex flex-wrap gap-2 border-t border-amber-200/50 pt-2.5"
+                      >
+                        <button
+                          type="button"
+                          :disabled="isAcceptingReschedule"
+                          @click.prevent="acceptReschedule(extractRescheduleUuid(msg.message))"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+                        >
+                          <Icon
+                            v-if="isAcceptingReschedule"
+                            name="svg-spinners:ring-resize"
+                            class="text-xs"
+                          />
+                          <Icon
+                            v-else
+                            name="material-symbols:check-circle-rounded"
+                            class="text-xs"
+                          />
+                          <span>Accept Schedule</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          :disabled="isDecliningReschedule"
+                          @click.prevent="declineReschedule(extractRescheduleUuid(msg.message))"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-50 active:scale-95 disabled:opacity-50"
+                        >
+                          <Icon
+                            v-if="isDecliningReschedule"
+                            name="svg-spinners:ring-resize"
+                            class="text-xs"
+                          />
+                          <Icon
+                            v-else
+                            name="lucide:x-circle"
+                            class="text-xs"
+                          />
+                          <span>Decline</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          @click.prevent="requestReschedule(extractRescheduleUuid(msg.message))"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-100 active:scale-95"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="text-xs"
+                          />
+                          <span>Propose Another</span>
+                        </button>
+                      </div>
+
+                      <div
+                        v-else-if="
+                          !isRescheduleHandled(msg.message) && msg.sender?.id === effectiveUserUuid
+                        "
+                        class="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80"
+                      >
+                        <Icon
+                          name="material-symbols:hourglass-top-rounded"
+                          class="shrink-0 animate-pulse text-xs"
+                        />
+                        <span
+                          >Waiting for
+                          {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
+                          confirm proposal...</span
+                        >
+                      </div>
                     </div>
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">

@@ -63,6 +63,10 @@ export class AppointmentService extends BaseService {
     return await this.request(`${this.resource}/${uuid}/accept-reschedule`, 'POST', payload)
   }
 
+  async declineReschedule(uuid: string, payload: object = {}): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/decline-reschedule`, 'POST', payload)
+  }
+
   async createRescheduleProposal(uuid: string, payload: object): Promise<any> {
     return await this.request(`${this.resource}/${uuid}/reschedule-proposals`, 'POST', payload)
   }

@@ -1055,9 +1055,9 @@
       }
 
       // Save to research dataset based on scan type (out-of-scope → separate storage, standard → normal dataset)
-      // When finishing diagnosis & save (or explicitly consented), commit scan to dataset so it appears on dataset gallery
+      // Save ONLY when doctor explicitly checked the agreement box (contributeToDataset or contributeToOutOfScopeDataset)
       if (
-        (props.isFinishMode || props.contributeToOutOfScopeDataset === true) &&
+        props.contributeToOutOfScopeDataset === true &&
         props.isOutOfScope &&
         props.diagnosisUuid
       ) {
@@ -1067,7 +1067,7 @@
           console.error('Failed to save scan to out-of-scope research dataset:', datasetErr)
         }
       } else if (
-        (props.isFinishMode || props.contributeToDataset === true) &&
+        props.contributeToDataset === true &&
         !props.isOutOfScope &&
         props.diagnosisUuid
       ) {
