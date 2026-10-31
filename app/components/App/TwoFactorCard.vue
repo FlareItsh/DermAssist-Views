@@ -312,7 +312,7 @@
     <Teleport to="body">
       <div
         v-if="showSetupModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
@@ -511,7 +511,7 @@
     <Teleport to="body">
       <div
         v-if="showDisableModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
@@ -592,7 +592,7 @@
     <Teleport to="body">
       <div
         v-if="showRegenModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"
@@ -671,7 +671,7 @@
     <Teleport to="body">
       <div
         v-if="showFreshCodesModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-7"

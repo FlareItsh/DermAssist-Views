@@ -276,7 +276,7 @@
 
 <template>
   <aside
-    class="border-border bg-card/95 text-foreground flex h-full w-full flex-col overflow-hidden backdrop-blur-md transition-all select-none"
+    class="border-border bg-card/95 text-foreground flex h-full w-full flex-col overflow-hidden transition-all select-none"
     :class="[
       inline
         ? 'w-full max-w-xs border-l shadow-none md:max-w-sm lg:w-80 xl:w-88 2xl:w-96'
@@ -798,7 +798,7 @@
                 />
                 <span
                   v-if="item.type === 'scan'"
-                  class="bg-primary/80 py-0.2 absolute top-1 left-1 rounded px-1 text-[9px] font-bold text-white uppercase backdrop-blur-xs"
+                  class="bg-primary/80 py-0.2 absolute top-1 left-1 rounded px-1 text-[9px] font-bold text-white uppercase"
                 >
                   Scan
                 </span>

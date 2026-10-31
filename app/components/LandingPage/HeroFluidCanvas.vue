@@ -70,7 +70,7 @@
 
   const ctaDestination = computed(() => {
     if (!authToken.value) {
-      return '/auth/login'
+      return '/scan'
     }
     const role = (userRole.value || '').toLowerCase()
     if (role === 'doctor') {
@@ -85,7 +85,7 @@
 
     if (!token.value) {
       e.preventDefault()
-      navigateTo('/auth/login')
+      navigateTo('/scan')
       return
     }
 

@@ -1045,8 +1045,9 @@
                 >Epoch {{ trainingStatus.current_epoch }} of {{ trainingStatus.total_epochs }}</span
               >
             </div>
-            <!-- Segmented Bars for Epochs -->
+            <!-- Segmented Bars for Epochs (<= 10) -->
             <div
+              v-if="trainingStatus.total_epochs <= 10"
               class="grid gap-2"
               :style="{
                 gridTemplateColumns: `repeat(${trainingStatus.total_epochs}, minmax(0, 1fr))`
@@ -1065,6 +1066,18 @@
                   }"
                 ></div>
               </div>
+            </div>
+            <!-- Fluid Progress Bar for Higher Epoch Counts (> 10) -->
+            <div
+              v-else
+              class="bg-muted h-2.5 w-full overflow-hidden rounded-full p-0.5"
+            >
+              <div
+                class="bg-primary h-full rounded-full transition-all duration-300"
+                :style="{
+                  width: `${Math.min(100, Math.round(((trainingStatus.current_epoch || 0) / Math.max(1, trainingStatus.total_epochs || 1)) * 100))}%`
+                }"
+              ></div>
             </div>
           </div>
 
@@ -1984,10 +1997,10 @@
         >
           <!-- Console Window Top Bar (Authentic Unix/macOS Chrome) -->
           <div
-            class="flex items-center justify-between border-b border-zinc-800/90 bg-zinc-900/95 px-4 py-3 select-none"
+            class="flex flex-wrap items-center justify-between gap-2.5 border-b border-zinc-800/90 bg-zinc-900/95 px-3 py-2.5 select-none sm:px-4 sm:py-3"
           >
             <!-- Left: Traffic Lights & Terminal Shell Title -->
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
               <!-- Window Traffic Light Buttons -->
               <div class="flex items-center gap-1.5">
                 <button
@@ -2042,7 +2055,7 @@
             </div>
 
             <!-- Right: Utility Controls (Auto-Scroll, Copy, Clear, Fullscreen, Stop) -->
-            <div class="flex items-center gap-1.5 sm:gap-2">
+            <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <!-- Auto-Scroll Toggle -->
               <button
                 type="button"

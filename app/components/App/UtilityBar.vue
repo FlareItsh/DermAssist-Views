@@ -353,7 +353,7 @@
         >
           <div
             v-if="isMessagesOpen"
-            class="bg-card/90 absolute right-0 z-50 mt-4 max-h-[500px] w-96 overflow-hidden rounded-3xl border border-white/20 shadow-2xl backdrop-blur-xl"
+            class="bg-card/90 absolute right-0 z-50 mt-4 max-h-[500px] w-96 overflow-hidden rounded-3xl border border-white/20 shadow-2xl"
           >
             <div class="border-border/50 flex items-center justify-between border-b p-5">
               <h3 class="text-xl font-bold">Messages</h3>
@@ -545,7 +545,7 @@
         >
           <div
             v-if="isNotificationsOpen"
-            class="bg-card/90 absolute right-0 z-50 mt-4 max-h-[500px] w-96 overflow-hidden rounded-3xl border border-white/20 shadow-2xl backdrop-blur-xl"
+            class="bg-card/90 absolute right-0 z-50 mt-4 max-h-[500px] w-96 overflow-hidden rounded-3xl border border-white/20 shadow-2xl"
           >
             <div class="border-border/50 flex items-center justify-between border-b p-5">
               <h3 class="text-xl font-bold">Notifications</h3>
@@ -655,7 +655,7 @@
         >
           <div
             v-if="isProfileOpen"
-            class="bg-card/95 absolute right-0 z-50 mt-4 w-64 overflow-hidden rounded-3xl border border-white/20 shadow-2xl backdrop-blur-xl"
+            class="bg-card/95 absolute right-0 z-50 mt-4 w-64 overflow-hidden rounded-3xl border border-white/20 shadow-2xl"
           >
             <div class="border-border/10 border-b p-4 pb-3">
               <p class="text-foreground/40 text-[10px] font-bold uppercase">Logged in as</p>

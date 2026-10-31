@@ -96,7 +96,7 @@
   const { rescheduleRequestsCount } = useAppointments()
 
   const showWhatsNew = computed(() => {
-    return hasUnseenUpdate.value || route.path.toLowerCase().endsWith('/updates')
+    return Boolean(hasUnseenUpdate.value)
   })
 
   const adminNavItems = computed(() => [
@@ -180,7 +180,7 @@
 
     if (showWhatsNew.value) {
       items.push({
-        icon: 'lucide:megaphone',
+        icon: 'lucide:sparkles',
         label: "What's New",
         to: '/patient/updates',
         showBadge: hasUnseenUpdate.value,
@@ -249,7 +249,7 @@
 
     if (showWhatsNew.value) {
       items.push({
-        icon: 'lucide:megaphone',
+        icon: 'lucide:sparkles',
         label: "What's New",
         to: '/doctor/updates',
         showBadge: hasUnseenUpdate.value,
@@ -275,6 +275,11 @@
           badgeCount: rescheduleRequestsCount.value
         }
       ]
+    },
+    {
+      icon: 'lucide:pill',
+      label: 'Medicine Library',
+      to: '/secretary/medicines'
     },
     {
       icon: 'lucide:message-square',

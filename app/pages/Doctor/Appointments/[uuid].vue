@@ -673,7 +673,7 @@
     <Teleport to="body">
       <div
         v-if="showExceptionModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       >
         <div class="w-full max-w-lg rounded-3xl border border-gray-200 bg-white p-6 shadow-2xl">
           <div class="flex items-center justify-between border-b border-gray-100 pb-4">

@@ -4212,7 +4212,7 @@
                 <!-- Feature Highlights -->
                 <div class="grid gap-3 pt-2 sm:grid-cols-3">
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:shield-check"
@@ -4227,7 +4227,7 @@
                   </div>
 
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:sparkles"
@@ -4242,7 +4242,7 @@
                   </div>
 
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:user-group"
@@ -4326,7 +4326,7 @@
                 <!-- Feature Highlights -->
                 <div class="grid gap-3 pt-2 sm:grid-cols-3">
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:user-group"
@@ -4341,7 +4341,7 @@
                   </div>
 
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:user-plus"
@@ -4356,7 +4356,7 @@
                   </div>
 
                   <div
-                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3 backdrop-blur-xs"
+                    class="flex items-start gap-2.5 rounded-2xl border border-white/10 bg-white/10 p-3"
                   >
                     <Icon
                       name="heroicons:building-office-2"
@@ -4485,7 +4485,7 @@
       <div
         v-if="showAddClinicModal"
         @click.self="showAddClinicModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
@@ -4649,7 +4649,7 @@
       <div
         v-if="showEditClinicModal"
         @click.self="closeEditClinicModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
@@ -4838,7 +4838,7 @@
       <div
         v-if="showAssignDoctorModal"
         @click.self="showAssignDoctorModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
@@ -5165,7 +5165,7 @@
       <div
         v-if="showRecurringBlockedModal && pendingRecurringDutyData"
         @click.self="closeRecurringBlockedModal"
-        class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs duration-200"
+        class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 duration-200"
       >
         <div
           class="border-border bg-card text-foreground relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-6 shadow-2xl"

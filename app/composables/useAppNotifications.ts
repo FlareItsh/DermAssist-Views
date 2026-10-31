@@ -10,7 +10,7 @@ import { recordService, type RecordItem } from '~/api/record/RecordService'
 import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
 import { useConversations } from '~/composables/useConversations'
 import { usePatchNotes } from '~/composables/usePatchNotes'
-import { parseChatPreview } from '~/composables/useChatPreview'
+import { parseChatPreview, isActionableNotificationMessage } from '~/composables/useChatPreview'
 
 export interface AppNotification {
   id: string | number
@@ -608,11 +608,14 @@ export const useAppNotifications = () => {
 
     if (isDoctorOrSecretary && pendingAppointments.value.length > 0) {
       pendingAppointments.value.forEach(appt => {
+        const patientName = appt.patient
+          ? [appt.patient.first_name, appt.patient.last_name].filter(Boolean).join(' ')
+          : 'A patient'
         list.push({
           id: `doctor-appt-request-${appt.id}`,
           type: 'appointment',
           title: 'New Appointment Request',
-          description: `${appt.doctor} has sent an appointment request for ${appt.info}.`,
+          description: `${patientName} has sent an appointment request for ${appt.info}.`,
           time: 'Pending',
           icon: 'material-symbols:calendar-add-on-rounded',
           color: 'text-indigo-500',
@@ -827,44 +830,58 @@ export const useAppNotifications = () => {
       })
     }
 
-    // Unread Chat Messages for all roles
+    // Actionable Chat Messages (Scan, Sched, Resched) for all roles
+    // Normal chat messages appear only in the Message utility icon, not the Notification Bell
     if (conversations.value && conversations.value.length > 0) {
       conversations.value.forEach(conv => {
-        if (conv.unread_count > 0 && conv.latest_message) {
-          const partnerName =
-            userRole.value === 'patient'
-              ? conv.doctor?.name || 'Doctor'
-              : conv.patient?.name || 'Patient'
-          const roleFolder =
-            userRole.value === 'doctor'
-              ? 'Doctor'
-              : userRole.value === 'secretary'
-                ? 'Secretary'
-                : 'Patient'
+        if (!conv.unread_count || !conv.latest_message) return
 
-          const rawMessage = conv.latest_message.message || ''
-          const preview = parseChatPreview(
-            rawMessage,
-            'You have an unread message in this conversation.'
-          )
-          const cleanSnippet = preview.isSpecial
-            ? preview.rawUserText
-              ? `${preview.label}: ${preview.rawUserText}`
-              : preview.text
-            : preview.text
-
-          list.push({
-            id: `msg-unread-${conv.id}-${conv.latest_message.created_at || 'now'}`,
-            type: 'message',
-            title: `New Message from ${partnerName}`,
-            description: cleanSnippet || 'You have an unread message in this conversation.',
-            time: formatRelativeTime(conv.latest_message.created_at) || 'Unread',
-            icon: preview.isSpecial && preview.icon ? preview.icon : 'solar:chat-round-dots-bold',
-            color: preview.isSpecial && preview.iconColor ? preview.iconColor : 'text-sky-500',
-            to: `/${roleFolder}/Messages/${conv.id}`,
-            data: conv
-          })
+        const rawMessage = conv.latest_message.message || ''
+        if (!isActionableNotificationMessage(rawMessage)) {
+          return
         }
+
+        // Avoid duplicate bell notifications if an appointment notification already exists for this conversation
+        const alreadyNotified = list.some(n => n.to?.includes(conv.id) && n.type === 'appointment')
+        if (alreadyNotified) return
+
+        const partnerName =
+          userRole.value === 'patient'
+            ? conv.doctor?.name || 'Doctor'
+            : conv.patient?.name || 'Patient'
+        const roleFolder =
+          userRole.value === 'doctor'
+            ? 'Doctor'
+            : userRole.value === 'secretary'
+              ? 'Secretary'
+              : 'Patient'
+
+        const preview = parseChatPreview(
+          rawMessage,
+          'You have an unread update in this conversation.'
+        )
+        const cleanSnippet = preview.isSpecial
+          ? preview.rawUserText
+            ? `${preview.label}: ${preview.rawUserText}`
+            : preview.text
+          : preview.text
+
+        const actionTitle =
+          preview.isSpecial && preview.label
+            ? `${preview.label} from ${partnerName}`
+            : `New Message from ${partnerName}`
+
+        list.push({
+          id: `msg-unread-${conv.id}-${conv.latest_message.created_at || 'now'}`,
+          type: 'message',
+          title: actionTitle,
+          description: cleanSnippet || 'You have an unread update in this conversation.',
+          time: formatRelativeTime(conv.latest_message.created_at) || 'Unread',
+          icon: preview.isSpecial && preview.icon ? preview.icon : 'solar:chat-round-dots-bold',
+          color: preview.isSpecial && preview.iconColor ? preview.iconColor : 'text-sky-500',
+          to: `/${roleFolder}/Messages/${conv.id}`,
+          data: conv
+        })
       })
     }
 

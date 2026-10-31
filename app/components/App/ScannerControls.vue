@@ -22,7 +22,7 @@
 <template>
   <div class="absolute bottom-0 left-0 flex w-full justify-end">
     <div class="bg-primary overflow-hidden rounded-tl-3xl p-2">
-      <div class="flex h-15 w-84 items-end justify-end gap-2 backdrop-blur-md">
+      <div class="flex h-15 w-84 items-end justify-end gap-2">
         <!-- Camera Toggle -->
         <AppButton
           variant="unstyled"

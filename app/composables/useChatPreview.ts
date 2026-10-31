@@ -194,8 +194,30 @@ export const parseChatPreview = (
   }
 }
 
+/**
+ * Checks if a message contains actionable system tags (Scan, Sched, Resched)
+ * that qualify to appear in the notification bell alongside the message icon.
+ */
+export const isActionableNotificationMessage = (rawMessage?: string | null): boolean => {
+  if (!rawMessage || typeof rawMessage !== 'string') return false
+  const str = rawMessage.trim()
+  return (
+    str.includes('[SCAN_RESULT:') ||
+    str.includes('[DIAGNOSIS_ONLY:') ||
+    str.includes('[APPOINTMENT_REQUEST:') ||
+    str.includes('[APPOINTMENT_SCHEDULED:') ||
+    str.includes('[APPOINTMENT_CONFIRMED:') ||
+    str.includes('[APPOINTMENT_DECLINED:') ||
+    str.includes('[APPOINTMENT_CANCELLED:') ||
+    str.includes('[APPOINTMENT_COMPLETED:') ||
+    str.includes('[APPOINTMENT_NO_SHOW:') ||
+    str.includes('[APPOINTMENT_RESCHEDULE_')
+  )
+}
+
 export const useChatPreview = () => {
   return {
-    parseChatPreview
+    parseChatPreview,
+    isActionableNotificationMessage
   }
 }

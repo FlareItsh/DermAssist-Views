@@ -2,7 +2,7 @@
   import { ref, onMounted, onUnmounted } from 'vue'
   const { resetScanner } = useDiagnosis()
 
-  const isMobile = ref<boolean | null>(null)
+  const isMobile = ref<boolean>(import.meta.client ? window.innerWidth < 768 : false)
 
   const updateViewport = () => {
     isMobile.value = window.innerWidth < 768

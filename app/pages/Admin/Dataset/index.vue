@@ -1123,7 +1123,7 @@
             <!-- Category Loading Overlay -->
             <div
               v-if="isCategoryLoading(dataset.category)"
-              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center backdrop-blur-xs"
+              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center"
             >
               <div
                 class="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
@@ -1172,7 +1172,7 @@
                     :class="
                       selectedPriorityUrls.has(item.url)
                         ? 'bg-primary border-primary text-white shadow-xs ring-2 ring-white/40'
-                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs backdrop-blur-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
+                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
                     "
                   >
                     <Icon
@@ -1187,7 +1187,7 @@
                 <div class="absolute top-2 right-2 z-10">
                   <div
                     v-if="item.is_synced"
-                    class="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                    class="inline-flex items-center gap-1 rounded-full bg-emerald-600/90 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs"
                     title="Mirrored in AI Algorithm local training directory"
                   >
                     <Icon
@@ -1198,7 +1198,7 @@
                   </div>
                   <div
                     v-else
-                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs backdrop-blur-md"
+                    class="inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-2 py-0.5 text-[10px] font-bold text-white shadow-xs"
                     title="Webapp Consultation Scan pending sync to training raw directory"
                   >
                     <Icon
@@ -1233,7 +1233,7 @@
                       <button
                         v-if="item.diagnosis_uuid"
                         type="button"
-                        class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs backdrop-blur-xs transition-transform hover:scale-110 hover:bg-emerald-600 hover:text-white"
+                        class="flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs transition-transform hover:scale-110 hover:bg-emerald-600 hover:text-white"
                         title="Authorize / Verify for Dataset Retraining"
                         @click.stop="handleApproveDiagnosis(item.diagnosis_uuid)"
                       >
@@ -1244,7 +1244,7 @@
                       </button>
                       <button
                         type="button"
-                        class="hover:bg-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs backdrop-blur-xs transition-transform hover:scale-110 hover:text-white"
+                        class="hover:bg-primary flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/90 shadow-xs transition-transform hover:scale-110 hover:text-white"
                         title="Transfer Category"
                         @click.stop="promptTransferPriorityImage(item)"
                       >
@@ -1626,7 +1626,7 @@
             <!-- Category Loading Overlay -->
             <div
               v-if="isCategoryLoading(dataset.category)"
-              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center backdrop-blur-xs"
+              class="bg-card/75 absolute inset-0 z-20 flex items-center justify-center"
             >
               <div
                 class="h-8 w-8 animate-spin rounded-full border-2 border-violet-600 border-t-transparent"
@@ -1666,7 +1666,7 @@
                     :class="
                       selectedOosUrls.has(url)
                         ? 'border-violet-600 bg-violet-600 text-white shadow-xs ring-2 ring-white/40'
-                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs backdrop-blur-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
+                        : 'border-white/80 bg-black/50 text-transparent opacity-85 shadow-xs group-hover:border-white group-hover:bg-black/70 group-hover:opacity-100'
                     "
                   >
                     <Icon
@@ -1683,7 +1683,7 @@
                 >
                   <button
                     type="button"
-                    class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    class="hover:bg-destructive flex h-7 w-7 transform cursor-pointer items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-md transition-all hover:scale-110 hover:text-white"
                     title="Delete Single Image"
                     @click.stop="promptDeleteImage(url, true)"
                   >
@@ -1871,7 +1871,7 @@
           @click.self="closeTransferModal"
         >
           <!-- Backdrop -->
-          <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" />
+          <div class="fixed inset-0 bg-black/60 transition-opacity" />
 
           <!-- Modal Container -->
           <div

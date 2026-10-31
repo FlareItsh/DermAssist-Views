@@ -854,27 +854,27 @@
       >
         <!-- Header -->
         <div
-          class="border-border bg-card/95 relative z-10 flex shrink-0 items-start justify-between border-b px-6 py-4.5 backdrop-blur-sm sm:px-8"
+          class="border-border bg-card/95 relative z-10 flex shrink-0 items-start justify-between border-b px-4 py-3 sm:px-8 sm:py-4.5"
         >
-          <div>
-            <div class="flex items-center gap-3">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2.5 sm:gap-3">
               <div
-                class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
+                class="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
               >
                 <Icon
                   name="lucide:images"
-                  size="19"
+                  class="size-4 sm:size-5"
                 />
               </div>
-              <div>
-                <h3 class="text-foreground text-base font-bold sm:text-lg">
+              <div class="min-w-0 flex-1">
+                <h3 class="text-foreground truncate text-sm font-bold sm:text-lg">
                   {{
                     datasetType === 'out_of_scope'
                       ? 'Out-of-Scope Research Dataset'
                       : 'Dataset Browser & Training Scope'
                   }}
                 </h3>
-                <p class="text-muted-foreground mt-0.5 text-xs">
+                <p class="text-muted-foreground mt-0.5 hidden text-xs sm:block">
                   {{
                     datasetType === 'out_of_scope'
                       ? 'Browse and manage out-of-scope skin lesion samples for exploratory expansion models.'
@@ -887,61 +887,61 @@
             <!-- Standard Dataset Status & Origin Pill Badges -->
             <div
               v-if="datasetType === 'standard' && !isLoading"
-              class="mt-3 flex flex-wrap items-center gap-1.5"
+              class="scrollbar-none mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:mt-3 sm:flex-wrap"
             >
               <span
-                class="bg-primary/10 text-primary border-primary/30 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-bold"
+                class="bg-primary/10 text-primary border-primary/30 inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-bold sm:px-2.5 sm:text-xs"
               >
                 <Icon
                   name="lucide:check"
-                  size="13"
+                  size="12"
                 />
                 {{ selectedCount }} of {{ images.length }} Included
               </span>
 
               <span
                 v-if="excludedCount > 0"
-                class="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-600 sm:px-2.5 sm:text-xs dark:text-rose-400"
               >
                 <Icon
                   name="lucide:slash"
-                  size="12"
+                  size="11"
                 />
                 {{ excludedCount }} Excluded
               </span>
 
               <span
                 v-if="webappScansCount > 0"
-                class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 sm:px-2.5 sm:text-xs dark:text-emerald-400"
                 title="Clinical scans from patient and doctor consultations"
               >
                 <Icon
                   name="lucide:sparkles"
-                  size="12"
+                  size="11"
                 />
-                {{ webappScansCount }} From Webapp Scans
+                {{ webappScansCount }} From Webapp
               </span>
 
               <span
                 v-if="syncedCount > 0"
-                class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 sm:px-2.5 sm:text-xs dark:text-emerald-400"
                 title="Images already synchronized into local dataset storage"
               >
                 <Icon
                   name="lucide:check-circle-2"
-                  size="12"
+                  size="11"
                 />
                 {{ syncedCount }} Synced
               </span>
 
               <span
                 v-if="needsSyncCount > 0"
-                class="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400"
+                class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-600 sm:px-2.5 sm:text-xs dark:text-amber-400"
                 title="Consultation scans not yet copied into local dataset storage"
               >
                 <Icon
                   name="lucide:refresh-cw"
-                  size="12"
+                  size="11"
                 />
                 {{ needsSyncCount }} Needs Sync
               </span>
@@ -952,7 +952,7 @@
           <AppButton
             variant="ghost"
             size="icon"
-            class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground h-8 w-8 rounded-full"
+            class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground -mr-1 h-8 w-8 shrink-0 rounded-full sm:mr-0"
             @click="close"
           >
             <Icon
@@ -965,17 +965,17 @@
         <!-- Controls Toolbar: Standard Mode -->
         <div
           v-if="datasetType === 'standard'"
-          class="border-border bg-muted/20 shrink-0 space-y-3 border-b px-6 py-3.5 sm:px-8"
+          class="border-border bg-muted/20 shrink-0 space-y-2 border-b px-4 py-2 sm:space-y-3 sm:px-8 sm:py-3.5"
         >
           <!-- Row 1: Category Chips & Search Bar -->
-          <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div class="flex flex-col justify-between gap-2 sm:flex-row sm:items-center sm:gap-3">
             <!-- Category Tabs -->
-            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <div class="scrollbar-none flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:pb-0">
               <button
                 v-for="cat in standardCategories"
                 :key="cat.id"
                 type="button"
-                class="flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-all"
+                class="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-semibold transition-all sm:px-3 sm:py-1.5"
                 :class="
                   activeCategory === cat.id
                     ? 'bg-primary text-primary-foreground shadow-xs'
@@ -1004,14 +1004,18 @@
           </div>
 
           <!-- Row 2: Status & Location Filters + Bulk Selection Actions -->
-          <div class="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
             <!-- Filter Chips (Included/Excluded, Origins, Sync) -->
-            <div class="flex flex-wrap items-center gap-2 text-xs">
+            <div
+              class="scrollbar-none flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs sm:flex-wrap sm:pb-0"
+            >
               <!-- Inclusion status -->
-              <div class="border-border bg-card flex items-center gap-0.5 rounded-xl border p-0.5">
+              <div
+                class="border-border bg-card flex shrink-0 items-center gap-0.5 rounded-xl border p-0.5"
+              >
                 <button
                   type="button"
-                  class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                  class="rounded-lg px-2 py-0.5 text-[11px] font-semibold transition-all sm:px-2.5 sm:py-1 sm:text-xs"
                   :class="
                     activeInclusionFilter === 'all'
                       ? 'bg-primary text-primary-foreground shadow-xs'
@@ -1023,7 +1027,7 @@
                 </button>
                 <button
                   type="button"
-                  class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                  class="rounded-lg px-2 py-0.5 text-[11px] font-semibold transition-all sm:px-2.5 sm:py-1 sm:text-xs"
                   :class="
                     activeInclusionFilter === 'included'
                       ? 'bg-primary text-primary-foreground shadow-xs'
@@ -1035,7 +1039,7 @@
                 </button>
                 <button
                   type="button"
-                  class="rounded-lg px-2.5 py-1 text-xs font-semibold transition-all"
+                  class="rounded-lg px-2 py-0.5 text-[11px] font-semibold transition-all sm:px-2.5 sm:py-1 sm:text-xs"
                   :class="
                     activeInclusionFilter === 'excluded'
                       ? 'bg-primary text-primary-foreground shadow-xs'
@@ -1136,7 +1140,9 @@
             </div>
 
             <!-- Quick Selection & Deletion Helpers -->
-            <div class="flex flex-wrap items-center gap-2">
+            <div
+              class="scrollbar-none flex w-full items-center gap-1.5 overflow-x-auto py-0.5 sm:w-auto sm:flex-wrap"
+            >
               <AppButton
                 variant="outline"
                 size="sm"
@@ -1287,7 +1293,7 @@
         </div>
 
         <!-- Body: Gallery Grid -->
-        <div class="flex-1 overflow-y-auto p-6 sm:p-8">
+        <div class="flex-1 overflow-y-auto p-3 sm:p-8">
           <!-- Loading State -->
           <div
             v-if="isLoading"
@@ -1368,7 +1374,7 @@
                 >
                   <button
                     type="button"
-                    class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-sm transition-all hover:scale-110 hover:text-white"
                     title="Transfer scan to another disease"
                     @click.stop="promptTransferSingleOutOfScope(url)"
                   >
@@ -1451,7 +1457,7 @@
             <!-- Standard Image Cards Grid (Up to 7 Columns) -->
             <div
               v-else
-              class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
+              class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
             >
               <div
                 v-for="img in filteredStandardImages"
@@ -1506,7 +1512,7 @@
                       :class="
                         selectedUuids.has(img.uuid)
                           ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-white/30'
-                          : 'border border-white/60 bg-black/60 text-white/40 backdrop-blur-xs'
+                          : 'border border-white/60 bg-black/60 text-white/40'
                       "
                       title="Toggle image selection for retraining"
                     >
@@ -1520,7 +1526,7 @@
 
                     <div
                       v-if="isImageTrained(img)"
-                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs backdrop-blur-md select-none"
+                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs select-none"
                       title="Previously trained baseline scan"
                     >
                       <Icon
@@ -1538,7 +1544,7 @@
                       :color="formatCategoryBadge(img.category).color"
                       size="xs"
                       variant="solid"
-                      class="text-[10px] font-bold uppercase shadow-xs backdrop-blur-xs"
+                      class="text-[10px] font-bold uppercase shadow-xs"
                     >
                       {{ formatCategoryBadge(img.category).label }}
                     </AppBadge>
@@ -1549,7 +1555,7 @@
                     <!-- Transfer Category Button -->
                     <button
                       type="button"
-                      class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm transition-all hover:scale-110 hover:text-white"
                       title="Transfer scan to another category"
                       @click.stop="promptTransferSingle(img)"
                     >
@@ -1563,7 +1569,7 @@
                     <button
                       v-if="!isImageTrained(img)"
                       type="button"
-                      class="hover:bg-destructive flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      class="hover:bg-destructive flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm transition-all hover:scale-110 hover:text-white"
                       :title="
                         isImageSynced(img)
                           ? 'Remove Synced Scan from Dataset'
@@ -1659,16 +1665,18 @@
 
         <!-- Footer Action Bar -->
         <div
-          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-3 border-t px-6 py-4 backdrop-blur-sm sm:flex-row sm:items-center sm:px-8"
+          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-2.5 border-t px-4 py-2.5 sm:flex-row sm:items-center sm:px-8 sm:py-4"
         >
           <!-- Standard Mode Summary Info -->
           <template v-if="datasetType === 'standard'">
-            <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <div
+              class="text-muted-foreground flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs"
+            >
               <span class="text-foreground font-bold">
                 {{ selectedCount }} of {{ images.length }}
               </span>
-              images in training pool
-              <span class="text-muted-foreground/80">
+              <span>images in training pool</span>
+              <span class="text-muted-foreground/80 xs:inline hidden">
                 ({{ trainedCount }} trained · permanent)
               </span>
               <span
@@ -1686,11 +1694,11 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
               <AppButton
                 variant="ghost"
-                size="md"
-                class="rounded-xl font-semibold"
+                size="sm"
+                class="rounded-xl text-xs font-semibold sm:text-sm"
                 @click="close"
               >
                 Close
@@ -1698,29 +1706,29 @@
               <AppButton
                 v-if="pendingSelectedCount > 0"
                 variant="outline"
-                size="md"
-                class="rounded-xl border-emerald-500/40 font-bold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                size="sm"
+                class="rounded-xl border-emerald-500/40 text-xs font-bold text-emerald-600 hover:bg-emerald-500/10 sm:text-sm dark:text-emerald-400"
                 :loading="isSyncingScans"
                 :disabled="isSyncingScans"
                 @click="promptSyncSelectedScans"
               >
                 <Icon
                   name="lucide:refresh-cw"
-                  size="15"
-                  class="mr-1.5"
+                  size="13"
+                  class="mr-1"
                   :class="isSyncingScans ? 'animate-spin' : ''"
                 />
                 Sync {{ pendingSelectedCount }} Scans
               </AppButton>
               <AppButton
                 variant="solid"
-                size="md"
-                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl font-bold shadow-md"
+                size="sm"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground h-9 flex-1 justify-center gap-1.5 rounded-xl text-xs font-bold shadow-md sm:h-10 sm:flex-none sm:text-sm"
                 @click="handleConfirmScope"
               >
                 <Icon
                   name="lucide:check-circle-2"
-                  size="16"
+                  size="15"
                 />
                 Apply Retraining Scope ({{ selectedCount }} Scans)
               </AppButton>
@@ -1807,7 +1815,7 @@
         @click.self="closeTransferModal"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" />
+        <div class="fixed inset-0 bg-black/60 transition-opacity" />
 
         <!-- Modal Container -->
         <div

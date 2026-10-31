@@ -127,7 +127,11 @@
     const combinedDesc = `${medName} ${unitStr}`.toLowerCase()
 
     // 1. Topical / Liquid / Spray detection -> default to #1 tube / bottle
-    if (/cream|ointment|gel|lotion|foam|solution|shampoo|suspension|spray|drops|tube|bottle/i.test(combinedDesc)) {
+    if (
+      /cream|ointment|gel|lotion|foam|solution|shampoo|suspension|spray|drops|tube|bottle/i.test(
+        combinedDesc
+      )
+    ) {
       if (/bottle|solution|shampoo|suspension|syrup|drops/i.test(combinedDesc)) {
         return '#1 bottle'
       }
@@ -144,7 +148,9 @@
       dailyRate = 1
     } else if (/twice\s*daily|\bbid\b|q12h|every\s*12\s*h|2x\s*a\s*day/i.test(freq)) {
       dailyRate = 2
-    } else if (/three\s*times\s*daily|thrice\s*daily|\btid\b|q8h|every\s*8\s*h|3x\s*a\s*day/i.test(freq)) {
+    } else if (
+      /three\s*times\s*daily|thrice\s*daily|\btid\b|q8h|every\s*8\s*h|3x\s*a\s*day/i.test(freq)
+    ) {
       dailyRate = 3
     } else if (/four\s*times\s*daily|\bqid\b|q6h|every\s*6\s*h|4x\s*a\s*day/i.test(freq)) {
       dailyRate = 4
@@ -290,10 +296,17 @@
   const showPostFinishPrompt = ref(false)
   const isPreviewSaving = ref(false)
   const isDownloadingRxPdf = ref(false)
-  const savedPayload = ref<{ conversationUuid?: string; followUpScheduled?: boolean } | undefined>(undefined)
+  const savedPayload = ref<{ conversationUuid?: string; followUpScheduled?: boolean } | undefined>(
+    undefined
+  )
 
   const effectiveDiagUuid = computed(() => {
-    return props.diagnosisUuid || (note.value as any)?.diagnosis_uuid || (note.value as any)?.in_clinic_diagnosis_uuid || null
+    return (
+      props.diagnosisUuid ||
+      (note.value as any)?.diagnosis_uuid ||
+      (note.value as any)?.in_clinic_diagnosis_uuid ||
+      null
+    )
   })
 
   const handleDownloadRxPdf = async () => {
@@ -803,7 +816,7 @@
       if (followUpDateOnly.value === todayStr) {
         const currentM = now.getHours() * 60 + now.getMinutes()
         const [h, m] = followUpTimeOnly.value.split(':').map(Number)
-        return (h * 60 + (m || 0)) <= currentM
+        return h * 60 + (m || 0) <= currentM
       }
       return false
     })()
@@ -1066,11 +1079,7 @@
         } catch (datasetErr) {
           console.error('Failed to save scan to out-of-scope research dataset:', datasetErr)
         }
-      } else if (
-        props.contributeToDataset === true &&
-        !props.isOutOfScope &&
-        props.diagnosisUuid
-      ) {
+      } else if (props.contributeToDataset === true && !props.isOutOfScope && props.diagnosisUuid) {
         try {
           await datasetService.saveFromDiagnosis(props.diagnosisUuid)
         } catch (datasetErr) {
@@ -1187,7 +1196,7 @@
   </div>
   <div
     v-else
-    class="relative space-y-6 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:space-y-8 sm:p-6 lg:border-white/50 lg:bg-white/70 lg:backdrop-blur-xl"
+    class="lg: relative space-y-6 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:space-y-8 sm:p-6 lg:border-white/50 lg:bg-white/70"
   >
     <div
       class="bg-primary/5 pointer-events-none absolute -top-40 -right-40 h-96 w-96 rounded-full blur-3xl"
@@ -1466,7 +1475,9 @@
             <!-- Modifiers & Add Button -->
             <div class="grid gap-2.5 pt-2 sm:grid-cols-12 sm:items-center">
               <div class="sm:col-span-3">
-                <label class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                <label
+                  class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase"
+                >
                   Duration
                 </label>
                 <input
@@ -1483,7 +1494,10 @@
                   <label class="block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
                     Quantity (#)
                   </label>
-                  <span v-if="!isQuantityManuallyEdited && rxQuantity" class="text-[9px] font-semibold text-emerald-600">
+                  <span
+                    v-if="!isQuantityManuallyEdited && rxQuantity"
+                    class="text-[9px] font-semibold text-emerald-600"
+                  >
                     Auto
                   </span>
                 </div>
@@ -1498,7 +1512,9 @@
               </div>
 
               <div class="sm:col-span-4">
-                <label class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                <label
+                  class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase"
+                >
                   Instructions / Sig
                 </label>
                 <input
@@ -1529,15 +1545,22 @@
             <!-- Quick Quantity Chips -->
             <div
               v-if="selectedVariantUuid"
-              class="flex flex-wrap items-center gap-1.5 text-[11px] text-gray-500 pt-1"
+              class="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-gray-500"
             >
               <span class="text-[10px] font-semibold text-gray-400">Quick # Dispense:</span>
               <button
-                v-for="chip in ['#1 tube', '#1 bottle', '#7 capsules', '#14 capsules', '#21 tablets', '#30 tablets']"
+                v-for="chip in [
+                  '#1 tube',
+                  '#1 bottle',
+                  '#7 capsules',
+                  '#14 capsules',
+                  '#21 tablets',
+                  '#30 tablets'
+                ]"
                 :key="chip"
                 type="button"
                 @click="setQuickQuantity(chip)"
-                class="px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors bg-white hover:bg-amber-50 border border-gray-200 hover:border-amber-300 text-gray-700 hover:text-amber-700 cursor-pointer"
+                class="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-bold text-gray-700 transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
               >
                 {{ chip }}
               </button>
@@ -1557,10 +1580,18 @@
                     type="button"
                     :disabled="isDownloadingRxPdf"
                     @click="handleDownloadRxPdf"
-                    class="flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-800 transition-colors"
+                    class="flex items-center gap-1 text-[11px] font-bold text-emerald-600 transition-colors hover:text-emerald-800"
                   >
-                    <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
-                    <Icon v-else name="lucide:download" class="text-xs" />
+                    <Icon
+                      v-if="isDownloadingRxPdf"
+                      name="lucide:loader-2"
+                      class="animate-spin text-xs"
+                    />
+                    <Icon
+                      v-else
+                      name="lucide:download"
+                      class="text-xs"
+                    />
                     <span>Download Rx</span>
                   </button>
                   <button
@@ -1568,10 +1599,18 @@
                     type="button"
                     :disabled="isPreviewSaving"
                     @click="handleOpenPrescriptionPreview"
-                    class="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                    class="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 transition-colors hover:text-indigo-800"
                   >
-                    <Icon v-if="isPreviewSaving" name="lucide:loader-2" class="animate-spin text-xs" />
-                    <Icon v-else name="lucide:printer" class="text-xs" />
+                    <Icon
+                      v-if="isPreviewSaving"
+                      name="lucide:loader-2"
+                      class="animate-spin text-xs"
+                    />
+                    <Icon
+                      v-else
+                      name="lucide:printer"
+                      class="text-xs"
+                    />
                     <span>Preview & Print Rx</span>
                   </button>
                   <button
@@ -2052,15 +2091,23 @@
     <Teleport to="body">
       <div
         v-if="showPostFinishPrompt"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
       >
-        <div class="flex flex-col w-full max-w-md bg-white border border-gray-100 shadow-2xl rounded-3xl overflow-hidden p-6 sm:p-7 text-center">
-          <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4">
-            <Icon name="lucide:check-circle-2" class="text-3xl" />
+        <div
+          class="flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 text-center shadow-2xl sm:p-7"
+        >
+          <div
+            class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"
+          >
+            <Icon
+              name="lucide:check-circle-2"
+              class="text-3xl"
+            />
           </div>
-          <h3 class="text-lg font-bold text-gray-900 mb-1">Consultation Completed & Saved!</h3>
-          <p class="text-xs text-gray-500 mb-6 leading-relaxed">
-            Clinical notes and assessment findings have been committed. How would you like to handle the patient's prescription?
+          <h3 class="mb-1 text-lg font-bold text-gray-900">Consultation Completed & Saved!</h3>
+          <p class="mb-6 text-xs leading-relaxed text-gray-500">
+            Clinical notes and assessment findings have been committed. How would you like to handle
+            the patient's prescription?
           </p>
 
           <div class="flex flex-col gap-2.5">
@@ -2068,26 +2115,37 @@
               type="button"
               :disabled="isDownloadingRxPdf"
               @click="handleDownloadRxPdf"
-              class="w-full flex items-center justify-center gap-2 px-5 py-3 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors disabled:opacity-50"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
             >
-              <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-sm" />
-              <Icon v-else name="lucide:download" class="text-sm" />
+              <Icon
+                v-if="isDownloadingRxPdf"
+                name="lucide:loader-2"
+                class="animate-spin text-sm"
+              />
+              <Icon
+                v-else
+                name="lucide:download"
+                class="text-sm"
+              />
               <span>Download Prescription (PDF)</span>
             </button>
 
             <button
               type="button"
               @click="showPrescriptionPadModal = true"
-              class="w-full flex items-center justify-center gap-2 px-5 py-2.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition-colors"
+              class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 px-5 py-2.5 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
             >
-              <Icon name="lucide:printer" class="text-sm" />
+              <Icon
+                name="lucide:printer"
+                class="text-sm"
+              />
               <span>Preview & Print Prescription (Rx)</span>
             </button>
 
             <button
               type="button"
               @click="handleFinishAndExit"
-              class="w-full px-5 py-2.5 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors mt-1"
+              class="mt-1 w-full rounded-xl bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
             >
               Done & Return to Scans
             </button>

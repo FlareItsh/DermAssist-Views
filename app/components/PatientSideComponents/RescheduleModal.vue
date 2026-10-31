@@ -945,7 +945,9 @@
               ]"
             >
               <span class="font-bold">{{ slot.label }}</span>
-              <span class="text-[10px] opacity-75">{{ slot.isPassed ? 'Passed' : slot.durationLabel }}</span>
+              <span class="text-[10px] opacity-75">{{
+                slot.isPassed ? 'Passed' : slot.durationLabel
+              }}</span>
             </button>
           </div>
         </template>
@@ -1201,7 +1203,7 @@
                           isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-red-700/60 bg-red-900/95"
@@ -1225,7 +1227,7 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-indigo-700/60 bg-indigo-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-indigo-700/60 bg-indigo-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-indigo-700/60 bg-indigo-950/95"
@@ -1250,7 +1252,7 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-emerald-700/60 bg-emerald-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-emerald-700/60 bg-emerald-950/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-emerald-700/60 bg-emerald-950/95"
@@ -1276,7 +1278,7 @@
                           !isUnavailable(date) &&
                           !isPast(date)
                         "
-                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl backdrop-blur-md"
+                        class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 px-2.5 py-1.5 text-center text-xs whitespace-nowrap text-white shadow-2xl"
                       >
                         <div
                           class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-slate-700/60 bg-slate-900/95"

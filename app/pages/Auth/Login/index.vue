@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { authService } from '~/api/auth/AuthService'
+  import { scanQuotaService } from '~/api/scanQuota/ScanQuotaService'
   import Button from '~/components/App/Button.vue'
   import { resolveApiBase } from '~/utils/resolveApiBase'
 
@@ -146,6 +147,24 @@
       path: '/'
     })
     verificationDeadlineCookie.value = userData?.verification_deadline || null
+
+    const route = useRoute()
+    const guestTokenCookie = useCookie<string | null>('da_guest_token')
+    const claimToken = (route.query.claim_scan as string) || guestTokenCookie.value
+
+    if (claimToken && baseRole === 'patient') {
+      try {
+        const claimRes = await scanQuotaService.claimGuestScan(claimToken)
+        guestTokenCookie.value = null
+        if (claimRes?.data?.uuid) {
+          toast.success('Your guest scan has been claimed and unlocked!')
+          await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
+          return
+        }
+      } catch (e) {
+        console.error('Failed to claim guest scan:', e)
+      }
+    }
 
     await navigateTo(`/${baseRole}`)
   }
@@ -523,11 +542,11 @@
 
       <div
         v-if="!is2FAStep"
-        class="mt-3 text-center"
+        class="mt-4 text-center"
       >
         <NuxtLink
           to="/auth/register"
-          class="text-foreground/60 hover:text-primary inline-flex items-center gap-1 text-[11px] transition-colors"
+          class="text-foreground/70 hover:text-primary inline-flex items-center gap-1.5 text-xs transition-colors sm:text-sm"
         >
           <span class="font-normal">Don't have an account?</span>
           <span class="text-primary font-semibold hover:underline">Create one</span>
@@ -542,7 +561,7 @@
     width: 6px;
   }
   .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(var(--foreground), 0.1);
+    background: color-mix(in srgb, var(--color-foreground, currentColor) 15%, transparent);
     border-radius: 10px;
   }
 </style>

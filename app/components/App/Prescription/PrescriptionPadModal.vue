@@ -171,238 +171,342 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs"
+      class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-2 sm:p-4"
     >
-    <div
-      class="flex flex-col w-full max-w-2xl max-h-[92vh] overflow-hidden bg-white border border-gray-100 shadow-2xl rounded-3xl"
-    >
-      <!-- Top Bar -->
-      <div class="flex items-center justify-between px-6 py-3.5 border-b border-gray-100 bg-gray-50/70">
-        <div class="flex items-center gap-2">
-          <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600">
-            <Icon name="material-symbols:prescriptions-outline-rounded" class="text-lg" />
-          </div>
-          <div>
-            <h3 class="text-sm font-bold text-gray-900">Official Medical Prescription (Rx Pad)</h3>
-            <p class="text-[11px] text-gray-500">Standard Philippine FDA & Generics Act Compliant</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            v-if="allowEditCredentials"
-            type="button"
-            @click="showCredentialsModal = true"
-            class="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-2xs"
-          >
-            <Icon name="lucide:pen-tool" class="text-xs text-indigo-600" />
-            <span>Doctor Signature & PTR</span>
-          </button>
-          <button
-            type="button"
-            @click="emit('update:modelValue', false)"
-            class="flex items-center justify-center w-8 h-8 text-gray-400 transition-colors rounded-full hover:bg-gray-100 hover:text-gray-600"
-          >
-            <Icon name="lucide:x" class="text-base" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Preview Body (A5 Prescription Slip Layout) -->
-      <div class="flex-1 p-4 sm:p-6 overflow-y-auto bg-gray-100/60">
-        <div v-if="isLoading" class="flex flex-col items-center justify-center py-20 text-center gap-2">
-          <Icon name="lucide:loader-2" class="animate-spin text-2xl text-indigo-600" />
-          <span class="text-xs font-semibold text-gray-500">Generating Prescription Pad Preview...</span>
-        </div>
-
+      <div
+        class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
+      >
+        <!-- Top Bar -->
         <div
-          v-else-if="prescriptionData"
-          id="prescription-slip-printable"
-          class="w-full max-w-lg mx-auto bg-white border border-gray-200/80 shadow-md rounded-2xl p-6 sm:p-8 flex flex-col justify-between"
-          style="min-height: 520px;"
+          class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-6 py-3.5"
         >
-          <!-- 1. Header -->
-          <div>
-            <div class="flex items-start justify-between pb-3 mb-3 border-b-2 border-indigo-600 gap-3">
-              <div class="flex flex-col">
-                <img
-                  v-if="prescriptionData.logoUrl"
-                  :src="prescriptionData.logoUrl"
-                  alt="Clinic Logo"
-                  class="h-9 w-auto max-w-[130px] object-contain mb-1.5"
-                />
-                <h4 class="text-sm font-extrabold text-indigo-950 uppercase tracking-tight">
-                  {{ prescriptionData.clinicName || 'DermAssist Clinical Dermatology' }}
-                </h4>
-                <p class="text-[10px] text-gray-500 leading-tight">
-                  {{ prescriptionData.clinicAddress }}
-                </p>
-                <p v-if="prescriptionData.clinicPhone || prescriptionData.clinicEmail" class="text-[9px] text-gray-400 mt-0.5">
-                  <span v-if="prescriptionData.clinicPhone">Tel: {{ prescriptionData.clinicPhone }}</span>
-                  <span v-if="prescriptionData.clinicPhone && prescriptionData.clinicEmail"> &bull; </span>
-                  <span v-if="prescriptionData.clinicEmail">{{ prescriptionData.clinicEmail }}</span>
-                </p>
-              </div>
-
-              <div class="text-right shrink-0">
-                <div class="text-xs font-extrabold text-gray-900">
-                  Dr. {{ prescriptionData.doctorName || 'Attending Physician' }}
-                </div>
-                <div class="text-[10px] font-semibold text-indigo-600">
-                  {{ prescriptionData.doctorAffiliation || 'Dermatology & Cutaneous Care' }}
-                </div>
-                <div class="text-[9px] text-gray-500 mt-1 space-y-0.5">
-                  <div>PRC No.: <strong class="text-gray-800">{{ prescriptionData.prcNumber || 'N/A' }}</strong></div>
-                  <div>PTR No.: <strong class="text-gray-800">{{ prescriptionData.ptrNumber || 'N/A' }}</strong></div>
-                  <div v-if="prescriptionData.s2Number">S2 No.: <strong class="text-gray-800">{{ prescriptionData.s2Number }}</strong></div>
-                </div>
-              </div>
+          <div class="flex items-center gap-2">
+            <div
+              class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+            >
+              <Icon
+                name="material-symbols:prescriptions-outline-rounded"
+                class="text-lg"
+              />
             </div>
-
-            <!-- 2. Patient Demographics Block -->
-            <div class="grid grid-cols-3 gap-2 p-2.5 mb-4 bg-gray-50/80 border border-gray-100 rounded-xl text-xs">
-              <div class="col-span-2">
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Patient</span>
-                <span class="font-bold text-gray-900">{{ prescriptionData.patientName }}</span>
-                <span class="block text-[10px] text-gray-500 truncate">{{ prescriptionData.patientAddress }}</span>
-              </div>
-              <div class="text-right">
-                <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider block">Date</span>
-                <span class="font-bold text-gray-900">{{ prescriptionData.dateFormatted }}</span>
-                <span class="block text-[9px] font-semibold text-indigo-600">{{ prescriptionData.prescriptionNumber }}</span>
-              </div>
+            <div>
+              <h3 class="text-sm font-bold text-gray-900">
+                Official Medical Prescription (Rx Pad)
+              </h3>
+              <p class="text-[11px] text-gray-500">
+                Standard Philippine FDA & Generics Act Compliant
+              </p>
             </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="allowEditCredentials"
+              type="button"
+              @click="showCredentialsModal = true"
+              class="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50"
+            >
+              <Icon
+                name="lucide:pen-tool"
+                class="text-xs text-indigo-600"
+              />
+              <span>Doctor Signature & PTR</span>
+            </button>
+            <button
+              type="button"
+              @click="emit('update:modelValue', false)"
+              class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            >
+              <Icon
+                name="lucide:x"
+                class="text-base"
+              />
+            </button>
+          </div>
+        </div>
 
-            <!-- 3. Superscription & Medication Orders -->
-            <div class="py-2">
-              <div class="mb-3 select-none flex items-center">
-                <img
-                  :src="prescriptionData.rxSymbolUrl || '/rx_symbol.jpg'"
-                  alt="Rx"
-                  class="h-6 w-auto inline-block select-none"
-                  onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-block'"
-                />
-                <span class="text-2xl font-serif font-extrabold text-indigo-700 leading-none hidden">
-                  R<sub class="italic text-base font-bold">x</sub>
-                </span>
-              </div>
+        <!-- Preview Body (A5 Prescription Slip Layout) -->
+        <div class="flex-1 overflow-y-auto bg-gray-100/60 p-4 sm:p-6">
+          <div
+            v-if="isLoading"
+            class="flex flex-col items-center justify-center gap-2 py-20 text-center"
+          >
+            <Icon
+              name="lucide:loader-2"
+              class="animate-spin text-2xl text-indigo-600"
+            />
+            <span class="text-xs font-semibold text-gray-500"
+              >Generating Prescription Pad Preview...</span
+            >
+          </div>
 
-              <!-- Structured Items -->
-              <div v-if="prescriptionData.items && prescriptionData.items.length > 0" class="space-y-3">
-                <div
-                  v-for="(item, idx) in prescriptionData.items"
-                  :key="idx"
-                  class="pb-2.5 border-b border-dashed border-gray-100 last:border-b-0"
-                >
-                  <div class="flex items-baseline justify-between gap-3">
-                    <div class="text-xs font-bold text-gray-900">
-                      {{ idx + 1 }}. {{ item.medication }}
-                    </div>
-                    <div v-if="item.quantity" class="text-xs font-extrabold text-indigo-800 tracking-wide shrink-0 font-mono">
-                      {{ item.quantity.startsWith('#') ? item.quantity : `#${item.quantity}` }}
-                    </div>
-                  </div>
-                  <div v-if="item.instructions" class="text-[11px] text-gray-700 ml-4 mt-0.5">
-                    <span class="font-bold text-gray-900">Sig:</span> {{ item.instructions }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Raw Text Fallback -->
+          <div
+            v-else-if="prescriptionData"
+            id="prescription-slip-printable"
+            class="mx-auto flex w-full max-w-lg flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-6 shadow-md sm:p-8"
+            style="min-height: 520px"
+          >
+            <!-- 1. Header -->
+            <div>
               <div
-                v-else-if="prescriptionData.rawPrescription"
-                class="font-mono text-xs text-gray-800 whitespace-pre-wrap leading-relaxed"
+                class="mb-3 flex items-start justify-between gap-3 border-b-2 border-indigo-600 pb-3"
               >
-                {{ prescriptionData.rawPrescription }}
-              </div>
-
-              <!-- Empty Notice -->
-              <div v-else class="py-6 text-center text-xs text-gray-400 italic">
-                No prescription medications drafted.
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. Footer & Signature -->
-          <div class="pt-6 mt-6 border-t border-gray-100">
-            <div class="flex items-end justify-between">
-              <div class="text-[9px] text-gray-400 max-w-[240px]">
-                <div>Ref: #{{ prescriptionData.recordUuid?.slice(0, 8) }} &bull; Auth: {{ prescriptionData.verificationHash }}</div>
-                <div>Issued pursuant to Philippine FDA Circular No. 2020-007</div>
-              </div>
-
-              <!-- Signature Area -->
-              <div class="flex flex-col items-center text-center">
-                <div v-if="prescriptionData.signatureUrl" class="mb-1">
+                <div class="flex flex-col">
                   <img
-                    :src="prescriptionData.signatureUrl"
-                    alt="Doctor Signature"
-                    class="h-10 w-auto max-w-[140px] object-contain"
+                    v-if="prescriptionData.logoUrl"
+                    :src="prescriptionData.logoUrl"
+                    alt="Clinic Logo"
+                    class="mb-1.5 h-9 w-auto max-w-[130px] object-contain"
                   />
-                  <div class="w-36 border-b border-gray-900"></div>
+                  <h4 class="text-sm font-extrabold tracking-tight text-indigo-950 uppercase">
+                    {{ prescriptionData.clinicName || 'DermAssist Clinical Dermatology' }}
+                  </h4>
+                  <p class="text-[10px] leading-tight text-gray-500">
+                    {{ prescriptionData.clinicAddress }}
+                  </p>
+                  <p
+                    v-if="prescriptionData.clinicPhone || prescriptionData.clinicEmail"
+                    class="mt-0.5 text-[9px] text-gray-400"
+                  >
+                    <span v-if="prescriptionData.clinicPhone"
+                      >Tel: {{ prescriptionData.clinicPhone }}</span
+                    >
+                    <span v-if="prescriptionData.clinicPhone && prescriptionData.clinicEmail">
+                      &bull;
+                    </span>
+                    <span v-if="prescriptionData.clinicEmail">{{
+                      prescriptionData.clinicEmail
+                    }}</span>
+                  </p>
                 </div>
-                <div v-else class="w-36 h-8 border-b border-gray-900 mb-1"></div>
 
-                <div class="text-xs font-bold text-gray-900">
-                  Dr. {{ prescriptionData.doctorName || 'Attending Physician' }}
+                <div class="shrink-0 text-right">
+                  <div class="text-xs font-extrabold text-gray-900">
+                    Dr. {{ prescriptionData.doctorName || 'Attending Physician' }}
+                  </div>
+                  <div class="text-[10px] font-semibold text-indigo-600">
+                    {{ prescriptionData.doctorAffiliation || 'Dermatology & Cutaneous Care' }}
+                  </div>
+                  <div class="mt-1 space-y-0.5 text-[9px] text-gray-500">
+                    <div>
+                      PRC No.:
+                      <strong class="text-gray-800">{{
+                        prescriptionData.prcNumber || 'N/A'
+                      }}</strong>
+                    </div>
+                    <div>
+                      PTR No.:
+                      <strong class="text-gray-800">{{
+                        prescriptionData.ptrNumber || 'N/A'
+                      }}</strong>
+                    </div>
+                    <div v-if="prescriptionData.s2Number">
+                      S2 No.: <strong class="text-gray-800">{{ prescriptionData.s2Number }}</strong>
+                    </div>
+                  </div>
                 </div>
-                <div class="text-[9px] text-gray-500">
-                  <span>PRC: {{ prescriptionData.prcNumber || 'N/A' }}</span>
-                  <span v-if="prescriptionData.ptrNumber"> &bull; PTR: {{ prescriptionData.ptrNumber }}</span>
+              </div>
+
+              <!-- 2. Patient Demographics Block -->
+              <div
+                class="mb-4 grid grid-cols-3 gap-2 rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 text-xs"
+              >
+                <div class="col-span-2">
+                  <span class="block text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                    >Patient</span
+                  >
+                  <span class="font-bold text-gray-900">{{ prescriptionData.patientName }}</span>
+                  <span class="block truncate text-[10px] text-gray-500">{{
+                    prescriptionData.patientAddress
+                  }}</span>
+                </div>
+                <div class="text-right">
+                  <span class="block text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                    >Date</span
+                  >
+                  <span class="font-bold text-gray-900">{{ prescriptionData.dateFormatted }}</span>
+                  <span class="block text-[9px] font-semibold text-indigo-600">{{
+                    prescriptionData.prescriptionNumber
+                  }}</span>
+                </div>
+              </div>
+
+              <!-- 3. Superscription & Medication Orders -->
+              <div class="py-2">
+                <div class="mb-3 flex items-center select-none">
+                  <img
+                    :src="prescriptionData.rxSymbolUrl || '/rx_symbol.jpg'"
+                    alt="Rx"
+                    class="inline-block h-6 w-auto select-none"
+                    onerror="
+                      this.style.display = 'none'
+                      if (this.nextElementSibling)
+                        this.nextElementSibling.style.display = 'inline-block'
+                    "
+                  />
+                  <span
+                    class="hidden font-serif text-2xl leading-none font-extrabold text-indigo-700"
+                  >
+                    R<sub class="text-base font-bold italic">x</sub>
+                  </span>
+                </div>
+
+                <!-- Structured Items -->
+                <div
+                  v-if="prescriptionData.items && prescriptionData.items.length > 0"
+                  class="space-y-3"
+                >
+                  <div
+                    v-for="(item, idx) in prescriptionData.items"
+                    :key="idx"
+                    class="border-b border-dashed border-gray-100 pb-2.5 last:border-b-0"
+                  >
+                    <div class="flex items-baseline justify-between gap-3">
+                      <div class="text-xs font-bold text-gray-900">
+                        {{ idx + 1 }}. {{ item.medication }}
+                      </div>
+                      <div
+                        v-if="item.quantity"
+                        class="shrink-0 font-mono text-xs font-extrabold tracking-wide text-indigo-800"
+                      >
+                        {{ item.quantity.startsWith('#') ? item.quantity : `#${item.quantity}` }}
+                      </div>
+                    </div>
+                    <div
+                      v-if="item.instructions"
+                      class="mt-0.5 ml-4 text-[11px] text-gray-700"
+                    >
+                      <span class="font-bold text-gray-900">Sig:</span> {{ item.instructions }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Raw Text Fallback -->
+                <div
+                  v-else-if="prescriptionData.rawPrescription"
+                  class="font-mono text-xs leading-relaxed whitespace-pre-wrap text-gray-800"
+                >
+                  {{ prescriptionData.rawPrescription }}
+                </div>
+
+                <!-- Empty Notice -->
+                <div
+                  v-else
+                  class="py-6 text-center text-xs text-gray-400 italic"
+                >
+                  No prescription medications drafted.
                 </div>
               </div>
             </div>
 
-            <!-- Disclaimer -->
-            <div class="mt-4 pt-2 border-t border-gray-100 text-[8px] text-gray-400 text-center uppercase tracking-wider">
-              Official Medical Prescription &bull; Valid in Licensed Pharmacies Nationwide &bull; No Refills Without Re-evaluation
+            <!-- 4. Footer & Signature -->
+            <div class="mt-6 border-t border-gray-100 pt-6">
+              <div class="flex items-end justify-between">
+                <div class="max-w-[240px] text-[9px] text-gray-400">
+                  <div>
+                    Ref: #{{ prescriptionData.recordUuid?.slice(0, 8) }} &bull; Auth:
+                    {{ prescriptionData.verificationHash }}
+                  </div>
+                  <div>Issued pursuant to Philippine FDA Circular No. 2020-007</div>
+                </div>
+
+                <!-- Signature Area -->
+                <div class="flex flex-col items-center text-center">
+                  <div
+                    v-if="prescriptionData.signatureUrl"
+                    class="mb-1"
+                  >
+                    <img
+                      :src="prescriptionData.signatureUrl"
+                      alt="Doctor Signature"
+                      class="h-10 w-auto max-w-[140px] object-contain"
+                    />
+                    <div class="w-36 border-b border-gray-900"></div>
+                  </div>
+                  <div
+                    v-else
+                    class="mb-1 h-8 w-36 border-b border-gray-900"
+                  ></div>
+
+                  <div class="text-xs font-bold text-gray-900">
+                    Dr. {{ prescriptionData.doctorName || 'Attending Physician' }}
+                  </div>
+                  <div class="text-[9px] text-gray-500">
+                    <span>PRC: {{ prescriptionData.prcNumber || 'N/A' }}</span>
+                    <span v-if="prescriptionData.ptrNumber">
+                      &bull; PTR: {{ prescriptionData.ptrNumber }}</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- Disclaimer -->
+              <div
+                class="mt-4 border-t border-gray-100 pt-2 text-center text-[8px] tracking-wider text-gray-400 uppercase"
+              >
+                Official Medical Prescription &bull; Valid in Licensed Pharmacies Nationwide &bull;
+                No Refills Without Re-evaluation
+              </div>
             </div>
+          </div>
+
+          <div
+            v-else
+            class="py-12 text-center text-xs text-gray-400"
+          >
+            Unable to load prescription preview.
           </div>
         </div>
 
-        <div v-else class="text-center py-12 text-gray-400 text-xs">
-          Unable to load prescription preview.
+        <!-- Action Buttons Bar -->
+        <div class="flex items-center justify-between border-t border-gray-100 bg-white px-6 py-4">
+          <span class="text-xs text-gray-500">
+            Print directly to office printer or download signed A5 PDF.
+          </span>
+
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="handleDirectPrint"
+              class="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50"
+            >
+              <Icon
+                name="lucide:printer"
+                class="text-sm text-gray-600"
+              />
+              <span>Print Now</span>
+            </button>
+
+            <button
+              type="button"
+              :disabled="isDownloadingPdf"
+              @click="handleDownloadPdf"
+              class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <Icon
+                v-if="isDownloadingPdf"
+                name="lucide:loader-2"
+                class="animate-spin text-sm"
+              />
+              <Icon
+                v-else
+                name="lucide:download"
+                class="text-sm"
+              />
+              <span>Download PDF</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- Action Buttons Bar -->
-      <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-white">
-        <span class="text-xs text-gray-500">
-          Print directly to office printer or download signed A5 PDF.
-        </span>
-
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            @click="handleDirectPrint"
-            class="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors shadow-2xs"
-          >
-            <Icon name="lucide:printer" class="text-sm text-gray-600" />
-            <span>Print Now</span>
-          </button>
-
-          <button
-            type="button"
-            :disabled="isDownloadingPdf"
-            @click="handleDownloadPdf"
-            class="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors disabled:opacity-50"
-          >
-            <Icon v-if="isDownloadingPdf" name="lucide:loader-2" class="animate-spin text-sm" />
-            <Icon v-else name="lucide:download" class="text-sm" />
-            <span>Download PDF</span>
-          </button>
-        </div>
-      </div>
+      <!-- Doctor Signature & PTR Setup Sub-Modal -->
+      <AppPrescriptionDoctorSignatureModal
+        v-model="showCredentialsModal"
+        :initial-ptr="prescriptionData?.ptrNumber"
+        :initial-tin="prescriptionData?.tinNumber"
+        :initial-s2="prescriptionData?.s2Number"
+        :initial-signature-url="prescriptionData?.signatureUrl"
+        @saved="handleCredentialsSaved"
+      />
     </div>
-
-    <!-- Doctor Signature & PTR Setup Sub-Modal -->
-    <AppPrescriptionDoctorSignatureModal
-      v-model="showCredentialsModal"
-      :initial-ptr="prescriptionData?.ptrNumber"
-      :initial-tin="prescriptionData?.tinNumber"
-      :initial-s2="prescriptionData?.s2Number"
-      :initial-signature-url="prescriptionData?.signatureUrl"
-      @saved="handleCredentialsSaved"
-    />
-  </div>
-</Teleport>
+  </Teleport>
 </template>

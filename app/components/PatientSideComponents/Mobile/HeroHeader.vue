@@ -184,10 +184,10 @@
           <NuxtLink
             v-if="hasUnseenUpdate"
             to="/patient/updates"
-            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-white/30 active:scale-95"
           >
             <Icon
-              name="solar:megaphone-loud-bold-duotone"
+              name="lucide:sparkles"
               size="15"
               class="text-amber-300"
             />
@@ -237,111 +237,23 @@
               >
             </button>
 
-            <!-- Click outside overlay -->
-            <div
-              v-if="isDropdownOpen"
-              class="fixed inset-0 z-40 bg-transparent"
-              @click="closeDropdown"
-            ></div>
-
-            <!-- Dropdown Menu -->
-            <Transition name="dropdown">
-              <div
-                v-if="isDropdownOpen"
-                class="bg-card border-border absolute right-0 z-50 mt-2 w-60 origin-top-right overflow-hidden rounded-2xl border shadow-xl"
-              >
-                <div class="border-border/70 flex items-center gap-3 border-b px-4 py-3">
-                  <div
-                    class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black"
-                  >
-                    <img
-                      v-if="(user?.avatar_url || user?.avatar_path) && !avatarError"
-                      :src="getStorageUrl(user.avatar_url || user.avatar_path)"
-                      class="h-full w-full object-cover"
-                      alt="Avatar"
-                      @error="handleAvatarError"
-                    />
-                    <span v-else>{{ firstName.charAt(0).toUpperCase() }}</span>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-foreground truncate text-sm font-bold">
-                      {{
-                        user?.first_name
-                          ? `${user.first_name} ${user.last_name || ''}`.trim()
-                          : 'Patient'
-                      }}
-                    </p>
-                    <p class="text-muted-foreground truncate text-[11px]">
-                      {{ user?.email || 'Patient' }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="py-1">
-                  <NuxtLink
-                    to="/patient/updates"
-                    @click="isDropdownOpen = false"
-                    class="text-foreground hover:bg-muted flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors"
-                  >
-                    <div class="flex items-center gap-3">
-                      <Icon
-                        name="solar:megaphone-bold-duotone"
-                        class="text-primary shrink-0"
-                        size="16"
-                      />
-                      <span>What's New</span>
-                    </div>
-                    <span
-                      v-if="hasUnseenUpdate"
-                      class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
-                    >
-                      New
-                    </span>
-                  </NuxtLink>
-
-                  <NuxtLink
-                    to="/patient/profile"
-                    @click="isDropdownOpen = false"
-                    class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
-                  >
-                    <Icon
-                      name="solar:user-bold-duotone"
-                      class="text-primary shrink-0"
-                      size="16"
-                    />
-                    <span>Profile Settings</span>
-                  </NuxtLink>
-
-                  <NuxtLink
-                    to="/patient/records"
-                    @click="isDropdownOpen = false"
-                    class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
-                  >
-                    <Icon
-                      name="solar:folder-with-files-bold-duotone"
-                      class="text-primary shrink-0"
-                      size="16"
-                    />
-                    <span>Records</span>
-                  </NuxtLink>
-                </div>
-
-                <div class="border-border/70 border-t py-1">
-                  <button
-                    type="button"
-                    @click="triggerLogout"
-                    class="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors"
-                  >
-                    <Icon
-                      name="solar:logout-bold-duotone"
-                      class="text-destructive shrink-0"
-                      size="16"
-                    />
-                    <span>Log Out</span>
-                  </button>
-                </div>
-              </div>
-            </Transition>
+            <!-- Modern Touch-first Mobile Profile Sheet -->
+            <AppMobileProfileSheet
+              v-model="isDropdownOpen"
+              role="patient"
+              :display-name="
+                user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Patient'
+              "
+              :email="user?.email"
+              :avatar-url="
+                (user?.avatar_url || user?.avatar_path) && !avatarError
+                  ? getStorageUrl(user.avatar_url || user.avatar_path)
+                  : null
+              "
+              :initial="firstName.charAt(0).toUpperCase()"
+              :has-unseen-update="hasUnseenUpdate"
+              @logout="triggerLogout"
+            />
           </div>
         </div>
       </div>

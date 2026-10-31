@@ -273,7 +273,7 @@
       >
         <div
           v-if="isDropdownOpen"
-          class="bg-popover border-border absolute left-0 z-50 w-72 overflow-hidden rounded-2xl border p-2 shadow-xl backdrop-blur-md"
+          class="bg-popover border-border absolute left-0 z-50 w-72 overflow-hidden rounded-2xl border p-2 shadow-xl"
           :class="[
             dropdownPlacement === 'top'
               ? 'bottom-full mb-1.5 origin-bottom'

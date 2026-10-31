@@ -679,7 +679,7 @@
           <!-- Drag & Drop Hover Overlay (Active when hovering file/image/link) -->
           <div
             v-if="isDraggingOver && !isScanning"
-            class="border-primary animate-in fade-in zoom-in-95 pointer-events-none absolute inset-0 z-30 m-2 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 backdrop-blur-md transition-all duration-150"
+            class="border-primary animate-in fade-in zoom-in-95 pointer-events-none absolute inset-0 z-30 m-2 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 transition-all duration-150"
           >
             <div class="relative flex max-w-sm flex-col items-center p-6 text-center">
               <div
@@ -714,7 +714,7 @@
           <!-- Quality Warning Overlay for Uploaded Images (Augmented style) -->
           <div
             v-if="uploadQualityWarning && !isScanning"
-            class="animate-in fade-in zoom-in-95 absolute top-24 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-amber-500/30 bg-amber-950/80 p-4 text-white shadow-2xl backdrop-blur-md duration-200"
+            class="animate-in fade-in zoom-in-95 absolute top-24 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-amber-500/30 bg-amber-950/80 p-4 text-white shadow-2xl duration-200"
           >
             <div class="flex items-start gap-3">
               <Icon
@@ -736,7 +736,7 @@
           <!-- Quality Warning Overlay for Camera (Augmented style) -->
           <div
             v-if="qualityError && isCameraOn && !previewImage && !isScanning"
-            class="animate-in fade-in zoom-in-95 absolute top-6 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-red-950/80 p-4 text-white shadow-2xl backdrop-blur-md duration-200"
+            class="animate-in fade-in zoom-in-95 absolute top-6 left-1/2 z-10 w-[90%] -translate-x-1/2 rounded-2xl border border-red-500/30 bg-red-950/80 p-4 text-white shadow-2xl duration-200"
           >
             <div class="flex items-start gap-3">
               <Icon
@@ -781,7 +781,7 @@
             <button
               type="button"
               @click="toggleMirror"
-              class="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
+              class="flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-black/80 active:scale-95"
               :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
             >
               <Icon
@@ -797,7 +797,7 @@
               v-if="videoDevices.length > 1"
               type="button"
               @click="cycleDevice"
-              class="flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg backdrop-blur-md transition-all hover:bg-black/80 active:scale-95"
+              class="flex items-center gap-2 rounded-full border border-white/20 bg-black/60 px-3.5 py-1.5 text-xs font-bold text-white shadow-lg transition-all hover:bg-black/80 active:scale-95"
               :title="isMicroscopeActive ? 'Switch to webcam' : 'Switch camera source'"
             >
               <Icon
@@ -830,7 +830,7 @@
               size="unstyled"
               rounded="unstyled"
               @click="resetToCamera"
-              class="text-primary flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 font-bold shadow-xl backdrop-blur transition-all hover:bg-white active:scale-95"
+              class="text-primary flex items-center gap-2 rounded-full bg-white/90 px-5 py-2 font-bold shadow-xl transition-all hover:bg-white active:scale-95"
             >
               <Icon
                 name="material-symbols:arrow-back-rounded"
@@ -859,7 +859,7 @@
             class="pointer-events-auto absolute bottom-3 left-2 z-20 hidden max-w-[calc(100%-23rem)] items-center sm:flex"
           >
             <div
-              class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl backdrop-blur-md"
+              class="flex items-center gap-2 rounded-2xl border border-white/20 bg-black/40 px-3.5 py-1.5 text-white shadow-2xl"
             >
               <Icon
                 name="lucide:info"

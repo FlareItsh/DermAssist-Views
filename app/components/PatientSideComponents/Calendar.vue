@@ -679,7 +679,7 @@
           <Transition name="fade-scale">
             <div
               v-if="hoveredDate === dateStringFor(date) && isDateBlocked(date) && !isPast(date)"
-              class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-52 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+              class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-52 -translate-x-1/2 rounded-xl border border-red-700/60 bg-red-900/95 p-2.5 text-left text-xs text-white shadow-2xl"
             >
               <div
                 class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-red-700/60 bg-red-900/95"
@@ -706,7 +706,7 @@
                 !isPast(date) &&
                 !isDateBlocked(date)
               "
-              class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-48 -translate-x-1/2 rounded-xl border border-gray-700/60 bg-gray-900/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+              class="pointer-events-none absolute bottom-full left-1/2 z-[9999] mb-2 w-48 -translate-x-1/2 rounded-xl border border-gray-700/60 bg-gray-900/95 p-2.5 text-left text-xs text-white shadow-2xl"
             >
               <div
                 class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-r border-b border-gray-700/60 bg-gray-900/95"
@@ -733,7 +733,7 @@
                 !isPast(date) &&
                 (!isDateBlocked(date) || !showAppointmentDetailsPanel)
               "
-              class="pointer-events-none absolute left-1/2 z-[9999] w-48 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 p-2.5 text-left text-xs text-white shadow-2xl backdrop-blur-md"
+              class="pointer-events-none absolute left-1/2 z-[9999] w-48 -translate-x-1/2 rounded-xl border border-slate-700/60 bg-slate-900/95 p-2.5 text-left text-xs text-white shadow-2xl"
               :class="isDateBlocked(date) ? 'top-full mt-2' : 'bottom-full mb-2'"
             >
               <div

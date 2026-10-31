@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="show && coupon"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs transition-opacity sm:p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 transition-opacity sm:p-4"
   >
     <div
       class="w-full max-w-md overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl transition-all"

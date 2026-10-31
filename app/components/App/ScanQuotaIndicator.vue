@@ -56,7 +56,7 @@
     <button
       type="button"
       @click="openInfoModal"
-      class="group relative inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur-md transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+      class="group relative inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
       :class="[
         isLimitReached
           ? 'border-red-500/40 bg-red-500/15 text-red-700 shadow-sm shadow-red-500/10 dark:text-red-400'

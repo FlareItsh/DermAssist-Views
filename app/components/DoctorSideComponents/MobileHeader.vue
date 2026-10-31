@@ -32,19 +32,6 @@
     avatarError.value = true
   }
 
-  const menuLinks = computed(() => [
-    { icon: 'solar:user-bold-duotone', label: 'Profile Settings', to: '/doctor/profile' },
-    { icon: 'solar:pill-bold-duotone', label: 'Medicine Library', to: '/doctor/medicines' },
-    { icon: 'solar:folder-with-files-bold-duotone', label: 'Records', to: '/doctor/records' },
-    {
-      icon: 'solar:users-group-two-rounded-bold-duotone',
-      label: 'Secretaries',
-      to: '/doctor/secretaries'
-    },
-    { icon: 'solar:database-bold-duotone', label: 'Dataset', to: '/doctor/dataset' },
-    { icon: 'solar:card-bold-duotone', label: 'Subscription', to: '/doctor/subscription' }
-  ])
-
   const isDropdownOpen = ref(false)
   const isLogoutModalOpen = ref(false)
 
@@ -218,10 +205,10 @@
             v-if="hasUnseenUpdate"
             to="/doctor/updates"
             id="doctor-mobile-whats-new"
-            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-white/30 active:scale-95"
           >
             <Icon
-              name="solar:megaphone-loud-bold-duotone"
+              name="lucide:sparkles"
               size="15"
               class="text-amber-300"
             />
@@ -275,95 +262,21 @@
               >
             </button>
 
-            <!-- Click outside overlay -->
-            <div
-              v-if="isDropdownOpen"
-              class="fixed inset-0 z-40 bg-transparent"
-              @click="closeDropdown"
-            ></div>
-
-            <Transition name="dropdown">
-              <div
-                v-if="isDropdownOpen"
-                class="bg-card border-border absolute right-0 z-50 mt-2 w-60 origin-top-right overflow-hidden rounded-2xl border shadow-xl"
-              >
-                <div class="border-border/70 flex items-center gap-3 border-b px-4 py-3">
-                  <div
-                    class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black"
-                  >
-                    <img
-                      v-if="(user?.avatar_url || user?.avatar_path) && !avatarError"
-                      :src="getStorageUrl(user.avatar_url || user.avatar_path)"
-                      class="h-full w-full object-cover"
-                      alt="Avatar"
-                      @error="handleAvatarError"
-                    />
-                    <span v-else>{{ doctorInitial }}</span>
-                  </div>
-                  <div class="min-w-0">
-                    <p class="text-foreground truncate text-sm font-bold">
-                      {{ doctorDisplayName }}
-                    </p>
-                    <p class="text-muted-foreground truncate text-[11px]">
-                      {{ user?.email || 'Attending Physician' }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="py-1">
-                  <NuxtLink
-                    to="/doctor/updates"
-                    @click="closeDropdown"
-                    class="text-foreground hover:bg-muted flex items-center justify-between px-4 py-2.5 text-xs font-medium transition-colors"
-                  >
-                    <div class="flex items-center gap-3">
-                      <Icon
-                        name="solar:megaphone-bold-duotone"
-                        class="text-primary shrink-0"
-                        size="16"
-                      />
-                      <span>What's New</span>
-                    </div>
-                    <span
-                      v-if="hasUnseenUpdate"
-                      class="rounded-full border border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800"
-                    >
-                      New
-                    </span>
-                  </NuxtLink>
-
-                  <NuxtLink
-                    v-for="link in menuLinks"
-                    :key="link.to"
-                    :to="link.to"
-                    @click="closeDropdown"
-                    class="text-foreground hover:bg-muted flex items-center gap-3 px-4 py-2.5 text-xs font-medium transition-colors"
-                  >
-                    <Icon
-                      :name="link.icon"
-                      class="text-primary shrink-0"
-                      size="16"
-                    />
-                    <span>{{ link.label }}</span>
-                  </NuxtLink>
-                </div>
-
-                <div class="border-border/70 border-t py-1">
-                  <button
-                    type="button"
-                    @click="triggerLogout"
-                    class="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors"
-                  >
-                    <Icon
-                      name="solar:logout-bold-duotone"
-                      class="text-destructive shrink-0"
-                      size="16"
-                    />
-                    <span>Log Out</span>
-                  </button>
-                </div>
-              </div>
-            </Transition>
+            <!-- Modern Touch-first Mobile Profile Sheet -->
+            <AppMobileProfileSheet
+              v-model="isDropdownOpen"
+              role="doctor"
+              :display-name="doctorDisplayName"
+              :email="user?.email"
+              :avatar-url="
+                (user?.avatar_url || user?.avatar_path) && !avatarError
+                  ? getStorageUrl(user.avatar_url || user.avatar_path)
+                  : null
+              "
+              :initial="doctorInitial"
+              :has-unseen-update="hasUnseenUpdate"
+              @logout="triggerLogout"
+            />
           </div>
         </div>
       </div>
