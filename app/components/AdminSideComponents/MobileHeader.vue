@@ -7,6 +7,7 @@
 
   const userName = useCookie('user_name')
   const authUserName = useCookie('auth_user_name')
+  const { hasUnseenUpdate } = usePatchNotes()
 
   const isAccountMenuOpen = ref(false)
   const isLogoutModalOpen = ref(false)
@@ -90,30 +91,16 @@
           {{ accountInitial }}
         </button>
 
-        <div
-          v-if="isAccountMenuOpen"
-          class="fixed inset-0 z-40 bg-transparent"
-          @click="closeAccountMenu"
-        ></div>
-
-        <div
-          v-if="isAccountMenuOpen"
-          class="bg-card border-border absolute right-0 z-50 mt-2 w-44 origin-top-right rounded-2xl border py-1 shadow-xl"
-        >
-          <button
-            type="button"
-            id="admin-mobile-logout-button"
-            class="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-left text-xs font-medium transition-colors"
-            @click="triggerLogout"
-          >
-            <Icon
-              name="lucide:log-out"
-              size="16"
-              class="shrink-0"
-            />
-            <span>Log Out</span>
-          </button>
-        </div>
+        <!-- Modern Touch-first Mobile Profile Sheet -->
+        <AppMobileProfileSheet
+          v-model="isAccountMenuOpen"
+          role="admin"
+          :display-name="userName || authUserName || 'Administrator'"
+          email="admin@dermassist.ph"
+          :initial="accountInitial"
+          :has-unseen-update="hasUnseenUpdate"
+          @logout="triggerLogout"
+        />
       </div>
     </div>
 
