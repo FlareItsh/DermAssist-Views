@@ -765,7 +765,7 @@
             autoplay
             playsinline
             muted
-            class="absolute inset-0 h-full w-full rounded-4xl object-cover p-1 transition-opacity duration-500"
+            class="absolute inset-0 h-full w-full rounded-4xl object-cover p-1 transition-all duration-300"
             :class="{
               '-scale-x-100': isMirrored,
               'pointer-events-none opacity-30': isScanning
