@@ -16,8 +16,10 @@ export interface ScanQuota {
     | 'doctor_trial'
     | 'doctor_unsubscribed'
     | 'doctor_unverified'
+    | 'guest'
   can_scan?: boolean
   message?: string | null
+  latest_guest_token?: string | null
 }
 
 export interface ScanQuotaPolicies {
