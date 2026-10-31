@@ -35,6 +35,99 @@
   const isScanning = ref(false)
   const errorMessage = ref('')
 
+  // Result State
+  interface GuestScanResult {
+    uuid: string
+    guest_token: string
+    confidence: number
+    label: string
+    is_teaser: boolean
+    clinical_feedback?: string | null
+    scan_quota?: ScanQuota
+  }
+  const scanResult = ref<GuestScanResult | null>(null)
+  const guestCookie = useCookie<string | null>('da_guest_token', {
+    maxAge: 60 * 60 * 24 * 7,
+    sameSite: 'lax'
+  })
+
+  // Countdown timer calculation
+  const countdownDisplay = computed(() => {
+    if (!quota.value?.countdown_seconds || quota.value.countdown_seconds <= 0) return null
+    const secs = quota.value.countdown_seconds
+    const hours = Math.floor(secs / 3600)
+    const mins = Math.floor((secs % 3600) / 60)
+    return `${hours}h ${mins}m`
+  })
+
+  const loadQuota = async () => {
+    isLoadingQuota.value = true
+    try {
+      if (!fingerprint.value) {
+        fingerprint.value = await getDeviceFingerprint()
+      }
+      const res = await scanQuotaService.getGuestQuota(fingerprint.value)
+      if (res?.data) {
+        quota.value = res.data
+        if (res.data.latest_guest_token && !guestCookie.value) {
+          guestCookie.value = res.data.latest_guest_token
+        }
+      }
+    } catch (e: any) {
+      console.error('Failed to fetch guest quota:', e)
+    } finally {
+      isLoadingQuota.value = false
+    }
+  }
+
+  const restorePreviousScan = async () => {
+    if (import.meta.server) return
+
+    // 1. Try local storage first
+    try {
+      const stored = localStorage.getItem('da_guest_scan_result')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.guest_token && parsed?.label) {
+          scanResult.value = parsed
+          return
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fetch from backend if cookie or quota has token
+    const tokenToFetch = guestCookie.value || quota.value?.latest_guest_token
+    if (tokenToFetch) {
+      try {
+        const config = useRuntimeConfig()
+        const apiBase = config.public?.apiBase || '/api'
+        const res: any = await $fetch(`${apiBase}/guest/diagnosis/${tokenToFetch}`)
+        if (res?.data) {
+          scanResult.value = res.data
+          guestCookie.value = res.data.guest_token
+          if (res.data.scan_quota) {
+            quota.value = res.data.scan_quota
+          }
+          try {
+            localStorage.setItem('da_guest_scan_result', JSON.stringify(res.data))
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  }
+
+  const hasSavedResult = computed(() => {
+    if (scanResult.value) return false
+    return Boolean(guestCookie.value || quota.value?.latest_guest_token)
+  })
+
+  const viewSavedResult = async () => {
+    await restorePreviousScan()
+    if (!scanResult.value) {
+      toast.info('No previous scan result found.')
+    }
+  }
+
   // Camera & Image State
   const videoRef = ref<HTMLVideoElement | null>(null)
   const fileInput = ref<HTMLInputElement | null>(null)
@@ -326,6 +419,9 @@
         if (response.data.scan_quota) {
           quota.value = response.data.scan_quota
         }
+        try {
+          localStorage.setItem('da_guest_scan_result', JSON.stringify(response.data))
+        } catch (_) {}
         toast.success('Skin analysis preview generated successfully!')
       }
     } catch (err: any) {
@@ -347,6 +443,7 @@
 
   onMounted(async () => {
     await loadQuota()
+    await restorePreviousScan()
   })
 
   onUnmounted(() => {
@@ -486,7 +583,7 @@
               <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
                   <span class="text-xs text-gray-500 font-medium">Primary Match</span>
-                  <p class="text-lg font-bold text-gray-900">{{ scanResult.label }} (92%)</p>
+                  <p class="text-lg font-bold text-gray-900">{{ scanResult.label }} ({{ Math.round((scanResult.confidence || 0.9) * 100) }}%)</p>
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
                   <span class="text-xs text-gray-500 font-medium">Secondary Differential</span>
@@ -762,6 +859,19 @@
                   <span>Upload File</span>
                 </button>
 
+                <button
+                  v-if="hasSavedResult"
+                  type="button"
+                  @click="viewSavedResult"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition active:scale-95"
+                >
+                  <Icon
+                    name="lucide:eye"
+                    class="h-4 w-4 text-emerald-300"
+                  />
+                  <span>View Previous Result</span>
+                </button>
+
                 <input
                   ref="fileInput"
                   type="file"
@@ -823,16 +933,31 @@
               <p class="text-xs leading-relaxed text-amber-700">
                 You've used today's 1 free preview. Create a free account to run AI analysis on this photo.
               </p>
-              <NuxtLink
-                to="/auth/register"
-                class="mt-1 inline-flex items-center gap-1.5 rounded-full bg-secondary px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary hover:shadow active:scale-95"
-              >
-                <Icon
-                  name="lucide:user-plus"
-                  class="h-3.5 w-3.5"
-                />
-                <span>Sign Up to Analyze Photo</span>
-              </NuxtLink>
+              <div class="mt-1 flex flex-col gap-2 w-full">
+                <NuxtLink
+                  to="/auth/register"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-full bg-secondary px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary hover:shadow active:scale-95"
+                >
+                  <Icon
+                    name="lucide:user-plus"
+                    class="h-3.5 w-3.5"
+                  />
+                  <span>Sign Up to Analyze Photo</span>
+                </NuxtLink>
+
+                <button
+                  v-if="hasSavedResult"
+                  type="button"
+                  @click="viewSavedResult"
+                  class="inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 active:scale-95"
+                >
+                  <Icon
+                    name="lucide:eye"
+                    class="h-3.5 w-3.5"
+                  />
+                  <span>View Diagnosis Preview</span>
+                </button>
+              </div>
             </div>
 
             <button
