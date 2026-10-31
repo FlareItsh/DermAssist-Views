@@ -233,7 +233,7 @@
     if (!pendingDeclineAppt.value) return
     isProcessingReschedule.value = true
     try {
-      await appointmentService.decline(pendingDeclineAppt.value.id, {
+      await appointmentService.declineReschedule(pendingDeclineAppt.value.id, {
         reason: declineReason.value
       })
       toast.success('Reschedule proposal declined.')
@@ -1122,7 +1122,15 @@
             </template>
 
             <!-- Case 2: Reschedule Requested (Patient proposed) -->
-            <template v-else-if="appt.status === 'reschedule_requested'">
+            <template
+              v-else-if="
+                appt.status === 'reschedule_requested' ||
+                (appt.status === 'reschedule_proposed' &&
+                  (!appt.active_reschedule_proposal ||
+                    appt.active_reschedule_proposal.proposer_party === 'patient' ||
+                    appt.active_reschedule_proposal.proposer_type === 'patient'))
+              "
+            >
               <button
                 type="button"
                 :disabled="isAccepting"

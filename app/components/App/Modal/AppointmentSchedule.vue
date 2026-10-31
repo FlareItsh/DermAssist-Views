@@ -60,6 +60,10 @@
     )
   })
 
+  const isRescheduleMode = computed(() =>
+    Boolean(props.mode === 'reschedule' || props.appointmentUuid)
+  )
+
   const isMobile = ref(false)
   const updateIsMobile = () => {
     if (typeof window !== 'undefined') {
@@ -433,7 +437,7 @@
       const now = new Date()
       const currentM = now.getHours() * 60 + now.getMinutes()
       const [h, m] = scheduleTime.value.split(':').map(Number)
-      return (h * 60 + (m || 0)) <= currentM
+      return h * 60 + (m || 0) <= currentM
     }
     return false
   })
@@ -476,18 +480,12 @@
       const dateTime = `${selectedDate.value} ${scheduleTime.value}:00`
       const endDateTime = `${selectedDate.value} ${scheduleEndTime.value}:00`
 
-      if (props.mode === 'reschedule' && props.appointmentUuid) {
+      if (props.appointmentUuid) {
         await appointmentService.proposeReschedule(props.appointmentUuid, {
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
-          location: effectiveLocation.value
-        })
-      } else if (props.appointmentUuid) {
-        await appointmentService.update(props.appointmentUuid, {
-          status: 'scheduled',
-          scheduled_at: dateTime,
-          scheduled_end_at: endDateTime,
-          location: effectiveLocation.value
+          location: effectiveLocation.value,
+          reason: 'Doctor proposed schedule'
         })
       } else {
         const targetPatientUuid =
@@ -516,8 +514,8 @@
       }
 
       toast.success(
-        props.mode === 'reschedule'
-          ? 'Reschedule proposal submitted.'
+        isRescheduleMode.value
+          ? 'Reschedule proposal submitted to patient.'
           : 'Appointment scheduled successfully.'
       )
       emit('scheduled')
@@ -578,11 +576,11 @@
             <h2 class="text-foreground truncate text-sm font-bold">
               {{
                 displayPatientName ||
-                (props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment')
+                (isRescheduleMode ? 'Reschedule Appointment' : 'Schedule Appointment')
               }}
             </h2>
             <p class="truncate text-[11px] font-semibold text-indigo-600">
-              {{ props.mode === 'reschedule' ? 'Propose New Schedule' : 'Schedule Appointment' }}
+              {{ isRescheduleMode ? 'Propose New Schedule' : 'Schedule Appointment' }}
             </p>
           </div>
         </div>
@@ -592,7 +590,7 @@
       <span
         class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
       >
-        {{ props.mode === 'reschedule' ? 'Reschedule' : 'New Schedule' }}
+        {{ isRescheduleMode ? 'Reschedule Proposal' : 'New Schedule' }}
       </span>
     </div>
 
@@ -861,10 +859,10 @@
         @click="confirmSchedule"
       >
         <template v-if="isScheduling">
-          {{ props.mode === 'reschedule' ? 'Rescheduling...' : 'Scheduling...' }}
+          {{ isRescheduleMode ? 'Proposing Schedule...' : 'Scheduling...' }}
         </template>
         <template v-else>
-          {{ props.mode === 'reschedule' ? 'Confirm Reschedule' : 'Confirm Schedule' }}
+          {{ isRescheduleMode ? 'Propose Schedule' : 'Confirm Schedule' }}
         </template>
       </AppButton>
       <AppButton
@@ -912,9 +910,7 @@
             <div class="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h3 class="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
-                  {{
-                    props.mode === 'reschedule' ? 'Reschedule Appointment' : 'Schedule Appointment'
-                  }}
+                  {{ isRescheduleMode ? 'Propose New Schedule' : 'Schedule Appointment' }}
                 </h3>
 
                 <!-- Patient identification / selector -->
@@ -1222,10 +1218,10 @@
                 @click="confirmSchedule"
               >
                 <template v-if="isScheduling">
-                  {{ props.mode === 'reschedule' ? 'Rescheduling...' : 'Scheduling...' }}
+                  {{ isRescheduleMode ? 'Proposing Schedule...' : 'Scheduling...' }}
                 </template>
                 <template v-else>
-                  {{ props.mode === 'reschedule' ? 'Confirm Reschedule' : 'Confirm Schedule' }}
+                  {{ isRescheduleMode ? 'Propose Schedule' : 'Confirm Schedule' }}
                 </template>
               </AppButton>
               <AppButton
