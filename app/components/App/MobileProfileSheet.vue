@@ -45,6 +45,13 @@
     return resolvedRole.value !== 'admin'
   })
 
+  const shouldShowWhatsNew = computed(() => {
+    if (typeof props.showWhatsNew === 'boolean' && !props.showWhatsNew) {
+      return false
+    }
+    return Boolean(props.hasUnseenUpdate)
+  })
+
   watch(
     () => props.avatarUrl,
     () => {
@@ -274,7 +281,7 @@
 
             <!-- What's New / App Patch Notes Link -->
             <NuxtLink
-              v-if="showWhatsNew"
+              v-if="shouldShowWhatsNew"
               :to="resolvedWhatsNewRoute"
               class="border-border/60 hover:bg-muted/50 flex min-h-[52px] items-center justify-between rounded-2xl border p-3 transition-colors active:scale-[0.99]"
               @click="close"
@@ -284,7 +291,7 @@
                   class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400"
                 >
                   <Icon
-                    name="solar:megaphone-bold-duotone"
+                    name="lucide:sparkles"
                     size="20"
                   />
                 </div>

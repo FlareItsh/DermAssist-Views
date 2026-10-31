@@ -184,10 +184,10 @@
           <NuxtLink
             v-if="hasUnseenUpdate"
             to="/patient/updates"
-            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs backdrop-blur-md transition-all hover:bg-white/30 active:scale-95"
+            class="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/20 px-3 py-1.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-white/30 active:scale-95"
           >
             <Icon
-              name="solar:megaphone-loud-bold-duotone"
+              name="lucide:sparkles"
               size="15"
               class="text-amber-300"
             />
