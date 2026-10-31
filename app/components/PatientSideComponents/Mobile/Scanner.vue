@@ -829,7 +829,7 @@
       autoplay
       playsinline
       muted
-      class="absolute inset-0 h-full w-full object-cover"
+      class="absolute inset-0 h-full w-full object-cover transition-transform duration-300"
       :class="{ '-scale-x-100': isMirrored }"
     ></video>
 
