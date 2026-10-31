@@ -14,28 +14,19 @@
       class="pointer-events-none absolute inset-0 bg-radial-[circle_at_center,transparent_35%,rgba(0,0,0,0.7)_100%]"
     />
 
-    <!-- Top Area: Centered Subtitle positioned below fixed navbar -->
-    <div class="relative z-20 flex w-full shrink-0 flex-col items-center pt-20 sm:pt-24 md:pt-28">
-      <h1
-        class="font-barlow max-w-[340px] px-4 text-center text-base font-light tracking-[2px] text-white uppercase sm:max-w-xl sm:text-2xl sm:tracking-[4px] md:max-w-none md:text-4xl md:tracking-[6px] lg:text-5xl"
-      >
-        AI-Powered Skin Condition Recognition System
-      </h1>
-    </div>
-
     <!-- Main Content: Centered on mobile, left-aligned on desktop -->
     <div
-      class="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pt-4 pb-14 text-center sm:px-12 sm:pt-6 sm:pb-16 md:items-start md:px-16 md:pb-20 md:text-left lg:px-24"
+      class="relative z-10 flex flex-1 flex-col items-center justify-center px-6 pt-24 pb-14 text-center sm:px-12 sm:pt-28 sm:pb-16 md:items-start md:px-16 md:pt-20 md:pb-20 md:text-left lg:px-24"
     >
       <div
         class="flex max-w-md flex-col items-center transition-all duration-700 ease-out sm:max-w-xl md:items-start lg:max-w-2xl"
         :class="isReady ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'"
       >
-        <h2
+        <h1
           class="text-3xl leading-[1.12] font-extrabold tracking-tight text-white sm:text-4xl sm:leading-tight md:text-5xl lg:text-[56px]"
         >
           AI-Driven Skin Care That Connects You to Experts
-        </h2>
+        </h1>
 
         <p
           class="mt-3.5 max-w-sm text-sm leading-relaxed font-normal text-white/90 sm:mt-5 sm:max-w-lg sm:text-base md:mt-6 md:text-lg lg:text-xl"
@@ -578,7 +569,7 @@
     // Viewport intersection observer: pause loop when off-screen
     if (typeof IntersectionObserver !== 'undefined') {
       intersectionObserver = new IntersectionObserver(
-        (entries) => {
+        entries => {
           const entry = entries[0]
           const nowVisible = entry ? entry.isIntersecting : true
           if (nowVisible !== isVisible) {
