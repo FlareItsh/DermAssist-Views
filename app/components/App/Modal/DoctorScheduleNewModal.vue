@@ -306,7 +306,7 @@
       const now = new Date()
       const currentM = now.getHours() * 60 + now.getMinutes()
       const [h, m] = scheduleTime.value.split(':').map(Number)
-      return (h * 60 + (m || 0)) <= currentM
+      return h * 60 + (m || 0) <= currentM
     }
     return false
   })
@@ -404,7 +404,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
         @click.self="emit('close')"
       >
         <div

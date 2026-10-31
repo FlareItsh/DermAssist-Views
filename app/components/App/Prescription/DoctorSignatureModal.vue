@@ -187,191 +187,240 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+      class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
     >
-    <div
-      class="flex flex-col w-full max-w-lg overflow-hidden bg-white border border-gray-100 shadow-2xl rounded-3xl"
-    >
-      <!-- Header -->
-      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-        <div class="flex items-center gap-2.5">
-          <div class="flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600">
-            <Icon name="lucide:pen-tool" class="text-lg" />
-          </div>
-          <div>
-            <h3 class="text-base font-bold text-gray-900">Prescription Credentials & Signature</h3>
-            <p class="text-xs text-gray-500">Official physician details for compliant Rx printing</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          @click="emit('update:modelValue', false)"
-          class="flex items-center justify-center w-8 h-8 text-gray-400 transition-colors rounded-full hover:bg-gray-100 hover:text-gray-600"
+      <div
+        class="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
+      >
+        <!-- Header -->
+        <div
+          class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4"
         >
-          <Icon name="lucide:x" class="text-base" />
-        </button>
-      </div>
-
-      <!-- Body -->
-      <div class="flex flex-col gap-4 p-6 overflow-y-auto max-h-[75vh]">
-        <!-- Credential Inputs Grid -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              PTR Number <span class="text-rose-500">*</span>
-            </label>
-            <input
-              v-model="ptrNumber"
-              type="text"
-              placeholder="e.g. PTR-1234567"
-              class="w-full px-3.5 py-2 text-xs border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-            />
-            <span class="text-[10px] text-gray-400">Professional Tax Receipt</span>
+          <div class="flex items-center gap-2.5">
+            <div
+              class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"
+            >
+              <Icon
+                name="lucide:pen-tool"
+                class="text-lg"
+              />
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-gray-900">
+                Prescription Credentials & Signature
+              </h3>
+              <p class="text-xs text-gray-500">
+                Official physician details for compliant Rx printing
+              </p>
+            </div>
           </div>
-
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              TIN Number
-            </label>
-            <input
-              v-model="tinNumber"
-              type="text"
-              placeholder="e.g. 123-456-789-000"
-              class="w-full px-3.5 py-2 text-xs border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+          <button
+            type="button"
+            @click="emit('update:modelValue', false)"
+            class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          >
+            <Icon
+              name="lucide:x"
+              class="text-base"
             />
-            <span class="text-[10px] text-gray-400">Tax Identification Number</span>
-          </div>
+          </button>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-            PDEA S2 License <span class="text-gray-400 font-normal">(Optional)</span>
-          </label>
-          <input
-            v-model="s2Number"
-            type="text"
-            placeholder="e.g. S2-9876543 (leave blank if none)"
-            class="w-full px-3.5 py-2 text-xs border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-          />
-        </div>
+        <!-- Body -->
+        <div class="flex max-h-[75vh] flex-col gap-4 overflow-y-auto p-6">
+          <!-- Credential Inputs Grid -->
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-700 uppercase">
+                PTR Number <span class="text-rose-500">*</span>
+              </label>
+              <input
+                v-model="ptrNumber"
+                type="text"
+                placeholder="e.g. PTR-1234567"
+                class="w-full rounded-xl border border-gray-200 px-3.5 py-2 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+              <span class="text-[10px] text-gray-400">Professional Tax Receipt</span>
+            </div>
 
-        <!-- Signature Section -->
-        <div class="flex flex-col gap-2 pt-2 border-t border-gray-100">
-          <div class="flex items-center justify-between">
-            <label class="text-xs font-bold text-gray-700 uppercase tracking-wider">
-              Digital Signature
-            </label>
-            <div class="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg text-xs font-semibold">
-              <button
-                type="button"
-                @click="activeTab = 'draw'"
-                :class="[
-                  'px-2.5 py-1 rounded-md transition-all',
-                  activeTab === 'draw'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-gray-500 hover:text-gray-800'
-                ]"
-              >
-                Draw Canvas
-              </button>
-              <button
-                type="button"
-                @click="activeTab = 'upload'"
-                :class="[
-                  'px-2.5 py-1 rounded-md transition-all',
-                  activeTab === 'upload'
-                    ? 'bg-white text-indigo-600 shadow-xs'
-                    : 'text-gray-500 hover:text-gray-800'
-                ]"
-              >
-                Upload File
-              </button>
+            <div>
+              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-700 uppercase">
+                TIN Number
+              </label>
+              <input
+                v-model="tinNumber"
+                type="text"
+                placeholder="e.g. 123-456-789-000"
+                class="w-full rounded-xl border border-gray-200 px-3.5 py-2 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              />
+              <span class="text-[10px] text-gray-400">Tax Identification Number</span>
             </div>
           </div>
 
-          <!-- Draw Pad Tab -->
-          <div v-show="activeTab === 'draw'" class="flex flex-col gap-2">
-            <div
-              class="relative w-full h-36 bg-gray-50 border border-dashed border-gray-300 rounded-2xl overflow-hidden cursor-crosshair touch-none"
-            >
-              <canvas
-                ref="canvasRef"
-                class="w-full h-full"
-                @mousedown="startDrawing"
-                @mousemove="draw"
-                @mouseup="stopDrawing"
-                @mouseleave="stopDrawing"
-                @touchstart.passive="startDrawing"
-                @touchmove="draw"
-                @touchend="stopDrawing"
-              ></canvas>
+          <div>
+            <label class="mb-1 block text-xs font-bold tracking-wider text-gray-700 uppercase">
+              PDEA S2 License <span class="font-normal text-gray-400">(Optional)</span>
+            </label>
+            <input
+              v-model="s2Number"
+              type="text"
+              placeholder="e.g. S2-9876543 (leave blank if none)"
+              class="w-full rounded-xl border border-gray-200 px-3.5 py-2 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+
+          <!-- Signature Section -->
+          <div class="flex flex-col gap-2 border-t border-gray-100 pt-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-bold tracking-wider text-gray-700 uppercase">
+                Digital Signature
+              </label>
               <div
-                v-if="!hasDrawn"
-                class="absolute inset-0 flex items-center justify-center pointer-events-none text-xs text-gray-400 select-none"
+                class="flex items-center gap-1 rounded-lg bg-gray-100 p-0.5 text-xs font-semibold"
               >
-                Sign with finger, stylus, or mouse inside this box
+                <button
+                  type="button"
+                  @click="activeTab = 'draw'"
+                  :class="[
+                    'rounded-md px-2.5 py-1 transition-all',
+                    activeTab === 'draw'
+                      ? 'bg-white text-indigo-600 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  ]"
+                >
+                  Draw Canvas
+                </button>
+                <button
+                  type="button"
+                  @click="activeTab = 'upload'"
+                  :class="[
+                    'rounded-md px-2.5 py-1 transition-all',
+                    activeTab === 'upload'
+                      ? 'bg-white text-indigo-600 shadow-xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  ]"
+                >
+                  Upload File
+                </button>
               </div>
             </div>
-            <div class="flex justify-end">
-              <button
-                type="button"
-                @click="clearCanvas"
-                class="text-xs text-gray-500 hover:text-rose-600 flex items-center gap-1 font-semibold transition-colors"
+
+            <!-- Draw Pad Tab -->
+            <div
+              v-show="activeTab === 'draw'"
+              class="flex flex-col gap-2"
+            >
+              <div
+                class="relative h-36 w-full cursor-crosshair touch-none overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50"
               >
-                <Icon name="lucide:rotate-ccw" class="text-xs" /> Clear Canvas
-              </button>
+                <canvas
+                  ref="canvasRef"
+                  class="h-full w-full"
+                  @mousedown="startDrawing"
+                  @mousemove="draw"
+                  @mouseup="stopDrawing"
+                  @mouseleave="stopDrawing"
+                  @touchstart.passive="startDrawing"
+                  @touchmove="draw"
+                  @touchend="stopDrawing"
+                ></canvas>
+                <div
+                  v-if="!hasDrawn"
+                  class="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-gray-400 select-none"
+                >
+                  Sign with finger, stylus, or mouse inside this box
+                </div>
+              </div>
+              <div class="flex justify-end">
+                <button
+                  type="button"
+                  @click="clearCanvas"
+                  class="flex items-center gap-1 text-xs font-semibold text-gray-500 transition-colors hover:text-rose-600"
+                >
+                  <Icon
+                    name="lucide:rotate-ccw"
+                    class="text-xs"
+                  />
+                  Clear Canvas
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload File Tab -->
+            <div
+              v-show="activeTab === 'upload'"
+              class="flex flex-col gap-2"
+            >
+              <label
+                class="flex h-36 w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-4 transition-colors hover:border-indigo-400"
+              >
+                <template v-if="uploadedBase64">
+                  <img
+                    :src="uploadedBase64"
+                    class="max-h-24 max-w-full object-contain"
+                    alt="Signature preview"
+                  />
+                  <span class="mt-1 text-[11px] font-semibold text-indigo-600"
+                    >Click to replace</span
+                  >
+                </template>
+                <template v-else-if="initialSignatureUrl">
+                  <img
+                    :src="initialSignatureUrl"
+                    class="max-h-24 max-w-full object-contain"
+                    alt="Existing signature"
+                  />
+                  <span class="mt-1 text-[11px] font-semibold text-gray-500"
+                    >Current signature &bull; Click to replace</span
+                  >
+                </template>
+                <template v-else>
+                  <Icon
+                    name="lucide:upload-cloud"
+                    class="mb-1 text-2xl text-gray-400"
+                  />
+                  <span class="text-xs font-semibold text-gray-700">Upload signature image</span>
+                  <span class="text-[10px] text-gray-400"
+                    >PNG or JPG with white/transparent background</span
+                  >
+                </template>
+                <input
+                  type="file"
+                  accept="image/png, image/jpeg, image/webp"
+                  class="hidden"
+                  @change="handleFileUpload"
+                />
+              </label>
             </div>
           </div>
+        </div>
 
-          <!-- Upload File Tab -->
-          <div v-show="activeTab === 'upload'" class="flex flex-col gap-2">
-            <label
-              class="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-gray-300 hover:border-indigo-400 rounded-2xl bg-gray-50 cursor-pointer transition-colors p-4"
-            >
-              <template v-if="uploadedBase64">
-                <img :src="uploadedBase64" class="max-h-24 max-w-full object-contain" alt="Signature preview" />
-                <span class="text-[11px] text-indigo-600 font-semibold mt-1">Click to replace</span>
-              </template>
-              <template v-else-if="initialSignatureUrl">
-                <img :src="initialSignatureUrl" class="max-h-24 max-w-full object-contain" alt="Existing signature" />
-                <span class="text-[11px] text-gray-500 font-semibold mt-1">Current signature &bull; Click to replace</span>
-              </template>
-              <template v-else>
-                <Icon name="lucide:upload-cloud" class="text-2xl text-gray-400 mb-1" />
-                <span class="text-xs font-semibold text-gray-700">Upload signature image</span>
-                <span class="text-[10px] text-gray-400">PNG or JPG with white/transparent background</span>
-              </template>
-              <input
-                type="file"
-                accept="image/png, image/jpeg, image/webp"
-                class="hidden"
-                @change="handleFileUpload"
-              />
-            </label>
-          </div>
+        <!-- Footer Actions -->
+        <div
+          class="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-6 py-4"
+        >
+          <button
+            type="button"
+            @click="emit('update:modelValue', false)"
+            class="px-4 py-2 text-xs font-bold text-gray-600 transition-colors hover:text-gray-800"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            :disabled="isSubmitting"
+            @click="handleSave"
+            class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Icon
+              v-if="isSubmitting"
+              name="lucide:loader-2"
+              class="animate-spin text-sm"
+            />
+            <span>Save Credentials</span>
+          </button>
         </div>
       </div>
-
-      <!-- Footer Actions -->
-      <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 bg-gray-50/50">
-        <button
-          type="button"
-          @click="emit('update:modelValue', false)"
-          class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-800 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          :disabled="isSubmitting"
-          @click="handleSave"
-          class="flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors disabled:opacity-50"
-        >
-          <Icon v-if="isSubmitting" name="lucide:loader-2" class="animate-spin text-sm" />
-          <span>Save Credentials</span>
-        </button>
-      </div>
     </div>
-  </div>
-</Teleport>
+  </Teleport>
 </template>

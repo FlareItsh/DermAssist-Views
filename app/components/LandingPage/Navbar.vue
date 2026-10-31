@@ -27,7 +27,7 @@
 <template>
   <div class="relative m-3 md:m-5">
     <nav
-      class="bg-card/95 relative z-50 flex items-center justify-between rounded-full px-4 py-2 shadow-lg backdrop-blur-md md:px-7 md:py-2.5"
+      class="bg-card/95 relative z-50 flex items-center justify-between rounded-full px-4 py-2 shadow-lg md:px-7 md:py-2.5"
       aria-label="Main Navigation"
     >
       <!-- Desktop Navigation Links -->
@@ -116,7 +116,7 @@
     >
       <div
         v-if="isMobileMenuOpen"
-        class="bg-card/98 border-border/80 absolute top-full right-0 left-0 z-40 mt-2 overflow-hidden rounded-3xl border p-4 shadow-xl backdrop-blur-md md:hidden"
+        class="bg-card/98 border-border/80 absolute top-full right-0 left-0 z-40 mt-2 overflow-hidden rounded-3xl border p-4 shadow-xl md:hidden"
       >
         <div class="flex flex-col space-y-1">
           <a
@@ -144,7 +144,7 @@
           <div class="border-border/60 my-2 border-t pt-2">
             <NuxtLink
               to="/auth/login"
-              class="group border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-card hover:border-primary/40 hover:bg-primary/15 relative flex items-center justify-between overflow-hidden rounded-2xl border p-3 shadow-xs transition-all active:scale-[0.99]"
+              class="group border-primary/20 from-primary/10 via-primary/5 to-card hover:border-primary/40 hover:bg-primary/15 relative flex items-center justify-between overflow-hidden rounded-2xl border bg-gradient-to-r p-3 shadow-xs transition-all active:scale-[0.99]"
               @click="closeMobileMenu"
             >
               <div class="flex items-center gap-3">

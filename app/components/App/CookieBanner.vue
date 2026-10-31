@@ -31,7 +31,7 @@
     >
       <div
         v-if="showBanner"
-        class="fixed right-5 bottom-5 z-50 flex max-w-sm items-center gap-3 rounded-full border border-zinc-200/80 bg-white/90 px-4 py-2.5 shadow-xl backdrop-blur-md sm:max-w-md dark:border-zinc-800/80 dark:bg-zinc-900/90"
+        class="fixed right-5 bottom-5 z-50 flex max-w-sm items-center gap-3 rounded-full border border-zinc-200/80 bg-white/90 px-4 py-2.5 shadow-xl sm:max-w-md dark:border-zinc-800/80 dark:bg-zinc-900/90"
       >
         <div
           class="bg-primary/10 text-primary flex size-7 shrink-0 items-center justify-center rounded-full"

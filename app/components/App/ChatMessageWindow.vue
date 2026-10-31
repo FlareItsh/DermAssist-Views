@@ -2493,7 +2493,7 @@
                       :class="[
                         msg.sender?.id === effectiveUserUuid
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
-                          : 'bg-card/70 border-border/60 text-foreground backdrop-blur-sm'
+                          : 'bg-card/70 border-border/60 text-foreground'
                       ]"
                     >
                       <div class="flex items-start gap-2.5 sm:gap-3">
@@ -2543,7 +2543,7 @@
                       :class="[
                         msg.sender?.id === effectiveUserUuid
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
-                          : 'bg-card/50 border-border/50 text-foreground backdrop-blur-sm'
+                          : 'bg-card/50 border-border/50 text-foreground'
                       ]"
                     >
                       <div class="flex items-center gap-3 sm:gap-4">
@@ -2839,7 +2839,7 @@
                         :class="[
                           msg.sender?.id === effectiveUserUuid
                             ? 'border-white/20 bg-white text-gray-900 shadow-md'
-                            : 'border-border/50 bg-card/50 text-foreground backdrop-blur-sm'
+                            : 'border-border/50 bg-card/50 text-foreground'
                         ]"
                       >
                         <div class="flex items-center gap-3 sm:gap-4">
@@ -3501,7 +3501,7 @@
     >
       <div
         v-if="showUserDetails"
-        class="fixed inset-0 z-50 flex justify-end bg-black/40 backdrop-blur-xs xl:hidden"
+        class="fixed inset-0 z-50 flex justify-end bg-black/40 xl:hidden"
         @click.self="showUserDetails = false"
       >
         <div class="bg-card flex h-full w-full flex-col overflow-hidden shadow-2xl sm:max-w-md">
@@ -3823,7 +3823,7 @@
         >
           <div
             v-if="previewImageUrl"
-            class="fixed inset-0 z-100 flex items-center justify-center bg-black/85 p-4 backdrop-blur-md"
+            class="fixed inset-0 z-100 flex items-center justify-center bg-black/85 p-4"
             @click.self="previewImageUrl = null"
           >
             <div class="relative max-h-[90vh] max-w-[90vw] overflow-hidden rounded-2xl shadow-2xl">
@@ -3921,7 +3921,7 @@
         >
           <div
             v-if="showPatientRecordsModal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
             @click.self="closePatientRecordsModal"
           >
             <div
@@ -4117,7 +4117,7 @@
         >
           <div
             v-if="showIndividualRecordModal && selectedPatientRecord"
-            class="fixed inset-0 z-999 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-all"
+            class="fixed inset-0 z-999 flex items-center justify-center bg-black/60 p-4 transition-all"
             @click.self="closeIndividualRecordModal"
           >
             <div

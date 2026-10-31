@@ -794,7 +794,7 @@
     <!-- Drag & Drop Hover Overlay (Active when hovering file/image/link) -->
     <div
       v-if="isDraggingOver && !isScanning"
-      class="border-primary animate-in fade-in zoom-in-95 pointer-events-none absolute inset-4 z-50 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 p-6 text-center backdrop-blur-md transition-all duration-150"
+      class="border-primary animate-in fade-in zoom-in-95 pointer-events-none absolute inset-4 z-50 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 p-6 text-center transition-all duration-150"
     >
       <div
         class="bg-primary/20 text-primary ring-primary/10 mb-4 flex h-20 w-20 animate-bounce items-center justify-center rounded-full ring-8"
@@ -866,7 +866,7 @@
       <!-- USB Microscope active pill -->
       <div
         v-if="isCameraOn && isMicroscopeActive && !previewImage"
-        class="flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-950/80 px-4 py-1.5 text-emerald-200 shadow-lg backdrop-blur-md"
+        class="flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-950/80 px-4 py-1.5 text-emerald-200 shadow-lg"
       >
         <Icon
           name="lucide:microscope"
@@ -879,7 +879,7 @@
       <!-- No image found pill -->
       <div
         v-if="!isCameraOn && !previewImage"
-        class="flex items-center gap-2 rounded-full bg-black/60 px-5 py-2 backdrop-blur-md"
+        class="flex items-center gap-2 rounded-full bg-black/60 px-5 py-2"
       >
         <Icon
           name="solar:camera-minimalistic-broken"
@@ -894,7 +894,7 @@
       <!-- Error message pill -->
       <div
         v-if="errorMessage"
-        class="border-red flex max-w-xs items-start gap-2 rounded-2xl border bg-red-500/30 px-4 py-2.5 backdrop-blur-md"
+        class="border-red flex max-w-xs items-start gap-2 rounded-2xl border bg-red-500/30 px-4 py-2.5"
       >
         <Icon
           name="material-symbols:error-outline-rounded"
@@ -907,7 +907,7 @@
       <!-- Upload quality warning pill (uptop & closable) -->
       <div
         v-if="uploadQualityWarning && displayImage"
-        class="pointer-events-auto flex max-w-xs items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-black/80 px-3.5 py-2 text-white shadow-xl backdrop-blur-md transition-all"
+        class="pointer-events-auto flex max-w-xs items-center gap-2.5 rounded-2xl border border-amber-400/40 bg-black/80 px-3.5 py-2 text-white shadow-xl transition-all"
       >
         <Icon
           name="material-symbols:warning-outline-rounded"
@@ -943,7 +943,7 @@
         class="pointer-events-none absolute inset-x-0 top-1/3 z-20 flex items-center justify-center"
       >
         <div
-          class="mx-6 flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-black/30 px-5 py-3 backdrop-blur-sm"
+          class="mx-6 flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-black/30 px-5 py-3"
         >
           <Icon
             name="material-symbols:warning-outline-rounded"
@@ -988,7 +988,7 @@
     <!-- === SCANNING OVERLAY === -->
     <div
       v-if="isScanning"
-      class="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-black/70 backdrop-blur-sm"
+      class="absolute inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-black/70"
     >
       <div
         class="border-t-primary h-16 w-16 animate-spin rounded-full border-4 border-white/20"
@@ -1004,7 +1004,7 @@
         v-if="isCameraOn && !displayImage && !isScanning"
         type="button"
         @click="toggleMirror"
-        class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
+        class="flex h-11 w-11 items-center justify-center rounded-full border transition-all active:scale-90"
         :class="
           isMirrored
             ? 'border-primary/80 bg-primary/80 text-white shadow-lg'
@@ -1022,7 +1022,7 @@
       <button
         v-if="isCameraOn && !displayImage && !isScanning && canCycleCamera"
         @click="cycleCamera"
-        class="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90"
+        class="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white transition-all active:scale-90"
         :title="isMicroscopeActive ? 'Switch camera' : 'Flip camera'"
       >
         <Icon
@@ -1039,7 +1039,7 @@
       <button
         v-if="isCameraOn && !displayImage && !isScanning && isTorchSupported"
         @click="toggleTorch"
-        class="flex h-11 w-11 items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90"
+        class="flex h-11 w-11 items-center justify-center rounded-full border transition-all active:scale-90"
         :class="
           isTorchOn
             ? 'border-amber-400/80 bg-amber-500/80 text-white shadow-lg shadow-amber-500/30'
@@ -1061,7 +1061,7 @@
       <button
         v-if="displayImage && !isScanning"
         @click="resetToCamera"
-        class="flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/50 px-4 text-white backdrop-blur-md transition-all active:scale-90"
+        class="flex h-11 items-center gap-2 rounded-full border border-white/20 bg-black/50 px-4 text-white transition-all active:scale-90"
       >
         <Icon
           name="material-symbols:arrow-back-rounded"
@@ -1081,7 +1081,7 @@
         v-if="!isAiDisclaimerExpanded"
         type="button"
         @click="toggleAiDisclaimer"
-        class="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white/80 shadow-lg backdrop-blur-md transition-all hover:bg-black/80 hover:text-white active:scale-90"
+        class="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-black/60 text-white/80 shadow-lg transition-all hover:bg-black/80 hover:text-white active:scale-90"
         title="AI Medical Disclaimer & Privacy Info"
         aria-label="View AI medical disclaimer"
       >
@@ -1094,7 +1094,7 @@
       <!-- Expanded: Opens when clicked -->
       <div
         v-else
-        class="animate-in fade-in zoom-in-95 flex max-w-xs items-center gap-2 rounded-2xl border border-white/20 bg-black/85 px-3.5 py-2 text-white shadow-2xl backdrop-blur-md transition-all"
+        class="animate-in fade-in zoom-in-95 flex max-w-xs items-center gap-2 rounded-2xl border border-white/20 bg-black/85 px-3.5 py-2 text-white shadow-2xl transition-all"
       >
         <Icon
           name="lucide:info"
@@ -1144,7 +1144,7 @@
         <button
           @click="triggerFileInput"
           :disabled="isScanning || isLimitReached"
-          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white backdrop-blur-md transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
+          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 text-white transition-all active:scale-90 disabled:cursor-not-allowed disabled:opacity-40"
           :title="isLimitReached ? 'Daily scan limit reached' : 'Upload Image'"
         >
           <Icon
@@ -1181,7 +1181,7 @@
         <!-- Camera toggle (on/off) button -->
         <button
           @click="toggleCamera"
-          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 backdrop-blur-md transition-all active:scale-90"
+          class="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/20 bg-black/50 transition-all active:scale-90"
           :class="isCameraOn ? 'text-primary border-primary/40' : 'text-white'"
         >
           <Icon

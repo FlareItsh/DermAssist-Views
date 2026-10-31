@@ -55,7 +55,7 @@
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+          class="fixed inset-0 bg-black/40 transition-opacity"
           @click="close"
         ></div>
 

@@ -146,7 +146,7 @@
       >
         <!-- Dimmed Backdrop Overlay -->
         <div
-          class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+          class="fixed inset-0 bg-black/60 transition-opacity"
           @click="close"
         ></div>
 

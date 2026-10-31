@@ -3191,7 +3191,7 @@
       <div
         v-if="props.role !== 'doctor' && showGuidancePill"
         @click="scrollToDoctor"
-        class="group sticky bottom-4 z-30 mx-auto flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-slate-900/90 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl backdrop-blur-md transition-all hover:bg-slate-800 active:scale-95"
+        class="group sticky bottom-4 z-30 mx-auto flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-slate-900/90 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl transition-all hover:bg-slate-800 active:scale-95"
       >
         <Icon
           name="material-symbols:local-hospital-outline-rounded"

@@ -212,7 +212,7 @@
     >
       <!-- Backdrop -->
       <div
-        class="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity"
+        class="fixed inset-0 bg-black/40 transition-opacity"
         @click="handleClose"
       />
 
@@ -348,7 +348,7 @@
 
                 <div
                   v-if="scanImageUrl"
-                  class="pointer-events-none absolute right-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white backdrop-blur-sm"
+                  class="pointer-events-none absolute right-2 bottom-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white"
                 >
                   Click to {{ isImageZoomed ? 'reset' : 'zoom' }}
                 </div>

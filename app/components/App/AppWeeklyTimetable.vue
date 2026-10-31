@@ -947,7 +947,7 @@
             <!-- Drop Indicator Overlay -->
             <div
               v-if="dragOverDate === day.dateStr && draggedFromDate !== day.dateStr"
-              class="animate-in fade-in zoom-in-95 pointer-events-none absolute inset-x-2 top-2 z-30 flex items-center justify-center gap-1.5 rounded-xl border py-1.5 text-xs font-bold shadow-lg backdrop-blur-xs"
+              class="animate-in fade-in zoom-in-95 pointer-events-none absolute inset-x-2 top-2 z-30 flex items-center justify-center gap-1.5 rounded-xl border py-1.5 text-xs font-bold shadow-lg"
               :class="
                 dragOverConflict?.hasConflict
                   ? 'border-rose-400 bg-rose-600/95 text-white'
@@ -1151,7 +1151,7 @@
       <div
         v-if="showCopyModal"
         @click.self="closeCopyModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-4 rounded-3xl border p-6 shadow-2xl"
@@ -1354,7 +1354,7 @@
             :class="
               isHoveringCancelZone
                 ? 'scale-110 border-rose-500 bg-rose-600 text-white ring-4 shadow-rose-500/30 ring-rose-400/50'
-                : 'bg-card/95 dark:bg-card/95 border-rose-300/80 text-rose-700 shadow-xl backdrop-blur-md hover:border-rose-400 dark:border-rose-800/80 dark:text-rose-400'
+                : 'bg-card/95 dark:bg-card/95 border-rose-300/80 text-rose-700 shadow-xl hover:border-rose-400 dark:border-rose-800/80 dark:text-rose-400'
             "
             title="Drop here or click to cancel dragging"
           >

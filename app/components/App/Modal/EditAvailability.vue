@@ -161,7 +161,7 @@
     <div
       v-if="modelValue && slotData"
       @click.self="closeModal"
-      class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs duration-200"
+      class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 duration-200"
     >
       <div
         class="border-border bg-card text-foreground relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-6 shadow-2xl"

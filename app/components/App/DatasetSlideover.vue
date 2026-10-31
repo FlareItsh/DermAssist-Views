@@ -854,7 +854,7 @@
       >
         <!-- Header -->
         <div
-          class="border-border bg-card/95 relative z-10 flex shrink-0 items-start justify-between border-b px-4 py-3 backdrop-blur-sm sm:px-8 sm:py-4.5"
+          class="border-border bg-card/95 relative z-10 flex shrink-0 items-start justify-between border-b px-4 py-3 sm:px-8 sm:py-4.5"
         >
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2.5 sm:gap-3">
@@ -1374,7 +1374,7 @@
                 >
                   <button
                     type="button"
-                    class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                    class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/80 shadow-sm transition-all hover:scale-110 hover:text-white"
                     title="Transfer scan to another disease"
                     @click.stop="promptTransferSingleOutOfScope(url)"
                   >
@@ -1512,7 +1512,7 @@
                       :class="
                         selectedUuids.has(img.uuid)
                           ? 'bg-primary text-primary-foreground shadow-sm ring-1 ring-white/30'
-                          : 'border border-white/60 bg-black/60 text-white/40 backdrop-blur-xs'
+                          : 'border border-white/60 bg-black/60 text-white/40'
                       "
                       title="Toggle image selection for retraining"
                     >
@@ -1526,7 +1526,7 @@
 
                     <div
                       v-if="isImageTrained(img)"
-                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs backdrop-blur-md select-none"
+                      class="flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white/90 shadow-xs select-none"
                       title="Previously trained baseline scan"
                     >
                       <Icon
@@ -1544,7 +1544,7 @@
                       :color="formatCategoryBadge(img.category).color"
                       size="xs"
                       variant="solid"
-                      class="text-[10px] font-bold uppercase shadow-xs backdrop-blur-xs"
+                      class="text-[10px] font-bold uppercase shadow-xs"
                     >
                       {{ formatCategoryBadge(img.category).label }}
                     </AppBadge>
@@ -1555,7 +1555,7 @@
                     <!-- Transfer Category Button -->
                     <button
                       type="button"
-                      class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      class="hover:bg-primary flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm transition-all hover:scale-110 hover:text-white"
                       title="Transfer scan to another category"
                       @click.stop="promptTransferSingle(img)"
                     >
@@ -1569,7 +1569,7 @@
                     <button
                       v-if="!isImageTrained(img)"
                       type="button"
-                      class="hover:bg-destructive flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm backdrop-blur-xs transition-all hover:scale-110 hover:text-white"
+                      class="hover:bg-destructive flex h-6 w-6 items-center justify-center rounded-lg bg-black/60 text-white/70 shadow-sm transition-all hover:scale-110 hover:text-white"
                       :title="
                         isImageSynced(img)
                           ? 'Remove Synced Scan from Dataset'
@@ -1665,7 +1665,7 @@
 
         <!-- Footer Action Bar -->
         <div
-          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-2.5 border-t px-4 py-2.5 backdrop-blur-sm sm:flex-row sm:items-center sm:px-8 sm:py-4"
+          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-2.5 border-t px-4 py-2.5 sm:flex-row sm:items-center sm:px-8 sm:py-4"
         >
           <!-- Standard Mode Summary Info -->
           <template v-if="datasetType === 'standard'">
@@ -1815,7 +1815,7 @@
         @click.self="closeTransferModal"
       >
         <!-- Backdrop -->
-        <div class="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity" />
+        <div class="fixed inset-0 bg-black/60 transition-opacity" />
 
         <!-- Modal Container -->
         <div

@@ -969,7 +969,7 @@
       >
         <div class="flex min-w-0 items-center gap-3">
           <div
-            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white transition group-hover:bg-white"
           >
             <Icon
               name="lucide:user"
@@ -989,7 +989,7 @@
         <div class="flex shrink-0 items-center gap-2">
           <span
             v-if="patientTrend"
-            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30"
           >
             <Icon
               name="lucide:trending-up"
@@ -1011,7 +1011,7 @@
       >
         <div class="flex min-w-0 items-center gap-3">
           <div
-            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white backdrop-blur-xs transition group-hover:bg-white"
+            class="group-hover:text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white transition group-hover:bg-white"
           >
             <Icon
               name="lucide:stethoscope"
@@ -1031,7 +1031,7 @@
         <div class="flex shrink-0 items-center gap-2">
           <span
             v-if="doctorTrend"
-            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30 backdrop-blur-xs"
+            class="inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold text-white ring-1 ring-white/30"
           >
             <Icon
               name="lucide:trending-up"
@@ -1190,7 +1190,7 @@
           <!-- Floating Tooltip Pill (Linear / Stripe style) -->
           <div
             v-if="hoveredRevenuePoint"
-            class="pointer-events-none absolute -top-11 z-20 -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1 whitespace-nowrap text-white shadow-xl ring-1 ring-white/10 backdrop-blur-sm transition-all duration-75"
+            class="pointer-events-none absolute -top-11 z-20 -translate-x-1/2 rounded-lg bg-gray-900/95 px-2.5 py-1 whitespace-nowrap text-white shadow-xl ring-1 ring-white/10 transition-all duration-75"
             :style="{
               left: `clamp(80px, ${(hoveredRevenuePoint.x / sparkWidth) * 100}%, calc(100% - 80px))`
             }"
@@ -1970,7 +1970,7 @@
             <!-- Floating Hover Tooltip -->
             <div
               v-if="hoveredDetailedPoint"
-              class="pointer-events-none absolute -top-12 z-30 -translate-x-1/2 rounded-xl bg-gray-950/95 px-3 py-1.5 whitespace-nowrap text-white shadow-2xl ring-1 ring-white/10 backdrop-blur-md transition-all duration-75"
+              class="pointer-events-none absolute -top-12 z-30 -translate-x-1/2 rounded-xl bg-gray-950/95 px-3 py-1.5 whitespace-nowrap text-white shadow-2xl ring-1 ring-white/10 transition-all duration-75"
               :style="{
                 left: `clamp(90px, ${(hoveredDetailedPoint.x / detailedChartWidth) * 100}%, calc(100% - 90px))`
               }"

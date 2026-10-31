@@ -520,7 +520,7 @@
       <div
         v-if="showModal"
         @click.self="closeModal"
-        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4"
       >
         <div
           class="relative my-8 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-gray-100 bg-white p-5 shadow-2xl duration-200 sm:p-7"

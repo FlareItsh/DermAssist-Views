@@ -274,7 +274,7 @@
         <div
           v-if="isOpen"
           ref="tooltipRef"
-          class="custom-scrollbar fixed z-[9999] max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl border border-gray-100 bg-white/95 p-4 text-left shadow-2xl backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/95"
+          class="custom-scrollbar fixed z-[9999] max-h-[calc(100vh-24px)] overflow-y-auto rounded-2xl border border-gray-100 bg-white/95 p-4 text-left shadow-2xl dark:border-gray-800 dark:bg-gray-900/95"
           :class="[width, contentClass]"
           :style="{
             top: `${coords.top}px`,
