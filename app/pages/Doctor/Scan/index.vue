@@ -25,7 +25,7 @@
   } = useScanQuota()
 
   const showConfirmDiscard = ref(false)
-  const isMobile = ref<boolean | null>(null)
+  const isMobile = ref<boolean>(import.meta.client ? window.innerWidth < 1024 : false)
 
   const updateViewport = () => {
     isMobile.value = window.innerWidth < 1024

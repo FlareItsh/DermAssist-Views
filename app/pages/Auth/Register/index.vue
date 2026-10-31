@@ -834,7 +834,7 @@
                 >
                   Patient
                 </p>
-                <p class="text-foreground/55 text-[9px] font-medium">Seeking consultation</p>
+                <p class="text-foreground/60 text-xs font-medium">Seeking consultation</p>
               </div>
             </AppButton>
 
@@ -883,7 +883,7 @@
                 >
                   Doctor
                 </p>
-                <p class="text-foreground/55 text-[9px] font-medium">Medical Professional</p>
+                <p class="text-foreground/60 text-xs font-medium">Medical Professional</p>
               </div>
             </AppButton>
           </div>
@@ -930,7 +930,7 @@
             @input="markTouched('email')"
           />
 
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <AuthInput
               id="password"
               v-model="form.password"

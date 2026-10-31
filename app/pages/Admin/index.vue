@@ -1287,9 +1287,9 @@
               v-show="shouldShowAxisLabel(idx, sparkPoints.length)"
               :key="'axis-' + pt.label + '-' + idx"
               :x="pt.x"
-              :y="sparkHeight - 4"
+              :y="sparkHeight - 5"
               text-anchor="middle"
-              class="fill-gray-400 text-[5px] font-normal tracking-wider uppercase select-none"
+              class="fill-gray-500 text-[8.5px] font-semibold tracking-wider uppercase select-none"
             >
               {{ pt.label }}
             </text>
