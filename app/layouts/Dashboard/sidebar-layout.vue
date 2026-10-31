@@ -277,6 +277,11 @@
       ]
     },
     {
+      icon: 'lucide:pill',
+      label: 'Medicine Library',
+      to: '/secretary/medicines'
+    },
+    {
       icon: 'lucide:message-square',
       label: 'Message',
       to: '/secretary/messages',

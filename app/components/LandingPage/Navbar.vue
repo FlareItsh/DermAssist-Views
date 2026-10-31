@@ -60,7 +60,7 @@
           class="h-8 w-auto md:h-12"
           alt="DermAssist Logo"
         />
-        <span class="font-barlow text-foreground text-xl font-bold tracking-tight md:text-3xl">
+        <span class="font-barlow text-foreground text-xl font-medium tracking-tight md:text-3xl">
           DermAssist
         </span>
       </a>

@@ -27,6 +27,7 @@ export interface ScanQuotaPolicies {
   patient_default_daily_scans: number
   patient_care_daily_scans: number
   patient_care_duration_days: number
+  guest_daily_scans: number
 }
 
 export interface DefaultScanQuotaResponse {
@@ -77,6 +78,20 @@ export class ScanQuotaService extends BaseService {
     data: CareGracePeriodsResponse
   }> {
     return await this.request('/admin/settings/care-grace-periods', 'POST', payload)
+  }
+
+  async getGuestQuota(fingerprint?: string): Promise<{ status: string; data: ScanQuota }> {
+    return await this.request('/guest/scan-quota', 'GET', undefined, {
+      headers: fingerprint ? { 'X-Device-Fingerprint': fingerprint } : {}
+    })
+  }
+
+  async claimGuestScan(guestToken: string): Promise<{
+    status: string
+    message: string
+    data: { uuid: string }
+  }> {
+    return await this.request('/guest/claim-scan', 'POST', { guest_token: guestToken })
   }
 }
 

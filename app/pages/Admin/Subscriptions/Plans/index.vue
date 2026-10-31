@@ -65,7 +65,7 @@
       </div>
 
       <div
-        class="grid grid-cols-1 divide-y divide-gray-100 lg:grid-cols-2 lg:divide-x lg:divide-y-0"
+        class="grid grid-cols-1 divide-y divide-gray-100 lg:grid-cols-3 lg:divide-x lg:divide-y-0"
       >
         <!-- Doctor Policies Panel -->
         <div class="space-y-4 p-4 md:p-5">
@@ -248,6 +248,54 @@
             • 15 scans/day for 1 month awarded to doctor-created patients and after completed
             appointments. Does not stack quotas. Reverts to standard after 30 days without another
             appointment.
+          </p>
+        </div>
+
+        <!-- Guest Visitor Policies Panel -->
+        <div class="space-y-4 p-4 md:p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600"
+              >
+                <Icon
+                  name="lucide:fingerprint"
+                  class="h-4 w-4"
+                />
+              </span>
+              <h3 class="text-xs font-bold tracking-wider text-gray-900 uppercase">
+                Guest Visitor Policies
+              </h3>
+            </div>
+            <span
+              class="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700"
+            >
+              Hardware & IP Block
+            </span>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+              >Guest Scans / 24 Hours</label
+            >
+            <div class="relative">
+              <input
+                v-model.number="policiesForm.guest_daily_scans"
+                type="number"
+                min="0"
+                max="100"
+                class="focus:border-primary/30 focus:ring-primary/10 h-9.5 w-full rounded-xl border border-gray-200 bg-gray-50 pr-11 pl-3 text-sm font-bold text-gray-900 transition outline-none focus:bg-white focus:ring-4"
+                :disabled="isLoadingPolicies || isUpdatingPolicies"
+              />
+              <span
+                class="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-gray-400"
+                >scans</span
+              >
+            </div>
+          </div>
+
+          <p class="text-[11px] leading-relaxed text-gray-500">
+            • Daily free preview scans for unregistered visitors on the landing page scanner. Enforced via combined Canvas/WebGL device fingerprint and IP address to prevent incognito or multi-browser abuse. Set to 0 to disable guest scans.
           </p>
         </div>
       </div>
@@ -786,7 +834,8 @@
     doctor_unsubscribed_daily_scans: 3,
     patient_default_daily_scans: 5,
     patient_care_daily_scans: 15,
-    patient_care_duration_days: 30
+    patient_care_duration_days: 30,
+    guest_daily_scans: 1
   })
 
   const fetchPolicies = async () => {

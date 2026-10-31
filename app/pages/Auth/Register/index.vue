@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { authService } from '~/api/auth/AuthService'
   import { userService } from '~/api/user/UserService'
+  import { scanQuotaService } from '~/api/scanQuota/ScanQuotaService'
   import { toast } from 'vue-sonner'
   import { resolveApiBase } from '~/utils/resolveApiBase'
   definePageMeta({
@@ -516,6 +517,24 @@
           )
         } else {
           toast.success('Registration successful!')
+        }
+
+        const route = useRoute()
+        const guestTokenCookie = useCookie<string | null>('da_guest_token')
+        const claimToken = (route.query.claim_scan as string) || guestTokenCookie.value
+
+        if (claimToken && baseRole === 'patient') {
+          try {
+            const claimRes = await scanQuotaService.claimGuestScan(claimToken)
+            guestTokenCookie.value = null
+            if (claimRes?.data?.uuid) {
+              toast.success('Your guest scan has been claimed and unlocked!')
+              await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
+              return
+            }
+          } catch (e) {
+            console.error('Failed to claim guest scan:', e)
+          }
         }
 
         // Redirect based on role
