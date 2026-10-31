@@ -43,46 +43,104 @@
   const previewImage = ref<string | null>(null)
   const selectedFile = ref<File | null>(null)
 
-  // Result State
-  interface GuestScanResult {
-    uuid: string
-    guest_token: string
-    confidence: number
-    label: string
-    is_teaser: boolean
-    clinical_feedback?: string | null
-    scan_quota?: ScanQuota
+  // Camera Features State: Flip, Torch, Mirror, Multi-Device
+  const videoDevices = ref<MediaDeviceInfo[]>([])
+  const currentDeviceIndex = ref(0)
+  const selectedDeviceId = ref<string>('')
+  const currentFacingMode = ref<'environment' | 'user'>('environment')
+  const isMirrored = ref(false)
+  const isTorchSupported = ref(false)
+  const isTorchOn = ref(false)
+
+  const toggleMirror = () => {
+    isMirrored.value = !isMirrored.value
   }
-  const scanResult = ref<GuestScanResult | null>(null)
-  const guestCookie = useCookie<string | null>('da_guest_token', {
-    maxAge: 60 * 60 * 24 * 7,
-    sameSite: 'lax'
-  })
 
-  // Countdown timer calculation
-  const countdownDisplay = computed(() => {
-    if (!quota.value?.countdown_seconds || quota.value.countdown_seconds <= 0) return null
-    const secs = quota.value.countdown_seconds
-    const hours = Math.floor(secs / 3600)
-    const mins = Math.floor((secs % 3600) / 60)
-    return `${hours}h ${mins}m`
-  })
-
-  const loadQuota = async () => {
-    isLoadingQuota.value = true
-    try {
-      if (!fingerprint.value) {
-        fingerprint.value = await getDeviceFingerprint()
-      }
-      const res = await scanQuotaService.getGuestQuota(fingerprint.value)
-      if (res?.data) {
-        quota.value = res.data
-      }
-    } catch (e: any) {
-      console.error('Failed to fetch guest quota:', e)
-    } finally {
-      isLoadingQuota.value = false
+  const checkTorchCapability = () => {
+    if (!stream.value) {
+      isTorchSupported.value = false
+      isTorchOn.value = false
+      return
     }
+    const track = stream.value.getVideoTracks()[0]
+    if (!track) {
+      isTorchSupported.value = false
+      isTorchOn.value = false
+      return
+    }
+    const capabilities = (track as any)?.getCapabilities?.() || {}
+    isTorchSupported.value = Boolean(capabilities.torch)
+    if (!isTorchSupported.value) {
+      isTorchOn.value = false
+    }
+  }
+
+  const toggleTorch = async () => {
+    if (!stream.value || !isTorchSupported.value) return
+    const track = stream.value.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const nextState = !isTorchOn.value
+      await (track as any).applyConstraints({
+        advanced: [{ torch: nextState }]
+      })
+      isTorchOn.value = nextState
+    } catch (e) {
+      console.warn('Torch toggle failed:', e)
+      isTorchSupported.value = false
+      isTorchOn.value = false
+    }
+  }
+
+  const updateDeviceList = async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      videoDevices.value = devices.filter(d => d.kind === 'videoinput')
+      if (stream.value) {
+        const activeTrack = stream.value.getVideoTracks()[0]
+        const settings = activeTrack?.getSettings?.()
+        if (settings?.deviceId) {
+          const idx = videoDevices.value.findIndex(d => d.deviceId === settings.deviceId)
+          if (idx !== -1) {
+            currentDeviceIndex.value = idx
+            selectedDeviceId.value = settings.deviceId
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('enumerateDevices error:', e)
+    }
+  }
+
+  const canFlipCamera = computed(() => {
+    if (videoDevices.value.length > 1) return true
+    if (import.meta.client) {
+      return /mobi|android|iphone|ipad|tablet/i.test(navigator.userAgent)
+    }
+    return false
+  })
+
+  const cycleCamera = async () => {
+    if (!isCameraOn.value) return
+    if (videoDevices.value.length > 1) {
+      currentDeviceIndex.value = (currentDeviceIndex.value + 1) % videoDevices.value.length
+      const nextDevice = videoDevices.value[currentDeviceIndex.value]
+      selectedDeviceId.value = nextDevice.deviceId
+      const label = (nextDevice.label || '').toLowerCase()
+      if (/front|user|selfie/i.test(label)) {
+        currentFacingMode.value = 'user'
+        isMirrored.value = true
+      } else if (/back|rear|environment/i.test(label)) {
+        currentFacingMode.value = 'environment'
+        isMirrored.value = false
+      }
+    } else {
+      currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user'
+      isMirrored.value = currentFacingMode.value === 'user'
+      selectedDeviceId.value = ''
+    }
+    await startCamera()
   }
 
   // Camera handlers
@@ -91,14 +149,20 @@
     try {
       if (stream.value) {
         stream.value.getTracks().forEach(track => track.stop())
+        stream.value = null
       }
-      const media = await acquireOptimizedMediaStream({ facingMode: 'environment' })
+      const media = await acquireOptimizedMediaStream({
+        deviceId: selectedDeviceId.value || undefined,
+        facingMode: selectedDeviceId.value ? undefined : currentFacingMode.value
+      })
       stream.value = media
       isCameraOn.value = true
       if (videoRef.value) {
         videoRef.value.srcObject = media
         await videoRef.value.play()
       }
+      await updateDeviceList()
+      checkTorchCapability()
     } catch (err: any) {
       isCameraOn.value = false
       toast.error('Unable to access camera. You can upload a photo instead.')
@@ -106,9 +170,21 @@
   }
 
   const stopCamera = () => {
+    if (isTorchOn.value && stream.value) {
+      const track = stream.value.getVideoTracks()[0]
+      try {
+        ;(track as any)?.applyConstraints?.({ advanced: [{ torch: false }] })
+      } catch (_) {}
+      isTorchOn.value = false
+    }
+    isTorchSupported.value = false
+
     if (stream.value) {
       stream.value.getTracks().forEach(track => track.stop())
       stream.value = null
+    }
+    if (videoRef.value) {
+      videoRef.value.srcObject = null
     }
     isCameraOn.value = false
   }
@@ -118,6 +194,7 @@
     try {
       if (stream.value) {
         const result = await captureHighQualityPhoto(stream.value, videoRef.value, {
+          mirror: isMirrored.value,
           maxSide: 2048,
           quality: 0.92
         })
@@ -132,6 +209,10 @@
       canvas.height = videoRef.value.videoHeight || 720
       const ctx = canvas.getContext('2d')
       if (ctx) {
+        if (isMirrored.value) {
+          ctx.translate(canvas.width, 0)
+          ctx.scale(-1, 1)
+        }
         ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
         canvas.toBlob(blob => {
           if (blob) {
@@ -149,6 +230,10 @@
         canvas.height = videoRef.value.videoHeight || 720
         const ctx = canvas.getContext('2d')
         if (ctx) {
+          if (isMirrored.value) {
+            ctx.translate(canvas.width, 0)
+            ctx.scale(-1, 1)
+          }
           ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
           canvas.toBlob(blob => {
             if (blob) {
@@ -479,39 +564,152 @@
           class="space-y-6"
         >
           <!-- Video Stream or Photo Preview Box -->
-          <div class="relative flex min-h-[360px] w-full flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-border bg-slate-900/95 p-4 transition">
+          <div
+            class="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-slate-950 shadow-2xl transition-all"
+            :class="isCameraOn || previewImage ? 'aspect-[3/4] sm:aspect-[4/3] min-h-[480px] sm:min-h-[520px]' : 'min-h-[360px] sm:min-h-[400px] border-dashed p-6 text-center'"
+          >
             <!-- Live Camera -->
             <div
               v-show="isCameraOn"
-              class="relative flex h-full w-full items-center justify-center"
+              class="relative flex h-full w-full items-center justify-center overflow-hidden"
             >
               <video
                 ref="videoRef"
                 autoplay
                 playsinline
                 muted
-                class="max-h-[400px] w-full rounded-xl object-contain"
+                class="absolute inset-0 h-full w-full object-cover transition-transform duration-300"
+                :class="{ '-scale-x-100': isMirrored }"
               />
-              <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-                <!-- Focus viewfinder rectangle -->
-                <div class="h-48 w-48 rounded-2xl border-2 border-emerald-400/90 shadow-2xl" />
+
+              <!-- Top Floating Controls Bar -->
+              <div class="pointer-events-none absolute top-3 inset-x-3 sm:top-4 sm:inset-x-4 z-20 flex items-center justify-between">
+                <!-- Status Pill -->
+                <div class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-md">
+                  <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span>Live Camera</span>
+                </div>
+
+                <!-- Camera Tools: Torch, Mirror, Flip -->
+                <div class="pointer-events-auto flex items-center gap-2">
+                  <!-- Torch Toggle (shown if supported) -->
+                  <button
+                    v-if="isTorchSupported"
+                    type="button"
+                    @click="toggleTorch"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90 shadow-md"
+                    :class="
+                      isTorchOn
+                        ? 'border-amber-400/90 bg-amber-500 text-white shadow-amber-500/30'
+                        : 'border-white/20 bg-black/60 text-white hover:bg-black/80'
+                    "
+                    :title="isTorchOn ? 'Turn off flash' : 'Turn on flash'"
+                  >
+                    <Icon
+                      :name="isTorchOn ? 'material-symbols:flashlight-on-rounded' : 'material-symbols:flashlight-off-rounded'"
+                      class="h-5 w-5"
+                    />
+                  </button>
+
+                  <!-- Mirror Toggle -->
+                  <button
+                    type="button"
+                    @click="toggleMirror"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90 shadow-md"
+                    :class="
+                      isMirrored
+                        ? 'border-primary/80 bg-primary/80 text-white'
+                        : 'border-white/20 bg-black/60 text-white hover:bg-black/80'
+                    "
+                    :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
+                  >
+                    <Icon
+                      :name="isMirrored ? 'lucide:flip-horizontal-2' : 'lucide:flip-horizontal'"
+                      class="h-5 w-5"
+                    />
+                  </button>
+
+                  <!-- Flip Camera Button (top quick button) -->
+                  <button
+                    v-if="canFlipCamera"
+                    type="button"
+                    @click="cycleCamera"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 active:scale-90 shadow-md"
+                    title="Switch camera"
+                  >
+                    <Icon
+                      name="material-symbols:flip-camera-android-rounded"
+                      class="h-5 w-5"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Center Focus Reticle with Dimmed Mask -->
+              <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-4">
+                <div class="h-56 w-56 sm:h-64 sm:w-64 rounded-3xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] transition-all" />
+                <span class="mt-3 inline-block rounded-full bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/90 shadow backdrop-blur-xs">
+                  Center skin lesion inside the box
+                </span>
+              </div>
+
+              <!-- Bottom Floating Shutter Controls -->
+              <div class="pointer-events-none absolute bottom-4 inset-x-4 sm:bottom-6 sm:inset-x-6 z-20 flex items-center justify-between">
+                <button
+                  type="button"
+                  @click="stopCamera"
+                  class="pointer-events-auto cursor-pointer rounded-full border border-white/25 bg-black/60 px-4 py-2 text-xs font-semibold text-white shadow backdrop-blur-md transition hover:bg-black/80 active:scale-95"
+                >
+                  Cancel
+                </button>
+
+                <!-- Dual Ring Shutter Button -->
+                <button
+                  type="button"
+                  @click="capturePhoto"
+                  class="pointer-events-auto flex h-18 w-18 cursor-pointer items-center justify-center rounded-full border-4 border-white/90 bg-white/25 shadow-2xl backdrop-blur-xs transition active:scale-90 hover:scale-105"
+                  title="Capture photo"
+                >
+                  <div class="flex h-13 w-13 items-center justify-center rounded-full bg-emerald-500 shadow-lg text-white">
+                    <Icon
+                      name="lucide:camera"
+                      class="h-6 w-6"
+                    />
+                  </div>
+                </button>
+
+                <!-- Quick Flip on Right (Thumb friendly) -->
+                <div class="w-16 flex justify-end">
+                  <button
+                    v-if="canFlipCamera"
+                    type="button"
+                    @click="cycleCamera"
+                    class="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow backdrop-blur-md transition hover:bg-black/80 active:scale-90"
+                    title="Flip camera"
+                  >
+                    <Icon
+                      name="material-symbols:flip-camera-android-rounded"
+                      class="h-5 w-5"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- Captured / Selected Preview -->
             <div
               v-if="!isCameraOn && previewImage"
-              class="relative flex h-full w-full items-center justify-center"
+              class="relative flex h-full w-full items-center justify-center overflow-hidden"
             >
               <img
                 :src="previewImage"
                 alt="Selected skin"
-                class="max-h-[400px] w-full rounded-xl object-contain shadow-lg"
+                class="absolute inset-0 h-full w-full object-contain p-2"
               />
               <button
                 type="button"
                 @click="resetScanner"
-                class="absolute top-3 right-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-slate-900/80 text-white shadow backdrop-blur transition hover:bg-slate-900"
+                class="absolute top-3 right-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-black/75 text-white shadow-lg backdrop-blur transition hover:bg-black active:scale-90"
                 title="Remove photo"
               >
                 <Icon
@@ -524,7 +722,7 @@
             <!-- Empty State Prompt -->
             <div
               v-if="!isCameraOn && !previewImage"
-              class="flex flex-col items-center justify-center text-center py-10 px-4"
+              class="flex flex-col items-center justify-center text-center py-8 px-4"
             >
               <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner">
                 <Icon
@@ -573,31 +771,6 @@
                 />
               </div>
             </div>
-          </div>
-
-          <!-- Controls Bar when Camera is Active -->
-          <div
-            v-if="isCameraOn"
-            class="flex items-center justify-center gap-4"
-          >
-            <button
-              type="button"
-              @click="stopCamera"
-              class="cursor-pointer rounded-full border border-gray-200 bg-white hover:bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-700 shadow-xs transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              @click="capturePhoto"
-              class="inline-flex cursor-pointer items-center gap-2 rounded-full bg-emerald-600 hover:bg-emerald-700 px-7 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-600/20 transition active:scale-95"
-            >
-              <Icon
-                name="lucide:aperture"
-                class="h-4 w-4"
-              />
-              <span>Capture Photo</span>
-            </button>
           </div>
 
           <!-- Submit Scan Button when Photo is Selected -->
