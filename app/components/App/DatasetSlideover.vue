@@ -1006,9 +1006,13 @@
           <!-- Row 2: Status & Location Filters + Bulk Selection Actions -->
           <div class="flex flex-wrap items-center justify-between gap-2 pt-0.5">
             <!-- Filter Chips (Included/Excluded, Origins, Sync) -->
-            <div class="scrollbar-none flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs sm:flex-wrap sm:pb-0">
+            <div
+              class="scrollbar-none flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs sm:flex-wrap sm:pb-0"
+            >
               <!-- Inclusion status -->
-              <div class="border-border bg-card flex shrink-0 items-center gap-0.5 rounded-xl border p-0.5">
+              <div
+                class="border-border bg-card flex shrink-0 items-center gap-0.5 rounded-xl border p-0.5"
+              >
                 <button
                   type="button"
                   class="rounded-lg px-2 py-0.5 text-[11px] font-semibold transition-all sm:px-2.5 sm:py-1 sm:text-xs"
@@ -1136,7 +1140,9 @@
             </div>
 
             <!-- Quick Selection & Deletion Helpers -->
-            <div class="scrollbar-none flex w-full items-center gap-1.5 overflow-x-auto py-0.5 sm:w-auto sm:flex-wrap">
+            <div
+              class="scrollbar-none flex w-full items-center gap-1.5 overflow-x-auto py-0.5 sm:w-auto sm:flex-wrap"
+            >
               <AppButton
                 variant="outline"
                 size="sm"
@@ -1287,7 +1293,7 @@
         </div>
 
         <!-- Body: Gallery Grid -->
-        <div class="flex-1 overflow-y-auto p-6 sm:p-8">
+        <div class="flex-1 overflow-y-auto p-3 sm:p-8">
           <!-- Loading State -->
           <div
             v-if="isLoading"
@@ -1451,7 +1457,7 @@
             <!-- Standard Image Cards Grid (Up to 7 Columns) -->
             <div
               v-else
-              class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
+              class="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
             >
               <div
                 v-for="img in filteredStandardImages"
@@ -1659,16 +1665,18 @@
 
         <!-- Footer Action Bar -->
         <div
-          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-3 border-t px-6 py-4 backdrop-blur-sm sm:flex-row sm:items-center sm:px-8"
+          class="border-border bg-card/95 relative z-10 flex shrink-0 flex-col justify-between gap-2.5 border-t px-4 py-2.5 backdrop-blur-sm sm:flex-row sm:items-center sm:px-8 sm:py-4"
         >
           <!-- Standard Mode Summary Info -->
           <template v-if="datasetType === 'standard'">
-            <div class="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <div
+              class="text-muted-foreground flex flex-wrap items-center gap-1.5 text-[11px] sm:text-xs"
+            >
               <span class="text-foreground font-bold">
                 {{ selectedCount }} of {{ images.length }}
               </span>
-              images in training pool
-              <span class="text-muted-foreground/80">
+              <span>images in training pool</span>
+              <span class="text-muted-foreground/80 xs:inline hidden">
                 ({{ trainedCount }} trained · permanent)
               </span>
               <span
@@ -1686,11 +1694,11 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex items-center justify-end gap-2.5">
+            <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
               <AppButton
                 variant="ghost"
-                size="md"
-                class="rounded-xl font-semibold"
+                size="sm"
+                class="rounded-xl text-xs font-semibold sm:text-sm"
                 @click="close"
               >
                 Close
@@ -1698,29 +1706,29 @@
               <AppButton
                 v-if="pendingSelectedCount > 0"
                 variant="outline"
-                size="md"
-                class="rounded-xl border-emerald-500/40 font-bold text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400"
+                size="sm"
+                class="rounded-xl border-emerald-500/40 text-xs font-bold text-emerald-600 hover:bg-emerald-500/10 sm:text-sm dark:text-emerald-400"
                 :loading="isSyncingScans"
                 :disabled="isSyncingScans"
                 @click="promptSyncSelectedScans"
               >
                 <Icon
                   name="lucide:refresh-cw"
-                  size="15"
-                  class="mr-1.5"
+                  size="13"
+                  class="mr-1"
                   :class="isSyncingScans ? 'animate-spin' : ''"
                 />
                 Sync {{ pendingSelectedCount }} Scans
               </AppButton>
               <AppButton
                 variant="solid"
-                size="md"
-                class="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 rounded-xl font-bold shadow-md"
+                size="sm"
+                class="bg-primary hover:bg-primary/90 text-primary-foreground h-9 flex-1 justify-center gap-1.5 rounded-xl text-xs font-bold shadow-md sm:h-10 sm:flex-none sm:text-sm"
                 @click="handleConfirmScope"
               >
                 <Icon
                   name="lucide:check-circle-2"
-                  size="16"
+                  size="15"
                 />
                 Apply Retraining Scope ({{ selectedCount }} Scans)
               </AppButton>
