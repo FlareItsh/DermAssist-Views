@@ -1,8 +1,9 @@
-export default defineNuxtRouteMiddleware((to, from) => {
-  // We skip middleware on the server just to be safe if cookies aren't synced,
-  // but useCookie works in Nuxt 3 SSR for initial requests.
+import { $api } from '~/composables/useApi'
+
+export default defineNuxtRouteMiddleware(async (to, from) => {
   const token = useCookie('auth_token', { path: '/' })
-  const role = useCookie('user_role', { path: '/' })
+  const roleCookie = useCookie('user_role', { path: '/' })
+  const authUser = useState<any>('auth_user', () => null)
 
   const path = to.path.toLowerCase()
 
@@ -12,18 +13,44 @@ export default defineNuxtRouteMiddleware((to, from) => {
   const isDoctorRoute = path.startsWith('/doctor')
   const isSecretaryRoute = path.startsWith('/secretary')
   const isAuthRoute = path.startsWith('/auth')
+  const isProtectedRoute = isAdminRoute || isPatientRoute || isDoctorRoute || isSecretaryRoute
 
   // If trying to access a protected area without a token
-  if (!token.value && (isAdminRoute || isPatientRoute || isDoctorRoute || isSecretaryRoute)) {
+  if (!token.value && isProtectedRoute) {
     return navigateTo('/auth/login')
   }
+
+  // Authoritative role validation from backend on protected/admin navigation
+  let verifiedRole = authUser.value?.role?.slug || authUser.value?.role
+  if (token.value && (!verifiedRole || isAdminRoute)) {
+    try {
+      const res: any = await $api('/user')
+      const userData = res?.data || res
+      authUser.value = userData
+      const trueRole = (userData?.role?.slug || userData?.role || '').toLowerCase()
+      verifiedRole = trueRole
+
+      if (roleCookie.value !== trueRole) {
+        roleCookie.value = trueRole
+      }
+    } catch {
+      token.value = null
+      roleCookie.value = null
+      authUser.value = null
+      if (isProtectedRoute) {
+        return navigateTo('/auth/login')
+      }
+    }
+  }
+
+  const effectiveRole = (verifiedRole || roleCookie.value || '').toLowerCase()
 
   // If trying to access an Auth route while already logged in (exempt OAuth callback, verify, check-email, and doctor step 2 onboarding)
   const isDoctorOnboarding =
     path === '/auth/register' && (to.query.step === '2' || to.query.source === 'google')
   if (
     token.value &&
-    role.value &&
+    effectiveRole &&
     isAuthRoute &&
     path !== '/auth/callback' &&
     path !== '/auth/verify' &&
@@ -32,23 +59,23 @@ export default defineNuxtRouteMiddleware((to, from) => {
     path !== '/auth/resetpassword' &&
     !isDoctorOnboarding
   ) {
-    return navigateTo(`/${role.value}`)
+    return navigateTo(`/${effectiveRole}`)
   }
 
-  // Role-based route protection
-  if (isAdminRoute && role.value !== 'admin') {
-    return navigateTo(`/${role.value || 'auth/login'}`)
+  // Authoritative Role-based route protection
+  if (isAdminRoute && effectiveRole !== 'admin') {
+    return navigateTo(`/${effectiveRole || 'auth/login'}`)
   }
 
-  if (isPatientRoute && role.value !== 'patient') {
-    return navigateTo(`/${role.value || 'auth/login'}`)
+  if (isPatientRoute && effectiveRole !== 'patient') {
+    return navigateTo(`/${effectiveRole || 'auth/login'}`)
   }
 
-  if (isDoctorRoute && role.value !== 'doctor') {
-    return navigateTo(`/${role.value || 'auth/login'}`)
+  if (isDoctorRoute && effectiveRole !== 'doctor') {
+    return navigateTo(`/${effectiveRole || 'auth/login'}`)
   }
 
-  if (isSecretaryRoute && role.value !== 'secretary') {
-    return navigateTo(`/${role.value || 'auth/login'}`)
+  if (isSecretaryRoute && effectiveRole !== 'secretary') {
+    return navigateTo(`/${effectiveRole || 'auth/login'}`)
   }
 })
