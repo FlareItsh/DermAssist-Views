@@ -295,7 +295,9 @@
           </div>
 
           <p class="text-[11px] leading-relaxed text-gray-500">
-            • Daily free preview scans for unregistered visitors on the landing page scanner. Enforced via combined Canvas/WebGL device fingerprint and IP address to prevent incognito or multi-browser abuse. Set to 0 to disable guest scans.
+            • Daily free preview scans for unregistered visitors on the landing page scanner.
+            Enforced via combined Canvas/WebGL device fingerprint and IP address to prevent
+            incognito or multi-browser abuse. Set to 0 to disable guest scans.
           </p>
         </div>
       </div>
@@ -593,20 +595,6 @@
                 placeholder="e.g. Solo Practitioner"
                 class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
               />
-            </div>
-
-            <div>
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
-                >Subscription Tier Type</label
-              >
-              <select
-                v-model="form.tier_type"
-                class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-bold text-gray-700 transition outline-none focus:bg-white focus:ring-4"
-              >
-                <option value="individual">Individual (1 Doctor, 1 Clinic)</option>
-                <option value="doctor_multi_clinic">One Doctor, Multiple Clinics</option>
-                <option value="clinic_multi_doctor">One Clinic, Multiple Doctors</option>
-              </select>
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">

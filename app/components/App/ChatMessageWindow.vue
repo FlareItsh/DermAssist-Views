@@ -370,6 +370,7 @@
   const deduplicatedMessages = computed(() => {
     const valid = allMessages.value.filter(m => m && m.id)
     const seenDeclinedUuids = new Set<string>()
+    const seenCancelledUuids = new Set<string>()
 
     return valid.filter(m => {
       if (m.message && m.message.includes('[APPOINTMENT_DECLINED:')) {
@@ -380,6 +381,16 @@
             return false
           }
           seenDeclinedUuids.add(apptUuid)
+        }
+      }
+      if (m.message && m.message.includes('[APPOINTMENT_CANCELLED:')) {
+        const match = m.message.match(/\[APPOINTMENT_CANCELLED:([a-f0-9-]+)\]/i)
+        if (match && match[1]) {
+          const apptUuid = match[1]
+          if (seenCancelledUuids.has(apptUuid)) {
+            return false
+          }
+          seenCancelledUuids.add(apptUuid)
         }
       }
       return true
@@ -521,8 +532,8 @@
     }
     const isCurrentMatch = currentSearchMatchMessageId.value === messageId
     const markClass = isCurrentMatch
-      ? 'bg-amber-400 dark:bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded shadow-xs ring-2 ring-amber-500 animate-pulse'
-      : 'bg-amber-200/90 dark:bg-amber-400/40 text-amber-950 dark:text-amber-100 font-semibold px-1 py-0.5 rounded'
+      ? 'bg-amber-400 text-slate-950 font-black px-1.5 py-0.5 rounded shadow-xs ring-2 ring-amber-500 animate-pulse'
+      : 'bg-amber-200/90 text-amber-950 font-semibold px-1 py-0.5 rounded'
 
     try {
       const regex = new RegExp(`(?![^<]*>)(${escapeRegex(q)})`, 'gi')
@@ -857,6 +868,10 @@
     if (scheduleMatch) {
       return scheduleMatch[1].trim()
     }
+    const scheduledOnMatch = msg.message.match(/scheduled (?:on|for)\s*<b>([^<]+)<\/b>/i)
+    if (scheduledOnMatch) {
+      return scheduledOnMatch[1].trim()
+    }
     return null
   }
 
@@ -880,7 +895,9 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return true
     if (decliningApptUuids.value.has(uuid)) return true
-    const apptInStore = appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    const apptInStore = [...appointments.value, ...pendingAppointments.value].find(
+      a => a.id === uuid || a.uuid === uuid
+    )
     if (apptInStore && apptInStore.status !== 'pending') {
       return true
     }
@@ -1143,10 +1160,8 @@
     }
   }
 
-  const showCompleteConfirm = ref(false)
   const showCancelConfirm = ref(false)
   const showResolveModal = ref(false)
-  const isCompleting = ref(false)
   const isCancelling = ref(false)
 
   const isOverdue = computed(() => {
@@ -1173,7 +1188,6 @@
     }
 
     if (route.query.complete === '1') {
-      showCompleteConfirm.value = true
       const query = { ...route.query }
       delete query.complete
       router.replace({ query })
@@ -1222,31 +1236,6 @@
     openCompleteConfirmFromRoute,
     { immediate: true }
   )
-
-  const completeAppointment = async () => {
-    if (!activeAppointment.value) return
-    isCompleting.value = true
-    try {
-      const completedAppointment = activeAppointment.value
-      await appointmentService.update(completedAppointment.id, { status: 'completed' })
-      await conversationService.sendMessage(
-        props.conversationUuid,
-        `[APPOINTMENT_COMPLETED:${completedAppointment.id}] Appointment completed by the doctor. Your visit summary has been moved to your records.`
-      )
-      removeFromPriority(completedAppointment.id)
-      showCompleteConfirm.value = false
-      showResolveModal.value = false
-      fetchAppointments()
-      fetchMessages(1)
-    } catch (e: any) {
-      console.error(e)
-      const errorMsg =
-        e.data?.message || e.response?.data?.message || e.message || 'Cannot complete consultation.'
-      toast.error(errorMsg)
-    } finally {
-      isCompleting.value = false
-    }
-  }
 
   const cancelAppointmentDirectly = async () => {
     const targetUuid = pendingCancelUuid.value || activeAppointment.value?.id
@@ -1853,13 +1842,13 @@
         <template v-else-if="committedSearchQuery">
           <span
             v-if="matchingMessageIds.length > 0"
-            class="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-300"
+            class="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-800"
           >
             {{ currentMatchIndex + 1 }} of {{ matchingMessageIds.length }}
           </span>
           <span
             v-else
-            class="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-600 dark:text-red-400"
+            class="shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] font-medium text-red-700"
           >
             No matches
           </span>
@@ -1921,7 +1910,7 @@
     <div class="relative flex min-h-0 flex-1 flex-row overflow-hidden">
       <!-- Chat Body Container (relative container holding chat messages and inputs) -->
       <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <!-- Pending Appointment Request Banner (Doctor-only, shown when patient has a pending request for this conversation) -->
+        <!-- Pending Appointment Request Banner (Shown when conversation has a pending appointment request) -->
         <Transition
           enter-active-class="transition duration-300 ease-out"
           enter-from-class="transform -translate-y-full opacity-0"
@@ -1931,25 +1920,44 @@
           leave-to-class="transform -translate-y-full opacity-0"
         >
           <div
-            v-if="userRole?.toLowerCase() === 'doctor' && pendingAppointmentForConversation"
-            class="border-b border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 px-4 py-3 sm:px-6"
+            v-if="pendingAppointmentForConversation"
+            class="border-b border-sky-100 bg-sky-50/70 px-4 py-3 sm:px-6"
           >
             <div
               class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
             >
               <div class="flex items-start gap-3 sm:items-center">
                 <div
-                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100"
+                  class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                 >
                   <Icon
                     name="material-symbols:calendar-add-on-rounded"
-                    class="text-lg text-indigo-600"
+                    class="text-lg"
                   />
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-black text-indigo-900">New Appointment Request</p>
-                  <p class="text-xs font-medium text-indigo-600">
-                    {{ pendingAppointmentForConversation.doctor }} is requesting an appointment
+                  <p class="text-sm font-bold text-slate-900">
+                    {{
+                      userRole?.toLowerCase() === 'doctor'
+                        ? pendingAppointmentForConversation.raw?.appointment_source ===
+                          'doctor_scheduled'
+                          ? 'Appointment Proposal Awaiting Patient'
+                          : 'New Appointment Request'
+                        : 'Appointment Request from Doctor'
+                    }}
+                  </p>
+                  <p class="text-xs font-medium text-slate-600">
+                    <template v-if="userRole?.toLowerCase() === 'doctor'">
+                      {{
+                        pendingAppointmentForConversation.raw?.appointment_source ===
+                        'doctor_scheduled'
+                          ? `Awaiting confirmation from ${otherPersonName} for proposed schedule`
+                          : `${pendingAppointmentForConversation.doctor} is requesting an appointment`
+                      }}
+                    </template>
+                    <template v-else>
+                      Dr. {{ convData?.doctor?.last_name || 'Your doctor' }} proposed an appointment
+                    </template>
                     <span
                       v-if="
                         pendingAppointmentForConversation.info &&
@@ -1979,12 +1987,12 @@
           :class="[
             activeAppointment.status === 'reschedule_requested' ||
             activeAppointment.status === 'reschedule_proposed'
-              ? 'border-amber-200 bg-amber-50 dark:bg-amber-950/20'
+              ? 'border-sky-200 bg-sky-50/90'
               : isOverdue
-                ? 'border-red-200 bg-red-50 dark:bg-red-950/20'
+                ? 'border-rose-200 bg-rose-50/90'
                 : isToday(activeAppointment.date)
-                  ? 'border-amber-100 bg-amber-50 dark:bg-amber-950/20'
-                  : 'border-indigo-100 bg-indigo-50/70 dark:bg-indigo-950/20'
+                  ? 'border-amber-200 bg-amber-50/90'
+                  : 'border-slate-200 bg-slate-50/90'
           ]"
         >
           <!-- Row 1: Active Scheduled Appointment Details (HIDDEN when reschedule is requested or proposed) -->
@@ -1997,13 +2005,13 @@
             <div class="flex items-center justify-between gap-3">
               <div class="flex min-w-0 items-center gap-3">
                 <div
-                  class="shrink-0 rounded-full p-2"
+                  class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
                   :class="[
                     isOverdue
-                      ? 'bg-red-100'
+                      ? 'bg-rose-100 text-rose-600'
                       : isToday(activeAppointment.date)
-                        ? 'bg-amber-100'
-                        : 'bg-indigo-100'
+                        ? 'bg-amber-100 text-amber-600'
+                        : 'bg-primary/10 text-primary'
                   ]"
                 >
                   <Icon
@@ -2015,13 +2023,6 @@
                           : 'material-symbols:calendar-clock-outline-rounded'
                     "
                     class="text-lg sm:text-xl"
-                    :class="
-                      isOverdue
-                        ? 'text-red-600'
-                        : isToday(activeAppointment.date)
-                          ? 'text-amber-600'
-                          : 'text-indigo-600'
-                    "
                   />
                 </div>
                 <div class="min-w-0">
@@ -2029,10 +2030,10 @@
                     class="truncate text-xs font-bold sm:text-sm"
                     :class="[
                       isOverdue
-                        ? 'text-red-900'
+                        ? 'text-rose-950'
                         : isToday(activeAppointment.date)
-                          ? 'text-amber-900'
-                          : 'text-indigo-900'
+                          ? 'text-amber-950'
+                          : 'text-slate-900'
                     ]"
                   >
                     {{
@@ -2047,10 +2048,10 @@
                     class="truncate text-[11px] font-medium sm:text-xs"
                     :class="[
                       isOverdue
-                        ? 'text-red-700'
+                        ? 'text-rose-700'
                         : isToday(activeAppointment.date)
-                          ? 'text-amber-700'
-                          : 'text-indigo-700'
+                          ? 'text-amber-800'
+                          : 'text-slate-600'
                     ]"
                   >
                     {{
@@ -2068,7 +2069,7 @@
               <button
                 type="button"
                 @click="isApptBarCollapsed = !isApptBarCollapsed"
-                class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-bold text-indigo-700 shadow-xs transition-all active:scale-95 sm:hidden"
+                class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-2xs transition-all active:scale-95 sm:hidden"
               >
                 <span>{{ isApptBarCollapsed ? 'Show Actions' : 'Hide' }}</span>
                 <Icon
@@ -2082,41 +2083,30 @@
 
             <div
               v-if="userRole?.toLowerCase() === 'doctor'"
-              class="w-full flex-wrap justify-end gap-2 sm:w-auto"
-              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
+              class="w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
+              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'grid'"
             >
               <button
                 type="button"
-                @click="showCompleteConfirm = true"
-                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95"
+                @click="openRescheduleModal"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:h-8 sm:px-3.5"
               >
                 <Icon
-                  name="material-symbols:check-circle-rounded"
-                  class="text-sm"
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-sm text-slate-500"
                 />
-                Mark as Accomplished
+                Reschedule
               </button>
               <button
                 type="button"
                 @click="showCancelConfirm = true"
-                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 sm:h-8 sm:px-3.5"
               >
                 <Icon
                   name="material-symbols:cancel-rounded"
                   class="text-sm"
                 />
                 Cancel
-              </button>
-              <button
-                type="button"
-                @click="openRescheduleModal"
-                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
-              >
-                <Icon
-                  name="material-symbols:edit-calendar-rounded"
-                  class="text-sm"
-                />
-                Reschedule
               </button>
             </div>
             <div
@@ -2125,17 +2115,17 @@
                 (activeAppointment.status === 'scheduled' ||
                   activeAppointment.status === 'confirmed')
               "
-              class="items-center gap-2"
+              class="w-full items-center gap-2 sm:w-auto"
               :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
             >
               <button
                 type="button"
                 @click="requestReschedule(activeAppointment.id)"
-                class="inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-indigo-700 shadow-sm ring-1 ring-indigo-200 transition-all hover:bg-indigo-50 active:scale-95"
+                class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:h-8 sm:w-auto"
               >
                 <Icon
                   name="material-symbols:edit-calendar-rounded"
-                  class="text-sm"
+                  class="text-sm text-slate-500"
                 />
                 Request Reschedule
               </button>
@@ -2153,20 +2143,26 @@
             <!-- Case 1: Status is reschedule_proposed -->
             <template v-if="activeAppointment.status === 'reschedule_proposed'">
               <template v-if="!isRescheduleProposedByMe(activeAppointment.id)">
-                <div class="flex shrink-0 items-center gap-2 text-sm font-bold text-amber-800">
-                  <Icon
-                    name="material-symbols:info"
-                    class="shrink-0 text-lg"
-                  />
+                <div
+                  class="flex shrink-0 items-center gap-2 text-xs font-bold text-sky-950 sm:text-sm"
+                >
+                  <div
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-base"
+                    />
+                  </div>
                   New schedule proposed by
                   {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }}
                 </div>
-                <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap md:w-auto">
                   <button
                     type="button"
                     :disabled="isAcceptingReschedule"
                     @click="acceptReschedule(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Icon
                       v-if="isAcceptingReschedule"
@@ -2175,16 +2171,40 @@
                     />
                     <Icon
                       v-else
-                      name="material-symbols:check-circle-rounded"
+                      name="lucide:check"
                       class="text-sm"
                     />
                     Accept
                   </button>
                   <button
+                    v-if="userRole?.toLowerCase() === 'patient'"
+                    type="button"
+                    @click="requestReschedule(activeAppointment.id)"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-sm text-slate-500"
+                    />
+                    Request Reschedule
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    @click="openRescheduleModal"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                  >
+                    <Icon
+                      name="material-symbols:edit-calendar-rounded"
+                      class="text-sm text-slate-500"
+                    />
+                    Propose Another Date
+                  </button>
+                  <button
                     type="button"
                     :disabled="isDecliningReschedule"
                     @click="declineReschedule(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-rose-600 shadow-sm ring-1 ring-rose-200 transition-all hover:bg-rose-50 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Icon
                       v-if="isDecliningReschedule"
@@ -2193,39 +2213,15 @@
                     />
                     <Icon
                       v-else
-                      name="lucide:x-circle"
+                      name="lucide:x"
                       class="text-sm"
                     />
                     Decline
                   </button>
                   <button
-                    v-if="userRole?.toLowerCase() === 'patient'"
-                    type="button"
-                    @click="requestReschedule(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
-                  >
-                    <Icon
-                      name="material-symbols:edit-calendar-rounded"
-                      class="text-sm"
-                    />
-                    Request Reschedule
-                  </button>
-                  <button
-                    v-else
-                    type="button"
-                    @click="openRescheduleModal"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
-                  >
-                    <Icon
-                      name="material-symbols:edit-calendar-rounded"
-                      class="text-sm"
-                    />
-                    Propose Another Date
-                  </button>
-                  <button
                     type="button"
                     @click="cancelAppointment(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-transparent px-3 text-xs font-semibold text-rose-600 transition-all hover:bg-rose-100/60 active:scale-95 sm:w-auto"
                   >
                     <Icon
                       name="material-symbols:cancel-rounded"
@@ -2236,11 +2232,17 @@
                 </div>
               </template>
               <template v-else>
-                <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
-                  <Icon
-                    name="material-symbols:hourglass-top-rounded"
-                    class="shrink-0 animate-pulse text-lg"
-                  />
+                <div
+                  class="flex items-center gap-2.5 text-xs font-semibold text-sky-950 sm:text-sm"
+                >
+                  <div
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"
+                  >
+                    <Icon
+                      name="material-symbols:hourglass-top-rounded"
+                      class="text-base"
+                    />
+                  </div>
                   Waiting for {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
                   confirm your proposed schedule...
                 </div>
@@ -2251,28 +2253,32 @@
             <template v-else-if="activeAppointment.status === 'reschedule_requested'">
               <template v-if="userRole?.toLowerCase() === 'doctor'">
                 <div class="flex items-start gap-2.5">
-                  <Icon
-                    name="material-symbols:calendar-month-rounded"
-                    class="mt-0.5 shrink-0 text-lg text-amber-700"
-                  />
+                  <div
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"
+                  >
+                    <Icon
+                      name="material-symbols:calendar-month-rounded"
+                      class="text-base"
+                    />
+                  </div>
                   <div class="flex flex-col">
-                    <span class="text-sm font-bold text-amber-900"
+                    <span class="text-xs font-bold text-sky-950 sm:text-sm"
                       >Patient requested a reschedule</span
                     >
                     <span
                       v-if="activeAppointment.requested_reschedule_date"
-                      class="text-xs font-medium text-amber-800"
+                      class="text-[11px] font-medium text-sky-800 sm:text-xs"
                     >
                       Preferred: {{ formatRequestedRescheduleLabel(activeAppointment) }}
                     </span>
                   </div>
                 </div>
-                <div class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap md:w-auto">
                   <button
                     type="button"
                     :disabled="isAcceptingReschedule"
                     @click="acceptReschedule(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-green-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-green-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-95 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
                   >
                     <Icon
                       v-if="isAcceptingReschedule"
@@ -2281,7 +2287,7 @@
                     />
                     <Icon
                       v-else
-                      name="material-symbols:check-circle-rounded"
+                      name="lucide:check"
                       class="text-sm"
                     />
                     Accept Request
@@ -2289,18 +2295,18 @@
                   <button
                     type="button"
                     @click="openRescheduleModal"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
                   >
                     <Icon
                       name="material-symbols:edit-calendar-rounded"
-                      class="text-sm"
+                      class="text-sm text-slate-500"
                     />
                     Propose Another Date
                   </button>
                   <button
                     type="button"
                     @click="cancelAppointment(activeAppointment.id)"
-                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3.5 text-xs font-bold text-red-600 shadow-sm ring-1 ring-red-200 transition-all hover:bg-red-50 active:scale-95 sm:w-auto"
+                    class="inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 sm:w-auto"
                   >
                     <Icon
                       name="material-symbols:cancel-rounded"
@@ -2311,11 +2317,17 @@
                 </div>
               </template>
               <template v-else>
-                <div class="flex items-center gap-2 text-sm font-bold text-amber-800">
-                  <Icon
-                    name="material-symbols:hourglass-top-rounded"
-                    class="shrink-0 animate-pulse text-lg"
-                  />
+                <div
+                  class="flex items-center gap-2.5 text-xs font-semibold text-sky-950 sm:text-sm"
+                >
+                  <div
+                    class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"
+                  >
+                    <Icon
+                      name="material-symbols:hourglass-top-rounded"
+                      class="text-base"
+                    />
+                  </div>
                   Waiting for doctor to propose a new schedule...
                 </div>
               </template>
@@ -2380,7 +2392,7 @@
               :class="[
                 msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row',
                 currentSearchMatchMessageId === msg.id
-                  ? '-m-1 bg-amber-500/10 p-1 shadow-sm ring-2 ring-amber-400 dark:bg-amber-400/10'
+                  ? '-m-1 bg-amber-500/10 p-1 shadow-sm ring-2 ring-amber-400'
                   : ''
               ]"
               @contextmenu="openContextMenu($event, msg)"
@@ -2498,7 +2510,7 @@
                     >
                       <div class="flex items-start gap-2.5 sm:gap-3">
                         <div
-                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs sm:h-9 sm:w-9 dark:bg-indigo-950/60 dark:text-indigo-400"
+                          class="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                         >
                           <Icon
                             name="material-symbols:event-available-rounded"
@@ -2507,12 +2519,12 @@
                         </div>
                         <div class="min-w-0 flex-1">
                           <p
-                            class="text-[9px] font-black tracking-wider text-indigo-600 uppercase sm:text-[10px] dark:text-indigo-400"
+                            class="text-primary text-[9px] font-bold tracking-wider uppercase sm:text-[10px]"
                           >
                             Requested Consultation Schedule
                           </p>
                           <p
-                            class="mt-0.5 text-xs leading-snug font-black sm:text-sm"
+                            class="mt-0.5 text-xs leading-snug font-bold sm:text-sm"
                             :class="
                               msg.sender?.id === effectiveUserUuid
                                 ? 'text-gray-900'
@@ -2523,7 +2535,7 @@
                           </p>
                           <p
                             v-if="msg.appointment_data?.purpose"
-                            class="mt-1 text-[11px] leading-tight font-semibold sm:text-xs"
+                            class="mt-1 text-[11px] leading-tight font-medium sm:text-xs"
                             :class="
                               msg.sender?.id === effectiveUserUuid
                                 ? 'text-gray-600'
@@ -2665,14 +2677,16 @@
                       class="mt-3.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
                     >
                       <button
-                        v-if="getAppointmentScheduleFromMsg(msg)"
+                        v-if="
+                          getAppointmentScheduleFromMsg(msg) && msg.sender?.id !== effectiveUserUuid
+                        "
                         type="button"
                         :disabled="
                           isAcceptingBookingDirect ===
                           extractAppointmentUuid(msg.message, 'REQUEST')
                         "
                         @click.prevent="acceptAppointmentDirectly(msg.message)"
-                        class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 sm:w-auto"
                       >
                         <Icon
                           v-if="
@@ -2684,7 +2698,7 @@
                         />
                         <Icon
                           v-else
-                          name="material-symbols:check-circle-rounded"
+                          name="lucide:check"
                           class="shrink-0 text-sm"
                         />
                         <span>Accept Request</span>
@@ -2693,7 +2707,7 @@
                       <button
                         type="button"
                         @click.prevent="openScheduleModal(msg.message)"
-                        class="w-full cursor-pointer rounded-xl bg-indigo-600 px-4 py-2.5 text-center text-xs font-bold text-white shadow-md transition-all hover:bg-indigo-700 active:scale-95 sm:w-auto"
+                        class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
                       >
                         {{
                           getAppointmentScheduleFromMsg(msg)
@@ -2704,10 +2718,13 @@
 
                       <button
                         type="button"
+                        :disabled="
+                          decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                        "
                         @click.prevent="declineAppointment(msg.message)"
-                        class="bg-foreground/10 hover:bg-foreground/20 w-full cursor-pointer rounded-xl px-4 py-2.5 text-center text-xs font-bold transition-all active:scale-95 sm:w-auto"
+                        class="w-full cursor-pointer rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
                       >
-                        Decline
+                        {{ msg.sender?.id === effectiveUserUuid ? 'Cancel' : 'Decline' }}
                       </button>
                     </div>
 
@@ -2720,19 +2737,90 @@
                       "
                       class="mt-3.5 flex flex-wrap gap-2"
                     >
-                      <button
-                        type="button"
-                        @click.prevent="
-                          requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
-                        "
-                        class="text-primary ring-primary/20 inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 sm:w-auto"
-                      >
-                        <Icon
-                          name="material-symbols:edit-calendar-rounded"
-                          class="shrink-0 text-sm"
-                        />
-                        <span>Request Reschedule</span>
-                      </button>
+                      <!-- If Doctor sent the request to Patient, let Patient Accept, Reschedule, or Decline -->
+                      <template v-if="msg.sender?.id !== effectiveUserUuid">
+                        <button
+                          type="button"
+                          :disabled="
+                            isAcceptingBookingDirect ===
+                            extractAppointmentUuid(msg.message, 'REQUEST')
+                          "
+                          @click.prevent="acceptAppointmentDirectly(msg.message)"
+                          class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            v-if="
+                              isAcceptingBookingDirect ===
+                              extractAppointmentUuid(msg.message, 'REQUEST')
+                            "
+                            name="svg-spinners:ring-resize"
+                            class="shrink-0 text-sm"
+                          />
+                          <Icon
+                            v-else
+                            name="lucide:check"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Accept Appointment</span>
+                        </button>
+                        <button
+                          type="button"
+                          @click.prevent="
+                            requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="shrink-0 text-sm text-slate-500"
+                          />
+                          <span>Request Reschedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          :disabled="
+                            decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          @click.prevent="declineAppointment(msg.message)"
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:cancel-rounded"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Decline</span>
+                        </button>
+                      </template>
+                      <!-- If Patient themselves sent the request to Doctor -->
+                      <template v-else>
+                        <button
+                          type="button"
+                          @click.prevent="
+                            requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="shrink-0 text-sm text-slate-500"
+                          />
+                          <span>Request Reschedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          :disabled="
+                            decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          @click.prevent="declineAppointment(msg.message)"
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:cancel-rounded"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Cancel</span>
+                        </button>
+                      </template>
                     </div>
                   </div>
                   <div
@@ -2742,26 +2830,24 @@
                     "
                   >
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-green-600 shadow-sm'
-                              : 'bg-green-100 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
                         >
                           <Icon
-                            name="material-symbols:check-circle-rounded"
-                            class="text-lg sm:text-xl"
+                            name="lucide:check"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Confirmed</span
                         >
@@ -2769,7 +2855,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           msg.message
@@ -2783,11 +2869,11 @@
                         @click.prevent="
                           requestReschedule(extractScheduledAppointmentUuid(msg.message))
                         "
-                        class="text-primary ring-primary/20 mt-3 inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl bg-white px-3.5 text-xs font-bold shadow-sm ring-1 transition-all hover:bg-white/90 active:scale-95 sm:w-auto"
+                        class="mt-3 inline-flex h-8 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
                       >
                         <Icon
                           name="material-symbols:edit-calendar-rounded"
-                          class="shrink-0 text-sm"
+                          class="shrink-0 text-sm text-slate-500"
                         />
                         <span>{{ isDoctorUser ? 'Reschedule' : 'Request Reschedule' }}</span>
                       </button>
@@ -2795,26 +2881,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_DECLINED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-red-500 shadow-sm'
-                              : 'bg-red-100 text-red-500 dark:bg-red-950/40 dark:text-red-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-rose-200/60 bg-rose-50 text-rose-700'
                           "
                         >
                           <Icon
-                            name="material-symbols:cancel-rounded"
-                            class="text-lg sm:text-xl"
+                            name="lucide:x"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-red-600 dark:text-red-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Request Declined</span
                         >
@@ -2822,7 +2906,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -2927,26 +3011,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_CANCELLED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-amber-600 shadow-sm'
-                              : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-rose-200/60 bg-rose-50 text-rose-700'
                           "
                         >
                           <Icon
                             name="material-symbols:event-busy-rounded"
-                            class="text-lg sm:text-xl"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-amber-800 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Cancelled</span
                         >
@@ -2954,7 +3036,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -2967,26 +3049,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_COMPLETED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-green-600 shadow-sm'
-                              : 'bg-green-100 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
                         >
                           <Icon
-                            name="material-symbols:check-circle-rounded"
-                            class="text-lg sm:text-xl"
+                            name="lucide:check"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Completed</span
                         >
@@ -2994,7 +3074,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3007,26 +3087,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_PROPOSED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-amber-600 shadow-sm'
-                              : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-sky-200/60 bg-sky-50 text-sky-700'
                           "
                         >
                           <Icon
                             name="material-symbols:edit-calendar-rounded"
-                            class="text-lg sm:text-xl"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-amber-700 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Proposed</span
                         >
@@ -3034,7 +3112,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3051,13 +3129,13 @@
                         v-if="
                           !isRescheduleHandled(msg.message) && msg.sender?.id !== effectiveUserUuid
                         "
-                        class="mt-3.5 flex flex-wrap gap-2 border-t border-amber-200/50 pt-2.5"
+                        class="mt-3.5 flex flex-wrap gap-2 border-t border-slate-200/60 pt-2.5"
                       >
                         <button
                           type="button"
                           :disabled="isAcceptingReschedule"
                           @click.prevent="acceptReschedule(extractRescheduleUuid(msg.message))"
-                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:bg-emerald-700 active:scale-95 disabled:opacity-50"
                         >
                           <Icon
                             v-if="isAcceptingReschedule"
@@ -3066,7 +3144,7 @@
                           />
                           <Icon
                             v-else
-                            name="material-symbols:check-circle-rounded"
+                            name="lucide:check"
                             class="text-xs"
                           />
                           <span>Accept Schedule</span>
@@ -3074,9 +3152,21 @@
 
                         <button
                           type="button"
+                          @click.prevent="requestReschedule(extractRescheduleUuid(msg.message))"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-2xs transition hover:bg-slate-50 active:scale-95"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="text-xs text-slate-500"
+                          />
+                          <span>Propose Another</span>
+                        </button>
+
+                        <button
+                          type="button"
                           :disabled="isDecliningReschedule"
                           @click.prevent="declineReschedule(extractRescheduleUuid(msg.message))"
-                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-bold text-rose-700 shadow-xs transition hover:bg-rose-50 active:scale-95 disabled:opacity-50"
+                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-600 shadow-2xs transition hover:bg-rose-50 active:scale-95 disabled:opacity-50"
                         >
                           <Icon
                             v-if="isDecliningReschedule"
@@ -3085,22 +3175,10 @@
                           />
                           <Icon
                             v-else
-                            name="lucide:x-circle"
+                            name="lucide:x"
                             class="text-xs"
                           />
                           <span>Decline</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          @click.prevent="requestReschedule(extractRescheduleUuid(msg.message))"
-                          class="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-100 active:scale-95"
-                        >
-                          <Icon
-                            name="material-symbols:edit-calendar-rounded"
-                            class="text-xs"
-                          />
-                          <span>Propose Another</span>
                         </button>
                       </div>
 
@@ -3112,7 +3190,7 @@
                       >
                         <Icon
                           name="material-symbols:hourglass-top-rounded"
-                          class="shrink-0 animate-pulse text-xs"
+                          class="shrink-0 text-xs"
                         />
                         <span
                           >Waiting for
@@ -3124,26 +3202,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_REQUESTED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-amber-600 shadow-sm'
-                              : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-sky-200/60 bg-sky-50 text-sky-700'
                           "
                         >
                           <Icon
                             name="material-symbols:event-repeat-rounded"
-                            class="text-lg sm:text-xl"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-amber-700 dark:text-amber-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Requested</span
                         >
@@ -3151,7 +3227,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3166,26 +3242,24 @@
                   </div>
                   <div v-else-if="msg.message.includes('[APPOINTMENT_RESCHEDULE_ACCEPTED:')">
                     <div class="flex flex-col">
-                      <div class="mb-2 flex items-center gap-2">
+                      <div class="mb-2 flex items-center gap-2.5">
                         <div
-                          class="shrink-0 rounded-full p-1.5 sm:p-2"
+                          class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
                             msg.sender?.id === effectiveUserUuid
-                              ? 'bg-white text-green-600 shadow-sm'
-                              : 'bg-green-100 text-green-600 dark:bg-green-950/40 dark:text-green-400'
+                              ? 'bg-white/15 text-white ring-1 ring-white/20'
+                              : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
                         >
                           <Icon
-                            name="material-symbols:check-circle-rounded"
-                            class="text-lg sm:text-xl"
+                            name="lucide:check"
+                            class="text-base sm:text-lg"
                           />
                         </div>
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
-                              ? 'text-white'
-                              : 'text-green-700 dark:text-green-400'
+                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Accepted</span
                         >
@@ -3193,7 +3267,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'opacity-90'
+                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3684,20 +3758,8 @@
               <div class="flex flex-col gap-3">
                 <AppButton
                   variant="solid"
-                  class="flex items-center justify-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700"
-                  :disabled="isCompleting || isCancelling"
-                  @click="completeAppointment"
-                >
-                  <Icon
-                    name="material-symbols:check-circle-rounded"
-                    class="text-lg"
-                  />
-                  {{ isCompleting ? 'Marking Accomplished...' : 'Mark as Accomplished' }}
-                </AppButton>
-                <AppButton
-                  variant="solid"
                   class="flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700"
-                  :disabled="isCompleting || isCancelling"
+                  :disabled="isCancelling"
                   @click="cancelAppointmentDirectly"
                 >
                   <Icon
@@ -3755,53 +3817,6 @@
                   variant="unstyled"
                   class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
                   @click="showDeleteConversationModal = false"
-                >
-                  Cancel
-                </AppButton>
-              </div>
-            </div>
-          </div>
-        </Transition>
-
-        <!-- Complete Appointment Confirmation Modal -->
-        <Transition name="modal">
-          <div
-            v-if="showCompleteConfirm"
-            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
-            @click.self="showCompleteConfirm = false"
-          >
-            <div
-              class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl"
-            >
-              <div class="mb-6 flex flex-col items-center text-center">
-                <div
-                  class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100"
-                >
-                  <Icon
-                    name="material-symbols:check-circle-outline-rounded"
-                    class="text-4xl text-indigo-600"
-                  />
-                </div>
-                <h3 class="text-2xl font-bold">Complete Appointment?</h3>
-                <p class="text-foreground/60 mt-2">
-                  Are you sure you want to mark this appointment as completed? This will move it to
-                  the patient's records.
-                </p>
-              </div>
-
-              <div class="flex flex-col gap-3">
-                <AppButton
-                  variant="solid"
-                  class="bg-indigo-600 text-white hover:bg-indigo-700"
-                  :disabled="isCompleting"
-                  @click="completeAppointment"
-                >
-                  {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
-                </AppButton>
-                <AppButton
-                  variant="unstyled"
-                  class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
-                  @click="showCompleteConfirm = false"
                 >
                   Cancel
                 </AppButton>
@@ -4037,7 +4052,7 @@
                             {{ record.label || record.title || 'Clinical Consultation' }}
                           </h4>
                           <span
-                            class="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 uppercase dark:text-emerald-400"
+                            class="rounded-md bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 uppercase"
                           >
                             Completed
                           </span>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
   import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { userService } from '~/api/user/UserService'
+  import { conversationService } from '~/api/conversation/ConversationService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
   import { toast } from 'vue-sonner'
 
@@ -23,7 +25,18 @@
 
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
-  const { resetScanner, appointmentUuid, patientUuid, saveActiveDiagnosisState } = useDiagnosis()
+  const { resetScanner, appointmentUuid, patientUuid, saveActiveDiagnosisState, pendingPatientRegistration } = useDiagnosis()
+  const { calculateAge } = useFormSanitizer()
+  const currentDoctorUuid = useCookie('user_uuid')
+
+  // Patient directory data for Schedule New Appointment modal
+  const doctorRegisteredPatients = ref<any[]>([])
+  const doctorConversations = ref<any[]>([])
+  const isLoadingPatients = ref(false)
+  const isLoadingConversations = ref(false)
+  const selectedPatientForAppointment = ref<any | null>(null)
+  const route = useRoute()
+  const localSearch = ref((route.query.search as string) || '')
 
   const showScheduleModal = ref(false)
   const rescheduleModalAppt = ref<any | null>(null)
@@ -320,6 +333,210 @@
     selectedTimetableAppt.value = appt
   }
 
+  // ─── Fetch Doctor-Registered Patients & Conversations ────────────────────────
+  const fetchRegisteredPatients = async () => {
+    try {
+      isLoadingPatients.value = true
+      const response = await userService.listDoctorPatients({ per_page: 100 })
+      const raw = response?.data ?? response ?? []
+      doctorRegisteredPatients.value = Array.isArray(raw) ? raw : []
+    } catch (e) {
+      console.error('Failed to fetch registered patients:', e)
+    } finally {
+      isLoadingPatients.value = false
+    }
+  }
+
+  const fetchConversations = async () => {
+    try {
+      isLoadingConversations.value = true
+      const response = await conversationService.list({ per_page: 100 })
+      const raw = response?.data ?? response ?? []
+      doctorConversations.value = Array.isArray(raw) ? raw : []
+    } catch (e) {
+      console.error('Failed to fetch conversations:', e)
+    } finally {
+      isLoadingConversations.value = false
+    }
+  }
+
+  // ─── Unified Patients list for Appointment Scheduling (matches Patients page) ─
+  const unifiedPatients = computed(() => {
+    const map = new Map<string, any>()
+
+    // 0. Include in-memory staged patient from scanner session if present
+    if (pendingPatientRegistration.value) {
+      const p = pendingPatientRegistration.value
+      const key = 'pending_new_patient'
+      const fullName = [p.firstName, p.lastName].filter(Boolean).join(' ') || 'Staged Patient'
+      const address =
+        [p.barangay, p.city, p.province].filter(Boolean).join(', ') || 'Cruz Skin Clinic'
+      map.set(key, {
+        uuid: 'pending_new_patient',
+        id: 0,
+        name: fullName,
+        firstName: p.firstName || '',
+        middleName: p.middleName || '',
+        lastName: p.lastName || '',
+        email: p.email || '',
+        contact_number: p.contact_number || null,
+        date_of_birth: p.date_of_birth || null,
+        age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
+        gender: p.gender || 'N/A',
+        location: address,
+        avatar: null,
+        isRegistered: true,
+        isWalkIn: Boolean(p.is_walk_in),
+        accountStatus: 'active'
+      })
+    }
+
+    // 1. Process Doctor-Registered Patients first
+    for (const p of doctorRegisteredPatients.value) {
+      if (
+        (p.uuid && p.uuid === currentDoctorUuid.value) ||
+        (p.role && p.role !== 'patient')
+      ) {
+        continue
+      }
+      const key = p.uuid || `reg_${p.id}`
+      const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown Patient'
+      const address =
+        [p.barangay, p.city, p.province].filter(Boolean).join(', ') ||
+        p.location ||
+        'Cruz Skin Clinic'
+      const isWalkIn = Boolean(
+        p.is_walk_in ||
+        (p.email && p.email.startsWith('walkin.') && p.email.endsWith('@clinic.local'))
+      )
+
+      map.set(key, {
+        uuid: p.uuid,
+        id: p.id,
+        name: fullName,
+        firstName: p.first_name || '',
+        middleName: p.middle_name || '',
+        lastName: p.last_name || '',
+        email: p.email || '',
+        contact_number: p.contact_number || p.phone || null,
+        date_of_birth: p.date_of_birth || null,
+        age: calculateAge(p.date_of_birth) ?? p.age ?? 'N/A',
+        gender: p.gender || 'N/A',
+        location: address,
+        avatar: p.avatar_path ? getStorageUrl(p.avatar_path) : null,
+        isRegistered: Boolean(p.is_doctor_registered || p.registered_by_doctor_id),
+        isWalkIn,
+        accountStatus: p.account_status || 'active'
+      })
+    }
+
+    // 2. Merge consultation appointments
+    for (const appt of appointments.value) {
+      const patientObj = (appt as any).raw?.patient || (appt as any).patient
+      const patientUuid = (appt as any).patient_uuid || patientObj?.uuid
+      const patientId = appt.patient_id || patientObj?.id
+
+      if (!patientUuid && !patientId) continue
+
+      const key = patientUuid || `reg_${patientId}`
+      const existing = map.get(key)
+      const patientName =
+        appt.patientName ||
+        patientObj?.name ||
+        [patientObj?.first_name, patientObj?.last_name].filter(Boolean).join(' ') ||
+        'Consultation Patient'
+
+      if (!existing) {
+        const isWalkIn = Boolean(
+          patientObj?.is_walk_in ||
+          (patientObj?.email &&
+            patientObj.email.startsWith('walkin.') &&
+            patientObj.email.endsWith('@clinic.local'))
+        )
+
+        map.set(key, {
+          uuid: patientUuid || `temp_${patientId}`,
+          id: patientId || 0,
+          name: patientName,
+          firstName: patientObj?.first_name || '',
+          middleName: patientObj?.middle_name || '',
+          lastName: patientObj?.last_name || '',
+          email: patientObj?.email || appt.patientEmail || '',
+          contact_number: patientObj?.contact_number || null,
+          date_of_birth: patientObj?.date_of_birth || null,
+          age: calculateAge(patientObj?.date_of_birth) ?? appt.patient_age ?? 'N/A',
+          gender: patientObj?.gender || appt.patient_gender || 'N/A',
+          location: patientObj?.location || appt.location || 'Cruz Skin Clinic',
+          avatar: patientObj?.avatar_path
+            ? getStorageUrl(patientObj.avatar_path)
+            : appt.avatar || null,
+          isRegistered: Boolean(patientObj?.is_doctor_registered),
+          isWalkIn,
+          accountStatus: patientObj?.account_status || 'active'
+        })
+      }
+    }
+
+    // 3. Merge conversations (chat patients)
+    for (const conv of doctorConversations.value) {
+      const otherUser =
+        conv.user1_uuid === currentDoctorUuid.value ? conv.user2 : conv.user1
+      if (!otherUser || otherUser.role !== 'patient') continue
+
+      const key = otherUser.uuid || `reg_${otherUser.id}`
+      const existing = map.get(key)
+      const fullName =
+        [otherUser.first_name, otherUser.last_name].filter(Boolean).join(' ') ||
+        otherUser.name ||
+        'Chat Patient'
+
+      if (!existing) {
+        map.set(key, {
+          uuid: otherUser.uuid,
+          id: otherUser.id,
+          name: fullName,
+          firstName: otherUser.first_name || '',
+          middleName: otherUser.middle_name || '',
+          lastName: otherUser.last_name || '',
+          email: otherUser.email || '',
+          contact_number: otherUser.contact_number || null,
+          date_of_birth: otherUser.date_of_birth || null,
+          age: calculateAge(otherUser.date_of_birth) ?? 'N/A',
+          gender: otherUser.gender || 'N/A',
+          location: 'Cruz Skin Clinic',
+          avatar: otherUser.avatar_path ? getStorageUrl(otherUser.avatar_path) : null,
+          isRegistered: false,
+          isWalkIn: false,
+          accountStatus: otherUser.account_status || 'active'
+        })
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+  })
+
+  // ─── Modal actions matching Patients page ─────────────────────────────────────
+  const openNewAppointmentModal = () => {
+    selectedPatientForAppointment.value = null
+    showScheduleModal.value = true
+  }
+
+  const closeScheduleModal = () => {
+    showScheduleModal.value = false
+    selectedPatientForAppointment.value = null
+  }
+
+  const handleScheduledModal = async () => {
+    closeScheduleModal()
+    await Promise.all([fetchAppointments(), fetchRegisteredPatients()])
+  }
+
+  onMounted(() => {
+    fetchAppointments()
+    fetchRegisteredPatients()
+    fetchConversations()
+  })
+
   const filteredAppointments = computed(() => {
     let sourceList: any[] = []
 
@@ -390,13 +607,13 @@
       }
     })
 
-    if (!searchQuery.value) return list
-    const query = searchQuery.value.toLowerCase()
+    const rawQuery = (localSearch.value || searchQuery.value || '').trim().toLowerCase()
+    if (!rawQuery) return list
     return list.filter(
       appt =>
-        appt.patientName.toLowerCase().includes(query) ||
-        appt.condition.toLowerCase().includes(query) ||
-        appt.clinic_name.toLowerCase().includes(query)
+        (appt.patientName && appt.patientName.toLowerCase().includes(rawQuery)) ||
+        (appt.condition && appt.condition.toLowerCase().includes(rawQuery)) ||
+        (appt.clinic_name && appt.clinic_name.toLowerCase().includes(rawQuery))
     )
   })
 
@@ -408,7 +625,7 @@
     return filteredAppointments.value.slice(start, start + appointmentsPerPage)
   })
 
-  watch([searchQuery, activeTab], () => {
+  watch([localSearch, searchQuery, activeTab], () => {
     appointmentCurrentPage.value = 1
   })
 
@@ -508,10 +725,10 @@
         </div>
 
         <AppButton
-          variant="solid"
+          variant="outline"
           rounded="both"
-          @click="showScheduleModal = true"
-          class="inline-flex cursor-pointer items-center justify-center gap-2 bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95"
+          @click="openNewAppointmentModal"
+          class="inline-flex cursor-pointer items-center justify-center gap-2 border-indigo-200 bg-indigo-50/50 px-4 py-2 text-xs font-bold text-indigo-700 shadow-xs transition hover:bg-indigo-100/70 active:scale-95"
         >
           <Icon
             name="lucide:calendar-plus"
@@ -691,9 +908,36 @@
           </button>
         </div>
 
-        <div class="text-xs font-semibold text-gray-500">
-          Showing <span class="font-bold text-gray-800">{{ filteredAppointments.length }}</span>
-          {{ filteredAppointments.length === 1 ? 'consultation' : 'consultations' }}
+        <!-- Search Input & Count -->
+        <div class="flex items-center gap-3">
+          <div class="relative w-full sm:w-64">
+            <Icon
+              name="lucide:search"
+              class="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              v-model="localSearch"
+              placeholder="Search patient, condition, clinic..."
+              class="h-9 w-full rounded-xl border border-gray-200 bg-white pr-3 pl-9 text-xs font-medium text-gray-800 placeholder-gray-400 shadow-2xs transition outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+            />
+            <button
+              v-if="localSearch"
+              type="button"
+              @click="localSearch = ''"
+              class="absolute top-1/2 right-2.5 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <Icon
+                name="lucide:x"
+                class="h-3.5 w-3.5"
+              />
+            </button>
+          </div>
+
+          <div class="hidden shrink-0 text-xs font-semibold text-gray-500 sm:block">
+            Showing <span class="font-bold text-gray-800">{{ filteredAppointments.length }}</span>
+            {{ filteredAppointments.length === 1 ? 'consultation' : 'consultations' }}
+          </div>
         </div>
       </div>
     </template>
@@ -1431,11 +1675,16 @@
       "
     />
 
-    <!-- 3. New Appointment / Follow-up Booking Modal -->
-    <AppModalDoctorScheduleNewModal
+    <!-- 3. Schedule New Appointment Modal (Copied from Doctor Patients Page) -->
+    <AppModalAppointmentSchedule
       v-if="showScheduleModal"
-      @close="showScheduleModal = false"
-      @scheduled="fetchAppointments"
+      :patient="selectedPatientForAppointment"
+      :patients="unifiedPatients"
+      :patient-name="selectedPatientForAppointment?.name || selectedPatientForAppointment?.doctor"
+      :patient-avatar="selectedPatientForAppointment?.avatar"
+      mode="schedule"
+      @close="closeScheduleModal"
+      @scheduled="handleScheduledModal"
     />
 
     <!-- 4. Timetable Quick Detail Dialog -->

@@ -20,6 +20,11 @@ export interface AdminAppealDiagnosis {
   image_path?: string | null
   is_out_of_scope?: boolean
   out_of_scope_category?: string | null
+  patient_consented_dataset?: boolean
+  patient_consent?: boolean
+  doctor_authorized_dataset?: boolean
+  admin_approved_dataset?: boolean
+  is_eligible_for_dataset?: boolean
   contributed_to_dataset?: boolean
   created_at?: string
   patient?: {
@@ -28,6 +33,7 @@ export interface AdminAppealDiagnosis {
     first_name?: string
     last_name?: string
     email?: string
+    consent_dataset?: boolean
   } | null
 }
 
