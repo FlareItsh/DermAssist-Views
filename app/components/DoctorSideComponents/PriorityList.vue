@@ -61,10 +61,7 @@
       const pUuid = p.uuid
       const pId = p.id ? String(p.id) : null
 
-      if (
-        (pUuid && pUuid === currentDoctorUuid.value) ||
-        (p.role && p.role !== 'patient')
-      ) {
+      if ((pUuid && pUuid === currentDoctorUuid.value) || (p.role && p.role !== 'patient')) {
         continue
       }
 
@@ -207,12 +204,6 @@
     }
   }
 
-  const goToCompleteAppointment = (uuid?: string) => {
-    if (uuid) {
-      navigateTo(`${rolePrefix.value}/messages/${uuid}?complete=1`)
-    }
-  }
-
   const getConditionBadge = (condition: string) => {
     const c = condition?.toLowerCase() || ''
     if (
@@ -339,20 +330,6 @@
               <Icon
                 name="mingcute:message-4-line"
                 class="text-secondary text-sm"
-              />
-            </AppButton>
-            <AppButton
-              v-if="patient.hasActiveAppointment"
-              variant="unstyled"
-              size="unstyled"
-              rounded="unstyled"
-              @click="goToCompleteAppointment(patient.conversationUuid)"
-              title="Complete Appointment"
-              class="bg-primary hover:bg-primary/80 flex h-7.5 w-7.5 items-center justify-center rounded-full transition-colors"
-            >
-              <Icon
-                name="material-symbols:check-rounded"
-                class="text-sm text-white"
               />
             </AppButton>
           </div>

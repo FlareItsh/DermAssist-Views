@@ -370,6 +370,7 @@
   const deduplicatedMessages = computed(() => {
     const valid = allMessages.value.filter(m => m && m.id)
     const seenDeclinedUuids = new Set<string>()
+    const seenCancelledUuids = new Set<string>()
 
     return valid.filter(m => {
       if (m.message && m.message.includes('[APPOINTMENT_DECLINED:')) {
@@ -380,6 +381,16 @@
             return false
           }
           seenDeclinedUuids.add(apptUuid)
+        }
+      }
+      if (m.message && m.message.includes('[APPOINTMENT_CANCELLED:')) {
+        const match = m.message.match(/\[APPOINTMENT_CANCELLED:([a-f0-9-]+)\]/i)
+        if (match && match[1]) {
+          const apptUuid = match[1]
+          if (seenCancelledUuids.has(apptUuid)) {
+            return false
+          }
+          seenCancelledUuids.add(apptUuid)
         }
       }
       return true
@@ -857,6 +868,10 @@
     if (scheduleMatch) {
       return scheduleMatch[1].trim()
     }
+    const scheduledOnMatch = msg.message.match(/scheduled (?:on|for)\s*<b>([^<]+)<\/b>/i)
+    if (scheduledOnMatch) {
+      return scheduledOnMatch[1].trim()
+    }
     return null
   }
 
@@ -880,7 +895,9 @@
     const uuid = extractAppointmentUuid(message, 'REQUEST')
     if (!uuid) return true
     if (decliningApptUuids.value.has(uuid)) return true
-    const apptInStore = appointments.value.find(a => a.id === uuid || a.uuid === uuid)
+    const apptInStore = [...appointments.value, ...pendingAppointments.value].find(
+      a => a.id === uuid || a.uuid === uuid
+    )
     if (apptInStore && apptInStore.status !== 'pending') {
       return true
     }
@@ -1143,10 +1160,8 @@
     }
   }
 
-  const showCompleteConfirm = ref(false)
   const showCancelConfirm = ref(false)
   const showResolveModal = ref(false)
-  const isCompleting = ref(false)
   const isCancelling = ref(false)
 
   const isOverdue = computed(() => {
@@ -1173,7 +1188,6 @@
     }
 
     if (route.query.complete === '1') {
-      showCompleteConfirm.value = true
       const query = { ...route.query }
       delete query.complete
       router.replace({ query })
@@ -1222,31 +1236,6 @@
     openCompleteConfirmFromRoute,
     { immediate: true }
   )
-
-  const completeAppointment = async () => {
-    if (!activeAppointment.value) return
-    isCompleting.value = true
-    try {
-      const completedAppointment = activeAppointment.value
-      await appointmentService.update(completedAppointment.id, { status: 'completed' })
-      await conversationService.sendMessage(
-        props.conversationUuid,
-        `[APPOINTMENT_COMPLETED:${completedAppointment.id}] Appointment completed by the doctor. Your visit summary has been moved to your records.`
-      )
-      removeFromPriority(completedAppointment.id)
-      showCompleteConfirm.value = false
-      showResolveModal.value = false
-      fetchAppointments()
-      fetchMessages(1)
-    } catch (e: any) {
-      console.error(e)
-      const errorMsg =
-        e.data?.message || e.response?.data?.message || e.message || 'Cannot complete consultation.'
-      toast.error(errorMsg)
-    } finally {
-      isCompleting.value = false
-    }
-  }
 
   const cancelAppointmentDirectly = async () => {
     const targetUuid = pendingCancelUuid.value || activeAppointment.value?.id
@@ -1921,7 +1910,7 @@
     <div class="relative flex min-h-0 flex-1 flex-row overflow-hidden">
       <!-- Chat Body Container (relative container holding chat messages and inputs) -->
       <div class="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        <!-- Pending Appointment Request Banner (Doctor-only, shown when patient has a pending request for this conversation) -->
+        <!-- Pending Appointment Request Banner (Shown when conversation has a pending appointment request) -->
         <Transition
           enter-active-class="transition duration-300 ease-out"
           enter-from-class="transform -translate-y-full opacity-0"
@@ -1931,7 +1920,7 @@
           leave-to-class="transform -translate-y-full opacity-0"
         >
           <div
-            v-if="userRole?.toLowerCase() === 'doctor' && pendingAppointmentForConversation"
+            v-if="pendingAppointmentForConversation"
             class="border-b border-sky-100 bg-sky-50/70 px-4 py-3 sm:px-6"
           >
             <div
@@ -1947,9 +1936,28 @@
                   />
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-bold text-slate-900">New Appointment Request</p>
+                  <p class="text-sm font-bold text-slate-900">
+                    {{
+                      userRole?.toLowerCase() === 'doctor'
+                        ? pendingAppointmentForConversation.raw?.appointment_source ===
+                          'doctor_scheduled'
+                          ? 'Appointment Proposal Awaiting Patient'
+                          : 'New Appointment Request'
+                        : 'Appointment Request from Doctor'
+                    }}
+                  </p>
                   <p class="text-xs font-medium text-slate-600">
-                    {{ pendingAppointmentForConversation.doctor }} is requesting an appointment
+                    <template v-if="userRole?.toLowerCase() === 'doctor'">
+                      {{
+                        pendingAppointmentForConversation.raw?.appointment_source ===
+                        'doctor_scheduled'
+                          ? `Awaiting confirmation from ${otherPersonName} for proposed schedule`
+                          : `${pendingAppointmentForConversation.doctor} is requesting an appointment`
+                      }}
+                    </template>
+                    <template v-else>
+                      Dr. {{ convData?.doctor?.last_name || 'Your doctor' }} proposed an appointment
+                    </template>
                     <span
                       v-if="
                         pendingAppointmentForConversation.info &&
@@ -2075,47 +2083,31 @@
 
             <div
               v-if="userRole?.toLowerCase() === 'doctor'"
-              class="w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center"
-              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'flex'"
+              class="w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
+              :class="isApptBarCollapsed ? 'hidden sm:flex' : 'grid'"
             >
-              <!-- Primary Action -->
               <button
                 type="button"
-                @click="showCompleteConfirm = true"
-                class="bg-primary inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-semibold text-white shadow-2xs transition-all hover:opacity-90 active:scale-95 sm:h-8 sm:w-auto sm:px-3.5"
+                @click="openRescheduleModal"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:h-8 sm:px-3.5"
               >
                 <Icon
-                  name="material-symbols:check-circle-rounded"
+                  name="material-symbols:edit-calendar-rounded"
+                  class="text-sm text-slate-500"
+                />
+                Reschedule
+              </button>
+              <button
+                type="button"
+                @click="showCancelConfirm = true"
+                class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 sm:h-8 sm:px-3.5"
+              >
+                <Icon
+                  name="material-symbols:cancel-rounded"
                   class="text-sm"
                 />
-                Mark as Accomplished
+                Cancel
               </button>
-
-              <!-- Secondary Actions: 2 columns on mobile, inline on desktop -->
-              <div class="grid grid-cols-2 gap-2 sm:flex sm:items-center">
-                <button
-                  type="button"
-                  @click="openRescheduleModal"
-                  class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:h-8 sm:px-3.5"
-                >
-                  <Icon
-                    name="material-symbols:edit-calendar-rounded"
-                    class="text-sm text-slate-500"
-                  />
-                  Reschedule
-                </button>
-                <button
-                  type="button"
-                  @click="showCancelConfirm = true"
-                  class="inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 sm:h-8 sm:px-3.5"
-                >
-                  <Icon
-                    name="material-symbols:cancel-rounded"
-                    class="text-sm"
-                  />
-                  Cancel
-                </button>
-              </div>
             </div>
             <div
               v-else-if="
@@ -2685,7 +2677,9 @@
                       class="mt-3.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
                     >
                       <button
-                        v-if="getAppointmentScheduleFromMsg(msg)"
+                        v-if="
+                          getAppointmentScheduleFromMsg(msg) && msg.sender?.id !== effectiveUserUuid
+                        "
                         type="button"
                         :disabled="
                           isAcceptingBookingDirect ===
@@ -2724,10 +2718,13 @@
 
                       <button
                         type="button"
+                        :disabled="
+                          decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                        "
                         @click.prevent="declineAppointment(msg.message)"
-                        class="w-full cursor-pointer rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 sm:w-auto"
+                        class="w-full cursor-pointer rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
                       >
-                        Decline
+                        {{ msg.sender?.id === effectiveUserUuid ? 'Cancel' : 'Decline' }}
                       </button>
                     </div>
 
@@ -2740,19 +2737,90 @@
                       "
                       class="mt-3.5 flex flex-wrap gap-2"
                     >
-                      <button
-                        type="button"
-                        @click.prevent="
-                          requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
-                        "
-                        class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
-                      >
-                        <Icon
-                          name="material-symbols:edit-calendar-rounded"
-                          class="shrink-0 text-sm text-slate-500"
-                        />
-                        <span>Request Reschedule</span>
-                      </button>
+                      <!-- If Doctor sent the request to Patient, let Patient Accept, Reschedule, or Decline -->
+                      <template v-if="msg.sender?.id !== effectiveUserUuid">
+                        <button
+                          type="button"
+                          :disabled="
+                            isAcceptingBookingDirect ===
+                            extractAppointmentUuid(msg.message, 'REQUEST')
+                          "
+                          @click.prevent="acceptAppointmentDirectly(msg.message)"
+                          class="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-emerald-700 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            v-if="
+                              isAcceptingBookingDirect ===
+                              extractAppointmentUuid(msg.message, 'REQUEST')
+                            "
+                            name="svg-spinners:ring-resize"
+                            class="shrink-0 text-sm"
+                          />
+                          <Icon
+                            v-else
+                            name="lucide:check"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Accept Appointment</span>
+                        </button>
+                        <button
+                          type="button"
+                          @click.prevent="
+                            requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="shrink-0 text-sm text-slate-500"
+                          />
+                          <span>Request Reschedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          :disabled="
+                            decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          @click.prevent="declineAppointment(msg.message)"
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:cancel-rounded"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Decline</span>
+                        </button>
+                      </template>
+                      <!-- If Patient themselves sent the request to Doctor -->
+                      <template v-else>
+                        <button
+                          type="button"
+                          @click.prevent="
+                            requestReschedule(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:edit-calendar-rounded"
+                            class="shrink-0 text-sm text-slate-500"
+                          />
+                          <span>Request Reschedule</span>
+                        </button>
+                        <button
+                          type="button"
+                          :disabled="
+                            decliningApptUuids.has(extractAppointmentUuid(msg.message, 'REQUEST'))
+                          "
+                          @click.prevent="declineAppointment(msg.message)"
+                          class="inline-flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 self-start rounded-xl border border-rose-200 bg-white px-3.5 text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
+                        >
+                          <Icon
+                            name="material-symbols:cancel-rounded"
+                            class="shrink-0 text-sm"
+                          />
+                          <span>Cancel</span>
+                        </button>
+                      </template>
                     </div>
                   </div>
                   <div
@@ -3690,20 +3758,8 @@
               <div class="flex flex-col gap-3">
                 <AppButton
                   variant="solid"
-                  class="flex items-center justify-center gap-2 bg-indigo-600 text-white hover:bg-indigo-700"
-                  :disabled="isCompleting || isCancelling"
-                  @click="completeAppointment"
-                >
-                  <Icon
-                    name="material-symbols:check-circle-rounded"
-                    class="text-lg"
-                  />
-                  {{ isCompleting ? 'Marking Accomplished...' : 'Mark as Accomplished' }}
-                </AppButton>
-                <AppButton
-                  variant="solid"
                   class="flex items-center justify-center gap-2 bg-red-600 text-white hover:bg-red-700"
-                  :disabled="isCompleting || isCancelling"
+                  :disabled="isCancelling"
                   @click="cancelAppointmentDirectly"
                 >
                   <Icon
@@ -3761,53 +3817,6 @@
                   variant="unstyled"
                   class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
                   @click="showDeleteConversationModal = false"
-                >
-                  Cancel
-                </AppButton>
-              </div>
-            </div>
-          </div>
-        </Transition>
-
-        <!-- Complete Appointment Confirmation Modal -->
-        <Transition name="modal">
-          <div
-            v-if="showCompleteConfirm"
-            class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
-            @click.self="showCompleteConfirm = false"
-          >
-            <div
-              class="modal-container bg-card border-border w-full max-w-md overflow-hidden rounded-3xl border p-8 shadow-2xl"
-            >
-              <div class="mb-6 flex flex-col items-center text-center">
-                <div
-                  class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100"
-                >
-                  <Icon
-                    name="material-symbols:check-circle-outline-rounded"
-                    class="text-4xl text-indigo-600"
-                  />
-                </div>
-                <h3 class="text-2xl font-bold">Complete Appointment?</h3>
-                <p class="text-foreground/60 mt-2">
-                  Are you sure you want to mark this appointment as completed? This will move it to
-                  the patient's records.
-                </p>
-              </div>
-
-              <div class="flex flex-col gap-3">
-                <AppButton
-                  variant="solid"
-                  class="bg-indigo-600 text-white hover:bg-indigo-700"
-                  :disabled="isCompleting"
-                  @click="completeAppointment"
-                >
-                  {{ isCompleting ? 'Completing...' : 'Yes, Complete Appointment' }}
-                </AppButton>
-                <AppButton
-                  variant="unstyled"
-                  class="bg-foreground/5 text-foreground/70 hover:bg-foreground/10 font-bold transition-all"
-                  @click="showCompleteConfirm = false"
                 >
                   Cancel
                 </AppButton>
