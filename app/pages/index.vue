@@ -284,7 +284,7 @@
                 class="group relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/20 bg-black/20 shadow-lg"
               >
                 <NuxtImg
-                  src="/images/about-clinical-1.png"
+                  src="/images/about-clinical-face.jpg"
                   class="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
                   alt="Clinical Dermoscopic Device Examination"
                 />
@@ -301,7 +301,7 @@
                 class="group relative w-full max-w-sm overflow-hidden rounded-2xl border border-white/20 bg-black/20 shadow-lg lg:ml-8"
               >
                 <NuxtImg
-                  src="/images/about-clinical-2.png"
+                  src="/images/about-clinical-arm.jpg"
                   class="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
                   alt="Dermatologist Clinical Consultation"
                 />
