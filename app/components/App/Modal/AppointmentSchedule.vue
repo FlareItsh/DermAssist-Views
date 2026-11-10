@@ -44,19 +44,89 @@
     }
   )
 
-  const displayPatientName = computed(() => {
-    if (props.patientName) return props.patientName
-    const p = internalSelectedPatient.value || props.patient
+  const isSwitchingPatient = ref(false)
+  const patientSearchQuery = ref('')
+  const patientFilterTab = ref<'all' | 'registered' | 'walkin'>('all')
+
+  const getPatientName = (p: any): string => {
     if (!p) return ''
     if (p.name) return p.name
     if (p.doctor && !p.doctor.startsWith('Dr.')) return p.doctor
     const full = [p.first_name || p.firstName, p.last_name || p.lastName].filter(Boolean).join(' ')
     return full || p.email || 'Patient'
+  }
+
+  const getPatientInitials = (p: any): string => {
+    const name = getPatientName(p)
+    if (!name) return 'PT'
+    const parts = name.trim().split(/\s+/)
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
+    return name.slice(0, 2).toUpperCase()
+  }
+
+  const selectPatient = (patient: any) => {
+    internalSelectedPatient.value = patient
+    isSwitchingPatient.value = false
+    patientSearchQuery.value = ''
+  }
+
+  const handleSwitchPatient = () => {
+    isSwitchingPatient.value = true
+    patientSearchQuery.value = ''
+  }
+
+  const registeredPatientsCount = computed(() => {
+    return (props.patients || []).filter(
+      (p: any) => p.isRegistered || (!p.isWalkIn && p.email)
+    ).length
+  })
+
+  const walkinPatientsCount = computed(() => {
+    return (props.patients || []).filter(
+      (p: any) => p.isWalkIn || (!p.isRegistered && !p.email)
+    ).length
+  })
+
+  const filteredPatientList = computed(() => {
+    const list = props.patients || []
+    const query = patientSearchQuery.value.trim().toLowerCase()
+
+    return list.filter((p: any) => {
+      const isWalkIn = Boolean(p.isWalkIn || (!p.isRegistered && !p.email))
+      if (patientFilterTab.value === 'registered' && isWalkIn) return false
+      if (patientFilterTab.value === 'walkin' && !isWalkIn) return false
+
+      if (!query) return true
+
+      const name = getPatientName(p).toLowerCase()
+      const email = (p.email || '').toLowerCase()
+      const contact = (p.contact_number || p.phone || '').toLowerCase()
+      const id = String(p.id || p.uuid || '').toLowerCase()
+
+      return (
+        name.includes(query) ||
+        email.includes(query) ||
+        contact.includes(query) ||
+        id.includes(query)
+      )
+    })
+  })
+
+  const displayPatientName = computed(() => {
+    const p = internalSelectedPatient.value || props.patient
+    if (p) {
+      const name = getPatientName(p)
+      if (name) return name
+    }
+    if (props.patientName) return props.patientName
+    return ''
   })
 
   const displayPatientAvatar = computed(() => {
     return (
-      props.patientAvatar || internalSelectedPatient.value?.avatar || props.patient?.avatar || ''
+      internalSelectedPatient.value?.avatar || props.patientAvatar || props.patient?.avatar || ''
     )
   })
 
@@ -596,6 +666,140 @@
 
     <!-- Scrollable configuration body -->
     <div class="flex flex-col gap-4 p-4 pb-28">
+      <!-- Patient Selector & Identity (Mobile) -->
+      <div
+        v-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
+      >
+        <!-- State 1: Verified Selected Patient Card -->
+        <div
+          v-if="internalSelectedPatient && !isSwitchingPatient"
+          class="rounded-2xl border border-gray-200 bg-white p-3 shadow-2xs"
+        >
+          <div class="mb-1.5 flex items-center justify-between">
+            <div class="flex items-center gap-1 text-[10px] font-bold tracking-wider text-gray-500 uppercase">
+              <Icon name="heroicons:check-badge-20-solid" class="h-3.5 w-3.5 text-emerald-600" />
+              <span>Selected Patient</span>
+            </div>
+            <button
+              v-if="props.patients.length > 1"
+              type="button"
+              @click="handleSwitchPatient"
+              class="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600"
+            >
+              <Icon name="heroicons:arrow-path-20-solid" class="h-3 w-3" />
+              <span>Switch</span>
+            </button>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-xs font-bold text-indigo-700">
+              <img
+                v-if="internalSelectedPatient.avatar && !avatarError"
+                :src="getStorageUrl(internalSelectedPatient.avatar)"
+                :alt="getPatientName(internalSelectedPatient)"
+                class="h-full w-full object-cover"
+                @error="avatarError = true"
+              />
+              <span v-else>{{ getPatientInitials(internalSelectedPatient) }}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5">
+                <span class="truncate text-xs font-bold text-gray-900">
+                  {{ getPatientName(internalSelectedPatient) }}
+                </span>
+                <span
+                  class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                  :class="internalSelectedPatient.isWalkIn ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'"
+                >
+                  {{ internalSelectedPatient.isWalkIn ? 'Walk-in' : 'Registered' }}
+                </span>
+              </div>
+              <p class="truncate text-[11px] text-gray-500">
+                {{ internalSelectedPatient.email || internalSelectedPatient.contact_number || '' }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- State 2: Mobile Searchable Spotlight -->
+        <div
+          v-else
+          class="rounded-2xl border border-indigo-100 bg-white p-3 shadow-xs"
+        >
+          <div class="mb-1.5 flex items-center justify-between">
+            <label class="text-[11px] font-bold tracking-wider text-gray-700 uppercase">
+              Select Patient *
+            </label>
+            <button
+              v-if="internalSelectedPatient && isSwitchingPatient"
+              type="button"
+              @click="isSwitchingPatient = false"
+              class="text-xs font-semibold text-gray-400 hover:text-gray-700"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div class="relative mb-2">
+            <Icon
+              name="heroicons:magnifying-glass-20-solid"
+              class="absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              v-model="patientSearchQuery"
+              type="text"
+              placeholder="Search patient..."
+              class="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-1.5 pr-7 pl-8 text-xs font-medium text-gray-800 placeholder-gray-400 outline-none focus:border-indigo-500 focus:bg-white"
+            />
+            <button
+              v-if="patientSearchQuery"
+              type="button"
+              @click="patientSearchQuery = ''"
+              class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400"
+            >
+              <Icon name="material-symbols:close-rounded" class="h-3.5 w-3.5" />
+            </button>
+          </div>
+
+          <div class="custom-scrollbar max-h-40 space-y-1 overflow-y-auto pr-0.5">
+            <div
+              v-for="pat in filteredPatientList"
+              :key="pat.id || pat.uuid"
+              @click="selectPatient(pat)"
+              class="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-1.5 transition hover:bg-indigo-50/60 active:scale-[0.99]"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-700">
+                  <span v-if="!pat.avatar">{{ getPatientInitials(pat) }}</span>
+                  <img
+                    v-else
+                    :src="getStorageUrl(pat.avatar)"
+                    :alt="getPatientName(pat)"
+                    class="h-full w-full object-cover"
+                  />
+                </div>
+                <div class="min-w-0">
+                  <div class="truncate text-xs font-bold text-gray-800">{{ getPatientName(pat) }}</div>
+                  <div class="truncate text-[10px] text-gray-500">{{ pat.email || pat.contact_number || pat.id }}</div>
+                </div>
+              </div>
+              <span
+                class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                :class="pat.isWalkIn ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'"
+              >
+                {{ pat.isWalkIn ? 'Walk-in' : 'Registered' }}
+              </span>
+            </div>
+
+            <div
+              v-if="filteredPatientList.length === 0"
+              class="py-4 text-center text-[11px] text-gray-400"
+            >
+              No patients found matching "{{ patientSearchQuery }}"
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Patient Requested Schedule Banner (if patient requested a specific slot) -->
       <div
         v-if="patientRequestedScheduleFormatted"
@@ -913,9 +1117,9 @@
                   {{ isRescheduleMode ? 'Propose New Schedule' : 'Schedule Appointment' }}
                 </h3>
 
-                <!-- Patient identification / selector -->
+                <!-- Patient identification (reschedule mode or when no patient picker list available) -->
                 <div
-                  v-if="displayPatientName"
+                  v-if="displayPatientName && (isRescheduleMode || !props.patients || props.patients.length === 0)"
                   class="mt-1 flex items-center gap-1.5 text-xs font-bold text-indigo-600"
                 >
                   <Icon
@@ -940,33 +1144,216 @@
               </button>
             </div>
 
-            <!-- Patient selector (when booking for patient without pre-assigned uuid) -->
+            <!-- Patient Selector & Identity (Desktop) -->
             <div
               v-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
               class="mb-5"
             >
-              <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase">
-                Select Patient *
-              </label>
-              <select
-                v-model="internalSelectedPatient"
-                class="w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-2.5 text-xs font-semibold text-gray-800 outline-none focus:border-indigo-500"
+              <!-- State 1: Verified Selected Patient Card -->
+              <div
+                v-if="internalSelectedPatient && !isSwitchingPatient"
+                class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-3.5 shadow-2xs transition hover:border-indigo-200 hover:shadow-xs"
               >
-                <option
-                  :value="null"
-                  disabled
-                >
-                  -- Choose a Patient --
-                </option>
-                <option
-                  v-for="pat in props.patients"
-                  :key="pat.id || pat.uuid"
-                  :value="pat"
-                >
-                  {{ pat.name || pat.doctor || `${pat.first_name || ''} ${pat.last_name || ''}` }}
-                  ({{ pat.email || pat.id }})
-                </option>
-              </select>
+                <div class="mb-2 flex items-center justify-between">
+                  <div class="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">
+                    <Icon name="heroicons:check-badge-20-solid" class="h-4 w-4 text-emerald-600" />
+                    <span>Selected Patient</span>
+                  </div>
+                  <button
+                    v-if="props.patients.length > 1"
+                    type="button"
+                    @click="handleSwitchPatient"
+                    class="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/80 px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 active:scale-95"
+                  >
+                    <Icon name="heroicons:arrow-path-20-solid" class="h-3.5 w-3.5" />
+                    <span>Switch Patient</span>
+                  </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <!-- Avatar / Initials -->
+                  <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-indigo-700 shadow-2xs">
+                    <img
+                      v-if="internalSelectedPatient.avatar && !avatarError"
+                      :src="getStorageUrl(internalSelectedPatient.avatar)"
+                      :alt="getPatientName(internalSelectedPatient)"
+                      class="h-full w-full object-cover"
+                      @error="avatarError = true"
+                    />
+                    <span v-else class="text-xs font-extrabold uppercase">
+                      {{ getPatientInitials(internalSelectedPatient) }}
+                    </span>
+                  </div>
+
+                  <!-- Details -->
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <h4 class="truncate text-sm font-bold text-gray-900">
+                        {{ getPatientName(internalSelectedPatient) }}
+                      </h4>
+                      <span
+                        class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        :class="internalSelectedPatient.isWalkIn
+                          ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                          : 'border border-indigo-100 bg-indigo-50 text-indigo-700'"
+                      >
+                        {{ internalSelectedPatient.isWalkIn ? 'Walk-in' : 'Registered' }}
+                      </span>
+                    </div>
+                    <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                      <span v-if="internalSelectedPatient.email" class="truncate">
+                        {{ internalSelectedPatient.email }}
+                      </span>
+                      <span v-if="internalSelectedPatient.contact_number || internalSelectedPatient.phone" class="font-mono text-gray-600">
+                        {{ internalSelectedPatient.contact_number || internalSelectedPatient.phone }}
+                      </span>
+                      <span v-if="internalSelectedPatient.age && internalSelectedPatient.age !== 'N/A'" class="text-gray-400">
+                        {{ internalSelectedPatient.age }} yrs • {{ internalSelectedPatient.gender }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- State 2: Inline Spotlight Search & Patient Directory -->
+              <div
+                v-else
+                class="rounded-2xl border border-indigo-100 bg-white p-3.5 shadow-xs"
+              >
+                <div class="mb-2 flex items-center justify-between">
+                  <label class="text-xs font-bold tracking-wider text-gray-700 uppercase">
+                    Select Patient *
+                  </label>
+                  <button
+                    v-if="internalSelectedPatient && isSwitchingPatient"
+                    type="button"
+                    @click="isSwitchingPatient = false"
+                    class="cursor-pointer text-xs font-semibold text-gray-400 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <!-- Search Input Bar -->
+                <div class="relative mb-2.5">
+                  <Icon
+                    name="heroicons:magnifying-glass-20-solid"
+                    class="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    v-model="patientSearchQuery"
+                    type="text"
+                    placeholder="Search patient by name, email, or phone..."
+                    class="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2 pr-9 pl-9 text-xs font-medium text-gray-800 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10"
+                    autofocus
+                  />
+                  <button
+                    v-if="patientSearchQuery"
+                    type="button"
+                    @click="patientSearchQuery = ''"
+                    class="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                    title="Clear search"
+                  >
+                    <Icon name="material-symbols:close-rounded" class="h-4 w-4" />
+                  </button>
+                </div>
+
+                <!-- Directory Filter Pills -->
+                <div class="mb-2.5 flex items-center justify-between text-xs">
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      @click="patientFilterTab = 'all'"
+                      class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
+                      :class="patientFilterTab === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                    >
+                      All ({{ props.patients.length }})
+                    </button>
+                    <button
+                      type="button"
+                      @click="patientFilterTab = 'registered'"
+                      class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
+                      :class="patientFilterTab === 'registered'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                    >
+                      Registered ({{ registeredPatientsCount }})
+                    </button>
+                    <button
+                      type="button"
+                      @click="patientFilterTab = 'walkin'"
+                      class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
+                      :class="patientFilterTab === 'walkin'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                    >
+                      Walk-in ({{ walkinPatientsCount }})
+                    </button>
+                  </div>
+                  <span class="text-[11px] font-medium text-gray-400">
+                    {{ filteredPatientList.length }} found
+                  </span>
+                </div>
+
+                <!-- Live-Search Patient Directory List -->
+                <div class="custom-scrollbar max-h-48 space-y-1.5 overflow-y-auto pr-1">
+                  <div
+                    v-for="pat in filteredPatientList"
+                    :key="pat.id || pat.uuid"
+                    @click="selectPatient(pat)"
+                    class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2 transition hover:border-indigo-100 hover:bg-indigo-50/50 active:scale-[0.99]"
+                  >
+                    <div class="flex min-w-0 items-center gap-2.5">
+                      <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-[11px] font-bold text-indigo-700 group-hover:bg-indigo-100">
+                        <img
+                          v-if="pat.avatar"
+                          :src="getStorageUrl(pat.avatar)"
+                          :alt="getPatientName(pat)"
+                          class="h-full w-full object-cover"
+                        />
+                        <span v-else>{{ getPatientInitials(pat) }}</span>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="truncate text-xs font-bold text-gray-800 group-hover:text-indigo-900">
+                          {{ getPatientName(pat) }}
+                        </div>
+                        <div class="truncate text-[11px] text-gray-500">
+                          {{ pat.email || pat.contact_number || pat.id }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                      <span
+                        class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        :class="pat.isWalkIn
+                          ? 'bg-amber-50 text-amber-700'
+                          : 'bg-indigo-50 text-indigo-700'"
+                      >
+                        {{ pat.isWalkIn ? 'Walk-in' : 'Registered' }}
+                      </span>
+                      <Icon
+                        name="heroicons:chevron-right-20-solid"
+                        class="h-4 w-4 text-gray-300 transition group-hover:text-indigo-600"
+                      />
+                    </div>
+                  </div>
+
+                  <!-- Empty Search State -->
+                  <div
+                    v-if="filteredPatientList.length === 0"
+                    class="flex flex-col items-center justify-center py-6 text-center text-xs text-gray-400"
+                  >
+                    <Icon name="heroicons:user-minus-20-solid" class="mb-1 text-2xl text-gray-300" />
+                    <p class="font-semibold text-gray-600">No patients found</p>
+                    <p class="text-[11px] text-gray-400">
+                      No matching patient for "{{ patientSearchQuery }}".
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Patient Requested Schedule Banner -->

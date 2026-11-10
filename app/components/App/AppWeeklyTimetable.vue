@@ -772,12 +772,11 @@
     >
       <!-- Left: Week Navigation -->
       <div class="flex items-center gap-3">
-        <div
-          class="bg-card border-border flex items-center gap-1 rounded-2xl border p-1 shadow-2xs"
-        >
+        <!-- Week Navigation Controls -->
+        <div class="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white p-1 shadow-2xs">
           <button
             @click="prevWeek"
-            class="hover:bg-muted/40 text-foreground/70 hover:text-foreground cursor-pointer rounded-xl p-1.5 transition"
+            class="cursor-pointer rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
             title="Previous Week"
           >
             <Icon
@@ -787,18 +786,18 @@
           </button>
           <button
             @click="goToToday"
-            class="cursor-pointer rounded-xl px-3 py-1 text-xs font-bold transition"
+            class="cursor-pointer rounded-lg px-2.5 py-1 text-xs font-bold transition"
             :class="
               weekOffset === 0
-                ? 'bg-primary text-primary-foreground shadow-2xs'
-                : 'text-foreground/70 hover:bg-muted/40'
+                ? 'bg-indigo-600 text-white shadow-2xs'
+                : 'text-gray-600 hover:bg-gray-100'
             "
           >
             Today
           </button>
           <button
             @click="nextWeek"
-            class="hover:bg-muted/40 text-foreground/70 hover:text-foreground cursor-pointer rounded-xl p-1.5 transition"
+            class="cursor-pointer rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
             title="Next Week"
           >
             <Icon
@@ -809,7 +808,7 @@
         </div>
 
         <div class="flex items-center gap-2.5">
-          <h3 class="text-foreground text-sm font-bold sm:text-base">{{ weekRangeLabel }}</h3>
+          <h3 class="text-sm font-bold text-gray-900 sm:text-base">{{ weekRangeLabel }}</h3>
           <span
             v-if="weekAppointmentsCount > 0"
             class="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs font-bold text-indigo-700 shadow-2xs"
@@ -825,24 +824,24 @@
 
       <!-- Right: Legend & Clinic Filter -->
       <div class="flex flex-wrap items-center gap-3 sm:gap-4">
-        <!-- Legend Pills -->
-        <div class="flex items-center gap-2 text-xs">
+        <!-- Legend Badges (Clean Clinical Format - Anti-Slop R-09/R-31) -->
+        <div class="flex items-center gap-1.5 text-xs">
           <span
-            class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 py-1 text-[11px] font-bold text-emerald-800"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+            <span class="h-2 w-2 rounded-xs bg-emerald-600"></span>
             Duty Hours
           </span>
           <span
-            class="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50/70 px-2.5 py-1 text-[11px] font-bold text-indigo-800"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-indigo-500"></span>
+            <span class="h-2 w-2 rounded-xs bg-indigo-600"></span>
             Booked Patient
           </span>
           <span
-            class="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-bold text-gray-700"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+            <span class="h-2 w-2 rounded-xs bg-gray-400"></span>
             Away / Blocked
           </span>
         </div>
@@ -851,7 +850,7 @@
         <select
           v-if="clinics.length > 0"
           v-model="selectedClinicId"
-          class="bg-card border-border text-foreground focus:border-primary cursor-pointer rounded-xl border px-3 py-1.5 text-xs font-semibold shadow-2xs outline-none"
+          class="h-8 cursor-pointer rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-2xs outline-none transition hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
         >
           <option value="all">All Clinic Branches</option>
           <option
@@ -870,23 +869,23 @@
       <div class="flex h-full min-w-[800px] flex-col">
         <!-- Weekdays Header Row -->
         <div
-          class="border-border bg-card sticky top-0 z-20 grid grid-cols-[70px_repeat(7,1fr)] border-b shadow-2xs"
+          class="sticky top-0 z-20 grid grid-cols-[70px_repeat(7,1fr)] border-b border-gray-200 bg-white shadow-2xs"
         >
           <div
-            class="text-muted-foreground border-border/60 border-r p-3 text-center text-[11px] font-bold tracking-wider uppercase"
+            class="border-r border-gray-200/80 bg-gray-50/60 p-3 text-center text-[11px] font-bold tracking-wider text-gray-500 uppercase"
           >
             Time
           </div>
           <div
             v-for="day in weekDays"
             :key="day.dateStr"
-            class="group/day border-border/60 relative border-r p-2 text-center transition-colors last:border-r-0 sm:p-2.5"
-            :class="day.isToday ? 'bg-primary/5' : ''"
+            class="group/day relative border-r border-gray-200/80 p-2 text-center transition-colors last:border-r-0 sm:p-2.5"
+            :class="day.isToday ? 'bg-indigo-50/30' : 'bg-white'"
           >
             <div class="flex items-center justify-between gap-1 px-1">
               <span
                 class="block text-[11px] font-bold tracking-wider uppercase"
-                :class="day.isToday ? 'text-primary' : 'text-muted-foreground'"
+                :class="day.isToday ? 'text-indigo-600' : 'text-gray-500'"
               >
                 {{ day.dayName }}
               </span>
@@ -894,7 +893,7 @@
                 v-if="hasDutySlots(day.dateStr)"
                 type="button"
                 @click="openCopyDayModal(day)"
-                class="text-muted-foreground/50 hover:bg-primary/10 hover:text-primary cursor-pointer rounded-lg p-1 opacity-0 transition group-hover/day:opacity-100 focus:opacity-100"
+                class="cursor-pointer rounded-lg p-1 text-gray-400 opacity-0 transition group-hover/day:opacity-100 hover:bg-indigo-50 hover:text-indigo-600 focus:opacity-100"
                 title="Copy day's schedule to other days"
               >
                 <Icon
@@ -906,7 +905,7 @@
             <span
               class="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
               :class="
-                day.isToday ? 'bg-primary text-primary-foreground shadow-xs' : 'text-foreground'
+                day.isToday ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-800'
               "
             >
               {{ day.dayNumber }}
@@ -917,11 +916,11 @@
         <!-- Timetable Body Rows -->
         <div class="relative grid min-h-[700px] flex-1 grid-cols-[70px_repeat(7,1fr)]">
           <!-- Left Time Column -->
-          <div class="border-border/60 bg-muted/5 flex flex-col border-r">
+          <div class="flex flex-col border-r border-gray-200/80 bg-gray-50/40">
             <div
               v-for="h in hours"
               :key="h"
-              class="border-border/40 text-muted-foreground h-14 border-b px-1 pt-1 pr-2 text-right text-[11px] font-medium select-none sm:h-16"
+              class="h-14 border-b border-gray-100 px-1 pt-1 pr-2 text-right text-[11px] font-medium text-gray-400 select-none sm:h-16"
             >
               {{ formatHour(h) }}
             </div>
@@ -934,9 +933,9 @@
             @dragover.prevent="handleDayDragOver($event, day.dateStr)"
             @dragleave="handleDayDragLeave($event, day.dateStr)"
             @drop.prevent="handleDayDrop($event, day.dateStr)"
-            class="border-border/40 relative border-r transition-colors last:border-r-0"
+            class="relative border-r border-gray-200/60 transition-colors last:border-r-0"
             :class="[
-              day.isToday ? 'bg-primary/[0.02]' : '',
+              day.isToday ? 'bg-indigo-500/[0.015]' : '',
               dragOverDate === day.dateStr && draggedFromDate !== day.dateStr
                 ? dragOverConflict?.hasConflict
                   ? 'cursor-not-allowed bg-rose-500/10 ring-2 ring-rose-500 ring-inset'
@@ -971,31 +970,36 @@
             <div
               v-for="h in hours"
               :key="h"
-              class="border-border/40 h-14 border-b sm:h-16"
+              class="h-14 border-b border-gray-100 sm:h-16"
             ></div>
 
-            <!-- Layer 1: Duty Shifts (Green zone) -->
+            <!-- Layer 1: Duty Shifts (Clean Clinical Card) -->
             <div
               v-for="duty in getDutySlotsForDay(day.dateStr)"
               :key="duty.uuid"
-              class="group/duty absolute right-1 left-1 z-5 overflow-hidden rounded-2xl border border-emerald-200/90 bg-emerald-50/90 p-2 shadow-2xs transition hover:border-emerald-300"
+              class="group/duty absolute right-1.5 left-1.5 z-5 overflow-hidden rounded-xl border border-emerald-300/80 bg-emerald-50/70 border-l-[3.5px] border-l-emerald-600 p-2 shadow-2xs transition-all hover:border-emerald-400 hover:shadow-xs"
               :class="draggedDuty?.uuid === duty.uuid ? 'opacity-40 ring-2 ring-emerald-500' : ''"
               :style="{ top: `${duty.topPct}%`, height: `${duty.heightPct}%` }"
             >
-              <!-- Top Bar: Left building icon/indicator & Right 3 Action buttons (Edit, Delete, Drag-Copy) -->
+              <!-- Top Row: Building Icon + Clinic Name & Action Toolbar -->
               <div class="flex items-center justify-between gap-1">
-                <div class="flex items-center gap-1 text-emerald-800">
+                <div class="flex min-w-0 items-center gap-1.5">
                   <Icon
                     name="heroicons:building-office-2"
                     class="h-3.5 w-3.5 shrink-0 text-emerald-600"
                   />
+                  <span class="truncate text-[11px] leading-tight font-bold text-emerald-950">
+                    {{ duty.clinic?.name || duty.location_name || 'Clinic Duty' }}
+                  </span>
                 </div>
-                <!-- Action Buttons: 1) Edit, 2) Delete, 3) Drag Copy Paste (Last) -->
-                <div class="flex shrink-0 items-center gap-0.5">
+                <!-- Action Toolbar: Cleanly revealed on hover/focus -->
+                <div
+                  class="flex shrink-0 items-center gap-0.5 rounded-lg border border-emerald-200 bg-white/95 px-0.5 py-0.5 opacity-0 shadow-2xs transition-opacity duration-150 group-hover/duty:opacity-100 focus-within:opacity-100"
+                >
                   <button
                     type="button"
                     @click.stop="openEditSlotModal(duty, day.dateStr)"
-                    class="shrink-0 cursor-pointer rounded-lg p-1 text-emerald-700/80 transition-all hover:scale-105 hover:bg-emerald-200/80 hover:text-emerald-950"
+                    class="shrink-0 cursor-pointer rounded-md p-1 text-emerald-700 transition hover:bg-emerald-100 hover:text-emerald-950"
                     title="Edit shift hours or clinic"
                   >
                     <Icon
@@ -1006,7 +1010,7 @@
                   <button
                     type="button"
                     @click.stop="confirmDeleteSlot(duty)"
-                    class="shrink-0 cursor-pointer rounded-lg p-1 text-emerald-700/80 transition-all hover:scale-105 hover:bg-rose-200/80 hover:text-rose-700"
+                    class="shrink-0 cursor-pointer rounded-md p-1 text-emerald-700 transition hover:bg-rose-100 hover:text-rose-700"
                     title="Delete this shift"
                   >
                     <Icon
@@ -1020,7 +1024,7 @@
                     @dragstart.stop="handleDutyDragStart($event, duty, day.dateStr)"
                     @dragend.stop="handleDutyDragEnd"
                     @click.stop="openCopySlotModal(duty, day)"
-                    class="shrink-0 cursor-grab rounded-lg p-1 text-emerald-700/80 transition-all hover:scale-105 hover:bg-emerald-200/80 hover:text-emerald-950 active:cursor-grabbing"
+                    class="shrink-0 cursor-grab rounded-md p-1 text-emerald-700 transition hover:bg-emerald-100 hover:text-emerald-950 active:cursor-grabbing"
                     title="Drag to copy to another day, or click to copy to multiple days"
                   >
                     <Icon
@@ -1030,37 +1034,49 @@
                   </button>
                 </div>
               </div>
-              <!-- Text moved downward below top bar so it doesn't get overlapped by the buttons -->
-              <div class="mt-1 min-w-0">
-                <p class="truncate text-[11px] leading-tight font-bold text-emerald-900">
-                  {{ duty.clinic?.name || duty.location_name || 'Clinic Duty' }}
-                </p>
-                <p class="mt-0.5 truncate text-[10px] font-medium text-emerald-700">
+              <!-- Formatted Time -->
+              <div class="mt-1">
+                <p class="truncate text-[10px] font-semibold text-emerald-700">
                   {{ duty.formattedTime }}
                 </p>
               </div>
             </div>
 
-            <!-- Layer 2: Blocked / Away Slots (Red / Pattern zone) -->
+            <!-- Layer 2: Blocked / Away Slots (Muted Off-Duty for All-Day, Clean Alert for Partial) -->
             <div
               v-for="blocked in getBlockedSlotsForDay(day.dateStr)"
               :key="blocked.uuid"
-              class="absolute right-1 left-1 z-6 overflow-hidden rounded-2xl border border-rose-200/90 bg-rose-50/90 p-2 shadow-2xs"
+              class="group/blocked absolute right-1.5 left-1.5 z-6 overflow-hidden rounded-xl p-2 shadow-2xs transition-all"
+              :class="
+                blocked.isAllDay
+                  ? 'border border-gray-200/90 bg-gray-50/70 border-dashed border-l-[3.5px] border-l-gray-400 hover:border-gray-300'
+                  : 'border border-rose-200/90 bg-rose-50/60 border-l-[3.5px] border-l-rose-500 hover:border-rose-300'
+              "
               :style="{ top: `${blocked.topPct}%`, height: `${blocked.heightPct}%` }"
             >
-              <!-- Top Bar: Left no-symbol icon & Right Action buttons (Edit, Delete) -->
+              <!-- Top Row: Icon + Title & Action Toolbar -->
               <div class="flex items-center justify-between gap-1">
-                <div class="flex items-center gap-1 text-rose-800">
+                <div class="flex min-w-0 items-center gap-1.5">
                   <Icon
                     name="heroicons:no-symbol"
-                    class="h-3.5 w-3.5 shrink-0 text-rose-600"
+                    class="h-3.5 w-3.5 shrink-0"
+                    :class="blocked.isAllDay ? 'text-gray-500' : 'text-rose-600'"
                   />
+                  <span
+                    class="truncate text-[11px] leading-tight font-bold"
+                    :class="blocked.isAllDay ? 'text-gray-800' : 'text-rose-950'"
+                  >
+                    {{ blocked.location_name || 'Blocked / Away' }}
+                  </span>
                 </div>
-                <div class="flex shrink-0 items-center gap-0.5">
+                <!-- Action Toolbar: Cleanly revealed on hover/focus -->
+                <div
+                  class="flex shrink-0 items-center gap-0.5 rounded-lg border border-gray-200 bg-white/95 px-0.5 py-0.5 opacity-0 shadow-2xs transition-opacity duration-150 group-hover/blocked:opacity-100 focus-within:opacity-100"
+                >
                   <button
                     type="button"
                     @click.stop="openEditSlotModal(blocked, day.dateStr)"
-                    class="shrink-0 cursor-pointer rounded-lg p-1 text-rose-700/80 transition-all hover:scale-105 hover:bg-rose-200/80 hover:text-rose-950"
+                    class="shrink-0 cursor-pointer rounded-md p-1 text-gray-700 transition hover:bg-gray-100 hover:text-gray-950"
                     title="Edit blocked period"
                   >
                     <Icon
@@ -1071,7 +1087,7 @@
                   <button
                     type="button"
                     @click.stop="confirmDeleteSlot(blocked)"
-                    class="shrink-0 cursor-pointer rounded-lg p-1 text-rose-700/80 transition-all hover:scale-105 hover:bg-rose-200/80 hover:text-rose-950"
+                    class="shrink-0 cursor-pointer rounded-md p-1 text-gray-700 transition hover:bg-rose-100 hover:text-rose-700"
                     title="Remove blocked period"
                   >
                     <Icon
@@ -1081,12 +1097,12 @@
                   </button>
                 </div>
               </div>
-              <!-- Text moved downward below top bar so it doesn't get overlapped by the buttons -->
-              <div class="mt-1 min-w-0">
-                <p class="truncate text-[11px] leading-tight font-bold text-rose-900">
-                  {{ blocked.location_name || 'Blocked / Away' }}
-                </p>
-                <p class="mt-0.5 truncate text-[10px] font-medium text-rose-700">
+              <!-- Formatted Time -->
+              <div class="mt-1">
+                <p
+                  class="truncate text-[10px] font-semibold"
+                  :class="blocked.isAllDay ? 'text-gray-500' : 'text-rose-700'"
+                >
                   {{ blocked.isAllDay ? 'All Day Off-Duty' : blocked.formattedTime }}
                 </p>
               </div>
@@ -1097,7 +1113,7 @@
               v-for="appt in getAppointmentsForDay(day.dateStr)"
               :key="appt.id || appt.uuid"
               @click="handleApptClick(appt)"
-              class="absolute z-10 cursor-pointer overflow-hidden rounded-xl border border-indigo-400/50 bg-indigo-600 p-2 text-white shadow-md transition-all hover:scale-[1.02] hover:bg-indigo-700"
+              class="group/appt absolute z-10 cursor-pointer overflow-hidden rounded-xl border border-indigo-500/40 bg-indigo-600 p-2 text-white shadow-xs transition-all hover:bg-indigo-700 hover:shadow-md active:scale-[0.99]"
               :class="
                 appt.isInsideDuty
                   ? 'right-2.5 left-2.5 ring-2 ring-emerald-500/40'
@@ -1136,9 +1152,14 @@
                 <span>{{ format12Hour(appt.startTime) }} – {{ format12Hour(appt.endTime) }}</span>
                 <span
                   v-if="appt.location"
-                  class="max-w-[80px] truncate opacity-90"
-                  >📍 {{ appt.location }}</span
+                  class="inline-flex max-w-[90px] items-center gap-0.5 truncate opacity-90"
                 >
+                  <Icon
+                    name="lucide:map-pin"
+                    class="h-2.5 w-2.5 shrink-0"
+                  />
+                  <span class="truncate">{{ appt.location }}</span>
+                </span>
               </div>
             </div>
           </div>
