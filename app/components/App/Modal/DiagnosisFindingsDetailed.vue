@@ -721,12 +721,7 @@
   }
 
   // ── Medical Appeal (Doctor only) ─────────────────────────────────
-  const isAppealOpen = ref(false)
-  const suggestedLabel = ref('')
-  const appealDescription = ref('')
-  const isSubmittingAppeal = ref(false)
-  const appealSuccess = ref(false)
-  const appealError = ref<string | null>(null)
+  const isAppealModalOpen = ref(false)
   const activeAppeal = ref<any | null>(null)
   const isLoadingActiveAppeal = ref(false)
 
@@ -756,112 +751,37 @@
     { immediate: true }
   )
 
-  const handleOpenAppeal = () => {
-    isAppealOpen.value = true
+  const openAppealModal = () => {
+    isAppealModalOpen.value = true
   }
 
-  const handleOpenReappeal = () => {
-    if (activeAppeal.value) {
-      suggestedLabel.value = activeAppeal.value.suggested_label || ''
-      diseaseSearchQuery.value = activeAppeal.value.suggested_label || ''
-      appealDescription.value = ''
-    }
-    isAppealOpen.value = true
-  }
-
-  const handleCancelAppeal = () => {
-    isAppealOpen.value = false
-    appealError.value = null
-  }
-
-  const { searchDiseases, fetchCandidateDiseases } = useDiseaseCatalog()
-  const isDiseaseDropdownOpen = ref(false)
-  const diseaseSearchQuery = ref('')
-
-  // Eagerly pre-load candidate diseases catalog when appeal view is accessed
-  watch(isAppealOpen, open => {
-    if (open) {
-      fetchCandidateDiseases(true)
-    }
-  })
-
-  onMounted(() => {
-    fetchCandidateDiseases()
-  })
-
-  const filteredSuggestedDiseases = computed(() => {
-    return searchDiseases(diseaseSearchQuery.value || suggestedLabel.value, activeDisease.value)
-  })
-
-  const handleSelectSuggestedDisease = (diseaseName: string) => {
-    suggestedLabel.value = diseaseName
-    diseaseSearchQuery.value = diseaseName
-    isDiseaseDropdownOpen.value = false
-  }
-
-  const handleClearSuggestedDisease = () => {
-    suggestedLabel.value = ''
-    diseaseSearchQuery.value = ''
-    isDiseaseDropdownOpen.value = false
-  }
-
-  const handleDiseaseInputBlur = () => {
-    setTimeout(() => {
-      isDiseaseDropdownOpen.value = false
-    }, 200)
-  }
-
-  const handleDiseaseInput = () => {
-    diseaseSearchQuery.value = suggestedLabel.value
-    isDiseaseDropdownOpen.value = true
-    fetchCandidateDiseases()
-  }
-
-  const submitAppeal = async () => {
-    if (!suggestedLabel.value) return
-
-    isSubmittingAppeal.value = true
-    appealError.value = null
-    appealSuccess.value = false
-
-    try {
-      const payload: any = {
-        user_uuid: userUuid.value,
-        diagnosis_uuid: targetDiagnosisUuid.value,
-        diagnosis_label: activeDisease.value,
-        suggested_label: suggestedLabel.value,
-        description: appealDescription.value
-      }
-      if (activeAppeal.value?.uuid && activeAppeal.value?.status === 'rejected') {
-        payload.parent_appeal_uuid = activeAppeal.value.uuid
-      }
-
-      await appealService.create(payload)
-      appealSuccess.value = true
-
-      // Immediately apply doctor's clinical override to the active view
-      const chosen = suggestedLabel.value
-      activeDisease.value = chosen as DiseaseName
+  const handleAppealSubmitted = (newAppeal: any, updatedLabel: string) => {
+    activeAppeal.value = newAppeal
+    if (updatedLabel) {
+      activeDisease.value = updatedLabel as DiseaseName
       if (currentDiagnosis.value) {
-        currentDiagnosis.value.label = chosen
+        currentDiagnosis.value.label = updatedLabel
       }
-      toast.success(`Appeal filed: Clinical diagnosis updated to "${chosen}".`)
-
-      await fetchActiveAppeal()
-
-      setTimeout(() => {
-        isAppealOpen.value = false
-        appealSuccess.value = false
-        suggestedLabel.value = ''
-        diseaseSearchQuery.value = ''
-        appealDescription.value = ''
-      }, 1500)
-    } catch (err: any) {
-      appealError.value = err.data?.message || err.message || 'Failed to submit appeal.'
-    } finally {
-      isSubmittingAppeal.value = false
     }
+    fetchActiveAppeal()
   }
+
+  const handleAppealUpdated = (updatedAppeal: any) => {
+    activeAppeal.value = updatedAppeal
+    fetchActiveAppeal()
+  }
+
+  const scanImageSrc = computed(() => {
+    const raw =
+      currentDiagnosis.value?.image_url ||
+      currentDiagnosis.value?.image_path ||
+      currentDiagnosis.value?.image ||
+      ''
+    if (!raw) return ''
+    return raw.startsWith('http') || raw.startsWith('data:') || raw.startsWith('blob:')
+      ? raw
+      : getStorageUrl(raw)
+  })
 
   const defaultChartData: DonutEntry[] = [
     { label: 'No skin disease detected', value: 100, color: '#6b7280' }
@@ -1362,12 +1282,12 @@
   <div class="custom-scrollbar flex h-full w-full flex-col items-start overflow-y-auto lg:flex-row">
     <!-- Left Column: Knowledge Base -->
     <div
-      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-6 xl:p-8"
+      class="custom-scrollbar top-0 flex w-full flex-1 flex-col self-start px-0 py-2 sm:py-4 lg:sticky lg:max-h-full lg:overflow-y-auto lg:p-6 xl:p-8"
     >
       <div
-        class="mb-6 flex flex-wrap items-start justify-between gap-3.5 sm:mb-8 sm:items-center sm:gap-5"
+        class="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-5"
       >
-        <div class="flex min-w-0 flex-1 items-start gap-3.5 sm:items-center sm:gap-5">
+        <div class="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
           <div
             class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
           >
@@ -1379,7 +1299,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">
               <h1
-                class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
+                class="text-foreground text-xl leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
               >
                 {{
                   activeDisease === 'None'
@@ -1422,6 +1342,88 @@
               >
                 Non-Skin
               </AppBadge>
+
+              <!-- Doctor Clinical Appeal Trigger Button / Dynamic Status -->
+              <template v-if="props.role === 'doctor'">
+                <!-- State A: Active Appeal - Pending Moderation -->
+                <button
+                  v-if="activeAppeal && activeAppeal.status === 'pending'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/90 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-2xs transition-all hover:border-amber-400 hover:bg-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:outline-none active:scale-95"
+                  title="Clinical appeal is pending moderation review. Click to inspect or update."
+                >
+                  <span class="relative flex h-2 w-2">
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+                    ></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+                  </span>
+                  <Icon
+                    name="lucide:clock"
+                    class="text-xs text-amber-700"
+                  />
+                  <span>Appeal Pending: {{ activeAppeal.suggested_label }}</span>
+                </button>
+
+                <!-- State B: Active Appeal - Approved & Ingested -->
+                <button
+                  v-else-if="activeAppeal && activeAppeal.status === 'resolved'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50/90 px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-2xs transition-all hover:border-emerald-400 hover:bg-emerald-100 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none active:scale-95"
+                  title="Clinical diagnosis verified and ingested by moderation. Click to inspect details."
+                >
+                  <Icon
+                    name="material-symbols:verified-rounded"
+                    class="text-xs text-emerald-600"
+                  />
+                  <span>Appeal Approved: {{ activeAppeal.suggested_label }}</span>
+                </button>
+
+                <!-- State C: Active Appeal - Rejected -->
+                <button
+                  v-else-if="activeAppeal && activeAppeal.status === 'rejected'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-rose-300 bg-rose-50/90 px-3 py-1.5 text-xs font-bold text-rose-900 shadow-2xs transition-all hover:border-rose-400 hover:bg-rose-100 focus:ring-2 focus:ring-rose-500/20 focus:outline-none active:scale-95"
+                  title="Previous appeal was rejected by moderation. Click to re-appeal or review feedback."
+                >
+                  <Icon
+                    name="lucide:alert-circle"
+                    class="text-xs text-rose-600"
+                  />
+                  <span>Appeal Rejected (Re-Appeal)</span>
+                </button>
+
+                <!-- State D: No Appeal Filed Yet -->
+                <button
+                  v-else
+                  type="button"
+                  @click="openAppealModal"
+                  class="group border-primary/30 bg-primary/5 hover:border-primary/60 hover:bg-primary/10 focus:ring-primary/25 inline-flex cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1 text-xs font-bold shadow-2xs transition-all hover:shadow-xs focus:ring-2 focus:outline-none active:scale-95 sm:px-3 sm:py-1.5"
+                  title="Incorrect scan result? Click to file a clinical appeal and suggest the right diagnosis."
+                >
+                  <div
+                    class="text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white shadow-2xs transition-transform group-hover:scale-105"
+                  >
+                    <Icon
+                      name="solar:scale-bold"
+                      class="text-xs"
+                    />
+                  </div>
+                  <span class="font-medium text-gray-600">Wrong scan?</span>
+                  <span
+                    class="text-primary decoration-primary/40 group-hover:decoration-primary font-extrabold underline underline-offset-2 transition-colors"
+                  >
+                    Appeal Diagnosis
+                  </span>
+                  <Icon
+                    name="lucide:arrow-right"
+                    class="text-primary text-xs transition-transform group-hover:translate-x-0.5"
+                  />
+                </button>
+              </template>
             </div>
             <div class="mt-1 flex items-center gap-2">
               <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
@@ -1434,14 +1436,14 @@
 
         <div
           v-if="targetDiagnosisUuid"
-          class="shrink-0"
+          class="w-full shrink-0 sm:w-auto"
         >
           <AppButton
             variant="outline"
             size="sm"
             :disabled="isDownloadingPdf"
             @click="handleExportPdf"
-            class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50 sm:w-auto"
           >
             <Icon
               :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
@@ -2302,7 +2304,7 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-200 bg-gray-50/40 px-0 py-6 sm:py-8 lg:sticky lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:border-gray-200 lg:bg-gray-50/40 lg:p-6 xl:w-[480px] xl:gap-8 xl:p-8"
+      class="relative top-0 flex w-full shrink-0 flex-col gap-6 self-start border-t border-gray-200 bg-gray-50/40 px-0 py-4 sm:py-6 lg:sticky lg:min-h-[500px] lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:border-gray-200 lg:bg-gray-50/40 lg:p-6 lg:pb-8 xl:w-[480px] xl:gap-8 xl:p-8"
     >
       <!-- Statistical Findings Component (Right Column - Desktop Only) -->
       <div class="hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6 lg:block">
@@ -2542,320 +2544,6 @@
             />
             Contrast
           </span>
-        </div>
-      </div>
-
-      <!-- Medical Appeal Card (Doctor Only) -->
-      <div
-        v-if="props.role === 'doctor'"
-        class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:gap-5 sm:p-6"
-      >
-        <!-- State 1: When Appeal Form is NOT open -->
-        <template v-if="!isAppealOpen">
-          <!-- 1a: Previous Appeal was Rejected -->
-          <div
-            v-if="activeAppeal && activeAppeal.status === 'rejected'"
-            class="flex flex-col gap-3 rounded-xl border border-rose-200 bg-rose-50/60 p-4 sm:p-5"
-          >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div class="flex items-start gap-3">
-                <div
-                  class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 shadow-sm"
-                >
-                  <Icon
-                    name="lucide:x-circle"
-                    size="18"
-                  />
-                </div>
-                <div class="space-y-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <h4 class="text-xs font-black text-rose-950 sm:text-sm">
-                      Previous Appeal Rejected
-                    </h4>
-                    <span
-                      v-if="activeAppeal.resubmission_count"
-                      class="rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 shadow-xs"
-                    >
-                      Round {{ activeAppeal.resubmission_count + 1 }}
-                    </span>
-                    <span
-                      class="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700 shadow-xs"
-                    >
-                      Suggested: {{ activeAppeal.suggested_label }}
-                    </span>
-                  </div>
-                  <p class="text-xs leading-relaxed text-rose-900/90">
-                    <strong class="font-bold">Moderation feedback:</strong>
-                    "{{
-                      activeAppeal.resolution_notes ||
-                      'Scan image does not meet retraining criteria or clinical diagnosis was unsubstantiated.'
-                    }}"
-                  </p>
-                  <p class="text-[11px] leading-relaxed text-rose-700/80">
-                    Your clinical diagnosis on this patient's record is retained. You can submit
-                    another appeal with additional details or suggest an alternative diagnosis.
-                  </p>
-                </div>
-              </div>
-              <AppButton
-                variant="outline"
-                size="sm"
-                @click="handleOpenReappeal"
-                class="shrink-0 rounded-xl border-rose-300 bg-white text-xs font-bold text-rose-700 shadow-xs hover:border-rose-400 hover:bg-rose-50"
-              >
-                <Icon
-                  name="lucide:rotate-ccw"
-                  size="14"
-                  class="mr-1.5"
-                />
-                Appeal Again
-              </AppButton>
-            </div>
-          </div>
-
-          <!-- 1b: Previous Appeal is Pending Review -->
-          <div
-            v-else-if="activeAppeal && activeAppeal.status === 'pending'"
-            class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
-          >
-            <div class="flex items-start gap-3">
-              <div
-                class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-700 shadow-sm"
-              >
-                <Icon
-                  name="lucide:clock"
-                  size="18"
-                />
-              </div>
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <h4 class="text-xs font-black text-amber-950 sm:text-sm">
-                    Appeal Under Moderation Review
-                  </h4>
-                  <span
-                    class="rounded-md border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-800 shadow-xs"
-                  >
-                    Suggested: {{ activeAppeal.suggested_label }}
-                  </span>
-                </div>
-                <p class="mt-1 text-xs text-amber-900/80">
-                  Your suggestion is awaiting review by AI moderation for retraining dataset
-                  ingestion.
-                </p>
-              </div>
-            </div>
-            <AppButton
-              variant="outline"
-              size="sm"
-              @click="handleOpenReappeal"
-              class="shrink-0 rounded-lg border-amber-300 bg-white text-xs font-bold text-amber-800 shadow-xs hover:border-amber-400 hover:bg-amber-50"
-            >
-              Update Appeal
-            </AppButton>
-          </div>
-
-          <!-- 1c: Previous Appeal was Resolved -->
-          <div
-            v-else-if="activeAppeal && activeAppeal.status === 'resolved'"
-            class="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 sm:p-5"
-          >
-            <div
-              class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-sm"
-            >
-              <Icon
-                name="lucide:check-circle-2"
-                size="18"
-              />
-            </div>
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h4 class="text-xs font-black text-emerald-950 sm:text-sm">
-                  Appeal Approved & Ingested
-                </h4>
-                <span
-                  class="rounded-md border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-800 shadow-xs"
-                >
-                  Verified: {{ activeAppeal.suggested_label }}
-                </span>
-              </div>
-              <p class="mt-1 text-xs text-emerald-900/80">
-                Moderation approved your clinical diagnosis. This scan was relocated to the
-                retraining dataset.
-              </p>
-            </div>
-          </div>
-
-          <!-- 1d: No Appeal Filed Yet -->
-          <div
-            v-else
-            class="flex items-center justify-between gap-3"
-          >
-            <div>
-              <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
-              <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                File an appeal to suggest a different diagnosis.
-              </p>
-            </div>
-            <AppButton
-              variant="outline"
-              @click="handleOpenAppeal"
-              class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
-            >
-              File Appeal
-            </AppButton>
-          </div>
-        </template>
-
-        <!-- State 2: When Appeal Form is Open -->
-        <div
-          v-else
-          class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
-        >
-          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-            <div>
-              <h4 class="text-xs font-black text-gray-950 sm:text-sm">
-                {{
-                  activeAppeal?.status === 'rejected'
-                    ? 'Re-Appeal Scan Diagnosis'
-                    : 'File Diagnosis Appeal'
-                }}
-              </h4>
-              <p class="text-[11px] text-gray-500">
-                {{
-                  activeAppeal?.status === 'rejected'
-                    ? 'Provide updated clinical notes or select another diagnosis for moderation re-review.'
-                    : 'Suggest an alternative classification for clinical record and AI retraining.'
-                }}
-              </p>
-            </div>
-            <span
-              v-if="activeAppeal?.status === 'rejected'"
-              class="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
-            >
-              Re-Appeal
-            </span>
-          </div>
-
-          <div class="relative flex flex-col gap-1.5 sm:gap-2">
-            <label
-              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
-              >Suggested Diagnosis</label
-            >
-            <div class="relative flex items-center">
-              <Icon
-                name="lucide:search"
-                class="pointer-events-none absolute left-3 text-xs text-gray-400 sm:text-sm"
-              />
-              <input
-                v-model="suggestedLabel"
-                type="text"
-                @focus="isDiseaseDropdownOpen = true"
-                @blur="handleDiseaseInputBlur"
-                @input="handleDiseaseInput"
-                class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white py-2.5 pr-9 pl-9 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:py-2.5 sm:pr-9 sm:pl-9 sm:text-sm"
-                placeholder="Search disease (e.g. Psoriasis, Herpes, Vitiligo)..."
-              />
-              <button
-                v-if="suggestedLabel"
-                type="button"
-                @click="handleClearSuggestedDisease"
-                class="absolute right-2.5 rounded-full p-1 text-gray-400 transition-colors hover:text-gray-600"
-                title="Clear diagnosis"
-              >
-                <Icon
-                  name="lucide:x"
-                  class="text-xs sm:text-sm"
-                />
-              </button>
-            </div>
-
-            <!-- Disease Dropdown Suggestions -->
-            <div
-              v-if="isDiseaseDropdownOpen"
-              class="absolute top-full left-0 z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
-            >
-              <div
-                v-if="filteredSuggestedDiseases.length === 0"
-                class="p-3 text-center text-xs text-gray-500"
-              >
-                <span
-                  >Custom condition: "<strong class="text-gray-900">{{ suggestedLabel }}</strong
-                  >"</span
-                >
-                <p class="mt-0.5 text-[11px] text-gray-400">
-                  Doctor-specified custom diagnosis will be recorded.
-                </p>
-              </div>
-
-              <div
-                v-for="d in filteredSuggestedDiseases"
-                :key="d.id"
-                @mousedown="handleSelectSuggestedDisease(d.name)"
-                class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs transition-colors hover:bg-gray-50"
-                :class="
-                  suggestedLabel === d.name
-                    ? 'bg-primary/5 text-primary font-bold'
-                    : 'text-gray-700'
-                "
-              >
-                <div class="flex min-w-0 items-center gap-2">
-                  <Icon
-                    :name="d.icon || 'lucide:flask-conical'"
-                    class="shrink-0 text-xs text-gray-400"
-                  />
-                  <span class="truncate font-medium">{{ d.name }}</span>
-                </div>
-                <div class="flex shrink-0 items-center">
-                  <span class="text-[10px] text-gray-400">{{ d.category }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label
-              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
-              >Reason / Description (Optional)</label
-            >
-            <textarea
-              v-model="appealDescription"
-              rows="3"
-              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
-              placeholder="Provide details on why you disagree..."
-            ></textarea>
-          </div>
-
-          <div
-            v-if="appealError"
-            class="text-xs font-medium text-red-500 sm:text-sm"
-          >
-            {{ appealError }}
-          </div>
-          <div
-            v-if="appealSuccess"
-            class="text-xs font-medium text-green-500 sm:text-sm"
-          >
-            Appeal submitted successfully!
-          </div>
-
-          <div class="mt-1 flex items-center justify-end gap-2.5 sm:mt-2 sm:gap-3">
-            <AppButton
-              variant="ghost"
-              @click="handleCancelAppeal"
-              class="rounded-xl px-3 py-1.5 text-xs font-bold text-gray-500 sm:px-4 sm:py-2 sm:text-sm"
-              :disabled="isSubmittingAppeal"
-            >
-              Cancel
-            </AppButton>
-            <AppButton
-              @click="submitAppeal"
-              :loading="isSubmittingAppeal"
-              :disabled="!suggestedLabel"
-              class="bg-primary text-card rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
-            >
-              {{ activeAppeal?.status === 'rejected' ? 'Submit Re-Appeal' : 'Submit Appeal' }}
-            </AppButton>
-          </div>
         </div>
       </div>
 
@@ -3646,6 +3334,21 @@
       :prior-confidence="currentDiagnosis?.confidence"
       :prior-probabilities="currentDiagnosis?.all_probabilities || currentDiagnosis?.probabilities"
       @refined="handleQuestionnaireRefined"
+    />
+
+    <!-- Doctor Clinical Appeal Modal -->
+    <AppModalDiagnosisAppealModal
+      v-if="props.role === 'doctor'"
+      v-model="isAppealModalOpen"
+      :diagnosis-uuid="targetDiagnosisUuid"
+      :active-disease="activeDisease"
+      :confidence="activeConfidence"
+      :image-src="scanImageSrc"
+      :patient-name="patientName"
+      :date="props.date"
+      :active-appeal="activeAppeal"
+      @appeal-submitted="handleAppealSubmitted"
+      @appeal-updated="handleAppealUpdated"
     />
   </div>
 </template>

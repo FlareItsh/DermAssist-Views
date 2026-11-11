@@ -223,7 +223,7 @@
 
 <template>
   <div
-    class="flex min-h-screen flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-gray-100 lg:bg-white lg:shadow-sm"
+    class="flex flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden lg:rounded-[2.5rem] lg:border lg:border-gray-100 lg:bg-white lg:shadow-sm"
   >
     <!-- Header -->
     <header
