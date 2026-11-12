@@ -369,6 +369,9 @@ export const usePrescriptions = () => {
       const timestamp = rawDate ? new Date(rawDate).getTime() : 0
       const rxKey = diagUuid || (noteId ? `note-${noteId}` : `appt-${appt.id}`)
 
+      const activeItems = parsePrescriptionText(rxText, rawDate).filter(item => !item.isExpired)
+      if (activeItems.length === 0) continue
+
       entries.push({
         key: rxKey,
         noteId,
@@ -383,7 +386,7 @@ export const usePrescriptions = () => {
         timestamp: isNaN(timestamp) ? 0 : timestamp,
         rawPrescription: rxText,
         patientEducation: note?.patient_education?.trim() || null,
-        items: parsePrescriptionText(rxText, rawDate)
+        items: activeItems
       })
     }
 

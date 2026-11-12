@@ -218,7 +218,7 @@
     <!-- Active Prescription Content -->
     <div
       v-else-if="activePrescription"
-      class="flex min-h-0 flex-1 flex-col justify-between gap-2 overflow-hidden"
+      class="flex min-h-0 flex-1 flex-col justify-between gap-2"
     >
       <!-- Prescribing Doctor & Issue Date Metadata -->
       <div class="border-border/70 flex shrink-0 items-center justify-between gap-2 border-b pb-2">
@@ -381,7 +381,7 @@
       <!-- Footer Quick Actions -->
       <div
         v-if="activePrescription.diagnosisUuid"
-        class="border-border/60 flex shrink-0 items-center gap-2 border-t pt-2"
+        class="border-border/60 flex shrink-0 items-center gap-2 border-t px-1 pt-2.5 pb-1"
       >
         <AppButton
           variant="soft"
@@ -435,7 +435,7 @@
     </div>
 
     <!-- Official Prescription Pad Modal -->
-    <AppPrescriptionPrescriptionPadModal
+    <AppPrescriptionPadModal
       v-model="showPrescriptionPadModal"
       :diagnosis-uuid="activePrescription?.diagnosisUuid"
       :allow-edit-credentials="false"

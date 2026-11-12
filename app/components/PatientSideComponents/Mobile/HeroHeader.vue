@@ -1,14 +1,75 @@
 <script setup lang="ts">
-  import { computed, ref, onMounted, onUnmounted } from 'vue'
+  import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
   import { useRoute } from 'vue-router'
   import { userService } from '~/api/user/UserService'
   import { authService } from '~/api/auth/AuthService'
+  import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
 
   const route = useRoute()
   const { searchQuery } = useSearch()
   const { getStorageUrl } = useStorage()
   const { unreadNotifications } = useAppNotifications()
   const { hasUnseenUpdate, fetchPublishedPatchNotes } = usePatchNotes()
+  const { allAppointments } = useAppointments()
+  const {
+    pendingTodayMedications,
+    fetchPrescriptionsAndLogs,
+    isMedicationUpdating,
+    setMedicationStatus,
+    dismissAllPendingForToday
+  } = usePrescriptions()
+
+  const isMedReminderOpen = ref(false)
+  const medReminderRef = ref<HTMLElement | null>(null)
+
+  const formatDurationLabel = (duration?: string | null): string => {
+    if (!duration) return ''
+    const trimmed = duration.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed)
+      return `${n} ${n === 1 ? 'day' : 'days'}`
+    }
+    return trimmed
+  }
+
+  const toggleMedReminder = () => {
+    isMedReminderOpen.value = !isMedReminderOpen.value
+    if (isMedReminderOpen.value) {
+      isDropdownOpen.value = false
+    }
+  }
+
+  const closeMedReminder = () => {
+    isMedReminderOpen.value = false
+  }
+
+  const handleClickOutsideMedReminder = (event: MouseEvent | TouchEvent) => {
+    if (!isMedReminderOpen.value) return
+    const target = event.target as Node | null
+    if (medReminderRef.value && target && !medReminderRef.value.contains(target)) {
+      isMedReminderOpen.value = false
+    }
+  }
+
+  const handleMarkMedTaken = async (entry: PendingTodayMedication) => {
+    await setMedicationStatus(entry.prescriptionKey, entry.item.key, 'taken', entry.item.medication)
+    if (pendingTodayMedications.value.length === 0) {
+      isMedReminderOpen.value = false
+    }
+  }
+
+  const handleDismissMedReminder = async () => {
+    isMedReminderOpen.value = false
+    if (pendingTodayMedications.value.length === 0) return
+    await dismissAllPendingForToday(pendingTodayMedications.value)
+  }
+
+  watch(
+    () => allAppointments.value.length,
+    () => {
+      fetchPrescriptionsAndLogs(true)
+    }
+  )
 
   const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
     key: `userProfile-${useCookie('user_uuid').value}`
@@ -121,6 +182,7 @@
     updateGreeting()
     greetingTimer = setInterval(updateGreeting, 60000)
     fetchPublishedPatchNotes()
+    fetchPrescriptionsAndLogs()
 
     // Attach touch and scroll listeners directly to main-content
     const mainContent = document.getElementById('main-content')
@@ -129,6 +191,8 @@
       mainContent.addEventListener('touchstart', handleTouchStart, { passive: true })
       mainContent.addEventListener('touchend', handleTouchEnd, { passive: true })
     }
+    document.addEventListener('mousedown', handleClickOutsideMedReminder)
+    document.addEventListener('touchstart', handleClickOutsideMedReminder, { passive: true })
   })
 
   onUnmounted(() => {
@@ -141,6 +205,8 @@
       mainContent.removeEventListener('touchstart', handleTouchStart)
       mainContent.removeEventListener('touchend', handleTouchEnd)
     }
+    document.removeEventListener('mousedown', handleClickOutsideMedReminder)
+    document.removeEventListener('touchstart', handleClickOutsideMedReminder)
   })
 </script>
 
@@ -199,6 +265,147 @@
               <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-400"></span>
             </span>
           </NuxtLink>
+
+          <!-- Daily Medication Reminder Button (Mobile Top Navbar beside Bell & User) -->
+          <div
+            v-if="pendingTodayMedications.length > 0"
+            ref="medReminderRef"
+            class="relative"
+          >
+            <button
+              type="button"
+              @click="toggleMedReminder"
+              class="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-2 border-white/40 bg-white/20 text-white transition-all hover:bg-white/30 focus:outline-none active:scale-95"
+              title="Daily Medication Reminder"
+              aria-label="Daily Medication Reminder"
+            >
+              <Icon
+                name="lucide:pill"
+                class="text-lg"
+              />
+              <span
+                class="absolute -top-1 -right-1 flex h-5 min-w-[20px] items-center justify-center"
+              >
+                <span
+                  class="bg-destructive absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                />
+                <span
+                  class="bg-destructive relative inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-black text-white shadow-sm ring-2 ring-white"
+                >
+                  {{ pendingTodayMedications.length }}
+                </span>
+              </span>
+            </button>
+
+            <!-- Mobile Medication Reminder Popover -->
+            <Transition
+              enter-active-class="transition duration-200 ease-out"
+              enter-from-class="opacity-0 -translate-y-2 scale-95"
+              enter-to-class="opacity-100 translate-y-0 scale-100"
+              leave-active-class="transition duration-150 ease-in"
+              leave-from-class="opacity-100 translate-y-0 scale-100"
+              leave-to-class="opacity-0 -translate-y-2 scale-95"
+            >
+              <div
+                v-if="isMedReminderOpen"
+                class="bg-card border-border fixed top-[74px] right-3 left-3 z-[60] rounded-2xl border p-4 shadow-xl"
+                role="region"
+                aria-label="Daily Medication Reminder"
+              >
+                <div
+                  class="border-border/60 flex items-center justify-between gap-3 border-b pb-2.5"
+                >
+                  <div class="flex min-w-0 items-center gap-2">
+                    <span class="bg-destructive h-2 w-2 shrink-0 rounded-full" />
+                    <h3 class="text-foreground truncate text-xs font-semibold tracking-tight">
+                      Daily Medication Reminder
+                    </h3>
+                    <span class="text-muted-foreground shrink-0 text-xs">
+                      &middot; {{ pendingTodayMedications.length }} due today
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="closeMedReminder"
+                    class="text-muted-foreground hover:text-foreground hover:bg-muted -mr-1 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
+                    title="Close reminder"
+                    aria-label="Close reminder"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="text-xs"
+                    />
+                  </button>
+                </div>
+
+                <div
+                  class="custom-scrollbar divide-border/60 mt-2.5 flex max-h-60 flex-col divide-y overflow-y-auto"
+                >
+                  <div
+                    v-for="entry in pendingTodayMedications"
+                    :key="`${entry.prescriptionKey}-${entry.item.key}`"
+                    class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                  >
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <p class="text-foreground text-sm font-bold break-words">
+                          {{ entry.item.medication }}
+                        </p>
+                        <span
+                          v-if="entry.item.quantity"
+                          class="text-muted-foreground text-xs font-medium"
+                        >
+                          {{ entry.item.quantity }}
+                        </span>
+                      </div>
+
+                      <p
+                        v-if="entry.item.frequency || entry.item.duration"
+                        class="text-muted-foreground mt-0.5 text-xs leading-snug break-words"
+                      >
+                        <span v-if="entry.item.frequency">{{ entry.item.frequency }}</span>
+                        <span v-if="entry.item.frequency && entry.item.duration"> &middot; </span>
+                        <span v-if="entry.item.duration">{{
+                          formatDurationLabel(entry.item.duration)
+                        }}</span>
+                      </p>
+
+                      <div
+                        v-if="entry.item.instructions"
+                        class="border-primary bg-muted/60 mt-1.5 rounded-r-md border-l-2 px-2.5 py-1"
+                      >
+                        <div
+                          class="custom-scrollbar max-h-16 overflow-x-hidden overflow-y-auto pr-1"
+                        >
+                          <p class="text-foreground text-xs leading-snug font-medium break-words">
+                            <span class="text-primary font-semibold">Doctor's instruction:</span>
+                            {{ entry.item.instructions }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <p class="text-muted-foreground mt-1 text-[11px]">
+                        Prescribed by {{ entry.doctorName }}
+                      </p>
+                    </div>
+
+                    <div class="flex shrink-0 items-center">
+                      <AppButton
+                        variant="solid"
+                        size="sm"
+                        :loading="isMedicationUpdating(entry.prescriptionKey, entry.item.key)"
+                        @click="handleMarkMedTaken(entry)"
+                        class="!h-8 !rounded-lg !px-3 !text-xs"
+                      >
+                        <span>Mark as taken</span>
+                      </AppButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
 
           <!-- Notification Bell -->
           <NuxtLink

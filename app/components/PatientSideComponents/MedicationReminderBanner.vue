@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, onMounted, watch } from 'vue'
+  import { ref, onMounted, onUnmounted, watch } from 'vue'
   import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
 
   const userRole = useCookie('user_role')
@@ -15,6 +15,7 @@
 
   const isOpen = ref(false)
   const isPinned = ref(false)
+  const bannerRef = ref<HTMLElement | null>(null)
 
   const handleMouseEnter = () => {
     isOpen.value = true
@@ -36,10 +37,26 @@
     }
   }
 
+  const handleClickOutsideBanner = (event: MouseEvent | TouchEvent) => {
+    if (!isOpen.value && !isPinned.value) return
+    const target = event.target as Node | null
+    if (bannerRef.value && target && !bannerRef.value.contains(target)) {
+      isPinned.value = false
+      isOpen.value = false
+    }
+  }
+
   onMounted(() => {
     if (userRole.value === 'patient') {
       fetchPrescriptionsAndLogs()
     }
+    document.addEventListener('mousedown', handleClickOutsideBanner)
+    document.addEventListener('touchstart', handleClickOutsideBanner, { passive: true })
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('mousedown', handleClickOutsideBanner)
+    document.removeEventListener('touchstart', handleClickOutsideBanner)
   })
 
   watch(
@@ -75,9 +92,10 @@
   <Transition name="med-banner">
     <div
       v-if="userRole === 'patient' && pendingTodayMedications.length > 0"
-      class="pointer-events-none fixed top-[80px] right-0 left-0 z-[60] flex justify-center px-3 md:top-4 md:px-6"
+      class="pointer-events-none fixed top-4 right-0 left-0 z-[60] hidden justify-center px-6 md:flex"
     >
       <div
+        ref="bannerRef"
         class="bg-card border-border pointer-events-auto relative w-full max-w-lg rounded-2xl border px-4 py-2.5 shadow-lg"
         role="region"
         aria-label="Daily Medication Reminder"
