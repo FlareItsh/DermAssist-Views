@@ -302,12 +302,10 @@
           status="verified"
         />
       </div>
-      <!-- TODO: CALENDAR -->
-      <div
-        class="sticky top-0 flex max-h-[calc(100vh-4rem)] w-80 shrink-0 flex-col gap-4 overflow-hidden lg:w-[340px] xl:w-[350px]"
-      >
+      <!-- CALENDAR & PRESCRIPTIONS -->
+      <div class="sticky top-0 flex w-80 shrink-0 flex-col gap-4 lg:w-[340px] xl:w-[350px]">
         <PatientSideComponentsCalendar class="w-full shrink-0" />
-        <PatientSideComponentsSaaSPromotion class="min-h-[160px] w-full flex-1" />
+        <PatientSideComponentsPrescriptions class="min-h-[200px] w-full flex-1" />
       </div>
     </div>
 
@@ -318,6 +316,10 @@
       <div class="relative z-10 flex flex-col gap-3">
         <h2 class="text-foreground mt-4 -mb-2 text-lg font-bold">Dashboard</h2>
         <PatientSideComponentsMobileWeekTracker />
+        <PatientSideComponentsPrescriptions
+          :compact-empty="true"
+          class="w-full"
+        />
         <div class="bg-primary rounded-3xl px-5 py-4">
           <h3 class="mb-3 text-base font-bold text-white">Total scans performed</h3>
           <div class="flex items-center gap-4">
@@ -427,9 +429,6 @@
         >
           <PatientSideComponentsMobileDoctorsNearby />
         </div>
-
-        <!-- SaaS Promo -->
-        <PatientSideComponentsSaaSPromotion class="mb-2 overflow-hidden rounded-3xl" />
       </div>
     </div>
   </div>
