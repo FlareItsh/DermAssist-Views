@@ -721,12 +721,7 @@
   }
 
   // ── Medical Appeal (Doctor only) ─────────────────────────────────
-  const isAppealOpen = ref(false)
-  const suggestedLabel = ref('')
-  const appealDescription = ref('')
-  const isSubmittingAppeal = ref(false)
-  const appealSuccess = ref(false)
-  const appealError = ref<string | null>(null)
+  const isAppealModalOpen = ref(false)
   const activeAppeal = ref<any | null>(null)
   const isLoadingActiveAppeal = ref(false)
 
@@ -756,112 +751,37 @@
     { immediate: true }
   )
 
-  const handleOpenAppeal = () => {
-    isAppealOpen.value = true
+  const openAppealModal = () => {
+    isAppealModalOpen.value = true
   }
 
-  const handleOpenReappeal = () => {
-    if (activeAppeal.value) {
-      suggestedLabel.value = activeAppeal.value.suggested_label || ''
-      diseaseSearchQuery.value = activeAppeal.value.suggested_label || ''
-      appealDescription.value = ''
-    }
-    isAppealOpen.value = true
-  }
-
-  const handleCancelAppeal = () => {
-    isAppealOpen.value = false
-    appealError.value = null
-  }
-
-  const { searchDiseases, fetchCandidateDiseases } = useDiseaseCatalog()
-  const isDiseaseDropdownOpen = ref(false)
-  const diseaseSearchQuery = ref('')
-
-  // Eagerly pre-load candidate diseases catalog when appeal view is accessed
-  watch(isAppealOpen, open => {
-    if (open) {
-      fetchCandidateDiseases(true)
-    }
-  })
-
-  onMounted(() => {
-    fetchCandidateDiseases()
-  })
-
-  const filteredSuggestedDiseases = computed(() => {
-    return searchDiseases(diseaseSearchQuery.value || suggestedLabel.value, activeDisease.value)
-  })
-
-  const handleSelectSuggestedDisease = (diseaseName: string) => {
-    suggestedLabel.value = diseaseName
-    diseaseSearchQuery.value = diseaseName
-    isDiseaseDropdownOpen.value = false
-  }
-
-  const handleClearSuggestedDisease = () => {
-    suggestedLabel.value = ''
-    diseaseSearchQuery.value = ''
-    isDiseaseDropdownOpen.value = false
-  }
-
-  const handleDiseaseInputBlur = () => {
-    setTimeout(() => {
-      isDiseaseDropdownOpen.value = false
-    }, 200)
-  }
-
-  const handleDiseaseInput = () => {
-    diseaseSearchQuery.value = suggestedLabel.value
-    isDiseaseDropdownOpen.value = true
-    fetchCandidateDiseases()
-  }
-
-  const submitAppeal = async () => {
-    if (!suggestedLabel.value) return
-
-    isSubmittingAppeal.value = true
-    appealError.value = null
-    appealSuccess.value = false
-
-    try {
-      const payload: any = {
-        user_uuid: userUuid.value,
-        diagnosis_uuid: targetDiagnosisUuid.value,
-        diagnosis_label: activeDisease.value,
-        suggested_label: suggestedLabel.value,
-        description: appealDescription.value
-      }
-      if (activeAppeal.value?.uuid && activeAppeal.value?.status === 'rejected') {
-        payload.parent_appeal_uuid = activeAppeal.value.uuid
-      }
-
-      await appealService.create(payload)
-      appealSuccess.value = true
-
-      // Immediately apply doctor's clinical override to the active view
-      const chosen = suggestedLabel.value
-      activeDisease.value = chosen as DiseaseName
+  const handleAppealSubmitted = (newAppeal: any, updatedLabel: string) => {
+    activeAppeal.value = newAppeal
+    if (updatedLabel) {
+      activeDisease.value = updatedLabel as DiseaseName
       if (currentDiagnosis.value) {
-        currentDiagnosis.value.label = chosen
+        currentDiagnosis.value.label = updatedLabel
       }
-      toast.success(`Appeal filed: Clinical diagnosis updated to "${chosen}".`)
-
-      await fetchActiveAppeal()
-
-      setTimeout(() => {
-        isAppealOpen.value = false
-        appealSuccess.value = false
-        suggestedLabel.value = ''
-        diseaseSearchQuery.value = ''
-        appealDescription.value = ''
-      }, 1500)
-    } catch (err: any) {
-      appealError.value = err.data?.message || err.message || 'Failed to submit appeal.'
-    } finally {
-      isSubmittingAppeal.value = false
     }
+    fetchActiveAppeal()
   }
+
+  const handleAppealUpdated = (updatedAppeal: any) => {
+    activeAppeal.value = updatedAppeal
+    fetchActiveAppeal()
+  }
+
+  const scanImageSrc = computed(() => {
+    const raw =
+      currentDiagnosis.value?.image_url ||
+      currentDiagnosis.value?.image_path ||
+      currentDiagnosis.value?.image ||
+      ''
+    if (!raw) return ''
+    return raw.startsWith('http') || raw.startsWith('data:') || raw.startsWith('blob:')
+      ? raw
+      : getStorageUrl(raw)
+  })
 
   const defaultChartData: DonutEntry[] = [
     { label: 'No skin disease detected', value: 100, color: '#6b7280' }
@@ -1362,12 +1282,12 @@
   <div class="custom-scrollbar flex h-full w-full flex-col items-start overflow-y-auto lg:flex-row">
     <!-- Left Column: Knowledge Base -->
     <div
-      class="custom-scrollbar top-0 flex max-h-full w-full flex-1 flex-col self-start overflow-y-auto px-0 py-2 sm:py-4 lg:sticky lg:p-6 xl:p-8"
+      class="custom-scrollbar top-0 flex w-full flex-1 flex-col self-start px-0 py-2 sm:py-4 lg:sticky lg:max-h-full lg:overflow-y-auto lg:p-6 xl:p-8"
     >
       <div
-        class="mb-6 flex flex-wrap items-start justify-between gap-3.5 sm:mb-8 sm:items-center sm:gap-5"
+        class="mb-5 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between sm:gap-5"
       >
-        <div class="flex min-w-0 flex-1 items-start gap-3.5 sm:items-center sm:gap-5">
+        <div class="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
           <div
             class="bg-primary/10 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-inner sm:h-14 sm:w-14 sm:rounded-2xl"
           >
@@ -1379,7 +1299,7 @@
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 sm:gap-3">
               <h1
-                class="text-foreground text-base leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
+                class="text-foreground text-xl leading-tight font-bold tracking-tight sm:text-2xl lg:text-3xl"
               >
                 {{
                   activeDisease === 'None'
@@ -1422,6 +1342,88 @@
               >
                 Non-Skin
               </AppBadge>
+
+              <!-- Doctor Clinical Appeal Trigger Button / Dynamic Status -->
+              <template v-if="props.role === 'doctor'">
+                <!-- State A: Active Appeal - Pending Moderation -->
+                <button
+                  v-if="activeAppeal && activeAppeal.status === 'pending'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-300 bg-amber-50/90 px-3 py-1.5 text-xs font-bold text-amber-900 shadow-2xs transition-all hover:border-amber-400 hover:bg-amber-100 focus:ring-2 focus:ring-amber-500/20 focus:outline-none active:scale-95"
+                  title="Clinical appeal is pending moderation review. Click to inspect or update."
+                >
+                  <span class="relative flex h-2 w-2">
+                    <span
+                      class="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"
+                    ></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full bg-amber-500"></span>
+                  </span>
+                  <Icon
+                    name="lucide:clock"
+                    class="text-xs text-amber-700"
+                  />
+                  <span>Appeal Pending: {{ activeAppeal.suggested_label }}</span>
+                </button>
+
+                <!-- State B: Active Appeal - Approved & Ingested -->
+                <button
+                  v-else-if="activeAppeal && activeAppeal.status === 'resolved'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50/90 px-3 py-1.5 text-xs font-bold text-emerald-900 shadow-2xs transition-all hover:border-emerald-400 hover:bg-emerald-100 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none active:scale-95"
+                  title="Clinical diagnosis verified and ingested by moderation. Click to inspect details."
+                >
+                  <Icon
+                    name="material-symbols:verified-rounded"
+                    class="text-xs text-emerald-600"
+                  />
+                  <span>Appeal Approved: {{ activeAppeal.suggested_label }}</span>
+                </button>
+
+                <!-- State C: Active Appeal - Rejected -->
+                <button
+                  v-else-if="activeAppeal && activeAppeal.status === 'rejected'"
+                  type="button"
+                  @click="openAppealModal"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-rose-300 bg-rose-50/90 px-3 py-1.5 text-xs font-bold text-rose-900 shadow-2xs transition-all hover:border-rose-400 hover:bg-rose-100 focus:ring-2 focus:ring-rose-500/20 focus:outline-none active:scale-95"
+                  title="Previous appeal was rejected by moderation. Click to re-appeal or review feedback."
+                >
+                  <Icon
+                    name="lucide:alert-circle"
+                    class="text-xs text-rose-600"
+                  />
+                  <span>Appeal Rejected (Re-Appeal)</span>
+                </button>
+
+                <!-- State D: No Appeal Filed Yet -->
+                <button
+                  v-else
+                  type="button"
+                  @click="openAppealModal"
+                  class="group border-primary/30 bg-primary/5 hover:border-primary/60 hover:bg-primary/10 focus:ring-primary/25 inline-flex cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1 text-xs font-bold shadow-2xs transition-all hover:shadow-xs focus:ring-2 focus:outline-none active:scale-95 sm:px-3 sm:py-1.5"
+                  title="Incorrect scan result? Click to file a clinical appeal and suggest the right diagnosis."
+                >
+                  <div
+                    class="text-primary flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white shadow-2xs transition-transform group-hover:scale-105"
+                  >
+                    <Icon
+                      name="solar:scale-bold"
+                      class="text-xs"
+                    />
+                  </div>
+                  <span class="font-medium text-gray-600">Wrong scan?</span>
+                  <span
+                    class="text-primary decoration-primary/40 group-hover:decoration-primary font-extrabold underline underline-offset-2 transition-colors"
+                  >
+                    Appeal Diagnosis
+                  </span>
+                  <Icon
+                    name="lucide:arrow-right"
+                    class="text-primary text-xs transition-transform group-hover:translate-x-0.5"
+                  />
+                </button>
+              </template>
             </div>
             <div class="mt-1 flex items-center gap-2">
               <span class="bg-primary h-2 w-2 animate-pulse rounded-full"></span>
@@ -1434,14 +1436,14 @@
 
         <div
           v-if="targetDiagnosisUuid"
-          class="shrink-0"
+          class="w-full shrink-0 sm:w-auto"
         >
           <AppButton
             variant="outline"
             size="sm"
             :disabled="isDownloadingPdf"
             @click="handleExportPdf"
-            class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
+            class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50 sm:w-auto"
           >
             <Icon
               :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
@@ -1454,7 +1456,7 @@
 
       <!-- Statistical Findings Component (Top - Mobile & Tablet Only) -->
       <div
-        class="bg-card mb-6 rounded-2xl border border-gray-100 p-4 shadow-sm sm:mb-8 sm:p-6 lg:hidden"
+        class="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:mb-8 sm:p-6 lg:hidden"
       >
         <div class="mb-4 flex items-center justify-between sm:mb-6">
           <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
@@ -1492,47 +1494,53 @@
               :key="i"
               class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 transition-all sm:p-3"
               :class="[
-                highlightedChartLabels.includes(entry.label)
-                  ? 'border-gray-200/90 bg-gray-50/60 shadow-2xs hover:border-gray-300'
-                  : 'border-transparent hover:border-gray-100 hover:bg-gray-50'
+                activeDisease === entry.label
+                  ? 'border-primary/60 bg-primary/5 shadow-xs'
+                  : highlightedChartLabels.includes(entry.label)
+                    ? 'border-gray-300 bg-white shadow-2xs hover:border-gray-400'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50'
               ]"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-2.5 sm:gap-3">
+              <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
                 <span
-                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
+                  class="h-3 w-3 shrink-0 rounded-full shadow-2xs ring-2 ring-white sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
-                <div class="flex flex-col">
+                <div class="flex min-w-0 flex-col">
                   <span
-                    class="text-xs font-semibold sm:text-sm"
-                    :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                    class="truncate text-xs font-semibold sm:text-sm"
+                    :class="
+                      activeDisease === entry.label ? 'text-primary font-bold' : 'text-gray-900'
+                    "
                   >
                     {{ entry.label }}
                   </span>
                   <span
                     v-if="highlightedChartLabels.includes(entry.label)"
-                    class="text-[9px] font-black tracking-wider uppercase"
+                    class="text-[11px] font-semibold"
                     :style="{ color: entry.color }"
                   >
                     {{ isInconclusive ? 'Primary Contender' : 'Top Match' }}
                   </span>
                 </div>
               </div>
-              <div class="flex items-center gap-2.5 sm:gap-3">
-                <!-- Highlighted Pill vs Secondary Gray Percentage -->
+              <div class="flex shrink-0 items-center gap-2 sm:gap-2.5">
+                <!-- High-contrast Clinical Percentage Badge -->
                 <span
                   v-if="highlightedChartLabels.includes(entry.label)"
-                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-2xs ring-1 transition-all sm:text-sm"
+                  class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-all sm:text-sm"
                   :style="{
                     backgroundColor: `${entry.color}15`,
-                    borderColor: `${entry.color}45`,
+                    borderColor: `${entry.color}40`,
                     color: entry.color
                   }"
                 >
                   <Icon
                     :name="
-                      isInconclusive ? 'heroicons:scale-20-solid' : 'heroicons:sparkles-20-solid'
+                      isInconclusive
+                        ? 'material-symbols:balance'
+                        : 'material-symbols:verified-rounded'
                     "
                     class="h-3.5 w-3.5 shrink-0"
                   />
@@ -1540,23 +1548,23 @@
                 </span>
                 <span
                   v-else
-                  class="px-2 py-0.5 text-xs font-semibold text-gray-400 sm:text-sm"
+                  class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 sm:text-sm"
                 >
                   {{ entry.value }}%
                 </span>
                 <div
-                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg border transition-all sm:h-8 sm:w-8"
                   :class="
                     activeDisease === entry.label
-                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
-                      : 'border border-gray-100 bg-white text-gray-300'
+                      ? 'border-primary bg-primary text-white shadow-xs'
+                      : 'border-gray-200 bg-gray-50 text-gray-400 group-hover:border-gray-300 group-hover:text-gray-600'
                   "
                 >
                   <Icon
                     :name="
                       activeDisease === entry.label
                         ? 'material-symbols:check'
-                        : 'material-symbols:search'
+                        : 'material-symbols:chevron-right'
                     "
                     class="text-sm sm:text-base"
                   />
@@ -1570,7 +1578,7 @@
       <!-- Out-of-Scope Dedicated Advisory Notice -->
       <div
         v-if="activeDisease === 'OutOfScope'"
-        class="mb-6 space-y-2.5 rounded-2xl border border-purple-200 bg-purple-50 p-4 text-purple-950 shadow-xs sm:mb-8 sm:space-y-3 sm:p-6"
+        class="mb-6 space-y-2.5 rounded-xl border border-purple-200 bg-purple-50/70 p-4 text-purple-950 shadow-xs sm:mb-8 sm:space-y-3 sm:p-5"
       >
         <div class="flex flex-wrap items-center justify-between gap-2">
           <div class="flex items-center gap-1.5 text-xs font-bold text-purple-800 sm:text-sm">
@@ -1626,7 +1634,7 @@
       <!-- Inconclusive Advisory Notice -->
       <div
         v-else-if="activeDisease === 'Inconclusive'"
-        class="border-warning-border bg-warning-subtle mb-6 rounded-2xl border p-4 shadow-2xs transition-all sm:mb-8"
+        class="border-warning-border bg-warning-subtle mb-6 rounded-xl border p-4 shadow-xs transition-all sm:mb-8 sm:p-5"
       >
         <div class="flex items-start gap-3">
           <div
@@ -1661,7 +1669,7 @@
       <!-- Non-Skin Advisory Notice -->
       <div
         v-else-if="activeDisease === 'None'"
-        class="bg-muted/40 border-border text-muted-foreground mb-6 space-y-1.5 rounded-2xl border p-4 sm:mb-8"
+        class="mb-6 space-y-1.5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-gray-700 shadow-xs sm:mb-8 sm:p-5"
       >
         <div class="text-foreground flex items-center gap-2 text-sm font-bold">
           <Icon
@@ -1678,7 +1686,7 @@
       </div>
 
       <div
-        class="mb-6 grid grid-cols-1 gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-xs sm:mb-8 sm:gap-6 sm:p-6 md:grid-cols-3"
+        class="mb-6 grid grid-cols-1 gap-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:mb-8 sm:gap-6 sm:p-5 md:grid-cols-3"
       >
         <div class="flex flex-col gap-1.5">
           <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase sm:text-xs"
@@ -1703,22 +1711,24 @@
                 </AppButton>
               </template>
               <template v-else>
-                <input
-                  v-model="editablePatientName"
-                  class="focus:border-primary w-full border-b-2 border-gray-200 bg-transparent py-0.5 text-base font-bold transition-colors outline-none"
-                  placeholder="Enter patient name"
-                />
+                <div class="relative flex flex-1 items-center">
+                  <input
+                    v-model="editablePatientName"
+                    class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
+                    placeholder="Enter patient name"
+                  />
+                </div>
                 <AppButton
                   v-if="props.isNewScan"
                   variant="ghost"
                   size="sm"
-                  class="shrink-0 rounded-xl border-2 border-dashed transition-colors hover:bg-gray-50"
+                  class="shrink-0 rounded-lg border border-gray-300 bg-white transition-colors hover:bg-gray-50"
                   @click="isPatientModalOpen = true"
                   title="Select Registered Patient"
                 >
                   <Icon
                     name="material-symbols:person-search-outline"
-                    class="text-base text-gray-500"
+                    class="text-base text-gray-600"
                   />
                 </AppButton>
               </template>
@@ -1776,17 +1786,17 @@
           >
             <div class="flex flex-wrap items-center gap-2">
               <div
-                class="focus-within:border-primary focus-within:ring-primary/15 relative flex items-center rounded-xl border border-gray-200 bg-white px-2.5 py-1.5 shadow-2xs transition-all focus-within:ring-2"
+                class="focus-within:border-primary focus-within:ring-primary/20 relative flex items-center rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 shadow-xs transition-all focus-within:ring-2"
               >
                 <Icon
                   name="lucide:calendar"
-                  class="mr-2 h-3.5 w-3.5 shrink-0 text-gray-400"
+                  class="mr-2 h-3.5 w-3.5 shrink-0 text-gray-500"
                 />
                 <input
                   v-model="inputDob"
                   type="date"
                   :max="todayIsoDate"
-                  class="cursor-pointer bg-transparent text-xs font-bold text-gray-900 outline-none"
+                  class="cursor-pointer bg-transparent text-xs font-semibold text-gray-900 outline-none"
                   :disabled="isSavingDob"
                 />
               </div>
@@ -1926,7 +1936,7 @@
       <!-- Standard AI Retraining Dataset checkbox (Acne / Eczema / Herpes only) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && !isOutOfScopeFromDiagnosis"
-        class="border-primary/20 bg-primary/5 mb-6 flex w-fit items-center gap-2 rounded-2xl border px-3.5 py-2 sm:mb-8"
+        class="mb-6 flex w-fit items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 shadow-xs sm:mb-8"
       >
         <input
           id="detailed-dataset-checkbox"
@@ -1950,7 +1960,7 @@
       <!-- Out-of-Scope Research Dataset checkbox (mirrors existing, separate storage) -->
       <div
         v-if="props.role === 'doctor' && patientConsentedToDataset && isOutOfScopeFromDiagnosis"
-        class="mb-6 flex w-fit items-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-3.5 py-2 sm:mb-8"
+        class="mb-6 flex w-fit items-center gap-2.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 shadow-xs sm:mb-8"
       >
         <input
           id="detailed-out-of-scope-dataset-checkbox"
@@ -2074,7 +2084,7 @@
           </div>
         </div>
 
-        <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6">
           <div class="mb-4 flex items-center gap-3">
             <div class="bg-primary h-3 w-1.5 rounded-full"></div>
             <h3 class="text-xl font-bold tracking-tight">About This Condition</h3>
@@ -2085,7 +2095,7 @@
         </section>
 
         <!-- Dynamic Clinical Characteristics (Patient Side Only) -->
-        <section class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6">
+        <section class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6">
           <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div>
               <div class="flex items-center gap-3">
@@ -2294,10 +2304,10 @@
 
     <!-- Right Column: Findings & Doctors -->
     <div
-      class="relative top-0 flex min-h-[500px] w-full shrink-0 flex-col gap-6 self-start border-t border-gray-100 bg-gray-50/30 px-0 py-6 sm:py-8 lg:sticky lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:bg-gray-50/30 lg:p-6 xl:w-[480px] xl:gap-8 xl:p-8"
+      class="relative top-0 flex w-full shrink-0 flex-col gap-6 self-start border-t border-gray-200 bg-gray-50/40 px-0 py-4 sm:py-6 lg:sticky lg:min-h-[500px] lg:w-[420px] lg:gap-6 lg:border-t-0 lg:border-l lg:border-gray-200 lg:bg-gray-50/40 lg:p-6 lg:pb-8 xl:w-[480px] xl:gap-8 xl:p-8"
     >
       <!-- Statistical Findings Component (Right Column - Desktop Only) -->
-      <div class="bg-card hidden rounded-2xl border border-gray-100 p-4 shadow-sm sm:p-6 lg:block">
+      <div class="hidden rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-6 lg:block">
         <div class="mb-4 flex items-center justify-between sm:mb-6">
           <h2 class="text-sm font-bold sm:text-base">Statistical Findings</h2>
           <AppConfidenceTooltip
@@ -2332,47 +2342,53 @@
               :key="i"
               class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-2.5 transition-all sm:p-3"
               :class="[
-                highlightedChartLabels.includes(entry.label)
-                  ? 'border-gray-200/90 bg-gray-50/60 shadow-2xs hover:border-gray-300'
-                  : 'border-transparent hover:border-gray-100 hover:bg-gray-50'
+                activeDisease === entry.label
+                  ? 'border-primary/60 bg-primary/5 shadow-xs'
+                  : highlightedChartLabels.includes(entry.label)
+                    ? 'border-gray-300 bg-white shadow-2xs hover:border-gray-400'
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50/50'
               ]"
               @click="activeDisease = entry.label as DiseaseName"
             >
-              <div class="flex items-center gap-2.5 sm:gap-3">
+              <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
                 <span
-                  class="h-3 w-3 shrink-0 rounded-full sm:h-3.5 sm:w-3.5"
+                  class="h-3 w-3 shrink-0 rounded-full shadow-2xs ring-2 ring-white sm:h-3.5 sm:w-3.5"
                   :style="{ backgroundColor: entry.color }"
                 ></span>
-                <div class="flex flex-col">
+                <div class="flex min-w-0 flex-col">
                   <span
-                    class="text-xs font-semibold sm:text-sm"
-                    :class="activeDisease === entry.label ? 'text-primary' : 'text-foreground'"
+                    class="truncate text-xs font-semibold sm:text-sm"
+                    :class="
+                      activeDisease === entry.label ? 'text-primary font-bold' : 'text-gray-900'
+                    "
                   >
                     {{ entry.label }}
                   </span>
                   <span
                     v-if="highlightedChartLabels.includes(entry.label)"
-                    class="text-[9px] font-black tracking-wider uppercase"
+                    class="text-[11px] font-semibold"
                     :style="{ color: entry.color }"
                   >
                     {{ isInconclusive ? 'Primary Contender' : 'Top Match' }}
                   </span>
                 </div>
               </div>
-              <div class="flex items-center gap-2.5 sm:gap-3">
-                <!-- Highlighted Pill vs Secondary Gray Percentage -->
+              <div class="flex shrink-0 items-center gap-2 sm:gap-2.5">
+                <!-- High-contrast Clinical Percentage Badge -->
                 <span
                   v-if="highlightedChartLabels.includes(entry.label)"
-                  class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-black shadow-2xs ring-1 transition-all sm:text-sm"
+                  class="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold transition-all sm:text-sm"
                   :style="{
                     backgroundColor: `${entry.color}15`,
-                    borderColor: `${entry.color}45`,
+                    borderColor: `${entry.color}40`,
                     color: entry.color
                   }"
                 >
                   <Icon
                     :name="
-                      isInconclusive ? 'heroicons:scale-20-solid' : 'heroicons:sparkles-20-solid'
+                      isInconclusive
+                        ? 'material-symbols:balance'
+                        : 'material-symbols:verified-rounded'
                     "
                     class="h-3.5 w-3.5 shrink-0"
                   />
@@ -2380,23 +2396,23 @@
                 </span>
                 <span
                   v-else
-                  class="px-2 py-0.5 text-xs font-semibold text-gray-400 sm:text-sm"
+                  class="rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 sm:text-sm"
                 >
                   {{ entry.value }}%
                 </span>
                 <div
-                  class="flex h-7 w-7 items-center justify-center rounded-full transition-all sm:h-8 sm:w-8"
+                  class="flex h-7 w-7 items-center justify-center rounded-lg border transition-all sm:h-8 sm:w-8"
                   :class="
                     activeDisease === entry.label
-                      ? 'bg-primary shadow-primary/20 text-white shadow-md'
-                      : 'border border-gray-100 bg-white text-gray-300'
+                      ? 'border-primary bg-primary text-white shadow-xs'
+                      : 'border-gray-200 bg-gray-50 text-gray-400 group-hover:border-gray-300 group-hover:text-gray-600'
                   "
                 >
                   <Icon
                     :name="
                       activeDisease === entry.label
                         ? 'material-symbols:check'
-                        : 'material-symbols:search'
+                        : 'material-symbols:chevron-right'
                     "
                     class="text-sm sm:text-base"
                   />
@@ -2410,20 +2426,20 @@
       <!-- Image Quality & Reliability Card -->
       <div
         v-if="currentDiagnosis?.image_quality"
-        class="bg-card rounded-2xl border p-4 shadow-sm transition-all sm:p-6"
+        class="rounded-xl border bg-white p-4 shadow-xs transition-all sm:p-6"
         :class="
           currentDiagnosis.image_quality.status === 'Excellent'
-            ? 'border-green-100'
-            : 'border-amber-100'
+            ? 'border-emerald-200'
+            : 'border-amber-200'
         "
       >
         <div class="mb-4 flex items-center gap-3 sm:mb-5 sm:gap-4">
           <div
-            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12 sm:rounded-2xl"
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:h-11 sm:w-11"
             :class="
               currentDiagnosis.image_quality.status === 'Excellent'
-                ? 'bg-green-100 text-green-600'
-                : 'bg-amber-100 text-amber-600'
+                ? 'border border-emerald-200 bg-emerald-50 text-emerald-600'
+                : 'border border-amber-200 bg-amber-50 text-amber-600'
             "
           >
             <Icon
@@ -2528,320 +2544,6 @@
             />
             Contrast
           </span>
-        </div>
-      </div>
-
-      <!-- Medical Appeal Card (Doctor Only) -->
-      <div
-        v-if="props.role === 'doctor'"
-        class="bg-card flex flex-col gap-4 rounded-2xl border border-gray-100 p-4 shadow-sm sm:gap-5 sm:p-6"
-      >
-        <!-- State 1: When Appeal Form is NOT open -->
-        <template v-if="!isAppealOpen">
-          <!-- 1a: Previous Appeal was Rejected -->
-          <div
-            v-if="activeAppeal && activeAppeal.status === 'rejected'"
-            class="flex flex-col gap-3 rounded-2xl border border-rose-200/80 bg-rose-50/60 p-4 sm:p-5"
-          >
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div class="flex items-start gap-3">
-                <div
-                  class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-600 shadow-sm"
-                >
-                  <Icon
-                    name="lucide:x-circle"
-                    size="18"
-                  />
-                </div>
-                <div class="space-y-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <h4 class="text-xs font-black text-rose-950 sm:text-sm">
-                      Previous Appeal Rejected
-                    </h4>
-                    <span
-                      v-if="activeAppeal.resubmission_count"
-                      class="rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800 shadow-xs"
-                    >
-                      Round {{ activeAppeal.resubmission_count + 1 }}
-                    </span>
-                    <span
-                      class="rounded-md border border-rose-200 bg-white px-2 py-0.5 text-[10px] font-bold text-rose-700 shadow-xs"
-                    >
-                      Suggested: {{ activeAppeal.suggested_label }}
-                    </span>
-                  </div>
-                  <p class="text-xs leading-relaxed text-rose-900/90">
-                    <strong class="font-bold">Moderation feedback:</strong>
-                    "{{
-                      activeAppeal.resolution_notes ||
-                      'Scan image does not meet retraining criteria or clinical diagnosis was unsubstantiated.'
-                    }}"
-                  </p>
-                  <p class="text-[11px] leading-relaxed text-rose-700/80">
-                    Your clinical diagnosis on this patient's record is retained. You can submit
-                    another appeal with additional details or suggest an alternative diagnosis.
-                  </p>
-                </div>
-              </div>
-              <AppButton
-                variant="outline"
-                size="sm"
-                @click="handleOpenReappeal"
-                class="shrink-0 rounded-xl border-rose-300 bg-white text-xs font-bold text-rose-700 shadow-xs hover:border-rose-400 hover:bg-rose-50"
-              >
-                <Icon
-                  name="lucide:rotate-ccw"
-                  size="14"
-                  class="mr-1.5"
-                />
-                Appeal Again
-              </AppButton>
-            </div>
-          </div>
-
-          <!-- 1b: Previous Appeal is Pending Review -->
-          <div
-            v-else-if="activeAppeal && activeAppeal.status === 'pending'"
-            class="flex flex-col gap-3 rounded-2xl border border-amber-200/80 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
-          >
-            <div class="flex items-start gap-3">
-              <div
-                class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700 shadow-sm"
-              >
-                <Icon
-                  name="lucide:clock"
-                  size="18"
-                />
-              </div>
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <h4 class="text-xs font-black text-amber-950 sm:text-sm">
-                    Appeal Under Moderation Review
-                  </h4>
-                  <span
-                    class="rounded-md border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-bold text-amber-800 shadow-xs"
-                  >
-                    Suggested: {{ activeAppeal.suggested_label }}
-                  </span>
-                </div>
-                <p class="mt-1 text-xs text-amber-900/80">
-                  Your suggestion is awaiting review by AI moderation for retraining dataset
-                  ingestion.
-                </p>
-              </div>
-            </div>
-            <AppButton
-              variant="outline"
-              size="sm"
-              @click="handleOpenReappeal"
-              class="shrink-0 rounded-xl border-amber-300 bg-white text-xs font-bold text-amber-800 shadow-xs hover:border-amber-400 hover:bg-amber-50"
-            >
-              Update Appeal
-            </AppButton>
-          </div>
-
-          <!-- 1c: Previous Appeal was Resolved -->
-          <div
-            v-else-if="activeAppeal && activeAppeal.status === 'resolved'"
-            class="flex items-start gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/60 p-4 sm:p-5"
-          >
-            <div
-              class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-sm"
-            >
-              <Icon
-                name="lucide:check-circle-2"
-                size="18"
-              />
-            </div>
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <h4 class="text-xs font-black text-emerald-950 sm:text-sm">
-                  Appeal Approved & Ingested
-                </h4>
-                <span
-                  class="rounded-md border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-800 shadow-xs"
-                >
-                  Verified: {{ activeAppeal.suggested_label }}
-                </span>
-              </div>
-              <p class="mt-1 text-xs text-emerald-900/80">
-                Moderation approved your clinical diagnosis. This scan was relocated to the
-                retraining dataset.
-              </p>
-            </div>
-          </div>
-
-          <!-- 1d: No Appeal Filed Yet -->
-          <div
-            v-else
-            class="flex items-center justify-between gap-3"
-          >
-            <div>
-              <h3 class="text-sm font-bold sm:text-base">Disagree with the results?</h3>
-              <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                File an appeal to suggest a different diagnosis.
-              </p>
-            </div>
-            <AppButton
-              variant="outline"
-              @click="handleOpenAppeal"
-              class="shrink-0 rounded-xl px-3 py-1.5 text-xs font-bold sm:px-4 sm:py-2 sm:text-sm"
-            >
-              File Appeal
-            </AppButton>
-          </div>
-        </template>
-
-        <!-- State 2: When Appeal Form is Open -->
-        <div
-          v-else
-          class="animate-in slide-in-from-top-2 flex flex-col gap-3.5 duration-300 sm:gap-4"
-        >
-          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-            <div>
-              <h4 class="text-xs font-black text-gray-950 sm:text-sm">
-                {{
-                  activeAppeal?.status === 'rejected'
-                    ? 'Re-Appeal Scan Diagnosis'
-                    : 'File Diagnosis Appeal'
-                }}
-              </h4>
-              <p class="text-[11px] text-gray-500">
-                {{
-                  activeAppeal?.status === 'rejected'
-                    ? 'Provide updated clinical notes or select another diagnosis for moderation re-review.'
-                    : 'Suggest an alternative classification for clinical record and AI retraining.'
-                }}
-              </p>
-            </div>
-            <span
-              v-if="activeAppeal?.status === 'rejected'"
-              class="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
-            >
-              Re-Appeal
-            </span>
-          </div>
-
-          <div class="relative flex flex-col gap-1.5 sm:gap-2">
-            <label
-              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
-              >Suggested Diagnosis</label
-            >
-            <div class="relative flex items-center">
-              <Icon
-                name="lucide:search"
-                class="pointer-events-none absolute left-3 text-xs text-gray-400 sm:text-sm"
-              />
-              <input
-                v-model="suggestedLabel"
-                type="text"
-                @focus="isDiseaseDropdownOpen = true"
-                @blur="handleDiseaseInputBlur"
-                @input="handleDiseaseInput"
-                class="focus:ring-primary w-full rounded-xl border-0 bg-gray-50/50 py-2.5 pr-8 pl-8 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:py-3 sm:pr-9 sm:pl-9 sm:text-sm"
-                placeholder="Search disease (e.g. Psoriasis, Herpes, Vitiligo)..."
-              />
-              <button
-                v-if="suggestedLabel"
-                type="button"
-                @click="handleClearSuggestedDisease"
-                class="absolute right-2.5 rounded-full p-1 text-gray-400 transition-colors hover:text-gray-600"
-                title="Clear diagnosis"
-              >
-                <Icon
-                  name="lucide:x"
-                  class="text-xs sm:text-sm"
-                />
-              </button>
-            </div>
-
-            <!-- Disease Dropdown Suggestions -->
-            <div
-              v-if="isDiseaseDropdownOpen"
-              class="absolute top-full left-0 z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-xl border border-gray-100 bg-white p-1.5 shadow-xl ring-1 ring-black/5"
-            >
-              <div
-                v-if="filteredSuggestedDiseases.length === 0"
-                class="p-3 text-center text-xs text-gray-500"
-              >
-                <span
-                  >Custom condition: "<strong class="text-gray-900">{{ suggestedLabel }}</strong
-                  >"</span
-                >
-                <p class="mt-0.5 text-[11px] text-gray-400">
-                  Doctor-specified custom diagnosis will be recorded.
-                </p>
-              </div>
-
-              <div
-                v-for="d in filteredSuggestedDiseases"
-                :key="d.id"
-                @mousedown="handleSelectSuggestedDisease(d.name)"
-                class="flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs transition-colors hover:bg-gray-50"
-                :class="
-                  suggestedLabel === d.name
-                    ? 'bg-primary/5 text-primary font-bold'
-                    : 'text-gray-700'
-                "
-              >
-                <div class="flex min-w-0 items-center gap-2">
-                  <Icon
-                    :name="d.icon || 'lucide:flask-conical'"
-                    class="shrink-0 text-xs text-gray-400"
-                  />
-                  <span class="truncate font-medium">{{ d.name }}</span>
-                </div>
-                <div class="flex shrink-0 items-center">
-                  <span class="text-[10px] text-gray-400">{{ d.category }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label
-              class="text-[10px] font-semibold tracking-wider text-gray-400 uppercase sm:text-xs"
-              >Reason / Description (Optional)</label
-            >
-            <textarea
-              v-model="appealDescription"
-              rows="3"
-              class="focus:ring-primary w-full resize-none rounded-xl border-0 bg-gray-50/50 p-2.5 text-xs text-gray-800 shadow-inner ring-1 ring-gray-200/50 transition-all outline-none ring-inset focus:bg-white focus:ring-2 focus:ring-inset sm:p-3 sm:text-sm"
-              placeholder="Provide details on why you disagree..."
-            ></textarea>
-          </div>
-
-          <div
-            v-if="appealError"
-            class="text-xs font-medium text-red-500 sm:text-sm"
-          >
-            {{ appealError }}
-          </div>
-          <div
-            v-if="appealSuccess"
-            class="text-xs font-medium text-green-500 sm:text-sm"
-          >
-            Appeal submitted successfully!
-          </div>
-
-          <div class="mt-1 flex items-center justify-end gap-2.5 sm:mt-2 sm:gap-3">
-            <AppButton
-              variant="ghost"
-              @click="handleCancelAppeal"
-              class="rounded-xl px-3 py-1.5 text-xs font-bold text-gray-500 sm:px-4 sm:py-2 sm:text-sm"
-              :disabled="isSubmittingAppeal"
-            >
-              Cancel
-            </AppButton>
-            <AppButton
-              @click="submitAppeal"
-              :loading="isSubmittingAppeal"
-              :disabled="!suggestedLabel"
-              class="bg-primary text-card rounded-xl px-4 py-1.5 text-xs font-bold shadow-sm transition-all hover:opacity-90 active:scale-95 disabled:opacity-50 sm:px-5 sm:py-2 sm:text-sm"
-            >
-              {{ activeAppeal?.status === 'rejected' ? 'Submit Re-Appeal' : 'Submit Appeal' }}
-            </AppButton>
-          </div>
         </div>
       </div>
 
@@ -3337,7 +3039,7 @@
                     <input
                       v-model="newAccountForm.firstName"
                       type="text"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
                       placeholder="First Name"
                     />
                   </div>
@@ -3348,7 +3050,7 @@
                     <input
                       v-model="newAccountForm.lastName"
                       type="text"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
                       placeholder="Last Name"
                     />
                   </div>
@@ -3361,7 +3063,7 @@
                   <input
                     v-model="newAccountForm.email"
                     type="email"
-                    class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                    class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
                     placeholder="patient@example.com"
                   />
                 </div>
@@ -3404,7 +3106,7 @@
                       v-model="newAccountForm.password"
                       @input="isNewAccountPasswordManuallyEdited = true"
                       :type="showNewAccountPassword ? 'text' : 'password'"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 pr-10 font-mono text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 pr-10 font-mono text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
                       placeholder="Temporary password"
                     />
                     <button
@@ -3439,14 +3141,14 @@
                       v-model="newAccountForm.date_of_birth"
                       type="date"
                       :max="todayIsoDate"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none"
                     />
                   </div>
                   <div class="flex flex-col gap-1.5">
                     <label class="text-foreground/70 text-xs font-semibold">Gender</label>
                     <select
                       v-model="newAccountForm.gender"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none"
                     >
                       <option
                         value=""
@@ -3486,7 +3188,7 @@
                     <label class="text-foreground/70 text-xs font-semibold">Region</label>
                     <select
                       v-model="accountCodes.region"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none"
                     >
                       <option
                         value=""
@@ -3508,7 +3210,7 @@
                     <select
                       v-model="accountCodes.province"
                       :disabled="!accountProvinces.length"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:opacity-50"
                     >
                       <option
                         value=""
@@ -3535,7 +3237,7 @@
                     <select
                       v-model="accountCodes.city"
                       :disabled="!accountCities.length"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:opacity-50"
                     >
                       <option
                         value=""
@@ -3557,7 +3259,7 @@
                     <select
                       v-model="accountCodes.barangay"
                       :disabled="!accountBarangays.length"
-                      class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none disabled:opacity-50"
+                      class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:opacity-50"
                     >
                       <option
                         value=""
@@ -3581,7 +3283,7 @@
                   <input
                     v-model="newAccountForm.street"
                     type="text"
-                    class="bg-foreground/5 focus:border-primary w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm transition-all outline-none"
+                    class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
                     placeholder="House No., Street Name"
                   />
                 </div>
@@ -3632,6 +3334,21 @@
       :prior-confidence="currentDiagnosis?.confidence"
       :prior-probabilities="currentDiagnosis?.all_probabilities || currentDiagnosis?.probabilities"
       @refined="handleQuestionnaireRefined"
+    />
+
+    <!-- Doctor Clinical Appeal Modal -->
+    <AppModalDiagnosisAppealModal
+      v-if="props.role === 'doctor'"
+      v-model="isAppealModalOpen"
+      :diagnosis-uuid="targetDiagnosisUuid"
+      :active-disease="activeDisease"
+      :confidence="activeConfidence"
+      :image-src="scanImageSrc"
+      :patient-name="patientName"
+      :date="props.date"
+      :active-appeal="activeAppeal"
+      @appeal-submitted="handleAppealSubmitted"
+      @appeal-updated="handleAppealUpdated"
     />
   </div>
 </template>
