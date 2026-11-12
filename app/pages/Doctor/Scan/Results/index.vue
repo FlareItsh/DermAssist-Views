@@ -28,7 +28,26 @@
   const isCompleted = ref(false)
   const pendingDestination = ref<string | null>(null)
 
+  const clearAssessmentDrafts = (diagUuid?: string | null) => {
+    if (!import.meta.client) return
+    try {
+      localStorage.removeItem('dermassist_active_diagnosis')
+      localStorage.removeItem('draft_clinical_note_active')
+      localStorage.removeItem('draft_patient_info_active')
+      if (diagUuid) {
+        localStorage.removeItem(`draft_clinical_note_diag_${diagUuid}`)
+        localStorage.removeItem(`draft_patient_info_${diagUuid}`)
+      }
+    } catch (e) {
+      // silent fail
+    }
+  }
+
   const handleBackClick = () => {
+    if (isCompleted.value) {
+      handleFinished()
+      return
+    }
     showConfirmDiscardModal.value = true
   }
 
@@ -43,19 +62,7 @@
         console.error('Failed to clean up discarded scan', e)
       }
     }
-    if (import.meta.client) {
-      try {
-        localStorage.removeItem('dermassist_active_diagnosis')
-        localStorage.removeItem('draft_clinical_note_active')
-        localStorage.removeItem('draft_patient_info_active')
-        if (diagUuid) {
-          localStorage.removeItem(`draft_clinical_note_diag_${diagUuid}`)
-          localStorage.removeItem(`draft_patient_info_${diagUuid}`)
-        }
-      } catch (e) {
-        // silent fail
-      }
-    }
+    clearAssessmentDrafts(diagUuid ? String(diagUuid) : null)
     resetScanner()
     const target = pendingDestination.value || '/Doctor/Scan'
     pendingDestination.value = null
@@ -64,6 +71,9 @@
 
   onBeforeRouteLeave((to, from, next) => {
     if (isCompleted.value || !currentDiagnosis.value) {
+      if (isCompleted.value && currentDiagnosis.value) {
+        resetScanner()
+      }
       next()
       return
     }
@@ -159,8 +169,15 @@
     return null
   })
 
+  const isUuid = (val?: unknown): val is string => {
+    return (
+      typeof val === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+    )
+  }
+
   const appointmentUuid = computed(() => {
-    if (diagnosisAppointmentUuid.value) return diagnosisAppointmentUuid.value
+    if (isUuid(diagnosisAppointmentUuid.value)) return diagnosisAppointmentUuid.value
     if (!patientUuid.value) return null
     const match = appointments.value.find(
       a =>
@@ -169,7 +186,8 @@
           a.status?.toLowerCase()
         )
     )
-    return match ? match.uuid || match.id : null
+    const candidate = match ? match.uuid || match.id : null
+    return isUuid(candidate) ? candidate : null
   })
 
   definePageMeta({
@@ -201,21 +219,14 @@
     }
   })
 
+  const handleAssessmentCompleted = () => {
+    isCompleted.value = true
+    clearAssessmentDrafts(currentDiagnosis.value?.uuid)
+  }
+
   const handleFinished = () => {
     isCompleted.value = true
-    if (import.meta.client) {
-      try {
-        localStorage.removeItem('dermassist_active_diagnosis')
-        localStorage.removeItem('draft_clinical_note_active')
-        localStorage.removeItem('draft_patient_info_active')
-        if (currentDiagnosis.value?.uuid) {
-          localStorage.removeItem(`draft_clinical_note_diag_${currentDiagnosis.value.uuid}`)
-          localStorage.removeItem(`draft_patient_info_${currentDiagnosis.value.uuid}`)
-        }
-      } catch (e) {
-        // silent fail
-      }
-    }
+    clearAssessmentDrafts(currentDiagnosis.value?.uuid)
     resetScanner()
     navigateTo('/Doctor/Scan')
   }
@@ -300,6 +311,7 @@
           :diagnosis-data="chartData"
           :diagnosis-uuid="currentDiagnosis?.uuid"
           :is-new-scan="true"
+          @completed="handleAssessmentCompleted"
           @finished="handleFinished"
         />
         <template #fallback>

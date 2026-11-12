@@ -674,25 +674,28 @@
     }
 
     const regEmail = registerForm.email.trim().toLowerCase()
+    const matchedAppointment = availableAppointments.value.find(
+      (a: any) => a.patient?.email && a.patient.email.toLowerCase() === regEmail
+    )
     const existingPatient =
       doctorRegisteredPatients.value.find(
         (p: any) => p.email && p.email.toLowerCase() === regEmail
-      ) ||
-      availableAppointments.value.find(
-        (a: any) => a.patient?.email && a.patient.email.toLowerCase() === regEmail
-      )
+      ) || matchedAppointment
 
     if (existingPatient) {
-      const patientUuidVal = existingPatient.uuid || existingPatient.patient_uuid
+      const patientUuidVal =
+        existingPatient.patient_uuid || existingPatient.patient?.uuid || existingPatient.uuid
       const pName =
         existingPatient.patientName || `${existingPatient.first_name} ${existingPatient.last_name}`
       patientUuid.value = patientUuidVal
-      appointmentUuid.value = existingPatient.id || null
+      appointmentUuid.value = matchedAppointment
+        ? matchedAppointment.uuid || matchedAppointment.id || null
+        : null
       pendingPatientRegistration.value = null
       walkInPatientInfo.value = null
       assignedName.value = pName
       userName.value = pName
-      assignedAppointment.value = existingPatient.time ? existingPatient : null
+      assignedAppointment.value = matchedAppointment || null
       saveActiveDiagnosisState()
       toast.success(`Assigned to existing registered patient ${pName}`)
       activeModalTab.value = 'appointments'
@@ -782,11 +785,12 @@
               Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
           "
           :diagnosis="currentDiagnosis"
+          :allow-retake="props.role !== 'doctor'"
           @retake="openQuestionnaireModal"
         />
 
         <div
-          v-else-if="isScanned && canRefineDiagnosis"
+          v-else-if="props.role !== 'doctor' && isScanned && canRefineDiagnosis"
           class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
         >
           <div class="flex items-start gap-3">

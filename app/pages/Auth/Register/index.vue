@@ -424,10 +424,14 @@
           return
         }
 
-        await userService.update(userUuid.value as string, {
+        const updatedRes = await userService.update(userUuid.value as string, {
           prcNumber: form.prcNumber,
           idPhoto: form.idPhoto
         })
+        const updatedUser = updatedRes?.data || updatedRes
+        if (updatedUser?.uuid) {
+          useState<any>('auth_user', () => null).value = updatedUser
+        }
 
         toast.success(
           'PRC details submitted successfully! Your account credentials will be reviewed by an administrator.'
@@ -465,6 +469,7 @@
         tokenCookie.value = response.token
 
         const userData = (response.user as any)?.data || response.user
+        useState<any>('auth_user', () => null).value = userData
         const rawRole = userData?.role?.slug || userData?.role || role.value || 'patient'
         const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
@@ -492,6 +497,10 @@
           path: '/'
         })
         userUuid.value = userData?.uuid
+
+        if (import.meta.client && userData?.uuid) {
+          localStorage.setItem(`da_pending_terms_reminder_${userData.uuid}`, '1')
+        }
 
         const doctorUuid = useCookie('doctor_uuid', {
           maxAge: 60 * 60 * 24 * 7,
@@ -529,8 +538,14 @@
             guestTokenCookie.value = null
             if (claimRes?.data?.uuid) {
               toast.success('Your guest scan has been claimed and unlocked!')
-              await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
-              return
+              const hasPendingReminder =
+                import.meta.client &&
+                userData?.uuid &&
+                localStorage.getItem(`da_pending_terms_reminder_${userData.uuid}`) === '1'
+              if (userData?.terms_accepted_at && !hasPendingReminder) {
+                await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
+                return
+              }
             }
           } catch (e) {
             console.error('Failed to claim guest scan:', e)

@@ -103,6 +103,7 @@
     token.value = response.token
 
     const userData = (response.user as any)?.data || response.user
+    useState<any>('auth_user', () => null).value = userData
     const rawRole = userData?.role?.slug || userData?.role || 'patient'
     const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
@@ -158,8 +159,10 @@
         guestTokenCookie.value = null
         if (claimRes?.data?.uuid) {
           toast.success('Your guest scan has been claimed and unlocked!')
-          await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
-          return
+          if (userData?.terms_accepted_at) {
+            await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
+            return
+          }
         }
       } catch (e) {
         console.error('Failed to claim guest scan:', e)
