@@ -257,10 +257,82 @@
     isQuantityManuallyEdited.value = true
   }
 
+  const sanitizeDurationDigits = (raw: string): string => {
+    const digits = raw.replace(/\D+/g, '').replace(/^0+/, '')
+    if (!digits) return ''
+    const num = parseInt(digits, 10)
+    if (isNaN(num) || num <= 0) return ''
+    return num > 100 ? '100' : String(num)
+  }
+
+  const handleDurationKeyDown = (e: KeyboardEvent) => {
+    const allowedControlKeys = [
+      'Backspace',
+      'Delete',
+      'Tab',
+      'Enter',
+      'Escape',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End'
+    ]
+    if (allowedControlKeys.includes(e.key)) return
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault()
+    }
+  }
+
+  const handleDurationInput = (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const cleaned = sanitizeDurationDigits(target.value)
+    if (target.value !== cleaned) {
+      target.value = cleaned
+    }
+    rxDuration.value = cleaned
+  }
+
+  const handleDurationBlur = () => {
+    const cleaned = sanitizeDurationDigits(rxDuration.value)
+    if (!cleaned) {
+      rxDuration.value = ''
+      return
+    }
+    const num = parseInt(cleaned, 10)
+    if (num < 10) {
+      rxDuration.value = '10'
+    } else if (num > 100) {
+      rxDuration.value = '100'
+    } else {
+      rxDuration.value = String(num)
+    }
+  }
+
+  watch(rxDuration, val => {
+    const cleaned = sanitizeDurationDigits(String(val ?? ''))
+    if (val !== cleaned) {
+      rxDuration.value = cleaned
+    }
+  })
+
   const handleAddMedicationToPrescription = () => {
     if (!currentMedicine.value || !currentVariant.value) {
       toast.warning('Please select a medicine and dosage variant from the library.')
       return
+    }
+
+    const trimmedDur = rxDuration.value.trim()
+    let durationPart = ''
+    if (trimmedDur) {
+      const days = parseInt(trimmedDur, 10)
+      if (isNaN(days) || days < 10 || days > 100) {
+        toast.warning('Duration must be between 10 and 100 days.')
+        return
+      }
+      durationPart = ` for ${days} days`
     }
 
     const medName = currentMedicine.value.name
@@ -269,7 +341,6 @@
       ? ` #${rxQuantity.value.trim().replace(/^#\s*/, '')}`
       : ''
     const freq = rxFrequency.value.trim() || currentVariant.value.default_frequency
-    const durationPart = rxDuration.value.trim() ? ` for ${rxDuration.value.trim()}` : ''
     const instructPart = rxInstructions.value.trim() ? ` (${rxInstructions.value.trim()})` : ''
 
     const entry = `• ${medName} ${strength}${qtyPart} — ${freq}${durationPart}${instructPart}`
@@ -1557,7 +1628,13 @@
                 </label>
                 <input
                   type="text"
-                  v-model="rxDuration"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="3"
+                  :value="rxDuration"
+                  @keydown="handleDurationKeyDown"
+                  @input="handleDurationInput"
+                  @blur="handleDurationBlur"
                   :disabled="!selectedVariantUuid"
                   placeholder="e.g. 7 days"
                   class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
