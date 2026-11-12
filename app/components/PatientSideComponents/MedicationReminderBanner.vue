@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { onMounted, watch } from 'vue'
+  import { ref, onMounted, watch } from 'vue'
   import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
 
   const userRole = useCookie('user_role')
@@ -12,6 +12,29 @@
     setMedicationStatus,
     dismissAllPendingForToday
   } = usePrescriptions()
+
+  const isOpen = ref(false)
+  const isPinned = ref(false)
+
+  const handleMouseEnter = () => {
+    isOpen.value = true
+  }
+
+  const handleMouseLeave = () => {
+    if (!isPinned.value) {
+      isOpen.value = false
+    }
+  }
+
+  const handleHeaderClick = () => {
+    if (isPinned.value) {
+      isPinned.value = false
+      isOpen.value = false
+    } else {
+      isPinned.value = true
+      isOpen.value = true
+    }
+  }
 
   onMounted(() => {
     if (userRole.value === 'patient') {
@@ -27,6 +50,16 @@
       }
     }
   )
+
+  const formatDurationLabel = (duration?: string | null): string => {
+    if (!duration) return ''
+    const trimmed = duration.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed)
+      return `${n} ${n === 1 ? 'day' : 'days'}`
+    }
+    return trimmed
+  }
 
   const handleMarkTaken = async (entry: PendingTodayMedication) => {
     await setMedicationStatus(entry.prescriptionKey, entry.item.key, 'taken', entry.item.medication)
@@ -45,104 +78,123 @@
       class="pointer-events-none fixed top-[80px] right-0 left-0 z-[60] flex justify-center px-3 md:top-4 md:px-6"
     >
       <div
-        class="bg-card/95 border-primary/25 pointer-events-auto relative w-full max-w-xl overflow-hidden rounded-2xl border p-3.5 shadow-xl backdrop-blur-md sm:p-4"
+        class="bg-card border-border pointer-events-auto relative w-full max-w-lg rounded-2xl border px-4 py-2.5 shadow-lg"
         role="region"
         aria-label="Daily Medication Reminder"
+        @mouseenter="handleMouseEnter"
+        @mouseleave="handleMouseLeave"
       >
-        <!-- Lowkey X button at the side of the modal -->
-        <button
-          type="button"
-          @click="handleDismissBanner"
-          class="text-muted-foreground/60 hover:text-foreground hover:bg-muted/80 absolute top-2.5 right-2.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full transition-colors"
-          title="Dismiss reminder for today"
-          aria-label="Dismiss reminder for today"
+        <!-- Header (Always Visible — Shows Red Dot When Shrunk) -->
+        <div
+          class="flex cursor-pointer items-center justify-between gap-3 select-none"
+          @click="handleHeaderClick"
         >
-          <Icon
-            name="lucide:x"
-            class="text-xs"
-          />
-        </button>
+          <div class="flex min-w-0 items-center gap-2.5">
+            <!-- Attention Red Dot (Pulses when shrunk) -->
+            <span class="relative flex h-2.5 w-2.5 shrink-0">
+              <span
+                v-if="!isOpen"
+                class="bg-destructive absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+              />
+              <span class="bg-destructive relative inline-flex h-2.5 w-2.5 rounded-full" />
+            </span>
 
-        <!-- Header -->
-        <div class="mb-2.5 flex items-center gap-2.5 pr-6">
-          <div
-            class="bg-primary/10 text-primary flex h-8 w-8 shrink-0 items-center justify-center rounded-xl"
-          >
-            <Icon
-              name="lucide:pill"
-              class="text-base"
-            />
+            <h3 class="text-foreground truncate text-xs font-semibold tracking-tight">
+              Daily Medication Reminder
+            </h3>
+            <span class="text-muted-foreground shrink-0 text-xs">
+              &middot; {{ pendingTodayMedications.length }} due today
+            </span>
           </div>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <h3 class="text-foreground truncate text-xs font-bold sm:text-sm">
-                Daily Medication Reminder
-              </h3>
-              <AppBadge
-                color="primary"
-                variant="subtle"
-                size="xs"
-              >
-                {{ pendingTodayMedications.length }}
-                {{ pendingTodayMedications.length === 1 ? 'Med Due' : 'Meds Due' }}
-              </AppBadge>
-            </div>
-            <p class="text-muted-foreground truncate text-[11px]">
-              Prescribed by {{ pendingTodayMedications[0]?.doctorName }} &bull; Mark once taken
-              today
-            </p>
+
+          <div class="flex shrink-0 items-center gap-1">
+            <Icon
+              name="lucide:chevron-down"
+              class="text-muted-foreground text-xs transition-transform duration-200"
+              :class="isOpen ? 'rotate-180' : ''"
+            />
+            <button
+              type="button"
+              @click.stop="handleDismissBanner"
+              class="text-muted-foreground hover:text-foreground hover:bg-muted -mr-1 flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
+              title="Dismiss reminder for today"
+              aria-label="Dismiss reminder for today"
+            >
+              <Icon
+                name="lucide:x"
+                class="text-xs"
+              />
+            </button>
           </div>
         </div>
 
-        <!-- Medications Due List -->
-        <div class="custom-scrollbar flex max-h-44 flex-col gap-2 overflow-y-auto pr-0.5">
-          <div
-            v-for="entry in pendingTodayMedications"
-            :key="`${entry.prescriptionKey}-${entry.item.key}`"
-            class="bg-background/70 border-border/80 flex items-center justify-between gap-3 rounded-xl border px-3 py-2"
-          >
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-1.5">
-                <p class="text-foreground truncate text-xs font-bold">
-                  {{ entry.item.medication }}
-                </p>
-                <span
-                  v-if="entry.item.quantity"
-                  class="text-primary shrink-0 font-mono text-[10px] font-bold"
-                >
-                  {{ entry.item.quantity }}
-                </span>
-              </div>
-              <p
-                v-if="entry.item.frequency || entry.item.duration || entry.item.instructions"
-                class="text-muted-foreground truncate text-[11px]"
+        <!-- Smooth Normal Collapsible Body -->
+        <div
+          class="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+          :class="isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
+        >
+          <div class="overflow-hidden">
+            <div
+              class="border-border/60 custom-scrollbar divide-border/60 mt-2.5 flex max-h-56 flex-col divide-y overflow-y-auto border-t pt-2.5"
+            >
+              <div
+                v-for="entry in pendingTodayMedications"
+                :key="`${entry.prescriptionKey}-${entry.item.key}`"
+                class="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
               >
-                <span v-if="entry.item.frequency">{{ entry.item.frequency }}</span>
-                <span v-if="entry.item.frequency && entry.item.duration"> &bull; </span>
-                <span v-if="entry.item.duration">{{ entry.item.duration }}</span>
-                <span
-                  v-if="(entry.item.frequency || entry.item.duration) && entry.item.instructions"
-                >
-                  &bull;
-                </span>
-                <span v-if="entry.item.instructions">{{ entry.item.instructions }}</span>
-              </p>
-            </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <p class="text-foreground text-sm font-bold">
+                      {{ entry.item.medication }}
+                    </p>
+                    <span
+                      v-if="entry.item.quantity"
+                      class="text-muted-foreground text-xs font-medium"
+                    >
+                      {{ entry.item.quantity }}
+                    </span>
+                  </div>
 
-            <div class="flex shrink-0 items-center">
-              <AppButton
-                variant="solid"
-                size="sm"
-                :loading="isMedicationUpdating(entry.prescriptionKey, entry.item.key)"
-                @click="handleMarkTaken(entry)"
-              >
-                <Icon
-                  v-if="!isMedicationUpdating(entry.prescriptionKey, entry.item.key)"
-                  name="lucide:check"
-                  class="text-xs"
-                />
-                <span>Taken</span>
-              </AppButton>
+                  <p
+                    v-if="entry.item.frequency || entry.item.duration"
+                    class="text-muted-foreground mt-0.5 text-xs leading-snug"
+                  >
+                    <span v-if="entry.item.frequency">{{ entry.item.frequency }}</span>
+                    <span v-if="entry.item.frequency && entry.item.duration"> &middot; </span>
+                    <span v-if="entry.item.duration">{{
+                      formatDurationLabel(entry.item.duration)
+                    }}</span>
+                  </p>
+
+                  <div
+                    v-if="entry.item.instructions"
+                    class="border-primary bg-muted/60 mt-1.5 rounded-r-md border-l-2 px-2.5 py-1"
+                  >
+                    <div class="custom-scrollbar max-h-16 overflow-x-hidden overflow-y-auto pr-1">
+                      <p class="text-foreground text-xs leading-snug font-medium break-words">
+                        <span class="text-primary font-semibold">Doctor's instruction:</span>
+                        {{ entry.item.instructions }}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p class="text-muted-foreground mt-1 text-[11px]">
+                    Prescribed by {{ entry.doctorName }}
+                  </p>
+                </div>
+
+                <div class="flex shrink-0 items-center">
+                  <AppButton
+                    variant="solid"
+                    size="sm"
+                    :loading="isMedicationUpdating(entry.prescriptionKey, entry.item.key)"
+                    @click.stop="handleMarkTaken(entry)"
+                    class="!h-8 !rounded-lg !px-3 !text-xs"
+                  >
+                    <span>Mark as taken</span>
+                  </AppButton>
+                </div>
+              </div>
             </div>
           </div>
         </div>

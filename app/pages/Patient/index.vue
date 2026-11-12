@@ -303,9 +303,11 @@
         />
       </div>
       <!-- CALENDAR & PRESCRIPTIONS -->
-      <div class="sticky top-0 flex w-80 shrink-0 flex-col gap-4 lg:w-[340px] xl:w-[350px]">
+      <div
+        class="sticky top-0 flex h-[calc(85vh+1rem)] w-80 shrink-0 flex-col gap-3 lg:w-[340px] xl:w-[350px]"
+      >
         <PatientSideComponentsCalendar class="w-full shrink-0" />
-        <PatientSideComponentsPrescriptions class="min-h-[200px] w-full flex-1" />
+        <PatientSideComponentsPrescriptions class="min-h-0 w-full flex-1" />
       </div>
     </div>
 

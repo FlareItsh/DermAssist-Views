@@ -83,6 +83,16 @@
     showPatientEducation.value = !showPatientEducation.value
   }
 
+  const formatDurationLabel = (duration?: string | null): string => {
+    if (!duration) return ''
+    const trimmed = duration.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const n = Number(trimmed)
+      return `${n} ${n === 1 ? 'day' : 'days'}`
+    }
+    return trimmed
+  }
+
   const handleToggleMedicationTaken = async (item: ParsedMedicationItem) => {
     if (!activePrescription.value) return
     const rxKey = activePrescription.value.key
@@ -131,7 +141,7 @@
 
 <template>
   <div
-    class="bg-card flex flex-col justify-between rounded-3xl border p-4 transition-all duration-300 sm:p-5"
+    class="bg-card flex min-h-0 flex-col justify-between overflow-hidden rounded-3xl border p-3.5 transition-all duration-300 sm:p-4"
     :class="
       hasUntakenMedicationsToday
         ? 'border-primary/60 ring-primary/25 shadow-[0_0_25px_rgba(37,99,235,0.45)] ring-2'
@@ -139,20 +149,18 @@
     "
   >
     <!-- Header Row -->
-    <div class="mb-3 flex items-center justify-between gap-2 sm:mb-4">
+    <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
       <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
-        <div class="bg-secondary h-6 w-1 shrink-0 rounded-full sm:h-8"></div>
-        <div class="flex min-w-0 items-center gap-2">
-          <h1 class="text-foreground truncate text-base font-bold sm:text-2xl">Prescriptions</h1>
-          <AppBadge
-            v-if="prescriptionsList.length > 0"
-            color="primary"
-            variant="subtle"
-            size="xs"
+        <div class="bg-secondary h-6 w-1 shrink-0 rounded-full sm:h-7"></div>
+        <div class="flex min-w-0 items-baseline gap-2">
+          <h1 class="text-foreground truncate text-base font-bold sm:text-xl">Prescriptions</h1>
+          <span
+            v-if="prescriptionsList.length > 0 && activePrescription"
+            class="text-muted-foreground shrink-0 text-xs font-medium"
           >
-            {{ activePrescription?.items.length || 0 }}
-            {{ (activePrescription?.items.length || 0) === 1 ? 'Med' : 'Meds' }}
-          </AppBadge>
+            {{ activePrescription.items.length }}
+            {{ activePrescription.items.length === 1 ? 'medication' : 'medications' }}
+          </span>
         </div>
       </div>
 
@@ -167,7 +175,7 @@
           rounded="full"
           :disabled="currentIndex === 0"
           @click="handlePrevPrescription"
-          class="flex h-7 w-7 items-center justify-center"
+          class="flex h-6 w-6 items-center justify-center"
           aria-label="Newer prescription"
         >
           <Icon
@@ -175,7 +183,7 @@
             class="text-sm"
           />
         </AppButton>
-        <span class="text-muted-foreground text-[11px] font-bold">
+        <span class="text-muted-foreground text-[11px] font-semibold">
           {{ currentIndex + 1 }}/{{ prescriptionsList.length }}
         </span>
         <AppButton
@@ -184,7 +192,7 @@
           rounded="full"
           :disabled="currentIndex >= prescriptionsList.length - 1"
           @click="handleNextPrescription"
-          class="flex h-7 w-7 items-center justify-center"
+          class="flex h-6 w-6 items-center justify-center"
           aria-label="Older prescription"
         >
           <Icon
@@ -198,7 +206,7 @@
     <!-- Loading State -->
     <div
       v-if="isLoading"
-      class="flex flex-1 flex-col items-center justify-center gap-2 py-8"
+      class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 py-4"
     >
       <Icon
         name="lucide:loader-2"
@@ -210,214 +218,136 @@
     <!-- Active Prescription Content -->
     <div
       v-else-if="activePrescription"
-      class="flex min-h-0 flex-1 flex-col justify-between gap-3"
+      class="flex min-h-0 flex-1 flex-col justify-between gap-2 overflow-hidden"
     >
-      <!-- Doctor & Condition Metadata Banner -->
-      <div
-        class="bg-muted/60 border-border/60 flex items-center justify-between gap-2 rounded-2xl border px-3 py-2"
-      >
-        <div class="flex min-w-0 items-center gap-2">
-          <div
-            class="bg-primary/10 text-primary flex h-7 w-7 shrink-0 items-center justify-center rounded-xl"
-          >
-            <Icon
-              name="lucide:stethoscope"
-              class="text-sm"
-            />
-          </div>
-          <div class="min-w-0">
-            <p class="text-foreground truncate text-xs font-bold">
-              {{ activePrescription.doctorName }}
-            </p>
-            <p class="text-muted-foreground truncate text-[10px] font-medium">
-              Issued {{ activePrescription.dateFormatted }} &bull;
-              {{ activePrescription.prescriptionNumber }}
-            </p>
-          </div>
+      <!-- Prescribing Doctor & Issue Date Metadata -->
+      <div class="border-border/70 flex shrink-0 items-center justify-between gap-2 border-b pb-2">
+        <div class="min-w-0">
+          <p class="text-foreground truncate text-xs font-semibold">
+            Prescribed by {{ activePrescription.doctorName }}
+          </p>
+          <p class="text-muted-foreground truncate text-[10px]">
+            Issued {{ activePrescription.dateFormatted }} &middot;
+            {{ activePrescription.prescriptionNumber }}
+          </p>
         </div>
 
-        <AppBadge
+        <span
           v-if="activePrescription.conditionLabel"
-          color="primary"
-          variant="subtle"
-          size="xs"
-          class="max-w-[110px] shrink-0 truncate"
+          class="bg-muted text-muted-foreground max-w-[110px] shrink-0 truncate rounded-md px-2 py-0.5 text-[10px] font-medium"
         >
           {{ activePrescription.conditionLabel }}
-        </AppBadge>
+        </span>
       </div>
 
-      <!-- Scrollable Structured Medications List -->
-      <div class="custom-scrollbar flex max-h-64 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
+      <!-- Medications List (Non-scrollable container; fills whole card, only instruction text scrolls if long) -->
+      <div class="divide-border/70 flex min-h-0 flex-1 flex-col divide-y">
         <div
           v-for="(item, idx) in activePrescription.items"
           :key="item.key || idx"
-          class="bg-background/60 border-border hover:border-primary/30 rounded-2xl border p-3 transition-all"
+          class="flex min-h-0 flex-1 flex-col py-2 first:pt-1 last:pb-0"
         >
-          <!-- Row 1: Medicine + Dosage & Quantity (#) -->
-          <div class="flex items-start justify-between gap-2">
-            <div class="flex min-w-0 items-start gap-2">
-              <div
-                class="bg-primary/10 text-primary mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg"
-              >
-                <Icon
-                  name="lucide:pill"
-                  class="text-xs"
-                />
-              </div>
-              <div class="min-w-0">
-                <span class="text-muted-foreground block text-[9px] font-bold uppercase">
-                  Medicine &amp; Dosage
-                </span>
-                <p class="text-foreground text-xs leading-snug font-bold">
+          <!-- Row 1: Medication Name + Quantity & Mark as taken button -->
+          <div class="flex shrink-0 items-start justify-between gap-2.5">
+            <div class="min-w-0 flex-1">
+              <span class="text-muted-foreground block text-[10px] font-semibold uppercase">
+                Medication &amp; Dosage
+              </span>
+              <div class="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <p class="text-foreground text-sm leading-snug font-bold break-words">
                   {{ item.medication }}
                 </p>
+                <span
+                  v-if="item.quantity"
+                  class="bg-muted text-foreground/80 rounded px-1.5 py-0.5 text-[11px] font-semibold"
+                >
+                  {{ item.quantity }}
+                </span>
               </div>
             </div>
 
-            <AppBadge
-              v-if="item.quantity"
-              color="primary"
-              variant="solid"
-              size="xs"
-              rounded="lg"
-              :uppercase="false"
-              class="shrink-0 font-mono"
-            >
-              {{ item.quantity }}
-            </AppBadge>
+            <!-- Action: Mark as taken / Taken today (padded top-right so red dot is never clipped) -->
+            <div class="shrink-0 pt-1 pr-1">
+              <button
+                v-if="getMedicationStatus(activePrescription.key, item.key) === 'taken'"
+                type="button"
+                :disabled="isMedicationUpdating(activePrescription.key, item.key)"
+                @click="handleToggleMedicationTaken(item)"
+                title="Click to undo"
+                class="inline-flex h-7 cursor-pointer items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50/80 px-2.5 text-[11px] font-semibold text-emerald-700 transition-colors hover:bg-emerald-100/80 disabled:opacity-50"
+              >
+                <Icon
+                  name="lucide:check"
+                  class="text-xs"
+                />
+                <span>Taken today</span>
+              </button>
+
+              <div
+                v-else
+                class="relative inline-flex"
+              >
+                <AppButton
+                  variant="soft"
+                  size="sm"
+                  :loading="isMedicationUpdating(activePrescription.key, item.key)"
+                  @click="handleToggleMedicationTaken(item)"
+                  class="!h-7 !rounded-lg !px-2.5 !py-1 !text-[11px]"
+                >
+                  <span>Mark as taken</span>
+                </AppButton>
+                <span
+                  v-if="!item.isExpired"
+                  class="pointer-events-none absolute -top-1 -right-1 flex h-2.5 w-2.5"
+                >
+                  <span
+                    class="bg-destructive absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                  />
+                  <span
+                    class="bg-destructive ring-card relative inline-flex h-2.5 w-2.5 rounded-full ring-2"
+                  />
+                </span>
+              </div>
+            </div>
           </div>
 
-          <!-- Row 2: Frequency & Duration Grid (matching ClinicalNoteForm inputs) -->
+          <!-- Row 2: Structured Schedule Summary (Frequency & Duration) -->
           <div
             v-if="item.frequency || item.duration"
-            class="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2"
+            class="border-border/60 bg-muted/30 mt-2.5 grid shrink-0 grid-cols-2 gap-2 rounded-xl border px-3 py-2"
           >
-            <div
-              v-if="item.frequency"
-              class="bg-card border-border/70 flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
-            >
-              <Icon
-                name="lucide:clock"
-                class="text-primary shrink-0 text-xs"
-              />
-              <div class="min-w-0">
-                <span class="text-muted-foreground block text-[9px] font-bold uppercase">
-                  Frequency
-                </span>
-                <p class="text-foreground truncate text-[11px] font-semibold">
-                  {{ item.frequency }}
-                </p>
-              </div>
-            </div>
-
-            <div
-              v-if="item.duration"
-              class="bg-card border-border/70 flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5"
-            >
-              <Icon
-                name="lucide:calendar-clock"
-                class="text-primary shrink-0 text-xs"
-              />
-              <div class="min-w-0">
-                <span class="text-muted-foreground block text-[9px] font-bold uppercase">
-                  Duration
-                </span>
-                <p class="text-foreground truncate text-[11px] font-semibold">
-                  {{ item.duration }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 3: Special Instructions / Sig -->
-          <div
-            v-if="item.instructions"
-            class="bg-primary/5 border-primary/15 mt-1.5 flex items-start gap-1.5 rounded-xl border px-2.5 py-1.5"
-          >
-            <Icon
-              name="lucide:info"
-              class="text-primary mt-0.5 shrink-0 text-xs"
-            />
             <div class="min-w-0">
-              <span class="text-primary block text-[9px] font-bold uppercase">
-                Instructions / Sig
+              <span class="text-muted-foreground block text-[10px] font-semibold uppercase">
+                Frequency
               </span>
-              <p class="text-foreground text-[11px] leading-snug font-medium">
-                {{ item.instructions }}
+              <p class="text-foreground mt-0.5 text-xs leading-snug font-semibold break-words">
+                {{ item.frequency || 'As directed' }}
+              </p>
+            </div>
+            <div class="border-border/60 min-w-0 border-l pl-2.5">
+              <span class="text-muted-foreground block text-[10px] font-semibold uppercase">
+                Duration
+              </span>
+              <p class="text-foreground mt-0.5 text-xs leading-snug font-semibold break-words">
+                {{ item.duration ? formatDurationLabel(item.duration) : 'As prescribed' }}
               </p>
             </div>
           </div>
 
-          <!-- Row 4: Daily Adherence Status & Editable Toggle -->
+          <!-- Row 3: Distinguishable Doctor's Instruction (Expands to fill remaining card space; scrolls only inside text area) -->
           <div
-            class="border-border/60 mt-2.5 flex items-center justify-between gap-2 border-t pt-2"
+            class="border-primary bg-muted/50 mt-2.5 flex min-h-0 flex-1 flex-col rounded-r-xl border-l-2 px-3 py-2"
           >
-            <template v-if="getMedicationStatus(activePrescription.key, item.key) === 'taken'">
-              <AppBadge
-                color="success"
-                variant="subtle"
-                size="xs"
-                :uppercase="false"
-              >
-                <template #leading>
-                  <Icon
-                    name="lucide:check-circle-2"
-                    class="text-xs"
-                  />
-                </template>
-                Taken Today
-              </AppBadge>
-
-              <button
-                type="button"
-                :disabled="isMedicationUpdating(activePrescription.key, item.key)"
-                @click="handleToggleMedicationTaken(item)"
-                class="text-muted-foreground hover:text-foreground cursor-pointer text-[11px] font-semibold underline-offset-2 hover:underline disabled:opacity-50"
-              >
-                Undo
-              </button>
-            </template>
-
-            <template v-else>
-              <div class="flex min-w-0 items-center gap-1.5">
-                <AppBadge
-                  v-if="item.isExpired"
-                  color="gray"
-                  variant="subtle"
-                  size="xs"
-                  :uppercase="false"
-                >
-                  Duration Completed
-                </AppBadge>
-                <span
-                  v-else-if="getMedicationStatus(activePrescription.key, item.key) === 'dismissed'"
-                  class="text-muted-foreground truncate text-[11px] font-medium"
-                >
-                  Reminder dismissed today
-                </span>
-                <span
-                  v-else
-                  class="text-muted-foreground truncate text-[11px] font-medium"
-                >
-                  Not taken yet today
-                </span>
-              </div>
-
-              <AppButton
-                variant="soft"
-                size="sm"
-                :loading="isMedicationUpdating(activePrescription.key, item.key)"
-                @click="handleToggleMedicationTaken(item)"
-              >
-                <Icon
-                  v-if="!isMedicationUpdating(activePrescription.key, item.key)"
-                  name="lucide:check"
-                  class="text-xs"
-                />
-                <span>Taken</span>
-              </AppButton>
-            </template>
+            <span class="text-primary shrink-0 text-[10px] font-bold tracking-wide uppercase">
+              Doctor's Instruction
+            </span>
+            <div
+              class="custom-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1"
+            >
+              <p class="text-foreground text-xs leading-relaxed font-medium break-words">
+                {{ item.instructions || 'Follow the prescribed dosage schedule above.' }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -425,22 +355,16 @@
       <!-- Collapsible Patient Education Note (if present) -->
       <div
         v-if="activePrescription.patientEducation"
-        class="border-border/70 bg-muted/40 rounded-2xl border px-3 py-2"
+        class="border-border/70 bg-muted/30 shrink-0 rounded-xl border px-2.5 py-1.5"
       >
         <button
           type="button"
           @click="togglePatientEducation"
           class="flex w-full cursor-pointer items-center justify-between gap-2 text-left"
         >
-          <div class="flex items-center gap-1.5">
-            <Icon
-              name="lucide:book-open"
-              class="text-primary text-xs"
-            />
-            <span class="text-foreground text-[11px] font-bold">
-              Doctor's Care &amp; Education Notes
-            </span>
-          </div>
+          <span class="text-foreground text-[11px] font-semibold">
+            Doctor's Care &amp; Education Notes
+          </span>
           <Icon
             :name="showPatientEducation ? 'lucide:chevron-up' : 'lucide:chevron-down'"
             class="text-muted-foreground text-xs"
@@ -448,7 +372,7 @@
         </button>
         <p
           v-if="showPatientEducation"
-          class="text-muted-foreground mt-1.5 border-t pt-1.5 text-[11px] leading-relaxed"
+          class="text-muted-foreground custom-scrollbar mt-1 max-h-12 overflow-x-hidden overflow-y-auto border-t pt-1 pr-1 text-[11px] leading-relaxed break-words"
         >
           {{ activePrescription.patientEducation }}
         </p>
@@ -457,12 +381,12 @@
       <!-- Footer Quick Actions -->
       <div
         v-if="activePrescription.diagnosisUuid"
-        class="border-border/60 flex items-center gap-2 border-t pt-2.5"
+        class="border-border/60 flex shrink-0 items-center gap-2 border-t pt-2"
       >
         <AppButton
           variant="soft"
           size="sm"
-          class="flex-1"
+          class="!h-7 flex-1 !text-[11px]"
           @click="handleOpenRxPad"
         >
           <Icon
@@ -475,7 +399,7 @@
         <AppButton
           variant="solid"
           size="sm"
-          class="flex-1"
+          class="!h-7 flex-1 !text-[11px]"
           :loading="isDownloadingPdf"
           @click="handleDownloadRxPdf"
         >
