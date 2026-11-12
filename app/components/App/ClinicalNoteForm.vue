@@ -1256,7 +1256,7 @@
               v-model="note.history_of_present_illness"
               rows="3"
               placeholder="Duration, symptoms, triggers..."
-              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
+              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:p-3.5 sm:text-sm"
             ></textarea>
           </div>
           <div class="flex flex-col gap-1.5 sm:gap-2">
@@ -1267,7 +1267,7 @@
               v-model="note.systemic_symptoms"
               rows="3"
               placeholder="Fever, fatigue, other affected areas..."
-              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
+              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:p-3.5 sm:text-sm"
             ></textarea>
           </div>
         </div>
@@ -1290,7 +1290,7 @@
             v-model="note.physical_exam"
             rows="3"
             placeholder="Visual inspection details, lesion description..."
-            class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
+            class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:p-3.5 sm:text-sm"
           ></textarea>
         </div>
       </section>
@@ -1306,18 +1306,20 @@
         </h3>
         <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
           <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
-              >Differential Diagnosis</label
-            >
+            <div class="flex min-h-[20px] items-center">
+              <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
+                >Differential Diagnosis</label
+              >
+            </div>
             <textarea
               v-model="note.differential_diagnosis"
               rows="2"
               placeholder="Alternative possible diagnoses..."
-              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
+              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:p-3.5 sm:text-sm"
             ></textarea>
           </div>
           <div class="flex flex-col gap-1.5 sm:gap-2">
-            <div class="flex items-center justify-between">
+            <div class="flex min-h-[20px] items-center justify-between">
               <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >Final Diagnosis</label
               >
@@ -1331,7 +1333,7 @@
               type="text"
               v-model="note.final_diagnosis"
               placeholder="Primary diagnosis..."
-              class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
+              class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
             />
           </div>
         </div>
@@ -1346,7 +1348,7 @@
           >
           Plan
         </h3>
-        <div class="grid gap-4 sm:gap-6">
+        <div class="grid gap-4 sm:grid-cols-2 sm:gap-6">
           <!-- Adaptive Prescription Section -->
           <div class="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-5">
             <div class="flex items-center justify-between border-b border-gray-100 pb-3">
@@ -1382,13 +1384,13 @@
               <!-- Dropdown 1: Medicine Name -->
               <div class="sm:col-span-4">
                 <label
-                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Medicine
                 </label>
                 <select
                   v-model="selectedMedicineUuid"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2.5 text-xs text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:text-sm"
                 >
                   <option value="">Select medicine</option>
                   <option
@@ -1404,14 +1406,14 @@
               <!-- Dropdown 2: Strength / Dosage -->
               <div class="sm:col-span-3">
                 <label
-                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Dosage
                 </label>
                 <select
                   v-model="selectedVariantUuid"
                   :disabled="!selectedMedicineUuid || currentVariants.length === 0"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2.5 text-xs text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 >
                   <option value="">
                     {{
@@ -1435,7 +1437,7 @@
               <!-- Frequency Field -->
               <div class="sm:col-span-5">
                 <label
-                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-600 uppercase"
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Frequency
                 </label>
@@ -1444,16 +1446,16 @@
                   v-model="rxFrequency"
                   :disabled="!selectedVariantUuid"
                   placeholder="e.g., BID, Every 6h"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
             </div>
 
             <!-- Modifiers & Add Button -->
-            <div class="grid gap-2.5 pt-2 sm:grid-cols-12 sm:items-center">
+            <div class="grid gap-2.5 pt-2 sm:grid-cols-12 sm:items-end">
               <div class="sm:col-span-3">
                 <label
-                  class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase"
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Duration
                 </label>
@@ -1462,13 +1464,15 @@
                   v-model="rxDuration"
                   :disabled="!selectedVariantUuid"
                   placeholder="e.g. 7 days"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
 
               <div class="sm:col-span-3">
-                <div class="mb-1 flex items-center justify-between">
-                  <label class="block text-[9px] font-bold tracking-wider text-gray-500 uppercase">
+                <div class="mb-1 flex min-h-[16px] items-center justify-between">
+                  <label
+                    class="block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
+                  >
                     Quantity (#)
                   </label>
                   <span
@@ -1484,13 +1488,13 @@
                   @input="onQuantityInput"
                   :disabled="!selectedVariantUuid"
                   placeholder="e.g. #14 capsules"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs font-semibold text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs font-semibold text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
 
               <div class="sm:col-span-4">
                 <label
-                  class="mb-1 block text-[9px] font-bold tracking-wider text-gray-500 uppercase"
+                  class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Instructions / Sig
                 </label>
@@ -1499,16 +1503,16 @@
                   v-model="rxInstructions"
                   :disabled="!selectedVariantUuid"
                   placeholder="Instructions (e.g. after meals)"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
 
-              <div class="flex justify-end sm:col-span-2 sm:pt-3">
+              <div class="flex justify-end sm:col-span-2">
                 <button
                   type="button"
                   @click="handleAddMedicationToPrescription"
                   :disabled="!selectedMedicineUuid || !selectedVariantUuid"
-                  class="bg-primary hover:bg-primary/90 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40"
+                  class="bg-primary hover:bg-primary/90 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40 sm:text-sm"
                 >
                   <Icon
                     name="lucide:plus"
@@ -1547,7 +1551,7 @@
             <div class="space-y-1.5 border-t border-gray-200/60 pt-3">
               <div class="flex items-center justify-between">
                 <label
-                  class="text-[10px] font-bold tracking-wider text-gray-600 uppercase sm:text-xs"
+                  class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Prescription Draft
                 </label>
@@ -1610,16 +1614,41 @@
           </div>
 
           <!-- Patient Education & Instructions -->
-          <div class="flex flex-col gap-1.5 sm:gap-2">
-            <label class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs">
-              Patient Education & Instructions
-            </label>
-            <textarea
-              v-model="note.patient_education"
-              rows="4"
-              placeholder="Skin care routines, triggers to avoid..."
-              class="focus:border-primary focus:ring-primary/20 w-full resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-800 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:p-3.5 sm:text-sm"
-            ></textarea>
+          <div
+            class="flex h-full flex-col space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-xs sm:p-5"
+          >
+            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex h-7 w-7 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700"
+                >
+                  <Icon
+                    name="lucide:book-open"
+                    class="text-sm"
+                  />
+                </div>
+                <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">
+                  Patient Education & Instructions
+                </h4>
+              </div>
+
+              <button
+                v-if="note.patient_education"
+                type="button"
+                @click="note.patient_education = ''"
+                class="text-[10px] font-semibold text-gray-400 transition-colors hover:text-red-600"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div class="flex flex-1 flex-col">
+              <textarea
+                v-model="note.patient_education"
+                placeholder="Skin care routines, triggers to avoid, lifestyle modifications, application directions..."
+                class="focus:border-primary focus:ring-primary/20 min-h-[160px] w-full flex-1 resize-none rounded-lg border border-gray-300 bg-white p-3 text-xs text-gray-800 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:min-h-0 sm:p-3.5 sm:text-sm"
+              ></textarea>
+            </div>
           </div>
 
           <div
@@ -1840,7 +1869,7 @@
                     <select
                       v-if="clinics.length > 0"
                       v-model="followUpLocation"
-                      class="focus:border-primary focus:ring-primary/20 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:px-3.5 sm:py-2.5 sm:text-sm"
+                      class="focus:border-primary focus:ring-primary/20 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:text-sm"
                     >
                       <option
                         value=""
@@ -2025,7 +2054,7 @@
             <div class="border-border/60 space-y-2 border-t pt-2">
               <div class="flex items-center justify-between">
                 <label
-                  class="text-[10px] font-bold tracking-wider text-gray-600 uppercase sm:text-xs"
+                  class="text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                   >Follow-up Instructions & Objectives</label
                 >
                 <span class="text-muted-foreground text-[10px] italic sm:text-[11px]"
@@ -2037,7 +2066,7 @@
                 type="text"
                 v-model="note.follow_up_instructions"
                 placeholder="e.g. When to return, what symptoms to monitor, biopsy review..."
-                class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none"
+                class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
               />
             </div>
           </div>
