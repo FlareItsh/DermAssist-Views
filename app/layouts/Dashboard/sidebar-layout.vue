@@ -1,5 +1,8 @@
 <template>
   <div class="flex h-[100dvh] h-screen flex-col overflow-hidden">
+    <!-- Global Daily Medication Reminder Banner (Patient Only, Fixed Top Overlay) -->
+    <PatientSideComponentsMedicationReminderBanner v-if="userRole === 'patient'" />
+
     <!-- Desktop Navbar (hidden on mobile; doctors also hide it on tablet) -->
     <div :class="desktopChromeClass">
       <AppNavbar

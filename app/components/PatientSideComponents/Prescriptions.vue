@@ -2,7 +2,11 @@
   import { ref, computed, watch, onMounted } from 'vue'
   import { toast } from 'vue-sonner'
   import { $api } from '~/composables/useApi'
-  import { recordService } from '~/api/record/RecordService'
+  import {
+    usePrescriptions,
+    type ParsedMedicationItem,
+    type PrescriptionRecordEntry
+  } from '~/composables/usePrescriptions'
 
   interface Props {
     compactEmpty?: boolean
@@ -12,260 +16,31 @@
     compactEmpty: false
   })
 
-  export interface ParsedMedicationItem {
-    medication: string
-    quantity: string | null
-    frequency: string | null
-    duration: string | null
-    instructions: string | null
-  }
-
-  export interface PrescriptionRecordEntry {
-    key: string
-    noteId?: number | null
-    diagnosisUuid: string | null
-    prescriptionNumber: string
-    conditionLabel: string
-    doctorName: string
-    dateFormatted: string
-    timestamp: number
-    rawPrescription: string
-    patientEducation: string | null
-    items: ParsedMedicationItem[]
-  }
-
   const { allAppointments } = useAppointments()
+  const {
+    prescriptionsList,
+    isLoading,
+    fetchPrescriptionsAndLogs,
+    getMedicationStatus,
+    isMedicationUpdating,
+    setMedicationStatus
+  } = usePrescriptions()
 
-  const isLoading = ref(true)
-  const rawRecords = ref<any[]>([])
   const currentIndex = ref(0)
   const showPatientEducation = ref(false)
   const showPrescriptionPadModal = ref(false)
   const isDownloadingPdf = ref(false)
 
-  const parsePrescriptionText = (text: string): ParsedMedicationItem[] => {
-    const trimmed = (text || '').trim()
-    if (!trimmed) return []
-
-    const lines = trimmed.split(/\r\n|\r|\n/)
-    const items: ParsedMedicationItem[] = []
-    const freqCodeRegex = /^(OD|BID|TID|QID|QOD|PRN|HS|STAT|Q\d+H|1X|2X|3X|4X)$/i
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim()
-      if (!line) continue
-
-      const cleanLine = line.replace(/^[•\-\*\d\.\)\s]+/u, '').trim()
-      if (!cleanLine) continue
-
-      let rawMed = cleanLine
-      let sigSegment: string | null = null
-
-      if (cleanLine.includes('—')) {
-        const parts = cleanLine.split('—')
-        rawMed = (parts[0] || '').trim()
-        sigSegment = parts.slice(1).join('—').trim()
-      } else if (cleanLine.includes(' - ')) {
-        const parts = cleanLine.split(' - ')
-        rawMed = (parts[0] || '').trim()
-        sigSegment = parts.slice(1).join(' - ').trim()
-      }
-
-      let quantity: string | null = null
-      let cleanMed = rawMed
-
-      const medHashMatch = rawMed.match(/(?:^|\s)#\s*([0-9a-zA-Z\s\(\)\.\/\-]+)$/i)
-      const medQtyBracketMatch = rawMed.match(
-        /[\(\[]\s*(?:Qty|Dispense|Disp)[\:\s]*([^\)\]]+)[\)\]]/i
-      )
-
-      if (medHashMatch && medHashMatch[1]) {
-        quantity = `#${medHashMatch[1].trim()}`
-        const hashIdx = rawMed.lastIndexOf('#')
-        if (hashIdx !== -1) {
-          cleanMed = rawMed.slice(0, hashIdx).trim()
-        }
-      } else if (medQtyBracketMatch && medQtyBracketMatch[1]) {
-        quantity = `#${medQtyBracketMatch[1].trim()}`
-        cleanMed = rawMed
-          .replace(/[\(\[]\s*(?:Qty|Dispense|Disp)[\:\s]*([^\)\]]+)[\)\]]/i, '')
-          .trim()
-      } else if (sigSegment) {
-        const sigHashMatch = sigSegment.match(/(?:^|\s)#\s*([0-9a-zA-Z\s\(\)\.\/\-]+)$/i)
-        if (sigHashMatch && sigHashMatch[1]) {
-          quantity = `#${sigHashMatch[1].trim()}`
-          const hashIdx = sigSegment.lastIndexOf('#')
-          if (hashIdx !== -1) {
-            sigSegment = sigSegment.slice(0, hashIdx).trim()
-          }
-        }
-      }
-
-      let frequency: string | null = null
-      let duration: string | null = null
-      let instructions: string | null = null
-
-      if (sigSegment) {
-        let rem = sigSegment.trim()
-
-        // Extract trailing parenthetical instructions if not a standard frequency code like (BID)
-        const trailingParenMatch = rem.match(/^(.*?)\s*\(([^()]+)\)\s*$/)
-        if (trailingParenMatch) {
-          const beforeParen = (trailingParenMatch[1] || '').trim()
-          const insideParen = (trailingParenMatch[2] || '').trim()
-          if (beforeParen && !freqCodeRegex.test(insideParen)) {
-            instructions = insideParen
-            rem = beforeParen
-          }
-        }
-
-        // Extract "for <duration>" segment
-        const forMatch = rem.match(/^(.*?)\s+for\s+(.+)$/i)
-        if (forMatch) {
-          frequency = (forMatch[1] || '').trim() || null
-          duration = (forMatch[2] || '').trim() || null
-        } else {
-          frequency = rem || null
-        }
-      }
-
-      items.push({
-        medication: cleanMed,
-        quantity,
-        frequency,
-        duration,
-        instructions
-      })
-    }
-
-    return items
-  }
-
-  const formatIssuedDate = (dateStr?: string | null): string => {
-    if (!dateStr) return 'Recent Consultation'
-    const d = new Date(dateStr)
-    if (isNaN(d.getTime())) return 'Recent Consultation'
-    return d.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    })
-  }
-
-  const fetchPatientRecords = async () => {
-    isLoading.value = true
-    try {
-      const res = await recordService.getRecords()
-      rawRecords.value = (res as any)?.data || res || []
-    } catch (e) {
-      console.error('Failed to load patient prescription records:', e)
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   onMounted(() => {
-    fetchPatientRecords()
+    fetchPrescriptionsAndLogs()
   })
 
   watch(
     () => allAppointments.value.length,
     () => {
-      fetchPatientRecords()
+      fetchPrescriptionsAndLogs(true)
     }
   )
-
-  const prescriptionsList = computed<PrescriptionRecordEntry[]>(() => {
-    const entries: PrescriptionRecordEntry[] = []
-    const seenNoteIds = new Set<number>()
-    const seenDiagUuids = new Set<string>()
-
-    // 1. From completed diagnostic records
-    for (const rec of rawRecords.value) {
-      const rxText = (rec?.clinical_note?.prescription || rec?.prescription || '').trim()
-      if (!rxText) continue
-
-      const noteId = rec?.clinical_note?.id || null
-      const diagUuid = rec?.uuid || null
-
-      if (noteId && seenNoteIds.has(noteId)) continue
-      if (diagUuid && seenDiagUuids.has(diagUuid)) continue
-
-      if (noteId) seenNoteIds.add(noteId)
-      if (diagUuid) seenDiagUuids.add(diagUuid)
-
-      const doc = rec?.doctor || rec?.clinical_note?.doctor
-      const doctorName = doc
-        ? `Dr. ${doc.first_name || ''} ${doc.last_name || ''}`.trim()
-        : 'Attending Physician'
-
-      const conditionLabel =
-        rec?.clinical_note?.final_diagnosis || rec?.label || 'Clinical Consultation'
-      const rawDate = rec?.clinical_note?.updated_at || rec?.created_at || ''
-      const timestamp = rawDate ? new Date(rawDate).getTime() : 0
-
-      entries.push({
-        key: diagUuid || `note-${noteId || entries.length}`,
-        noteId,
-        diagnosisUuid: diagUuid,
-        prescriptionNumber: diagUuid
-          ? `RX-${String(diagUuid).slice(0, 8).toUpperCase()}`
-          : 'RX-SLIP',
-        conditionLabel,
-        doctorName,
-        dateFormatted: formatIssuedDate(rawDate),
-        timestamp: isNaN(timestamp) ? 0 : timestamp,
-        rawPrescription: rxText,
-        patientEducation: rec?.clinical_note?.patient_education?.trim() || null,
-        items: parsePrescriptionText(rxText)
-      })
-    }
-
-    // 2. Fallback from appointments with clinical notes
-    for (const appt of allAppointments.value) {
-      const rawAppt = (appt as any)?.raw
-      const note = rawAppt?.clinical_note
-      const rxText = (note?.prescription || '').trim()
-      if (!rxText) continue
-
-      const noteId = note?.id || null
-      const diagUuid =
-        appt.diagnosis_uuid || rawAppt?.in_clinic_diagnosis?.uuid || note?.diagnosis?.uuid || null
-
-      if (noteId && seenNoteIds.has(noteId)) continue
-      if (diagUuid && seenDiagUuids.has(diagUuid)) continue
-
-      if (noteId) seenNoteIds.add(noteId)
-      if (diagUuid) seenDiagUuids.add(diagUuid)
-
-      const doc = rawAppt?.doctor
-      const doctorName = doc
-        ? `Dr. ${doc.first_name || ''} ${doc.last_name || ''}`.trim()
-        : appt.doctor || 'Attending Physician'
-
-      const conditionLabel = note?.final_diagnosis || appt.info || 'Clinical Consultation'
-      const rawDate = note?.updated_at || appt.completed_at || appt.raw_scheduled_at || ''
-      const timestamp = rawDate ? new Date(rawDate).getTime() : 0
-
-      entries.push({
-        key: diagUuid || `appt-${appt.id}`,
-        noteId,
-        diagnosisUuid: diagUuid,
-        prescriptionNumber: diagUuid
-          ? `RX-${String(diagUuid).slice(0, 8).toUpperCase()}`
-          : 'RX-SLIP',
-        conditionLabel,
-        doctorName,
-        dateFormatted: formatIssuedDate(rawDate),
-        timestamp: isNaN(timestamp) ? 0 : timestamp,
-        rawPrescription: rxText,
-        patientEducation: note?.patient_education?.trim() || null,
-        items: parsePrescriptionText(rxText)
-      })
-    }
-
-    return entries.sort((a, b) => b.timestamp - a.timestamp)
-  })
 
   watch(
     () => prescriptionsList.value.length,
@@ -278,6 +53,16 @@
 
   const activePrescription = computed<PrescriptionRecordEntry | null>(() => {
     return prescriptionsList.value[currentIndex.value] || null
+  })
+
+  // Shows the blue shadow when there is an active prescription with at least one medication
+  // not yet marked "taken" today (persists even when X / dismissed is clicked on the top banner).
+  const hasUntakenMedicationsToday = computed<boolean>(() => {
+    if (!activePrescription.value) return false
+    const rxKey = activePrescription.value.key
+    const activeItems = activePrescription.value.items.filter(item => !item.isExpired)
+    if (activeItems.length === 0) return false
+    return activeItems.some(item => getMedicationStatus(rxKey, item.key) !== 'taken')
   })
 
   const handlePrevPrescription = () => {
@@ -296,6 +81,14 @@
 
   const togglePatientEducation = () => {
     showPatientEducation.value = !showPatientEducation.value
+  }
+
+  const handleToggleMedicationTaken = async (item: ParsedMedicationItem) => {
+    if (!activePrescription.value) return
+    const rxKey = activePrescription.value.key
+    const currentStatus = getMedicationStatus(rxKey, item.key)
+    const nextStatus = currentStatus === 'taken' ? 'pending' : 'taken'
+    await setMedicationStatus(rxKey, item.key, nextStatus, item.medication)
   }
 
   const handleOpenRxPad = () => {
@@ -338,7 +131,12 @@
 
 <template>
   <div
-    class="bg-card border-border flex flex-col justify-between rounded-3xl border p-4 shadow-xs sm:p-5"
+    class="bg-card flex flex-col justify-between rounded-3xl border p-4 transition-all duration-300 sm:p-5"
+    :class="
+      hasUntakenMedicationsToday
+        ? 'border-primary/60 ring-primary/25 shadow-[0_0_25px_rgba(37,99,235,0.45)] ring-2'
+        : 'border-border shadow-xs'
+    "
   >
     <!-- Header Row -->
     <div class="mb-3 flex items-center justify-between gap-2 sm:mb-4">
@@ -450,10 +248,10 @@
       </div>
 
       <!-- Scrollable Structured Medications List -->
-      <div class="custom-scrollbar flex max-h-60 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
+      <div class="custom-scrollbar flex max-h-64 flex-1 flex-col gap-2.5 overflow-y-auto pr-0.5">
         <div
           v-for="(item, idx) in activePrescription.items"
-          :key="idx"
+          :key="item.key || idx"
           class="bg-background/60 border-border hover:border-primary/30 rounded-2xl border p-3 transition-all"
         >
           <!-- Row 1: Medicine + Dosage & Quantity (#) -->
@@ -549,6 +347,77 @@
                 {{ item.instructions }}
               </p>
             </div>
+          </div>
+
+          <!-- Row 4: Daily Adherence Status & Editable Toggle -->
+          <div
+            class="border-border/60 mt-2.5 flex items-center justify-between gap-2 border-t pt-2"
+          >
+            <template v-if="getMedicationStatus(activePrescription.key, item.key) === 'taken'">
+              <AppBadge
+                color="success"
+                variant="subtle"
+                size="xs"
+                :uppercase="false"
+              >
+                <template #leading>
+                  <Icon
+                    name="lucide:check-circle-2"
+                    class="text-xs"
+                  />
+                </template>
+                Taken Today
+              </AppBadge>
+
+              <button
+                type="button"
+                :disabled="isMedicationUpdating(activePrescription.key, item.key)"
+                @click="handleToggleMedicationTaken(item)"
+                class="text-muted-foreground hover:text-foreground cursor-pointer text-[11px] font-semibold underline-offset-2 hover:underline disabled:opacity-50"
+              >
+                Undo
+              </button>
+            </template>
+
+            <template v-else>
+              <div class="flex min-w-0 items-center gap-1.5">
+                <AppBadge
+                  v-if="item.isExpired"
+                  color="gray"
+                  variant="subtle"
+                  size="xs"
+                  :uppercase="false"
+                >
+                  Duration Completed
+                </AppBadge>
+                <span
+                  v-else-if="getMedicationStatus(activePrescription.key, item.key) === 'dismissed'"
+                  class="text-muted-foreground truncate text-[11px] font-medium"
+                >
+                  Reminder dismissed today
+                </span>
+                <span
+                  v-else
+                  class="text-muted-foreground truncate text-[11px] font-medium"
+                >
+                  Not taken yet today
+                </span>
+              </div>
+
+              <AppButton
+                variant="soft"
+                size="sm"
+                :loading="isMedicationUpdating(activePrescription.key, item.key)"
+                @click="handleToggleMedicationTaken(item)"
+              >
+                <Icon
+                  v-if="!isMedicationUpdating(activePrescription.key, item.key)"
+                  name="lucide:check"
+                  class="text-xs"
+                />
+                <span>Taken</span>
+              </AppButton>
+            </template>
           </div>
         </div>
       </div>
