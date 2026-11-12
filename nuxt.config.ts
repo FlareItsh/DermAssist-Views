@@ -41,6 +41,14 @@ for (const rawUrl of candidateEnvUrls) {
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  app: {
+    head: {
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/DALogo.png' },
+        { rel: 'apple-touch-icon', href: '/DALogo.png' }
+      ]
+    }
+  },
   experimental: {
     appManifest: false
   },
