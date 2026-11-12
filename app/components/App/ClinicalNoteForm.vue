@@ -730,21 +730,6 @@
     )
   })
 
-  const quickInstructions = [
-    'Re-evaluate skin lesion and response to treatment',
-    'Review laboratory & pathology biopsy results',
-    'Evaluate treatment progress & medication tolerance',
-    'Routine skin check & healing progress'
-  ]
-
-  const applyQuickInstruction = (inst: string) => {
-    if (!note.follow_up_instructions) {
-      note.follow_up_instructions = inst
-    } else {
-      note.follow_up_instructions = `${note.follow_up_instructions}; ${inst}`
-    }
-  }
-
   const findConversationUuid = (value: any): string | undefined => {
     if (!value || typeof value !== 'object') return undefined
     if (typeof value.conversation_uuid === 'string') return value.conversation_uuid
@@ -2046,19 +2031,6 @@
                 <span class="text-muted-foreground text-[10px] italic sm:text-[11px]"
                   >Visible on patient reminder</span
                 >
-              </div>
-
-              <!-- Suggestion Chips -->
-              <div class="flex flex-wrap items-center gap-1.5">
-                <button
-                  v-for="chip in quickInstructions"
-                  :key="chip"
-                  type="button"
-                  @click="applyQuickInstruction(chip)"
-                  class="bg-foreground/5 hover:bg-primary/10 hover:text-primary border-border/60 cursor-pointer rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-colors"
-                >
-                  + {{ chip }}
-                </button>
               </div>
 
               <input
