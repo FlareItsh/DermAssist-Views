@@ -157,6 +157,7 @@
 
   const emit = defineEmits<{
     (e: 'close'): void
+    (e: 'completed'): void
     (e: 'finished', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
   }>()
 
@@ -1436,7 +1437,7 @@
         </div>
 
         <div
-          v-if="targetDiagnosisUuid"
+          v-if="targetDiagnosisUuid && !(props.role === 'doctor' && props.isNewScan)"
           class="w-full shrink-0 sm:w-auto"
         >
           <AppButton
@@ -1999,6 +2000,7 @@
           :is-out-of-scope="isOutOfScopeFromDiagnosis"
           :condition-name="activeDisease"
           :detected-category="outOfScopeCategoryFromDiagnosis"
+          @completed="emit('completed')"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />
