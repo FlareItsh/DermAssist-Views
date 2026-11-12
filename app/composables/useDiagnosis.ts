@@ -321,6 +321,14 @@ const pendingPatientRegistration = ref<PendingPatientRegistration | null>(null)
 const walkInPatientInfo = ref<WalkInPatientInfo | null>(null)
 const boundUserUuid = ref<string | null>(null)
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const sanitizeAppointmentUuid = (val: unknown): string | null => {
+  if (typeof val !== 'string') return null
+  const trimmed = val.trim()
+  return UUID_REGEX.test(trimmed) ? trimmed : null
+}
+
 const getStorageKey = (uuid?: string | null): string | null => {
   if (!import.meta.client) return null
   const effectiveUuid = uuid || useCookie('user_uuid').value
@@ -372,7 +380,9 @@ const restoreActiveDiagnosisState = () => {
           isProceededToResults.value = parsed.isProceededToResults
         if (parsed.previewImage) previewImage.value = parsed.previewImage
         if (parsed.patientUuid) patientUuid.value = parsed.patientUuid
-        if (parsed.appointmentUuid) appointmentUuid.value = parsed.appointmentUuid
+        if (parsed.appointmentUuid) {
+          appointmentUuid.value = sanitizeAppointmentUuid(parsed.appointmentUuid)
+        }
         if (parsed.pendingPatientRegistration)
           pendingPatientRegistration.value = parsed.pendingPatientRegistration
         if (parsed.walkInPatientInfo) walkInPatientInfo.value = parsed.walkInPatientInfo

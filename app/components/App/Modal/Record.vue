@@ -36,6 +36,11 @@
   const selectedDisease = ref<string>('Acne')
   const showPrescriptionPad = ref(false)
   const isDownloadingRxPdf = ref(false)
+  const isQuestionnaireExpanded = ref(true)
+
+  const toggleQuestionnaireExpanded = () => {
+    isQuestionnaireExpanded.value = !isQuestionnaireExpanded.value
+  }
 
   const downloadPrescriptionPdf = async () => {
     if (!props.record?.uuid) return
@@ -258,6 +263,19 @@
               ></span>
               {{ activeConfidence }}% Confidence
             </span>
+
+            <!-- Symptom-Refined Badge (Only when patient completed Bayesian questionnaire) -->
+            <span
+              v-if="record.is_questionnaire_refined"
+              class="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs"
+            >
+              <Icon
+                name="lucide:sparkles"
+                class="text-xs text-emerald-600"
+              />
+              Symptom-Refined
+            </span>
+
             <span class="text-[11px] text-gray-500">
               {{ formatDate(record.created_at) }}
             </span>
@@ -324,6 +342,59 @@
         </div>
       </div>
 
+      <!-- Patient Reported Symptoms & Multimodal Bayesian Verification (Only when patient completed questionnaire) -->
+      <div
+        v-if="
+          record.is_questionnaire_refined &&
+          (record.questionnaire_answers || record.clinical_evidence)
+        "
+        class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xs"
+      >
+        <button
+          type="button"
+          @click="toggleQuestionnaireExpanded"
+          class="flex w-full items-center justify-between border-b border-gray-100 bg-gray-50/50 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+        >
+          <div class="flex items-center gap-2.5">
+            <div
+              class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"
+            >
+              <Icon
+                name="lucide:clipboard-check"
+                class="text-sm"
+              />
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-gray-900">Patient Reported Symptoms</span>
+                <span
+                  class="rounded-full border border-emerald-200/60 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                >
+                  Bayesian Verified
+                </span>
+              </div>
+              <p class="text-[11px] text-gray-500">
+                Detailed symptom questionnaire answers and explainable clinical evidence (XAI).
+              </p>
+            </div>
+          </div>
+          <Icon
+            :name="isQuestionnaireExpanded ? 'lucide:chevron-up' : 'lucide:chevron-down'"
+            class="text-base text-gray-400"
+          />
+        </button>
+
+        <div
+          v-show="isQuestionnaireExpanded"
+          class="p-3.5 sm:p-4"
+        >
+          <AppQuestionnaireAnswersCard
+            :diagnosis="record"
+            :allow-retake="false"
+          />
+        </div>
+      </div>
+
       <!-- Doctor Clinical Assessment Section (when doctor notes exist) -->
       <template
         v-if="record.type === 'doctor_diagnosis' || record.clinical_note || prescriptionText"
@@ -371,18 +442,29 @@
                 type="button"
                 :disabled="isDownloadingRxPdf"
                 @click="downloadPrescriptionPdf"
-                class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+                class="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-50"
               >
-                <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
-                <Icon v-else name="lucide:download" class="text-xs" />
+                <Icon
+                  v-if="isDownloadingRxPdf"
+                  name="lucide:loader-2"
+                  class="animate-spin text-xs"
+                />
+                <Icon
+                  v-else
+                  name="lucide:download"
+                  class="text-xs"
+                />
                 <span>Download PDF</span>
               </button>
               <button
                 type="button"
                 @click="showPrescriptionPad = true"
-                class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
               >
-                <Icon name="lucide:printer" class="text-xs" />
+                <Icon
+                  name="lucide:printer"
+                  class="text-xs"
+                />
                 <span>Print Rx</span>
               </button>
             </div>

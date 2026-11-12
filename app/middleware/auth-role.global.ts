@@ -6,6 +6,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   const authUser = useState<any>('auth_user', () => null)
 
   const path = to.path.toLowerCase()
+  const normalizedPath = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
 
   // Define route paths to protect
   const isAdminRoute = path.startsWith('/admin')
@@ -14,15 +15,22 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   const isSecretaryRoute = path.startsWith('/secretary')
   const isAuthRoute = path.startsWith('/auth')
   const isProtectedRoute = isAdminRoute || isPatientRoute || isDoctorRoute || isSecretaryRoute
+  const isDashboardUtilityRoute = path.startsWith('/notifications') || path.startsWith('/updates')
 
   // If trying to access a protected area without a token
-  if (!token.value && isProtectedRoute) {
+  if (!token.value && (isProtectedRoute || isDashboardUtilityRoute)) {
     return navigateTo('/auth/login')
   }
 
-  // Authoritative role validation from backend on protected/admin navigation
+  // Authoritative role & terms validation from backend on protected/admin navigation
   let verifiedRole = authUser.value?.role?.slug || authUser.value?.role
-  if (token.value && (!verifiedRole || isAdminRoute)) {
+  if (
+    token.value &&
+    (!verifiedRole ||
+      isAdminRoute ||
+      !authUser.value ||
+      authUser.value.terms_accepted_at === undefined)
+  ) {
     try {
       const res: any = await $api('/user')
       const userData = res?.data || res
@@ -37,7 +45,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       token.value = null
       roleCookie.value = null
       authUser.value = null
-      if (isProtectedRoute) {
+      if (isProtectedRoute || isDashboardUtilityRoute) {
         return navigateTo('/auth/login')
       }
     }
@@ -77,5 +85,22 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
 
   if (isSecretaryRoute && effectiveRole !== 'secretary') {
     return navigateTo(`/${effectiveRole || 'auth/login'}`)
+  }
+
+  // Mandatory Terms & Conditions Gate: Prevent navigation to subpages until terms are accepted
+  const hasPendingTermsReminder =
+    import.meta.client &&
+    authUser.value?.uuid &&
+    localStorage.getItem(`da_pending_terms_reminder_${authUser.value.uuid}`) === '1'
+
+  if (
+    token.value &&
+    effectiveRole &&
+    authUser.value &&
+    (!authUser.value.terms_accepted_at || hasPendingTermsReminder) &&
+    (isProtectedRoute || isDashboardUtilityRoute) &&
+    normalizedPath !== `/${effectiveRole}`
+  ) {
+    return navigateTo(`/${effectiveRole}`)
   }
 })

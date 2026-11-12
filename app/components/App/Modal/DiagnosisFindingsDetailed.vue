@@ -157,6 +157,7 @@
 
   const emit = defineEmits<{
     (e: 'close'): void
+    (e: 'completed'): void
     (e: 'finished', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
   }>()
 
@@ -897,6 +898,7 @@
 
   const canRefineDetailed = computed(() => {
     return (
+      props.role !== 'doctor' &&
       activeDisease.value !== 'OutOfScope' &&
       activeDisease.value !== 'None' &&
       activeDisease.value !== 'Clear'
@@ -1435,7 +1437,7 @@
         </div>
 
         <div
-          v-if="targetDiagnosisUuid"
+          v-if="targetDiagnosisUuid && !(props.role === 'doctor' && props.isNewScan)"
           class="w-full shrink-0 sm:w-auto"
         >
           <AppButton
@@ -1998,6 +2000,7 @@
           :is-out-of-scope="isOutOfScopeFromDiagnosis"
           :condition-name="activeDisease"
           :detected-category="outOfScopeCategoryFromDiagnosis"
+          @completed="emit('completed')"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"
         />
@@ -2015,6 +2018,7 @@
               Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
           "
           :diagnosis="currentDiagnosis"
+          :allow-retake="props.role !== 'doctor'"
           @retake="handleOpenQuestionnaireModal"
         />
 

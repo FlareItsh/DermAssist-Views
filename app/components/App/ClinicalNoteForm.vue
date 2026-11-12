@@ -6,6 +6,7 @@
   import { datasetService } from '~/api/dataset/DatasetService'
   import { outOfScopeDatasetService } from '~/api/dataset/OutOfScopeDatasetService'
   import { diagnosisService } from '~/api/diagnosis/DiagnosisService'
+  import { recordService } from '~/api/record/RecordService'
   import { userService } from '~/api/user/UserService'
   import {
     medicineService,
@@ -29,6 +30,7 @@
   }>()
 
   const emit = defineEmits<{
+    (e: 'completed'): void
     (e: 'saved', payload?: { conversationUuid?: string; followUpScheduled?: boolean }): void
     (e: 'require-patient-account'): void
   }>()
@@ -255,10 +257,82 @@
     isQuantityManuallyEdited.value = true
   }
 
+  const sanitizeDurationDigits = (raw: string): string => {
+    const digits = raw.replace(/\D+/g, '').replace(/^0+/, '')
+    if (!digits) return ''
+    const num = parseInt(digits, 10)
+    if (isNaN(num) || num <= 0) return ''
+    return num > 100 ? '100' : String(num)
+  }
+
+  const handleDurationKeyDown = (e: KeyboardEvent) => {
+    const allowedControlKeys = [
+      'Backspace',
+      'Delete',
+      'Tab',
+      'Enter',
+      'Escape',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End'
+    ]
+    if (allowedControlKeys.includes(e.key)) return
+    if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return
+    if (!/^[0-9]$/.test(e.key)) {
+      e.preventDefault()
+    }
+  }
+
+  const handleDurationInput = (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const cleaned = sanitizeDurationDigits(target.value)
+    if (target.value !== cleaned) {
+      target.value = cleaned
+    }
+    rxDuration.value = cleaned
+  }
+
+  const handleDurationBlur = () => {
+    const cleaned = sanitizeDurationDigits(rxDuration.value)
+    if (!cleaned) {
+      rxDuration.value = ''
+      return
+    }
+    const num = parseInt(cleaned, 10)
+    if (num < 10) {
+      rxDuration.value = '10'
+    } else if (num > 100) {
+      rxDuration.value = '100'
+    } else {
+      rxDuration.value = String(num)
+    }
+  }
+
+  watch(rxDuration, val => {
+    const cleaned = sanitizeDurationDigits(String(val ?? ''))
+    if (val !== cleaned) {
+      rxDuration.value = cleaned
+    }
+  })
+
   const handleAddMedicationToPrescription = () => {
     if (!currentMedicine.value || !currentVariant.value) {
       toast.warning('Please select a medicine and dosage variant from the library.')
       return
+    }
+
+    const trimmedDur = rxDuration.value.trim()
+    let durationPart = ''
+    if (trimmedDur) {
+      const days = parseInt(trimmedDur, 10)
+      if (isNaN(days) || days < 10 || days > 100) {
+        toast.warning('Duration must be between 10 and 100 days.')
+        return
+      }
+      durationPart = ` for ${days} days`
     }
 
     const medName = currentMedicine.value.name
@@ -267,7 +341,6 @@
       ? ` #${rxQuantity.value.trim().replace(/^#\s*/, '')}`
       : ''
     const freq = rxFrequency.value.trim() || currentVariant.value.default_frequency
-    const durationPart = rxDuration.value.trim() ? ` for ${rxDuration.value.trim()}` : ''
     const instructPart = rxInstructions.value.trim() ? ` (${rxInstructions.value.trim()})` : ''
 
     const entry = `• ${medName} ${strength}${qtyPart} — ${freq}${durationPart}${instructPart}`
@@ -291,14 +364,20 @@
     note.value.prescription = ''
   }
 
-  // Prescription Pad & Post-Finish Printing Flow
+  // Prescription Pad & Post-Finish Printing / Report Export Flow
   const showPrescriptionPadModal = ref(false)
   const showPostFinishPrompt = ref(false)
   const isPreviewSaving = ref(false)
   const isDownloadingRxPdf = ref(false)
+  const isDownloadingReportPdf = ref(false)
+  const hasDownloadedReportPdf = ref(false)
   const savedPayload = ref<{ conversationUuid?: string; followUpScheduled?: boolean } | undefined>(
     undefined
   )
+
+  const hasPrescription = computed(() => {
+    return Boolean(note.value.prescription && note.value.prescription.trim())
+  })
 
   const effectiveDiagUuid = computed(() => {
     return (
@@ -308,6 +387,52 @@
       null
     )
   })
+
+  const handleExportClinicalReportPdf = async () => {
+    const diagUuid = effectiveDiagUuid.value
+    if (!diagUuid) {
+      toast.error('Clinical report ID not found.')
+      return
+    }
+
+    isDownloadingReportPdf.value = true
+    try {
+      const blob = await recordService.downloadPdf(String(diagUuid))
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `clinical-assessment-${String(diagUuid).slice(0, 8)}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      hasDownloadedReportPdf.value = true
+      toast.success('Clinical assessment PDF downloaded successfully')
+    } catch (err: any) {
+      if (
+        (err?.status === 403 || err?.statusCode === 403) &&
+        useCookie('user_role').value === 'doctor'
+      ) {
+        toast.error(
+          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
+          {
+            action: {
+              label: 'View Plans',
+              onClick: () => navigateTo('/doctor/subscription')
+            }
+          }
+        )
+      } else {
+        toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')
+      }
+    } finally {
+      isDownloadingReportPdf.value = false
+    }
+  }
+
+  const handleOpenPostFinishRxPreview = () => {
+    showPrescriptionPadModal.value = true
+  }
 
   const handleDownloadRxPdf = async () => {
     // If note is modified, quickly sync draft before download
@@ -799,9 +924,10 @@
 
   const saveNote = async () => {
     followUpError.value = null
-    if (!noFollowUp.value && !followUpDateOnly.value) {
-      followUpError.value =
-        "Please select a follow-up appointment date & time, or check 'No follow-up appointment required'."
+    if (!noFollowUp.value && (!followUpDateOnly.value || !followUpTimeOnly.value)) {
+      followUpError.value = !followUpDateOnly.value
+        ? "Please select a follow-up appointment date & time, or check 'No follow-up appointment required'."
+        : "Please select a follow-up appointment time, or check 'No follow-up appointment required'."
       if (followUpSectionRef.value) {
         followUpSectionRef.value.scrollIntoView({ behavior: 'smooth', block: 'center' })
       }
@@ -959,27 +1085,39 @@
         ;(note.value as any).status = 'completed'
       }
 
-      // Determine target active appointment
-      const allActiveAppointments = [...appointments.value, ...(pendingAppointments?.value || [])]
-      const targetAppointmentUuid =
-        props.appointmentUuid ||
-        diagnosisAppointmentUuid.value ||
-        (patientUuid.value
-          ? allActiveAppointments.find(
-              a =>
-                (a.patient_uuid === patientUuid.value ||
-                  (a as any).patient?.uuid === patientUuid.value) &&
-                [
-                  'confirmed',
-                  'scheduled',
-                  'checked_in',
-                  'in_consultation',
-                  'pending',
-                  'reschedule_proposed',
-                  'reschedule_requested'
-                ].includes(a.status)
-            )?.id
-          : null)
+      // Determine target active appointment (strictly require valid UUIDs)
+      const isUuid = (val?: unknown): val is string =>
+        typeof val === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim())
+
+      const allActiveAppointments = [
+        ...(Array.isArray(appointments.value) ? appointments.value : []),
+        ...(Array.isArray(pendingAppointments?.value) ? pendingAppointments.value : [])
+      ]
+      const matchedActiveAppointmentUuid = patientUuid.value
+        ? allActiveAppointments.find(
+            a =>
+              (a.patient_uuid === patientUuid.value ||
+                (a as any).patient?.uuid === patientUuid.value) &&
+              [
+                'confirmed',
+                'scheduled',
+                'checked_in',
+                'in_consultation',
+                'pending',
+                'reschedule_proposed',
+                'reschedule_requested'
+              ].includes(a.status)
+          )?.id
+        : null
+
+      const targetAppointmentUuid = isUuid(props.appointmentUuid)
+        ? props.appointmentUuid
+        : isUuid(diagnosisAppointmentUuid.value)
+          ? diagnosisAppointmentUuid.value
+          : isUuid(matchedActiveAppointmentUuid)
+            ? matchedActiveAppointmentUuid
+            : null
 
       if (targetAppointmentUuid) {
         const saved = await clinicalNoteService.save(targetAppointmentUuid, note.value)
@@ -1121,11 +1259,12 @@
       followUpError.value = null
       showSuccess.value = true
 
-      if (props.isFinishMode && note.value.prescription && note.value.prescription.trim()) {
+      if (props.isFinishMode) {
         savedPayload.value = {
           conversationUuid: scheduledConversationUuid,
           followUpScheduled: didScheduleFollowUp
         }
+        emit('completed')
         showPostFinishPrompt.value = true
       } else {
         emit('saved', {
@@ -1137,9 +1276,18 @@
       setTimeout(() => {
         showSuccess.value = false
       }, 3000)
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to save clinical note', e)
-      toast.error('Failed to save clinical note. Please try again.')
+      const validationErrors = e?.data?.errors ? Object.values(e.data.errors).flat().join(' ') : ''
+      const errMsg =
+        validationErrors ||
+        e?.data?.message ||
+        e?.data?.error ||
+        e?.response?._data?.message ||
+        e?.response?._data?.error ||
+        e?.message ||
+        'Failed to save clinical note. Please try again.'
+      toast.error(errMsg)
     } finally {
       isSaving.value = false
     }
@@ -1158,6 +1306,12 @@
 
   const handleSaveClick = async () => {
     if (!noFollowUp.value && followUpDateOnly.value) {
+      if (!followUpTimeOnly.value) {
+        toast.error(
+          "Please select a follow-up appointment time, or check 'No follow-up appointment required'."
+        )
+        return
+      }
       if (hasNoDutyOnFollowUpDate.value) {
         toast.error('Cannot schedule follow-up: You have no scheduled duty hours on this date.')
         return
@@ -1474,7 +1628,13 @@
                 </label>
                 <input
                   type="text"
-                  v-model="rxDuration"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="3"
+                  :value="rxDuration"
+                  @keydown="handleDurationKeyDown"
+                  @input="handleDurationInput"
+                  @blur="handleDurationBlur"
                   :disabled="!selectedVariantUuid"
                   placeholder="e.g. 7 days"
                   class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white p-2 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
@@ -2079,7 +2239,7 @@
       :diagnosis-uuid="effectiveDiagUuid"
     />
 
-    <!-- Post-Finish Prescription Prompt Dialog -->
+    <!-- Post-Finish Export & Exit Prompt Dialog -->
     <Teleport to="body">
       <div
         v-if="showPostFinishPrompt"
@@ -2096,50 +2256,92 @@
               class="text-3xl"
             />
           </div>
-          <h3 class="mb-1 text-lg font-bold text-gray-900">Consultation Completed & Saved!</h3>
-          <p class="mb-6 text-xs leading-relaxed text-gray-500">
-            Clinical notes and assessment findings have been committed. How would you like to handle
-            the patient's prescription?
+          <h3 class="mb-1 text-lg font-bold text-gray-900">Consultation Completed &amp; Saved!</h3>
+          <p class="mb-5 text-xs leading-relaxed text-gray-500">
+            Clinical notes and patient assessment records are saved. Export the clinical report PDF
+            now or return to the scan page.
           </p>
+
+          <div
+            v-if="hasDownloadedReportPdf"
+            class="mb-4 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700"
+          >
+            <Icon
+              name="lucide:check-circle-2"
+              class="shrink-0 text-sm"
+            />
+            <span>Clinical Report PDF downloaded</span>
+          </div>
 
           <div class="flex flex-col gap-2.5">
             <button
               type="button"
-              :disabled="isDownloadingRxPdf"
-              @click="handleDownloadRxPdf"
-              class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              :disabled="isDownloadingReportPdf || !effectiveDiagUuid"
+              @click="handleExportClinicalReportPdf"
+              class="bg-primary hover:bg-primary/90 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-bold text-white shadow-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon
-                v-if="isDownloadingRxPdf"
+                v-if="isDownloadingReportPdf"
                 name="lucide:loader-2"
                 class="animate-spin text-sm"
               />
               <Icon
                 v-else
-                name="lucide:download"
+                name="solar:document-medicine-bold"
                 class="text-sm"
               />
-              <span>Download Prescription (PDF)</span>
+              <span>{{
+                isDownloadingReportPdf
+                  ? 'Exporting Clinical Report...'
+                  : hasDownloadedReportPdf
+                    ? 'Export Clinical Report Again (PDF)'
+                    : 'Export Clinical Report (PDF)'
+              }}</span>
             </button>
 
-            <button
-              type="button"
-              @click="showPrescriptionPadModal = true"
-              class="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-50 px-5 py-2.5 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
-            >
-              <Icon
-                name="lucide:printer"
-                class="text-sm"
-              />
-              <span>Preview & Print Prescription (Rx)</span>
-            </button>
+            <template v-if="hasPrescription">
+              <button
+                type="button"
+                :disabled="isDownloadingRxPdf"
+                @click="handleDownloadRxPdf"
+                class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Icon
+                  v-if="isDownloadingRxPdf"
+                  name="lucide:loader-2"
+                  class="animate-spin text-sm"
+                />
+                <Icon
+                  v-else
+                  name="lucide:download"
+                  class="text-sm"
+                />
+                <span>Download Prescription (PDF)</span>
+              </button>
+
+              <button
+                type="button"
+                @click="handleOpenPostFinishRxPreview"
+                class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-indigo-50 px-5 py-2.5 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
+              >
+                <Icon
+                  name="lucide:printer"
+                  class="text-sm"
+                />
+                <span>Preview &amp; Print Prescription (Rx)</span>
+              </button>
+            </template>
 
             <button
               type="button"
               @click="handleFinishAndExit"
-              class="mt-1 w-full rounded-xl bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+              class="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-5 py-2.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-100 hover:text-gray-900"
             >
-              Done & Return to Scans
+              <Icon
+                name="lucide:arrow-left"
+                class="text-sm"
+              />
+              <span>Go Back to Scan Page</span>
             </button>
           </div>
         </div>

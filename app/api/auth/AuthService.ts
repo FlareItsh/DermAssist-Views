@@ -39,6 +39,10 @@ export class AuthService extends BaseService {
   async forgotPassword(email: string): Promise<{ message: string }> {
     return await this.request<{ message: string }>('/forgot-password', 'POST', { email })
   }
+
+  async acceptTerms(payload?: { consent_dataset?: boolean }): Promise<any> {
+    return await this.request<any>('/user/accept-terms', 'POST', payload || {})
+  }
 }
 
 export const authService = new AuthService()

@@ -247,6 +247,16 @@
                 ></span>
                 {{ Math.round(record.confidence * 100) }}% Confidence
               </span>
+              <span
+                v-if="record.is_questionnaire_refined"
+                class="inline-flex items-center gap-1 rounded-full border border-emerald-200/80 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 shadow-2xs"
+              >
+                <Icon
+                  name="lucide:sparkles"
+                  class="text-xs text-emerald-600"
+                />
+                Symptom-Refined
+              </span>
               <span class="text-[11px] font-normal text-gray-500">
                 {{ formatDate(record.created_at) }}
               </span>
@@ -296,25 +306,38 @@
                   size="18"
                   class="text-indigo-600"
                 />
-                <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">Prescription</h4>
+                <h4 class="text-xs font-bold tracking-wider text-gray-800 uppercase">
+                  Prescription
+                </h4>
               </div>
               <div class="flex items-center gap-2">
                 <button
                   type="button"
                   :disabled="isDownloadingRxPdf"
                   @click="downloadPrescriptionPdf"
-                  class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors disabled:opacity-50"
+                  class="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-100 disabled:opacity-50"
                 >
-                  <Icon v-if="isDownloadingRxPdf" name="lucide:loader-2" class="animate-spin text-xs" />
-                  <Icon v-else name="lucide:download" class="text-xs" />
+                  <Icon
+                    v-if="isDownloadingRxPdf"
+                    name="lucide:loader-2"
+                    class="animate-spin text-xs"
+                  />
+                  <Icon
+                    v-else
+                    name="lucide:download"
+                    class="text-xs"
+                  />
                   <span>Download PDF</span>
                 </button>
                 <button
                   type="button"
                   @click="showPrescriptionPad = true"
-                  class="flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
+                  class="flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
                 >
-                  <Icon name="lucide:printer" class="text-xs" />
+                  <Icon
+                    name="lucide:printer"
+                    class="text-xs"
+                  />
                   <span>Print Rx</span>
                 </button>
               </div>
@@ -507,6 +530,20 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Patient Reported Symptoms (Mobile) -->
+        <div
+          v-if="
+            record.is_questionnaire_refined &&
+            (record.questionnaire_answers || record.clinical_evidence)
+          "
+          class="flex flex-col gap-2.5"
+        >
+          <AppQuestionnaireAnswersCard
+            :diagnosis="record"
+            :allow-retake="false"
+          />
         </div>
       </template>
 
