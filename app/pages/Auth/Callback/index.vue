@@ -89,6 +89,8 @@
         throw new Error('Failed to retrieve user profile.')
       }
 
+      useState<any>('auth_user', () => null).value = userData
+
       const rawRole = userData?.role?.slug || userData?.role || 'patient'
       const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 

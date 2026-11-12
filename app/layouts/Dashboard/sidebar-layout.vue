@@ -86,12 +86,113 @@
       :items="navItems"
       :role="userRole"
     />
+
+    <!-- Mandatory Terms & Conditions Gate for New / Doctor-Created / OAuth Accounts -->
+    <AppModalTermsModal
+      :model-value="needsTermsAcceptance"
+      :mandatory="true"
+      :is-submitting="isAcceptingTerms"
+      :user-role="String(userRole || authUser?.role?.slug || authUser?.role || '').toLowerCase()"
+      :initial-consent-dataset="Boolean(authUser?.consent_dataset)"
+      @accept="handleAcceptMandatoryTerms"
+      @decline="handleDeclineMandatoryTerms"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
+  import { toast } from 'vue-sonner'
+  import { authService } from '~/api/auth/AuthService'
+  import { $api } from '~/composables/useApi'
+
   const route = useRoute()
-  const userRole = useCookie('user_role')
+  const userRole = useCookie('user_role', { path: '/' })
+  const authToken = useCookie('auth_token', { path: '/' })
+  const authUser = useState<any>('auth_user', () => null)
+
+  const isHydrated = ref(false)
+  const isAcceptingTerms = ref(false)
+  const hasPendingTermsReminder = ref(false)
+
+  const syncPendingTermsReminder = () => {
+    if (!import.meta.client) return
+    const uuid = authUser.value?.uuid || useCookie('user_uuid', { path: '/' }).value
+    hasPendingTermsReminder.value = Boolean(
+      uuid && localStorage.getItem(`da_pending_terms_reminder_${uuid}`) === '1'
+    )
+  }
+
+  watch(
+    () => authUser.value?.uuid,
+    () => {
+      syncPendingTermsReminder()
+    }
+  )
+
+  const needsTermsAcceptance = computed(() => {
+    return Boolean(
+      isHydrated.value &&
+      authToken.value &&
+      authUser.value &&
+      (!authUser.value.terms_accepted_at || hasPendingTermsReminder.value)
+    )
+  })
+
+  const handleAcceptMandatoryTerms = async (payload?: { consent_dataset: boolean }) => {
+    if (isAcceptingTerms.value) return
+    isAcceptingTerms.value = true
+    try {
+      const requestBody: { consent_dataset?: boolean } = {}
+      const effectiveRole = String(
+        userRole.value || authUser.value?.role?.slug || authUser.value?.role || ''
+      ).toLowerCase()
+      if (effectiveRole === 'patient' && payload) {
+        requestBody.consent_dataset = Boolean(payload.consent_dataset)
+      }
+
+      const res: any = await authService.acceptTerms(requestBody)
+      const updatedUser = res?.user?.data || res?.user || res?.data || null
+      if (updatedUser) {
+        authUser.value = updatedUser
+      } else if (authUser.value) {
+        authUser.value = {
+          ...authUser.value,
+          terms_accepted_at: new Date().toISOString(),
+          ...(requestBody.consent_dataset !== undefined
+            ? { consent_dataset: requestBody.consent_dataset }
+            : {})
+        }
+      }
+      if (import.meta.client) {
+        const uuid = authUser.value?.uuid || useCookie('user_uuid', { path: '/' }).value
+        if (uuid) {
+          localStorage.removeItem(`da_pending_terms_reminder_${uuid}`)
+        }
+      }
+      hasPendingTermsReminder.value = false
+      toast.success('Terms and Conditions accepted. Welcome to DermAssist!')
+    } catch (error: any) {
+      const msg = error?.data?.message || error?.message || 'Failed to save your acceptance.'
+      toast.error(msg)
+    } finally {
+      isAcceptingTerms.value = false
+    }
+  }
+
+  const handleDeclineMandatoryTerms = async () => {
+    if (isAcceptingTerms.value) return
+    isAcceptingTerms.value = true
+    try {
+      await authService.logout()
+    } catch (error) {
+      console.error('Logout on terms decline failed:', error)
+    } finally {
+      useSessionCleanup().clearSessionCaches()
+      isAcceptingTerms.value = false
+      toast.info('You must agree to the Terms & Conditions to access your account.')
+      await navigateTo('/auth/login')
+    }
+  }
 
   const { hasUnseenAppeals, sortedAppeals, fetchAppeals, markAppealsSeen } = useAdminAppeals()
   const { hasUnseenUpdate, fetchPublishedPatchNotes, markLatestUpdateAsSeen } = usePatchNotes()
@@ -427,7 +528,34 @@
   const currentPageDescription = computed(() => (activeItemInfo.value as any)?.description || '')
   const breadcrumbs = computed(() => activeItemInfo.value.breadcrumbs)
 
-  onMounted(() => {
+  onMounted(async () => {
+    isHydrated.value = true
+
+    if (authToken.value && (!authUser.value || authUser.value.terms_accepted_at === undefined)) {
+      try {
+        const res: any = await $api('/user')
+        const userData = res?.data || res
+        if (userData) {
+          authUser.value = userData
+        }
+      } catch {
+        // Handled by global auth middleware if token is invalid
+      }
+    }
+
+    syncPendingTermsReminder()
+
+    const effectiveRole = String(
+      userRole.value || authUser.value?.role?.slug || authUser.value?.role || ''
+    ).toLowerCase()
+    const normalizedPath =
+      route.path.length > 1 && route.path.endsWith('/')
+        ? route.path.slice(0, -1).toLowerCase()
+        : route.path.toLowerCase()
+    if (needsTermsAcceptance.value && effectiveRole && normalizedPath !== `/${effectiveRole}`) {
+      await navigateTo(`/${effectiveRole}`)
+    }
+
     fetchPublishedPatchNotes()
     if (userRole.value === 'admin' || route.path.startsWith('/admin')) {
       fetchAppeals()

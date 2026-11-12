@@ -220,6 +220,7 @@ export const usePrescriptions = () => {
   const rawRecords = useState<any[]>('patient_raw_prescription_records', () => [])
   const isLoading = useState<boolean>('patient_prescriptions_loading', () => false)
   const hasLoadedOnce = useState<boolean>('patient_prescriptions_loaded_once', () => false)
+  const ownerUserUuid = useState<string | null>('patient_prescriptions_owner_uuid', () => null)
   const currentDateStr = useState<string>('patient_prescriptions_current_date', () =>
     getTodayDateString()
   )
@@ -236,12 +237,27 @@ export const usePrescriptions = () => {
     return `${prescriptionKey}::${medicationKey}`
   }
 
+  const resetPrescriptions = () => {
+    rawRecords.value = []
+    todayStatusMap.value = {}
+    updatingKeys.value = {}
+    hasLoadedOnce.value = false
+    isLoading.value = false
+    ownerUserUuid.value = null
+    inFlightPrescriptionFetch = null
+  }
+
   const fetchPrescriptionsAndLogs = async (force = false) => {
-    if (!userUuid.value || userRole.value !== 'patient') {
-      rawRecords.value = []
-      todayStatusMap.value = {}
-      hasLoadedOnce.value = false
+    const requestUserUuid = userUuid.value || null
+    if (!requestUserUuid || userRole.value !== 'patient') {
+      resetPrescriptions()
       return
+    }
+
+    if (ownerUserUuid.value !== requestUserUuid) {
+      resetPrescriptions()
+      ownerUserUuid.value = requestUserUuid
+      force = true
     }
 
     const todayStr = getTodayDateString()
@@ -266,6 +282,11 @@ export const usePrescriptions = () => {
           medicationLogService.list({ date: targetDate }).catch(() => [])
         ])
 
+        if (userUuid.value !== requestUserUuid) {
+          return
+        }
+
+        ownerUserUuid.value = requestUserUuid
         rawRecords.value = (recordsRes as any)?.data || recordsRes || []
 
         const logsArray = (logsRes as any)?.data || logsRes || []
@@ -291,6 +312,15 @@ export const usePrescriptions = () => {
     return inFlightPrescriptionFetch
   }
 
+  const initialUuid = userUuid.value || null
+  if (ownerUserUuid.value !== initialUuid) {
+    resetPrescriptions()
+    ownerUserUuid.value = initialUuid
+    if (initialUuid && userRole.value === 'patient') {
+      fetchPrescriptionsAndLogs(true)
+    }
+  }
+
   if (import.meta.client && !dateWatcherAttached) {
     dateWatcherAttached = true
     const syncDateOnFocus = () => {
@@ -312,9 +342,8 @@ export const usePrescriptions = () => {
     () => userUuid.value,
     (newUuid, oldUuid) => {
       if (newUuid !== oldUuid) {
-        rawRecords.value = []
-        todayStatusMap.value = {}
-        hasLoadedOnce.value = false
+        resetPrescriptions()
+        ownerUserUuid.value = newUuid || null
         if (newUuid && userRole.value === 'patient') {
           fetchPrescriptionsAndLogs(true)
         }
@@ -532,6 +561,7 @@ export const usePrescriptions = () => {
     isLoading,
     hasLoadedOnce,
     fetchPrescriptionsAndLogs,
+    resetPrescriptions,
     getMedicationStatus,
     isMedicationUpdating,
     setMedicationStatus,
