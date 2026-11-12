@@ -782,11 +782,12 @@
               Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
           "
           :diagnosis="currentDiagnosis"
+          :allow-retake="props.role !== 'doctor'"
           @retake="openQuestionnaireModal"
         />
 
         <div
-          v-else-if="isScanned && canRefineDiagnosis"
+          v-else-if="props.role !== 'doctor' && isScanned && canRefineDiagnosis"
           class="border-primary/20 from-primary/5 via-card to-primary/10 relative overflow-hidden rounded-2xl border bg-gradient-to-br p-4 shadow-xs"
         >
           <div class="flex items-start gap-3">

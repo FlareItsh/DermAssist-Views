@@ -897,6 +897,7 @@
 
   const canRefineDetailed = computed(() => {
     return (
+      props.role !== 'doctor' &&
       activeDisease.value !== 'OutOfScope' &&
       activeDisease.value !== 'None' &&
       activeDisease.value !== 'Clear'
@@ -2015,6 +2016,7 @@
               Object.keys(currentDiagnosis.questionnaire_answers).length > 0)
           "
           :diagnosis="currentDiagnosis"
+          :allow-retake="props.role !== 'doctor'"
           @retake="handleOpenQuestionnaireModal"
         />
 

@@ -210,6 +210,7 @@ const formatIssuedDate = (dateStr?: string | null): string => {
 }
 
 let inFlightPrescriptionFetch: Promise<void> | null = null
+let dateWatcherAttached = false
 
 export const usePrescriptions = () => {
   const userUuid = useCookie('user_uuid')
@@ -219,6 +220,9 @@ export const usePrescriptions = () => {
   const rawRecords = useState<any[]>('patient_raw_prescription_records', () => [])
   const isLoading = useState<boolean>('patient_prescriptions_loading', () => false)
   const hasLoadedOnce = useState<boolean>('patient_prescriptions_loaded_once', () => false)
+  const currentDateStr = useState<string>('patient_prescriptions_current_date', () =>
+    getTodayDateString()
+  )
   const todayStatusMap = useState<Record<string, MedicationAdherenceStatus>>(
     'patient_today_medication_status_map',
     () => ({})
@@ -240,6 +244,12 @@ export const usePrescriptions = () => {
       return
     }
 
+    const todayStr = getTodayDateString()
+    if (currentDateStr.value !== todayStr) {
+      currentDateStr.value = todayStr
+      force = true
+    }
+
     if (inFlightPrescriptionFetch && !force) {
       return inFlightPrescriptionFetch
     }
@@ -250,10 +260,10 @@ export const usePrescriptions = () => {
 
     inFlightPrescriptionFetch = (async () => {
       try {
-        const todayStr = getTodayDateString()
+        const targetDate = getTodayDateString()
         const [recordsRes, logsRes] = await Promise.all([
           recordService.getRecords().catch(() => []),
-          medicationLogService.list({ date: todayStr }).catch(() => [])
+          medicationLogService.list({ date: targetDate }).catch(() => [])
         ])
 
         rawRecords.value = (recordsRes as any)?.data || recordsRes || []
@@ -267,6 +277,7 @@ export const usePrescriptions = () => {
             }
           }
         }
+        currentDateStr.value = targetDate
         todayStatusMap.value = nextMap
         hasLoadedOnce.value = true
       } catch (e) {
@@ -278,6 +289,23 @@ export const usePrescriptions = () => {
     })()
 
     return inFlightPrescriptionFetch
+  }
+
+  if (import.meta.client && !dateWatcherAttached) {
+    dateWatcherAttached = true
+    const syncDateOnFocus = () => {
+      const latestDate = getTodayDateString()
+      if (currentDateStr.value !== latestDate) {
+        currentDateStr.value = latestDate
+        fetchPrescriptionsAndLogs(true)
+      }
+    }
+    window.addEventListener('focus', syncDateOnFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        syncDateOnFocus()
+      }
+    })
   }
 
   watch(
