@@ -349,16 +349,16 @@
               <div
                 class="mb-3 flex items-start justify-between gap-4 border-b-2 border-indigo-600 pb-3"
               >
-                <div class="flex flex-col justify-center">
+                <div class="shrink-0">
                   <img
                     :src="prescriptionData.logoUrl || '/DA_Logo.jpg'"
                     alt="Clinic Logo"
-                    class="h-10 w-auto max-w-[130px] object-contain"
+                    class="h-11 w-auto max-w-[110px] object-contain"
                   />
                 </div>
 
-                <div class="shrink-0 text-right">
-                  <h4 class="text-sm font-extrabold tracking-tight text-indigo-950 uppercase">
+                <div class="min-w-0 flex-1 text-right">
+                  <h4 class="text-xs sm:text-sm font-extrabold tracking-tight text-indigo-950 uppercase">
                     {{ prescriptionData.clinicName || 'DermAssist Clinical Dermatology' }}
                   </h4>
                   <p class="mt-0.5 text-[10px] leading-tight text-gray-500">
