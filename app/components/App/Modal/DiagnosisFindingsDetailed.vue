@@ -2000,6 +2000,7 @@
           :is-out-of-scope="isOutOfScopeFromDiagnosis"
           :condition-name="activeDisease"
           :detected-category="outOfScopeCategoryFromDiagnosis"
+          :active-appeal="activeAppeal"
           @completed="emit('completed')"
           @saved="emit('finished', $event)"
           @require-patient-account="handleRequirePatientAccount"

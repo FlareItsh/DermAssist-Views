@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted } from 'vue'
+  import { ref, computed, watch, onMounted, nextTick } from 'vue'
   import { $api } from '~/composables/useApi'
   import { clinicalNoteService, type ClinicalNote } from '~/api/clinicalNote/ClinicalNoteService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
@@ -27,6 +27,7 @@
     isOutOfScope?: boolean
     conditionName?: string
     detectedCategory?: string | null
+    activeAppeal?: any | null
   }>()
 
   const emit = defineEmits<{
@@ -107,6 +108,30 @@
   const rxQuantity = ref<string>('')
   const isQuantityManuallyEdited = ref<boolean>(false)
   const rxInstructions = ref<string>('')
+  const instructionsTextareaRef = ref<HTMLTextAreaElement | null>(null)
+
+  const resizeInstructions = () => {
+    const el = instructionsTextareaRef.value
+    if (!el) return
+    el.style.height = 'auto'
+    if (el.scrollHeight > 0) {
+      el.style.height = `${Math.min(Math.max(el.scrollHeight, 42), 160)}px`
+    }
+  }
+
+  watch(rxInstructions, val => {
+    if (!val) {
+      nextTick(() => {
+        if (instructionsTextareaRef.value) {
+          instructionsTextareaRef.value.style.height = 'auto'
+        }
+      })
+    } else {
+      nextTick(() => {
+        resizeInstructions()
+      })
+    }
+  })
 
   const currentMedicine = computed<Medicine | null>(() => {
     return availableMedicines.value.find(m => m.uuid === selectedMedicineUuid.value) || null
@@ -190,7 +215,11 @@
 
     if (dailyRate !== null && days !== null) {
       const total = Math.ceil(dailyRate * days)
-      const unit = /cap/i.test(unitStr) ? 'capsules' : /tab/i.test(unitStr) ? 'tablets' : 'tablets'
+      const unit = /cap/i.test(combinedDesc)
+        ? 'capsules'
+        : /tab/i.test(combinedDesc)
+          ? 'tablets'
+          : 'tablets'
       return `#${total} ${unit}`
     }
 
@@ -248,13 +277,18 @@
     triggerQuantityCalculation()
   })
 
-  const setQuickQuantity = (val: string) => {
-    rxQuantity.value = val
-    isQuantityManuallyEdited.value = true
+  const resetQuantityToAuto = () => {
+    isQuantityManuallyEdited.value = false
+    triggerQuantityCalculation()
   }
 
   const onQuantityInput = () => {
-    isQuantityManuallyEdited.value = true
+    if (!rxQuantity.value.trim()) {
+      isQuantityManuallyEdited.value = false
+      triggerQuantityCalculation()
+    } else {
+      isQuantityManuallyEdited.value = true
+    }
   }
 
   const sanitizeDurationDigits = (raw: string): string => {
@@ -262,7 +296,7 @@
     if (!digits) return ''
     const num = parseInt(digits, 10)
     if (isNaN(num) || num <= 0) return ''
-    return num > 100 ? '100' : String(num)
+    return num > 365 ? '365' : String(num)
   }
 
   const handleDurationKeyDown = (e: KeyboardEvent) => {
@@ -302,10 +336,10 @@
       return
     }
     const num = parseInt(cleaned, 10)
-    if (num < 10) {
-      rxDuration.value = '10'
-    } else if (num > 100) {
-      rxDuration.value = '100'
+    if (num < 1) {
+      rxDuration.value = '1'
+    } else if (num > 365) {
+      rxDuration.value = '365'
     } else {
       rxDuration.value = String(num)
     }
@@ -328,11 +362,11 @@
     let durationPart = ''
     if (trimmedDur) {
       const days = parseInt(trimmedDur, 10)
-      if (isNaN(days) || days < 10 || days > 100) {
-        toast.warning('Duration must be between 10 and 100 days.')
+      if (isNaN(days) || days < 1 || days > 365) {
+        toast.warning('Duration must be between 1 and 365 days.')
         return
       }
-      durationPart = ` for ${days} days`
+      durationPart = ` for ${days} ${days === 1 ? 'day' : 'days'}`
     }
 
     const medName = currentMedicine.value.name
@@ -599,19 +633,48 @@
     }
   }
 
+  const resolveDefaultDiagnosis = (): string => {
+    if (props.activeAppeal?.suggested_label) {
+      return props.activeAppeal.suggested_label
+    }
+    if (props.isOutOfScope) {
+      return ''
+    }
+    const cond = (props.conditionName || '').trim()
+    if (!cond) return ''
+
+    const lower = cond.toLowerCase()
+    if (
+      lower === 'clear' ||
+      lower === 'healthy' ||
+      lower === 'no skin disease detected'
+    ) {
+      return 'No skin disease detected'
+    }
+    if (
+      lower === 'inconclusive' ||
+      lower === 'inconclusive finding' ||
+      lower === 'inconclusive / outside priority scope' ||
+      lower === 'none' ||
+      lower === 'non-skin' ||
+      lower === 'non-skin/no skin disease detected' ||
+      lower === 'non-skin / out of scope' ||
+      lower === 'outofscope' ||
+      lower === 'out of scope condition' ||
+      lower === 'out of scope' ||
+      lower === 'unsupported'
+    ) {
+      return ''
+    }
+    return cond
+  }
+
   onMounted(async () => {
     await fetchClinics()
     if (props.skipLoad || props.isFinishMode) {
       loadDraftIfExists()
-      if (!note.value.final_diagnosis && props.isOutOfScope && props.detectedCategory) {
-        const cat = props.detectedCategory.toLowerCase()
-        if (cat === 'ringworm') note.value.final_diagnosis = 'Ringworm (Tinea)'
-        else if (cat === 'hives') note.value.final_diagnosis = 'Hives / Urticaria'
-        else if (cat === 'warts') note.value.final_diagnosis = 'Warts (HPV)'
-        else if (cat === 'psoriasis') note.value.final_diagnosis = 'Psoriasis'
-        else
-          note.value.final_diagnosis =
-            props.detectedCategory.charAt(0).toUpperCase() + props.detectedCategory.slice(1)
+      if (!note.value.final_diagnosis) {
+        note.value.final_diagnosis = resolveDefaultDiagnosis()
       }
       isLoaded.value = true
       return
@@ -629,16 +692,43 @@
         } else {
           loadDraftIfExists()
         }
+        if (!note.value.final_diagnosis) {
+          note.value.final_diagnosis = resolveDefaultDiagnosis()
+        }
       } else {
         loadDraftIfExists()
+        if (!note.value.final_diagnosis) {
+          note.value.final_diagnosis = resolveDefaultDiagnosis()
+        }
       }
     } catch (e) {
       console.error('Failed to load clinical note', e)
       loadDraftIfExists()
+      if (!note.value.final_diagnosis) {
+        note.value.final_diagnosis = resolveDefaultDiagnosis()
+      }
     } finally {
       isLoaded.value = true
     }
   })
+
+  watch(
+    () => props.activeAppeal?.suggested_label,
+    newLabel => {
+      if (newLabel && typeof newLabel === 'string' && newLabel.trim()) {
+        note.value.final_diagnosis = newLabel.trim()
+      }
+    }
+  )
+
+  watch(
+    () => props.conditionName,
+    newCond => {
+      if (!note.value.final_diagnosis && newCond) {
+        note.value.final_diagnosis = resolveDefaultDiagnosis()
+      }
+    }
+  )
 
   // Auto-save draft on note changes
   watch(
@@ -1533,10 +1623,10 @@
               </button>
             </div>
 
-            <!-- Two-Tier Dropdowns & Auto-fill Fields -->
+            <!-- Medication Prescribing Form -->
             <div class="grid gap-3 sm:grid-cols-12 sm:items-end">
-              <!-- Dropdown 1: Medicine Name -->
-              <div class="sm:col-span-4">
+              <!-- Row 1: Medicine Name (8 cols) -->
+              <div class="sm:col-span-8">
                 <label
                   class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
@@ -1557,12 +1647,12 @@
                 </select>
               </div>
 
-              <!-- Dropdown 2: Strength / Dosage -->
-              <div class="sm:col-span-3">
+              <!-- Row 1: Strength / Dosage (4 cols) -->
+              <div class="sm:col-span-4">
                 <label
                   class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
-                  Dosage
+                  Dosage / Strength
                 </label>
                 <select
                   v-model="selectedVariantUuid"
@@ -1588,8 +1678,8 @@
                 </select>
               </div>
 
-              <!-- Frequency Field -->
-              <div class="sm:col-span-5">
+              <!-- Row 2: Frequency Field (6 cols) -->
+              <div class="sm:col-span-6">
                 <label
                   class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
@@ -1599,19 +1689,17 @@
                   type="text"
                   v-model="rxFrequency"
                   :disabled="!selectedVariantUuid"
-                  placeholder="e.g., BID, Every 6h"
+                  placeholder="e.g., Apply BID, Once daily at bedtime"
                   class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
-            </div>
 
-            <!-- Modifiers & Add Button -->
-            <div class="grid gap-2.5 pt-2 sm:grid-cols-12 sm:items-end">
+              <!-- Row 2: Duration in Days (3 cols) -->
               <div class="sm:col-span-3">
                 <label
                   class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
-                  Duration
+                  Duration (Days)
                 </label>
                 <input
                   type="text"
@@ -1623,11 +1711,12 @@
                   @input="handleDurationInput"
                   @blur="handleDurationBlur"
                   :disabled="!selectedVariantUuid"
-                  placeholder="e.g. 7 days"
+                  placeholder="e.g. 7"
                   class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
 
+              <!-- Row 2: Quantity (#) (3 cols) -->
               <div class="sm:col-span-3">
                 <div class="mb-1 flex min-h-[16px] items-center justify-between">
                   <label
@@ -1635,8 +1724,17 @@
                   >
                     Quantity (#)
                   </label>
+                  <button
+                    v-if="isQuantityManuallyEdited && (rxDuration || rxFrequency)"
+                    type="button"
+                    @click="resetQuantityToAuto"
+                    class="text-primary cursor-pointer text-[9px] font-semibold transition-colors hover:underline"
+                    title="Recalculate quantity automatically based on Frequency and Duration"
+                  >
+                    Reset to Auto
+                  </button>
                   <span
-                    v-if="!isQuantityManuallyEdited && rxQuantity"
+                    v-else-if="!isQuantityManuallyEdited && rxQuantity"
                     class="text-[9px] font-semibold text-emerald-600"
                   >
                     Auto
@@ -1647,64 +1745,44 @@
                   v-model="rxQuantity"
                   @input="onQuantityInput"
                   :disabled="!selectedVariantUuid"
-                  placeholder="e.g. #14 capsules"
+                  placeholder="e.g. #1 tube, #14 caps"
                   class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs font-semibold text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
                 />
               </div>
 
-              <div class="sm:col-span-4">
+              <!-- Row 3: Instructions / Sig (9 cols) -->
+              <div class="sm:col-span-9">
                 <label
                   class="mb-1 block text-[10px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs"
                 >
                   Instructions / Sig
                 </label>
-                <input
-                  type="text"
+                <textarea
+                  ref="instructionsTextareaRef"
                   v-model="rxInstructions"
+                  @input="resizeInstructions"
                   :disabled="!selectedVariantUuid"
-                  placeholder="Instructions (e.g. after meals)"
-                  class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
-                />
+                  rows="1"
+                  placeholder="Instructions (e.g. apply thin layer after cleansing, take with food)"
+                  class="focus:border-primary focus:ring-primary/20 [field-sizing:content] max-h-36 min-h-[42px] w-full resize-none overflow-y-auto rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 sm:text-sm"
+                ></textarea>
               </div>
 
-              <div class="flex justify-end sm:col-span-2">
+              <!-- Row 3: Add to Rx Button (3 cols) -->
+              <div class="flex justify-end sm:col-span-3">
                 <button
                   type="button"
                   @click="handleAddMedicationToPrescription"
                   :disabled="!selectedMedicineUuid || !selectedVariantUuid"
-                  class="bg-primary hover:bg-primary/90 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40 sm:text-sm"
+                  class="bg-primary hover:bg-primary/90 inline-flex h-[42px] w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40 sm:text-sm"
                 >
                   <Icon
                     name="lucide:plus"
                     class="text-sm"
                   />
-                  <span>Add</span>
+                  <span>Add to Rx</span>
                 </button>
               </div>
-            </div>
-
-            <!-- Quick Quantity Chips -->
-            <div
-              v-if="selectedVariantUuid"
-              class="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-gray-500"
-            >
-              <span class="text-[10px] font-semibold text-gray-400">Quick # Dispense:</span>
-              <button
-                v-for="chip in [
-                  '#1 tube',
-                  '#1 bottle',
-                  '#7 capsules',
-                  '#14 capsules',
-                  '#21 tablets',
-                  '#30 tablets'
-                ]"
-                :key="chip"
-                type="button"
-                @click="setQuickQuantity(chip)"
-                class="cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[10px] font-bold text-gray-700 transition-colors hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
-              >
-                {{ chip }}
-              </button>
             </div>
 
             <!-- Prescription Draft Textarea -->

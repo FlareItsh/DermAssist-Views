@@ -141,6 +141,11 @@
       <AppClinicalNoteForm
         :appointment-uuid="uuid"
         :diagnosis-id="appointment.diagnosis_id"
+        :diagnosis-uuid="appointment.diagnosis?.uuid"
+        :condition-name="appointment.diagnosis?.label || appointment.info"
+        :is-out-of-scope="appointment.diagnosis?.is_out_of_scope"
+        :detected-category="appointment.diagnosis?.out_of_scope_category"
+        :active-appeal="appointment.diagnosis?.appeal"
       />
     </div>
 
