@@ -25,6 +25,7 @@
   }>()
 
   const activeTab = ref<'draw' | 'upload'>('draw')
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const ptrNumber = ref('')
   const tinNumber = ref('')
   const s2Number = ref('')
@@ -187,29 +188,38 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4"
+      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+      @click.self="emit('update:modelValue', false)"
     >
       <div
-        class="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
+        class="flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border border-gray-100 bg-white shadow-2xl transition-all"
       >
-        <!-- Header -->
+        <!-- Native Mobile Grab Handle Pill -->
         <div
-          class="flex items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4"
+          class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-white"
+          aria-hidden="true"
         >
-          <div class="flex items-center gap-2.5">
+          <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+        </div>
+
+        <!-- Sticky Header -->
+        <div
+          class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4 backdrop-blur-md"
+        >
+          <div class="flex items-center gap-2.5 min-w-0 pr-2">
             <div
-              class="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"
+              class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 shadow-2xs"
             >
               <Icon
                 name="lucide:pen-tool"
                 class="text-lg"
               />
             </div>
-            <div>
-              <h3 class="text-base font-bold text-gray-900">
+            <div class="min-w-0">
+              <h3 class="text-base font-bold text-gray-900 truncate">
                 Prescription Credentials & Signature
               </h3>
-              <p class="text-xs text-gray-500">
+              <p class="text-xs text-gray-500 truncate">
                 Official physician details for compliant Rx printing
               </p>
             </div>
@@ -217,17 +227,18 @@
           <button
             type="button"
             @click="emit('update:modelValue', false)"
-            class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            class="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            title="Close"
           >
             <Icon
               name="lucide:x"
-              class="text-base"
+              class="text-lg"
             />
           </button>
         </div>
 
-        <!-- Body -->
-        <div class="flex max-h-[75vh] flex-col gap-4 overflow-y-auto p-6">
+        <!-- Scrollable Body -->
+        <div class="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
           <!-- Credential Inputs Grid -->
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -395,14 +406,14 @@
           </div>
         </div>
 
-        <!-- Footer Actions -->
+        <!-- Sticky Footer: Always thumb-reachable on mobile -->
         <div
-          class="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-6 py-4"
+          class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <button
             type="button"
             @click="emit('update:modelValue', false)"
-            class="px-4 py-2 text-xs font-bold text-gray-600 transition-colors hover:text-gray-800"
+            class="hover:bg-gray-100 flex min-h-[44px] sm:min-h-[38px] cursor-pointer items-center justify-center rounded-xl px-4 py-2 text-xs font-bold text-gray-600 transition-colors hover:text-gray-800"
           >
             Cancel
           </button>
@@ -410,7 +421,7 @@
             type="button"
             :disabled="isSubmitting"
             @click="handleSave"
-            class="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            class="flex min-h-[44px] sm:min-h-[38px] flex-1 sm:flex-initial cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50"
           >
             <Icon
               v-if="isSubmitting"

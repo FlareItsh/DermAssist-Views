@@ -20,6 +20,7 @@
 
   const isSubmitting = ref(false)
   const errorMessage = ref('')
+  useModalLock().registerModal(toRef(props, 'modelValue'))
 
   const editForm = reactive({
     available_date: '',
@@ -161,16 +162,24 @@
     <div
       v-if="modelValue && slotData"
       @click.self="closeModal"
-      class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 duration-200"
+      class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 duration-200 backdrop-blur-xs"
     >
       <div
-        class="border-border bg-card text-foreground relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-6 shadow-2xl"
+        class="border-border bg-card text-foreground relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
       >
-        <!-- Modal Header -->
-        <div class="border-border/60 flex items-start justify-between gap-3 border-b pb-4">
-          <div class="flex items-center gap-3">
+        <!-- Native Mobile Grab Handle Pill -->
+        <div
+          class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+          aria-hidden="true"
+        >
+          <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+        </div>
+
+        <!-- Sticky Header -->
+        <div class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4.5 backdrop-blur-md">
+          <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl"
+              class="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-2xl shadow-2xs"
               :class="
                 editForm.is_available
                   ? 'bg-emerald-500/10 text-emerald-600 ring-4 ring-emerald-500/5'
@@ -186,11 +195,11 @@
                 class="h-5 w-5"
               />
             </div>
-            <div>
-              <h3 class="text-foreground text-base font-bold">
+            <div class="min-w-0">
+              <h3 class="text-foreground text-base font-bold truncate">
                 {{ editForm.is_available ? 'Edit Clinic Duty Shift' : 'Edit Blocked Period' }}
               </h3>
-              <p class="text-muted-foreground text-xs">
+              <p class="text-muted-foreground truncate text-xs">
                 Adjust date, working hours, and clinic location
               </p>
             </div>
@@ -199,7 +208,7 @@
           <button
             type="button"
             @click="closeModal"
-            class="text-muted-foreground hover:bg-foreground/5 hover:text-foreground cursor-pointer rounded-xl p-1.5 transition"
+            class="text-muted-foreground hover:bg-foreground/5 hover:text-foreground flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl p-2 transition"
             title="Close"
           >
             <Icon
@@ -209,10 +218,11 @@
           </button>
         </div>
 
-        <!-- Form Body -->
+        <!-- Scrollable Form Body -->
         <form
+          id="edit-availability-form"
           @submit.prevent="handleSave"
-          class="mt-4 space-y-4"
+          class="custom-scrollbar flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
         >
           <!-- Date Field -->
           <div class="space-y-1">
@@ -377,32 +387,33 @@
             />
             <span>{{ errorMessage }}</span>
           </div>
-
-          <!-- Footer Actions -->
-          <div class="border-border/60 mt-6 flex items-center justify-end gap-2.5 border-t pt-4">
-            <button
-              type="button"
-              :disabled="isSubmitting"
-              @click="closeModal"
-              class="text-muted-foreground hover:bg-foreground/5 hover:text-foreground cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              :disabled="isSubmitting || isTimeRangeInvalid"
-              class="bg-primary text-primary-foreground hover:bg-primary/90 flex cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Icon
-                v-if="isSubmitting"
-                name="lucide:loader-2"
-                class="h-3.5 w-3.5 animate-spin"
-              />
-              <span>{{ isSubmitting ? 'Saving Changes...' : 'Save Changes' }}</span>
-            </button>
-          </div>
         </form>
+
+        <!-- Sticky Footer: Always accessible within thumb reach on mobile -->
+        <div class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            :disabled="isSubmitting"
+            @click="closeModal"
+            class="text-muted-foreground hover:bg-foreground/5 hover:text-foreground flex min-h-[44px] sm:min-h-[38px] cursor-pointer items-center justify-center rounded-xl px-4 py-2 text-xs font-semibold transition"
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            form="edit-availability-form"
+            :disabled="isSubmitting || isTimeRangeInvalid"
+            class="bg-primary text-primary-foreground hover:bg-primary/90 flex min-h-[44px] sm:min-h-[38px] flex-1 sm:flex-initial cursor-pointer items-center justify-center gap-1.5 rounded-xl px-5 py-2 text-xs font-bold shadow-xs transition disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Icon
+              v-if="isSubmitting"
+              name="lucide:loader-2"
+              class="h-3.5 w-3.5 animate-spin"
+            />
+            <span>{{ isSubmitting ? 'Saving Changes...' : 'Save Changes' }}</span>
+          </button>
+        </div>
       </div>
     </div>
   </Teleport>

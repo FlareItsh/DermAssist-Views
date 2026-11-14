@@ -4,6 +4,8 @@
   const props = defineProps<{
     isLoading?: boolean
   }>()
+
+  useModalLock().registerModal(computed(() => true))
 </script>
 
 <template>

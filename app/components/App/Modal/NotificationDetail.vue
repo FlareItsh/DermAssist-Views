@@ -30,6 +30,8 @@
   const isDeclining = ref(false)
   const isDismissing = ref(false)
 
+  useModalLock().registerModal(toRef(props, 'modelValue'))
+
   const close = () => {
     if (isAccepting.value || isDeclining.value || isDismissing.value) return
     emit('update:modelValue', false)
@@ -193,7 +195,7 @@
     >
       <div
         v-if="modelValue && notification"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4"
+        class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         @click.self="close"
       >
         <Transition

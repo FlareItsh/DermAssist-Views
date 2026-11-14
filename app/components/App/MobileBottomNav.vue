@@ -56,6 +56,7 @@
   const route = useRoute()
   const userRole = useCookie<string>('user_role')
   const { totalUnreadCount } = useConversations()
+  const { isAnyModalOpen } = useModalLock()
 
   const resolvedRole = computed<'patient' | 'doctor' | 'admin' | 'secretary'>(() => {
     if (props.role) return props.role as any
@@ -264,8 +265,11 @@
 
 <template>
   <nav
-    class="fixed inset-x-0 bottom-0 z-50"
-    :class="navBreakpointClass"
+    class="fixed inset-x-0 bottom-0 z-50 transition-all duration-300 ease-out"
+    :class="[
+      navBreakpointClass,
+      isAnyModalOpen ? 'translate-y-full opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'
+    ]"
     id="app-mobile-bottom-nav"
   >
     <div

@@ -33,6 +33,8 @@
   // Doctor state
   const isDoctorRegistered = ref(false)
   const attendingDoctor = ref<any | null>(null)
+
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const myDoctors = ref<any[]>([])
   const allDoctors = ref<any[]>([])
   const doctorTab = ref<'my_doctors' | 'all_doctors'>('my_doctors')
@@ -322,12 +324,12 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-999 flex items-center justify-center p-4 sm:p-6"
+        class="fixed inset-0 z-[120] flex items-center justify-center p-4 sm:p-6 backdrop-blur-xs"
         @click.self="close"
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/40 transition-opacity"
+          class="fixed inset-0 bg-black/60 transition-opacity"
           @click="close"
         ></div>
 

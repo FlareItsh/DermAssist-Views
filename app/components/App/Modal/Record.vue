@@ -13,6 +13,8 @@
 
   const emit = defineEmits(['close'])
 
+  useModalLock().registerModal(computed(() => true))
+
   const { role: authRole } = useAuth()
   const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { getStorageUrl } = useStorage()

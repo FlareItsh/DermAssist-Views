@@ -298,6 +298,7 @@
 
   // Timetable quick view modal
   const selectedTimetableAppt = ref<any | null>(null)
+  useModalLock().registerModal(computed(() => Boolean(selectedTimetableAppt.value)))
   const handleTimetableSelect = (appt: any) => {
     selectedTimetableAppt.value = appt
   }
@@ -1502,12 +1503,13 @@
     />
 
     <!-- 4. Timetable Quick Detail Dialog -->
-    <Transition name="modal">
-      <div
-        v-if="selectedTimetableAppt"
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
-        @click.self="selectedTimetableAppt = null"
-      >
+    <Teleport to="body">
+      <Transition name="modal">
+        <div
+          v-if="selectedTimetableAppt"
+          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          @click.self="selectedTimetableAppt = null"
+        >
         <div
           class="w-full max-w-md overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl"
         >
@@ -1604,6 +1606,7 @@
         </div>
       </div>
     </Transition>
+  </Teleport>
   </div>
 </template>
 

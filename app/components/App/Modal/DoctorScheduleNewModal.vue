@@ -12,6 +12,8 @@
     (e: 'scheduled'): void
   }>()
 
+  useModalLock().registerModal(computed(() => true))
+
   // ─── Data ───────────────────────────────────────────────────────────────────
 
   const { appointments, completedAppointments, fetchAppointments } = useAppointments()
@@ -404,7 +406,7 @@
   <Teleport to="body">
     <Transition name="modal">
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4"
+        class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
         @click.self="emit('close')"
       >
         <div

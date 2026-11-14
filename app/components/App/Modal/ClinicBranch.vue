@@ -48,6 +48,7 @@
   }>()
 
   const fileInputRef = ref<HTMLInputElement | null>(null)
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const isDraggingOver = ref(false)
   const localError = ref('')
 
@@ -215,9 +216,17 @@
         <div
           class="bg-card border-border relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-xl flex-col rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all overflow-hidden"
         >
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
           <!-- Sticky Header: Stays pinned so close button & context are always accessible -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-7 sm:py-4.5 backdrop-blur-md"
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-7 sm:py-4.5 backdrop-blur-md"
           >
             <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div

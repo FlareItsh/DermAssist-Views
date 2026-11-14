@@ -148,7 +148,8 @@
     window.removeEventListener('resize', updateIsMobile)
   })
 
-  const isInlineMode = computed(() => Boolean(props.inline || isMobile.value))
+  const isInlineMode = computed(() => Boolean(props.inline))
+  useModalLock().registerModal(computed(() => !props.inline))
 
   const { getStorageUrl } = useStorage()
   const avatarError = ref(false)
@@ -598,15 +599,24 @@
 </script>
 
 <template>
-  <!-- Mobile View Mode: Full-window component covering chat with back button -->
-  <div
-    v-if="isInlineMode"
-    class="bg-card flex h-full w-full flex-1 flex-col overflow-y-auto"
+  <Teleport
+    to="body"
+    :disabled="inline"
   >
-    <!-- Mobile Top Header with Back Button and Patient Identity -->
+    <!-- Mobile View Mode: Full-window component covering chat with back button (or full modal on mobile) -->
     <div
-      class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3 py-3 shadow-sm"
+      v-if="isMobile || inline"
+      class="bg-card flex flex-col"
+      :class="
+        inline
+          ? 'h-full w-full flex-1 overflow-y-auto'
+          : 'fixed inset-0 z-[120] h-full w-full overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]'
+      "
     >
+      <!-- Mobile Top Header with Back Button and Patient Identity -->
+      <div
+        class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 shadow-xs"
+      >
       <div class="flex min-w-0 flex-1 items-center gap-2">
         <!-- Back Button -->
         <button
@@ -1101,14 +1111,13 @@
     </div>
   </div>
 
-  <!-- Desktop Modal Mode (teleports to body) -->
-  <Teleport
-    v-else
-    to="body"
-  >
-    <Transition name="modal">
+    <!-- Desktop Modal Mode -->
+    <Transition
+      v-else
+      name="modal"
+    >
       <div
-        class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 p-4 sm:p-6"
+        class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-xs"
         @click.self="emit('close')"
       >
         <div
