@@ -351,14 +351,6 @@
   const { clinics, fetchClinics, addClinic, updateClinic, removeClinic } = useDoctorClinics()
   const showAddClinicModal = ref(false)
   const isClinicSubmitting = ref(false)
-  const clinicForm = reactive({
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    logo: '',
-    logoPreview: ''
-  })
   const clinicError = ref('')
 
   // Edit Clinic State & Handlers
@@ -366,54 +358,9 @@
   const isEditClinicSubmitting = ref(false)
   const editingClinic = ref<any>(null)
   const editClinicError = ref('')
-  const editClinicForm = reactive({
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    is_active: true,
-    logo: '',
-    logoPreview: ''
-  })
-
-  const handleClinicLogoUpload = (e: Event, isEdit: boolean) => {
-    const target = e.target as HTMLInputElement
-    const file = target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file (PNG, JPG, or WebP).')
-      return
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Clinic logo must be under 2MB.')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const base64 = ev.target?.result as string
-      if (isEdit) {
-        editClinicForm.logo = base64
-        editClinicForm.logoPreview = base64
-      } else {
-        clinicForm.logo = base64
-        clinicForm.logoPreview = base64
-      }
-    }
-    reader.readAsDataURL(file)
-  }
 
   const openEditClinicModal = (clinic: any) => {
     editingClinic.value = clinic
-    editClinicForm.name = clinic.name || ''
-    editClinicForm.address = clinic.address || ''
-    editClinicForm.phone = clinic.phone || ''
-    editClinicForm.email = clinic.email || ''
-    editClinicForm.is_active = clinic.is_active !== false
-    editClinicForm.logo = ''
-    editClinicForm.logoPreview = clinic.logo_url || clinic.logo_path || ''
     editClinicError.value = ''
     showEditClinicModal.value = true
   }
@@ -424,11 +371,16 @@
     editClinicError.value = ''
   }
 
-  const handleUpdateClinic = async () => {
-    if (!editClinicForm.name.trim()) {
-      editClinicError.value = 'Clinic name is required.'
-      return
-    }
+  const handleUpdateClinic = async (payload: {
+    name: string
+    address: string | null
+    phone: string | null
+    email: string | null
+    is_active: boolean
+    logo: string | null
+    logoPreview: string
+    removedLogo: boolean
+  }) => {
     if (!editingClinic.value) return
 
     isEditClinicSubmitting.value = true
@@ -436,19 +388,19 @@
     try {
       const targetUuid = editingClinic.value.uuid || editingClinic.value.id
       const updatePayload: Record<string, any> = {
-        name: editClinicForm.name.trim(),
-        address: editClinicForm.address.trim() || null,
-        phone: editClinicForm.phone.trim() || null,
-        email: editClinicForm.email.trim() || null,
-        is_active: editClinicForm.is_active
+        name: payload.name.trim(),
+        address: payload.address?.trim() || null,
+        phone: payload.phone?.trim() || null,
+        email: payload.email?.trim() || null,
+        is_active: payload.is_active
       }
-      if (editClinicForm.logo) {
-        updatePayload.logo = editClinicForm.logo
-      } else if (!editClinicForm.logoPreview && editingClinic.value.logo_path) {
+      if (payload.logo) {
+        updatePayload.logo = payload.logo
+      } else if (payload.removedLogo && editingClinic.value.logo_path) {
         updatePayload.logo = null
       }
       await updateClinic(targetUuid, updatePayload)
-      toast.success(`Clinic "${editClinicForm.name.trim()}" updated successfully.`)
+      toast.success(`Clinic "${payload.name.trim()}" updated successfully.`)
       closeEditClinicModal()
     } catch (err: any) {
       editClinicError.value = err.data?.message || err.message || 'Failed to update clinic branch.'
@@ -462,29 +414,25 @@
   const showDeleteClinicModal = ref(false)
   const isDeletingClinic = ref(false)
 
-  const handleCreateClinic = async () => {
-    if (!clinicForm.name.trim()) {
-      clinicError.value = 'Clinic name is required.'
-      return
-    }
+  const handleCreateClinic = async (payload: {
+    name: string
+    address: string | null
+    phone: string | null
+    email: string | null
+    logo: string | null
+  }) => {
     isClinicSubmitting.value = true
     clinicError.value = ''
     try {
       await addClinic({
-        name: clinicForm.name.trim(),
-        address: clinicForm.address.trim() || null,
-        phone: clinicForm.phone.trim() || null,
-        email: clinicForm.email.trim() || null,
-        logo: clinicForm.logo || null
+        name: payload.name.trim(),
+        address: payload.address?.trim() || null,
+        phone: payload.phone?.trim() || null,
+        email: payload.email?.trim() || null,
+        logo: payload.logo || null
       })
-      toast.success(`Clinic "${clinicForm.name.trim()}" added successfully.`)
+      toast.success(`Clinic "${payload.name.trim()}" added successfully.`)
       showAddClinicModal.value = false
-      clinicForm.name = ''
-      clinicForm.address = ''
-      clinicForm.phone = ''
-      clinicForm.email = ''
-      clinicForm.logo = ''
-      clinicForm.logoPreview = ''
     } catch (err: any) {
       clinicError.value = err.data?.message || err.message || 'Failed to add clinic branch.'
       toast.error(clinicError.value)
@@ -1747,15 +1695,6 @@
     }
   }
 
-  const clearClinicLogo = () => {
-    clinicForm.logo = ''
-    clinicForm.logoPreview = ''
-  }
-
-  const clearEditClinicLogo = () => {
-    editClinicForm.logo = ''
-    editClinicForm.logoPreview = ''
-  }
 </script>
 
 <template>
@@ -2656,21 +2595,32 @@
               <div class="flex items-start justify-between gap-3">
                 <div class="flex min-w-0 items-start gap-3">
                   <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-                    :class="
-                      clinic.is_owner !== false
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                    "
+                    class="border-border/60 bg-card relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border p-1 shadow-2xs"
                   >
-                    <Icon
-                      :name="
-                        clinic.is_owner !== false
-                          ? 'heroicons:building-office-2'
-                          : 'heroicons:building-library'
-                      "
-                      class="h-5 w-5"
+                    <img
+                      v-if="clinic.logo_url"
+                      :src="clinic.logo_url"
+                      :alt="clinic.name"
+                      class="h-full w-full object-contain"
                     />
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center rounded-xl"
+                      :class="
+                        clinic.is_owner !== false
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                      "
+                    >
+                      <Icon
+                        :name="
+                          clinic.is_owner !== false
+                            ? 'heroicons:building-office-2'
+                            : 'heroicons:building-library'
+                        "
+                        class="h-5 w-5"
+                      />
+                    </div>
                   </div>
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
@@ -4482,357 +4432,23 @@
     </div>
 
     <!-- Add Clinic Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showAddClinicModal"
-        @click.self="showAddClinicModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      >
-        <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-              >
-                <Icon
-                  name="heroicons:building-office-2"
-                  class="h-5 w-5"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-bold">Add Clinic Branch</h3>
-                <p class="text-muted-foreground text-xs">
-                  Register a new clinic location where you practice.
-                </p>
-              </div>
-            </div>
-            <button
-              @click="showAddClinicModal = false"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
-            >
-              <Icon
-                name="heroicons:x-mark"
-                class="h-5 w-5"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="handleCreateClinic"
-            class="space-y-4"
-          >
-            <div
-              v-if="clinicError"
-              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600"
-            >
-              {{ clinicError }}
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
-              <input
-                v-model="clinicForm.name"
-                type="text"
-                required
-                placeholder="e.g. St. Luke's Medical Center - Rm 402"
-                class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
-              <input
-                v-model="clinicForm.address"
-                type="text"
-                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
-                class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Contact Phone</label>
-                <input
-                  v-model="clinicForm.phone"
-                  type="text"
-                  placeholder="e.g. +63 917 123 4567"
-                  class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Clinic Email</label>
-                <input
-                  v-model="clinicForm.email"
-                  type="email"
-                  placeholder="e.g. clinic@derma.com"
-                  class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Clinic Logo Upload (for Prescriptions) -->
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold"
-                >Clinic Logo (for Prescription Pad Header)</label
-              >
-              <div class="flex items-center gap-3">
-                <div
-                  v-if="clinicForm.logoPreview"
-                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
-                >
-                  <img
-                    :src="clinicForm.logoPreview"
-                    class="max-h-full max-w-full object-contain"
-                    alt="Clinic Logo"
-                  />
-                  <button
-                    type="button"
-                    @click="clearClinicLogo"
-                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
-                  >
-                    <Icon
-                      name="lucide:x"
-                      class="text-[10px]"
-                    />
-                  </button>
-                </div>
-                <label
-                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
-                >
-                  <Icon
-                    name="lucide:image"
-                    class="text-primary text-sm"
-                  />
-                  <span>{{
-                    clinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)'
-                  }}</span>
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    class="hidden"
-                    @change="handleClinicLogoUpload($event, false)"
-                  />
-                </label>
-              </div>
-              <p class="text-muted-foreground text-[10px]">
-                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
-                default.
-              </p>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="showAddClinicModal = false"
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                :loading="isClinicSubmitting"
-              >
-                Save Clinic
-              </AppButton>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <AppModalClinicBranch
+      v-model="showAddClinicModal"
+      mode="create"
+      :loading="isClinicSubmitting"
+      :error-message="clinicError"
+      @save="handleCreateClinic"
+    />
 
     <!-- Edit Clinic Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showEditClinicModal"
-        @click.self="closeEditClinicModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      >
-        <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-              >
-                <Icon
-                  name="heroicons:pencil-square"
-                  class="h-5 w-5"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-bold">Edit Clinic Branch</h3>
-                <p class="text-muted-foreground text-xs">
-                  Update location and contact information for this clinic.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="closeEditClinicModal"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
-            >
-              <Icon
-                name="heroicons:x-mark"
-                class="h-5 w-5"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="handleUpdateClinic"
-            class="space-y-4"
-          >
-            <div
-              v-if="editClinicError"
-              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
-            >
-              {{ editClinicError }}
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
-              <input
-                v-model="editClinicForm.name"
-                type="text"
-                required
-                placeholder="e.g. St. Luke's Medical Center - Rm 402"
-                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
-              <input
-                v-model="editClinicForm.address"
-                type="text"
-                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
-                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Contact Phone</label>
-                <input
-                  v-model="editClinicForm.phone"
-                  type="text"
-                  placeholder="e.g. +63 917 123 4567"
-                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Clinic Email</label>
-                <input
-                  v-model="editClinicForm.email"
-                  type="email"
-                  placeholder="e.g. clinic@derma.com"
-                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Clinic Logo Upload (for Prescriptions) -->
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold"
-                >Clinic Logo (for Prescription Pad Header)</label
-              >
-              <div class="flex items-center gap-3">
-                <div
-                  v-if="editClinicForm.logoPreview"
-                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
-                >
-                  <img
-                    :src="editClinicForm.logoPreview"
-                    class="max-h-full max-w-full object-contain"
-                    alt="Clinic Logo"
-                  />
-                  <button
-                    type="button"
-                    @click="clearEditClinicLogo"
-                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
-                  >
-                    <Icon
-                      name="lucide:x"
-                      class="text-[10px]"
-                    />
-                  </button>
-                </div>
-                <label
-                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
-                >
-                  <Icon
-                    name="lucide:image"
-                    class="text-primary text-sm"
-                  />
-                  <span>{{
-                    editClinicForm.logoPreview
-                      ? 'Change Clinic Logo'
-                      : 'Upload Clinic Logo (PNG/JPG)'
-                  }}</span>
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    class="hidden"
-                    @change="handleClinicLogoUpload($event, true)"
-                  />
-                </label>
-              </div>
-              <p class="text-muted-foreground text-[10px]">
-                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
-                default.
-              </p>
-            </div>
-
-            <!-- Active Status Toggle -->
-            <div
-              class="border-border/60 bg-foreground/[0.02] flex items-center justify-between rounded-xl border p-3.5"
-            >
-              <div>
-                <div class="text-foreground text-xs font-bold">Active Clinic Branch</div>
-                <div class="text-muted-foreground text-[11px]">
-                  Allow patient appointments and availability allocation at this clinic branch
-                </div>
-              </div>
-              <label class="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  v-model="editClinicForm.is_active"
-                  class="peer sr-only"
-                />
-                <div
-                  class="peer bg-muted-foreground/20 after:border-border/40 peer-checked:bg-primary h-6 w-11 rounded-full transition-colors peer-focus:outline-hidden after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"
-                ></div>
-              </label>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="closeEditClinicModal"
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                :loading="isEditClinicSubmitting"
-              >
-                Update Clinic
-              </AppButton>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <AppModalClinicBranch
+      v-model="showEditClinicModal"
+      mode="edit"
+      :clinic="editingClinic"
+      :loading="isEditClinicSubmitting"
+      :error-message="editClinicError"
+      @save="handleUpdateClinic"
+    />
 
     <!-- Assign Doctor to Seat Modal -->
     <Teleport to="body">
