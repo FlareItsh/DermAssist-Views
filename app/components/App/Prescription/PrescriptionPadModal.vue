@@ -31,6 +31,7 @@
 
   // Document canvas scaling & zoom for mobile screens
   const isZoomed = ref(false)
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const viewportRef = ref<HTMLElement | null>(null)
   const slipRef = ref<HTMLElement | null>(null)
   const viewportWidth = ref(520)
@@ -229,14 +230,22 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-2 sm:p-4"
+      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
     >
       <div
-        class="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-2xl"
+        class="flex max-h-[92dvh] sm:max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border border-gray-100 bg-white shadow-2xl transition-all"
       >
+        <!-- Native Mobile Grab Handle Pill -->
+        <div
+          class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-gray-50/95"
+          aria-hidden="true"
+        >
+          <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+        </div>
+
         <!-- Top Bar -->
         <div
-          class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-4 py-3 sm:px-6 sm:py-3.5"
+          class="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/95 px-4 pt-1.5 pb-3 sm:px-6 sm:py-3.5 backdrop-blur-md"
         >
           <div class="flex min-w-0 items-center gap-2 sm:gap-2.5">
             <div
@@ -274,7 +283,7 @@
             <button
               type="button"
               @click="emit('update:modelValue', false)"
-              class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              class="flex h-9 w-9 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:scale-95 cursor-pointer"
               aria-label="Close prescription modal"
             >
               <Icon
@@ -650,17 +659,17 @@
 
         <!-- Action Buttons Bar -->
         <div
-          class="flex items-center justify-between border-t border-gray-100 bg-white px-4 py-3 sm:px-6 sm:py-4"
+          class="sticky bottom-0 z-20 flex shrink-0 items-center justify-between border-t border-gray-100 bg-white/95 px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <span class="hidden text-xs text-gray-500 sm:inline">
             Print directly to office printer or download signed A5 PDF.
           </span>
 
-          <div class="flex w-full items-center justify-end gap-2 sm:w-auto">
+          <div class="flex w-full items-center justify-end gap-2.5 sm:w-auto">
             <button
               type="button"
               @click="handleDirectPrint"
-              class="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50 sm:flex-initial sm:px-4"
+              class="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50 sm:flex-initial sm:px-4 cursor-pointer"
             >
               <Icon
                 name="lucide:printer"
@@ -673,7 +682,7 @@
               type="button"
               :disabled="isDownloadingPdf"
               @click="handleDownloadPdf"
-              class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50 sm:flex-initial sm:px-5"
+              class="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-indigo-700 disabled:opacity-50 sm:flex-initial sm:px-5 cursor-pointer"
             >
               <Icon
                 v-if="isDownloadingPdf"

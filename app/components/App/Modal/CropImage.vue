@@ -20,6 +20,7 @@
 
   const viewportRef = ref<HTMLDivElement | null>(null)
   const imageElement = ref<HTMLImageElement | null>(null)
+  useModalLock().registerModal(toRef(props, 'modelValue'))
 
   const isImageLoaded = ref(false)
   const naturalWidth = ref(0)
@@ -222,21 +223,31 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-0 sm:p-4 backdrop-blur-xs"
         @click.self="close"
       >
         <!-- Dark backdrop -->
         <div
-          class="fixed inset-0 bg-black/40 transition-opacity"
+          class="fixed inset-0 bg-black/60 transition-opacity"
           @click="close"
         ></div>
 
         <!-- Modal Dialog -->
         <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 relative w-full max-w-md overflow-hidden rounded-[2rem] border p-6 text-center shadow-2xl transition-all sm:p-7"
+          class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
         >
-          <!-- Header -->
-          <div class="mb-4 flex items-center justify-between">
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Sticky Header -->
+          <div
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4 backdrop-blur-md"
+          >
             <div class="flex items-center gap-2.5">
               <div
                 class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl"
@@ -257,7 +268,8 @@
             <button
               type="button"
               :disabled="loading"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1 transition"
+              class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition active:scale-95"
+              aria-label="Close dialog"
               @click="close"
             >
               <Icon
@@ -267,136 +279,142 @@
             </button>
           </div>
 
-          <!-- Cropper Viewport -->
-          <div
-            ref="viewportRef"
-            class="relative mx-auto flex h-[300px] w-full max-w-[300px] touch-none items-center justify-center overflow-hidden rounded-2xl bg-neutral-950 select-none"
-            :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'"
-            @pointerdown="handlePointerDown"
-            @pointermove="handlePointerMove"
-            @pointerup="handlePointerUp"
-            @pointercancel="handlePointerUp"
-            @wheel="handleWheel"
-          >
-            <!-- Image Surface -->
-            <img
-              v-if="imageSrc && isImageLoaded"
-              :src="imageSrc"
-              alt="Avatar preview to crop"
-              class="pointer-events-none absolute max-w-none transition-transform duration-75 ease-out select-none"
-              :style="{
-                transform: `translate(${panX}px, ${panY}px) scale(${totalScale}) rotate(${rotation}deg)`,
-                transformOrigin: 'center center'
-              }"
-            />
+          <!-- Scrollable Body -->
+          <div class="custom-scrollbar flex-1 overflow-y-auto p-5 sm:p-6 text-center">
+            <!-- Cropper Viewport -->
+            <div
+              ref="viewportRef"
+              class="relative mx-auto flex h-[280px] w-full max-w-[280px] touch-none items-center justify-center overflow-hidden rounded-2xl bg-neutral-950 select-none sm:h-[300px] sm:max-w-[300px]"
+              :class="isDragging ? 'cursor-grabbing' : 'cursor-grab'"
+              @pointerdown="handlePointerDown"
+              @pointermove="handlePointerMove"
+              @pointerup="handlePointerUp"
+              @pointercancel="handlePointerUp"
+              @wheel="handleWheel"
+            >
+              <!-- Image Surface -->
+              <img
+                v-if="imageSrc && isImageLoaded"
+                :src="imageSrc"
+                alt="Avatar preview to crop"
+                class="pointer-events-none absolute max-w-none transition-transform duration-75 ease-out select-none"
+                :style="{
+                  transform: `translate(${panX}px, ${panY}px) scale(${totalScale}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center center'
+                }"
+              />
 
-            <!-- Circular Crop Mask & Vignette Overlay -->
-            <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <!-- Center aperture ring with shadow cutoff creating dark mask -->
-              <div
-                class="border-primary/90 h-[256px] w-[256px] rounded-full border-2 shadow-[0_0_0_9999px_rgba(0,0,0,0.65)]"
-              >
-                <!-- Subtle grid crosshair guidelines -->
-                <div class="relative h-full w-full rounded-full opacity-30">
-                  <div class="absolute top-1/3 right-0 left-0 h-px border-b border-white/60"></div>
-                  <div class="absolute top-2/3 right-0 left-0 h-px border-b border-white/60"></div>
-                  <div class="absolute top-0 bottom-0 left-1/3 w-px border-r border-white/60"></div>
-                  <div class="absolute top-0 bottom-0 left-2/3 w-px border-r border-white/60"></div>
+              <!-- Circular Crop Mask & Vignette Overlay -->
+              <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <!-- Center aperture ring with shadow cutoff creating dark mask -->
+                <div
+                  class="border-primary/90 h-[256px] w-[256px] rounded-full border-2 shadow-[0_0_0_9999px_rgba(0,0,0,0.65)]"
+                >
+                  <!-- Subtle grid crosshair guidelines -->
+                  <div class="relative h-full w-full rounded-full opacity-30">
+                    <div class="absolute top-1/3 right-0 left-0 h-px border-b border-white/60"></div>
+                    <div class="absolute top-2/3 right-0 left-0 h-px border-b border-white/60"></div>
+                    <div class="absolute top-0 bottom-0 left-1/3 w-px border-r border-white/60"></div>
+                    <div class="absolute top-0 bottom-0 left-2/3 w-px border-r border-white/60"></div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Loading overlay inside viewport -->
-            <div
-              v-if="!isImageLoaded"
-              class="text-muted-foreground flex flex-col items-center justify-center gap-2 text-xs"
-            >
-              <Icon
-                name="lucide:loader-2"
-                class="text-primary h-6 w-6 animate-spin"
-              />
-              <span>Loading image...</span>
-            </div>
-          </div>
-
-          <!-- Interactive Controls Toolbar -->
-          <div class="mt-5 space-y-3">
-            <!-- Zoom Slider & Buttons -->
-            <div class="flex items-center gap-3">
-              <button
-                type="button"
-                :disabled="zoom <= 1 || loading"
-                class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1.5 transition disabled:opacity-40"
-                title="Zoom Out"
-                @click="zoom = Math.max(1, parseFloat((zoom - 0.2).toFixed(2)))"
+              <!-- Loading overlay inside viewport -->
+              <div
+                v-if="!isImageLoaded"
+                class="text-muted-foreground flex flex-col items-center justify-center gap-2 text-xs"
               >
                 <Icon
-                  name="lucide:minus"
-                  class="h-4 w-4"
+                  name="lucide:loader-2"
+                  class="text-primary h-6 w-6 animate-spin"
                 />
-              </button>
+                <span>Loading image...</span>
+              </div>
+            </div>
 
-              <div class="relative flex-1">
-                <input
-                  v-model.number="zoom"
-                  type="range"
-                  min="1"
-                  max="3"
-                  step="0.05"
-                  :disabled="loading || !isImageLoaded"
-                  class="accent-primary bg-foreground/10 h-1.5 w-full cursor-pointer appearance-none rounded-lg"
-                />
+            <!-- Interactive Controls Toolbar -->
+            <div class="mt-5 space-y-3">
+              <!-- Zoom Slider & Buttons -->
+              <div class="flex items-center gap-3">
+                <button
+                  type="button"
+                  :disabled="zoom <= 1 || loading"
+                  class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1.5 transition disabled:opacity-40"
+                  title="Zoom Out"
+                  @click="zoom = Math.max(1, parseFloat((zoom - 0.2).toFixed(2)))"
+                >
+                  <Icon
+                    name="lucide:minus"
+                    class="h-4 w-4"
+                  />
+                </button>
+
+                <div class="relative flex-1">
+                  <input
+                    v-model.number="zoom"
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.05"
+                    :disabled="loading || !isImageLoaded"
+                    class="accent-primary bg-foreground/10 h-1.5 w-full cursor-pointer appearance-none rounded-lg"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  :disabled="zoom >= 3 || loading"
+                  class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1.5 transition disabled:opacity-40"
+                  title="Zoom In"
+                  @click="zoom = Math.min(3, parseFloat((zoom + 0.2).toFixed(2)))"
+                >
+                  <Icon
+                    name="lucide:plus"
+                    class="h-4 w-4"
+                  />
+                </button>
               </div>
 
-              <button
-                type="button"
-                :disabled="zoom >= 3 || loading"
-                class="hover:bg-foreground/5 text-muted-foreground hover:text-foreground cursor-pointer rounded-lg p-1.5 transition disabled:opacity-40"
-                title="Zoom In"
-                @click="zoom = Math.min(3, parseFloat((zoom + 0.2).toFixed(2)))"
-              >
-                <Icon
-                  name="lucide:plus"
-                  class="h-4 w-4"
-                />
-              </button>
-            </div>
+              <!-- Rotation & Reset Toolbar -->
+              <div class="flex items-center justify-center gap-2 pt-1 text-xs">
+                <button
+                  type="button"
+                  :disabled="loading || !isImageLoaded"
+                  class="border-border hover:bg-foreground/5 text-foreground/80 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-semibold transition"
+                  @click="rotateClockwise"
+                >
+                  <Icon
+                    name="lucide:rotate-cw"
+                    class="h-3.5 w-3.5"
+                  />
+                  <span>Rotate 90°</span>
+                </button>
 
-            <!-- Rotation & Reset Toolbar -->
-            <div class="flex items-center justify-center gap-2 pt-1 text-xs">
-              <button
-                type="button"
-                :disabled="loading || !isImageLoaded"
-                class="border-border hover:bg-foreground/5 text-foreground/80 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-semibold transition"
-                @click="rotateClockwise"
-              >
-                <Icon
-                  name="lucide:rotate-cw"
-                  class="h-3.5 w-3.5"
-                />
-                <span>Rotate 90°</span>
-              </button>
-
-              <button
-                type="button"
-                :disabled="loading || !isImageLoaded"
-                class="border-border hover:bg-foreground/5 text-foreground/80 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-semibold transition"
-                @click="resetTransform"
-              >
-                <Icon
-                  name="lucide:rotate-ccw"
-                  class="h-3.5 w-3.5"
-                />
-                <span>Reset</span>
-              </button>
+                <button
+                  type="button"
+                  :disabled="loading || !isImageLoaded"
+                  class="border-border hover:bg-foreground/5 text-foreground/80 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 font-semibold transition"
+                  @click="resetTransform"
+                >
+                  <Icon
+                    name="lucide:rotate-ccw"
+                    class="h-3.5 w-3.5"
+                  />
+                  <span>Reset</span>
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Bottom Action Buttons -->
-          <div class="border-border/60 mt-6 flex items-center justify-end gap-3 border-t pt-4">
+          <!-- Sticky Bottom Action Buttons -->
+          <div
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-3 border-t px-5 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <AppButton
               type="button"
               variant="outline"
+              class="min-h-[44px] cursor-pointer"
               :disabled="loading"
               @click="close"
             >
@@ -407,7 +425,7 @@
               type="button"
               :loading="loading"
               :disabled="!isImageLoaded || loading"
-              class="min-w-[130px]"
+              class="min-h-[44px] min-w-[130px] cursor-pointer"
               @click="handleCropAndSave"
             >
               <Icon

@@ -256,6 +256,7 @@
 
   // Copy Schedule Modal State & Handlers
   const showCopyModal = ref(false)
+  useModalLock().registerModal(showCopyModal)
   const sourceDay = ref<any>(null)
   const sourceSlots = ref<any[]>([])
   const selectedTargetDays = ref<string[]>([])
@@ -1172,15 +1173,26 @@
       <div
         v-if="showCopyModal"
         @click.self="closeCopyModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
       >
         <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-md space-y-4 rounded-3xl border p-6 shadow-2xl"
+          class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
         >
-          <div class="flex items-center justify-between">
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Sticky Header -->
+          <div
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4 backdrop-blur-md"
+          >
             <div class="flex items-center gap-2.5">
               <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
+                class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
               >
                 <Icon
                   name="heroicons:document-duplicate"
@@ -1197,7 +1209,8 @@
             <button
               type="button"
               @click="closeCopyModal"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+              class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl p-2.5 transition active:scale-95"
+              aria-label="Close modal"
             >
               <Icon
                 name="heroicons:x-mark"
@@ -1206,140 +1219,146 @@
             </button>
           </div>
 
-          <!-- Source Schedule Preview Card -->
-          <div class="border-primary/20 bg-primary/[0.04] space-y-1.5 rounded-2xl border p-3.5">
-            <div class="flex items-center justify-between">
-              <span class="text-primary text-xs font-bold">
-                {{ sourceDay?.dayName }}, {{ sourceDay?.monthName }} {{ sourceDay?.dayNumber }}
-              </span>
-              <span
-                class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold"
-              >
-                Source Day
-              </span>
-            </div>
-            <div
-              v-for="slot in sourceSlots"
-              :key="slot.id"
-              class="text-foreground flex items-center gap-2 text-xs font-semibold"
-            >
-              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-              <span>
-                {{ (slot.start_time || '').slice(0, 5) }} -
-                {{ (slot.end_time || '').slice(0, 5) }}
-              </span>
-              <span class="text-muted-foreground font-normal">
-                · {{ slot.clinic?.name || slot.location_name || 'Clinic Duty' }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Target Days Selection -->
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <label class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-                Paste Availability To:
-              </label>
+          <!-- Scrollable Body -->
+          <div class="custom-scrollbar flex-1 overflow-y-auto p-5 sm:p-6 space-y-4">
+            <!-- Source Schedule Preview Card -->
+            <div class="border-primary/20 bg-primary/[0.04] space-y-1.5 rounded-2xl border p-3.5">
+              <div class="flex items-center justify-between">
+                <span class="text-primary text-xs font-bold">
+                  {{ sourceDay?.dayName }}, {{ sourceDay?.monthName }} {{ sourceDay?.dayNumber }}
+                </span>
+                <span
+                  class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-bold"
+                >
+                  Source Day
+                </span>
+              </div>
               <div
-                class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold"
+                v-for="slot in sourceSlots"
+                :key="slot.id"
+                class="text-foreground flex items-center gap-2 text-xs font-semibold"
               >
-                <button
-                  type="button"
-                  @click="selectWeekdayTargets"
-                  class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                <span>
+                  {{ (slot.start_time || '').slice(0, 5) }} -
+                  {{ (slot.end_time || '').slice(0, 5) }}
+                </span>
+                <span class="text-muted-foreground font-normal">
+                  · {{ slot.clinic?.name || slot.location_name || 'Clinic Duty' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Target Days Selection -->
+            <div class="space-y-2">
+              <div class="flex items-center justify-between">
+                <label class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+                  Paste Availability To:
+                </label>
+                <div
+                  class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold"
                 >
-                  Weekdays
-                </button>
+                  <button
+                    type="button"
+                    @click="selectWeekdayTargets"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    Weekdays
+                  </button>
+                  <button
+                    type="button"
+                    @click="selectAllTargetDays"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    @click="clearTargetDays"
+                    class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <!-- Target Day Grid -->
+              <div class="grid grid-cols-3 gap-2">
                 <button
+                  v-for="d in weekDays.filter(day => day.dateStr !== sourceDay?.dateStr)"
+                  :key="d.dateStr"
                   type="button"
-                  @click="selectAllTargetDays"
-                  class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
+                  @click="toggleTargetDate(d.dateStr)"
+                  class="flex cursor-pointer flex-col items-center justify-center rounded-xl border p-2 text-xs font-bold transition-all"
+                  :class="
+                    selectedTargetDays.includes(d.dateStr)
+                      ? 'border-primary bg-primary text-primary-foreground shadow-2xs'
+                      : 'border-border/60 bg-foreground/[0.02] text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  "
                 >
-                  All
-                </button>
-                <button
-                  type="button"
-                  @click="clearTargetDays"
-                  class="bg-foreground/5 hover:bg-foreground/10 hover:text-foreground cursor-pointer rounded-md px-2 py-0.5 transition"
-                >
-                  Clear
+                  <span>{{ d.dayName }}</span>
+                  <span class="text-[10px] font-medium opacity-80"
+                    >{{ d.monthName }} {{ d.dayNumber }}</span
+                  >
                 </button>
               </div>
             </div>
 
-            <!-- Target Day Grid -->
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="d in weekDays.filter(day => day.dateStr !== sourceDay?.dateStr)"
-                :key="d.dateStr"
-                type="button"
-                @click="toggleTargetDate(d.dateStr)"
-                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border p-2 text-xs font-bold transition-all"
-                :class="
-                  selectedTargetDays.includes(d.dateStr)
-                    ? 'border-primary bg-primary text-primary-foreground shadow-2xs'
-                    : 'border-border/60 bg-foreground/[0.02] text-muted-foreground hover:border-primary/40 hover:text-foreground'
-                "
-              >
-                <span>{{ d.dayName }}</span>
-                <span class="text-[10px] font-medium opacity-80"
-                  >{{ d.monthName }} {{ d.dayNumber }}</span
+            <!-- Repeat Duration Range -->
+            <div class="space-y-1.5 pt-1">
+              <label class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+                Repeat Duration:
+              </label>
+              <div class="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  @click="repeatOption = 'this_week'"
+                  class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
+                  :class="
+                    repeatOption === 'this_week'
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                  "
                 >
-              </button>
+                  This Week
+                </button>
+                <button
+                  type="button"
+                  @click="repeatOption = 'next_2_weeks'"
+                  class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
+                  :class="
+                    repeatOption === 'next_2_weeks'
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                  "
+                >
+                  +2 Weeks
+                </button>
+                <button
+                  type="button"
+                  @click="repeatOption = 'next_4_weeks'"
+                  class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
+                  :class="
+                    repeatOption === 'next_4_weeks'
+                      ? 'border-primary bg-primary/10 text-primary font-bold'
+                      : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
+                  "
+                >
+                  +4 Weeks
+                </button>
+              </div>
             </div>
           </div>
 
-          <!-- Repeat Duration Range -->
-          <div class="space-y-1.5 pt-1">
-            <label class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-              Repeat Duration:
-            </label>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                @click="repeatOption = 'this_week'"
-                class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
-                :class="
-                  repeatOption === 'this_week'
-                    ? 'border-primary bg-primary/10 text-primary font-bold'
-                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
-                "
-              >
-                This Week
-              </button>
-              <button
-                type="button"
-                @click="repeatOption = 'next_2_weeks'"
-                class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
-                :class="
-                  repeatOption === 'next_2_weeks'
-                    ? 'border-primary bg-primary/10 text-primary font-bold'
-                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
-                "
-              >
-                +2 Weeks
-              </button>
-              <button
-                type="button"
-                @click="repeatOption = 'next_4_weeks'"
-                class="cursor-pointer rounded-xl border py-2 text-center text-xs font-semibold transition"
-                :class="
-                  repeatOption === 'next_4_weeks'
-                    ? 'border-primary bg-primary/10 text-primary font-bold'
-                    : 'border-border/60 bg-card text-muted-foreground hover:text-foreground'
-                "
-              >
-                +4 Weeks
-              </button>
-            </div>
-          </div>
-
-          <!-- Modal Footer Actions -->
-          <div class="flex items-center justify-end gap-2.5 pt-2">
+          <!-- Sticky Modal Footer Actions -->
+          <div
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <AppButton
               type="button"
               variant="ghost"
               size="sm"
+              class="min-h-[44px] cursor-pointer"
               @click="closeCopyModal"
             >
               Cancel
@@ -1348,6 +1367,7 @@
               type="button"
               variant="solid"
               size="sm"
+              class="min-h-[44px] cursor-pointer"
               :loading="isCopying"
               :disabled="!selectedTargetDays.length"
               @click="executePasteSchedule"

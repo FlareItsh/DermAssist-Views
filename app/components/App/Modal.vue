@@ -8,13 +8,15 @@
     size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl' | '6xl'
     hideScrollbar?: boolean
     compact?: boolean
+    hideCloseButton?: boolean
   }
 
   const props = withDefaults(defineProps<Props>(), {
     modelValue: false,
     size: 'md',
     hideScrollbar: false,
-    compact: false
+    compact: false,
+    hideCloseButton: false
   })
 
   const emit = defineEmits(['update:modelValue', 'close'])
@@ -24,36 +26,18 @@
     emit('close')
   }
 
-  // Prevent background window/body scrolling when modal is active
-  watch(
-    () => props.modelValue,
-    val => {
-      if (import.meta.client) {
-        if (val) {
-          document.body.style.overflow = 'hidden'
-        } else {
-          document.body.style.overflow = ''
-        }
-      }
-    },
-    { immediate: true }
-  )
-
-  onUnmounted(() => {
-    if (import.meta.client) {
-      document.body.style.overflow = ''
-    }
-  })
+  // Prevent background scrolling and egress mobile nav when modal is active
+  useModalLock().registerModal(toRef(props, 'modelValue'))
 
   const sizeClasses: Record<string, string> = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
-    '2xl': 'max-w-2xl',
-    '4xl': 'max-w-4xl',
-    '5xl': 'max-w-5xl',
-    '6xl': 'max-w-6xl'
+    sm: 'sm:max-w-sm',
+    md: 'sm:max-w-md',
+    lg: 'sm:max-w-lg',
+    xl: 'sm:max-w-xl',
+    '2xl': 'sm:max-w-2xl',
+    '4xl': 'sm:max-w-4xl',
+    '5xl': 'sm:max-w-5xl',
+    '6xl': 'sm:max-w-6xl'
   }
 </script>
 
@@ -62,77 +46,104 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
+        class="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-4 md:p-6 backdrop-blur-xs"
         @click.self="close"
+        @keydown.esc="close"
       >
         <!-- Overlay -->
         <div
-          class="fixed inset-0 bg-black/50 transition-opacity"
+          class="fixed inset-0 bg-black/55 transition-opacity"
           @click="close"
         ></div>
 
-        <!-- Modal Container -->
+        <!-- Modal Container: Native Bottom Sheet on Mobile, Centered Dialog on Desktop -->
         <div
-          class="modal-container relative flex max-h-[90vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl transition-all sm:rounded-[2rem] md:rounded-[2.5rem]"
+          class="modal-container bg-card border-border/80 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[2rem] sm:rounded-[2rem] md:rounded-[2.5rem] border shadow-2xl transition-all"
           :class="sizeClasses[size]"
         >
-          <!-- Close Button -->
-          <AppButton
-            variant="ghost"
-            size="icon"
-            class="absolute top-3.5 right-3.5 z-10 rounded-full hover:bg-gray-100 sm:top-6 sm:right-6"
+          <!-- Sticky Header if title, description, or header slot provided -->
+          <div
+            v-if="title || description || $slots.header"
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 flex-col border-b backdrop-blur-md"
+          >
+            <!-- Mobile Sheet Drag Handle Pill -->
+            <div class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0">
+              <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+            </div>
+
+            <div class="flex items-start justify-between px-5 pt-1.5 pb-4 sm:px-7 sm:py-5">
+              <div class="min-w-0 flex-1 pr-3">
+                <slot name="header">
+                  <h3
+                    v-if="title"
+                    class="text-foreground text-base font-bold tracking-tight sm:text-xl truncate"
+                  >
+                    {{ title }}
+                  </h3>
+                  <p
+                    v-if="description"
+                    class="text-muted-foreground mt-1 line-clamp-2 text-xs sm:text-sm leading-relaxed"
+                  >
+                    {{ description }}
+                  </p>
+                </slot>
+              </div>
+
+              <!-- Header Close Button -->
+              <button
+                v-if="!hideCloseButton"
+                type="button"
+                class="text-muted-foreground hover:bg-muted hover:text-foreground flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl p-2 transition active:scale-95"
+                title="Close modal"
+                @click="close"
+              >
+                <Icon
+                  name="heroicons:x-mark"
+                  class="h-5 w-5"
+                />
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile Sheet Drag Handle Pill (if no header) -->
+          <div
+            v-if="!title && !description && !$slots.header"
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Absolute Floating Close Button if no header -->
+          <button
+            v-if="!title && !description && !$slots.header && !hideCloseButton"
+            type="button"
+            class="hover:bg-muted text-muted-foreground hover:text-foreground absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl p-2 transition active:scale-95"
+            title="Close modal"
             @click="close"
           >
             <Icon
-              name="material-symbols:close-rounded"
-              class="text-2xl text-gray-400"
+              name="heroicons:x-mark"
+              class="h-5 w-5"
             />
-          </AppButton>
+          </button>
 
-          <!-- Scrollable Body with Internal Page-Consistent Custom Scrollbar -->
+          <!-- Scrollable Body -->
           <div
-            class="custom-scrollbar my-3 mr-1.5 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain sm:mr-2.5"
+            class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
             :class="[
               hideScrollbar ? 'scrollbar-none' : '',
-              compact ? 'p-4 sm:p-6 md:p-7' : 'p-4 sm:p-6 md:p-10'
+              compact ? 'p-4 sm:p-6' : 'p-4 sm:p-7 md:p-8'
             ]"
           >
-            <div
-              v-if="title || description"
-              :class="compact ? 'mb-4 pr-8 sm:mb-5 sm:pr-10' : 'mb-5 pr-8 sm:mb-8 sm:pr-12'"
-            >
-              <h3
-                v-if="title"
-                :class="
-                  compact
-                    ? 'text-lg font-bold text-gray-900 sm:text-xl'
-                    : 'text-xl font-bold text-gray-900 sm:text-2xl'
-                "
-              >
-                {{ title }}
-              </h3>
-              <p
-                v-if="description"
-                class="mt-1 text-xs text-gray-500 sm:text-sm"
-              >
-                {{ description }}
-              </p>
-            </div>
+            <slot />
+          </div>
 
-            <div class="relative">
-              <slot />
-            </div>
-
-            <div
-              v-if="$slots.footer"
-              :class="
-                compact
-                  ? 'mt-6 flex flex-col-reverse items-stretch justify-end gap-2 sm:flex-row sm:items-center sm:gap-3'
-                  : 'mt-7 flex flex-col-reverse items-stretch justify-end gap-2.5 sm:mt-10 sm:flex-row sm:items-center sm:gap-3'
-              "
-            >
-              <slot name="footer" />
-            </div>
+          <!-- Sticky Footer: Always thumb-reachable on mobile, respects safe areas -->
+          <div
+            v-if="$slots.footer"
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
+            <slot name="footer" />
           </div>
         </div>
       </div>
@@ -153,8 +164,6 @@
 
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
-    margin-top: 20px;
-    margin-bottom: 20px;
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb {
@@ -168,7 +177,7 @@
 
   .modal-enter-active,
   .modal-leave-active {
-    transition: opacity 0.3s ease;
+    transition: opacity 0.25s ease;
   }
 
   .modal-enter-from,
@@ -177,7 +186,7 @@
   }
 
   .modal-enter-active .modal-container {
-    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .modal-leave-active .modal-container {
@@ -186,11 +195,23 @@
 
   .modal-enter-from .modal-container {
     opacity: 0;
-    transform: scale(0.9) translateY(20px);
+    transform: translateY(24px);
+  }
+
+  @media (min-width: 640px) {
+    .modal-enter-from .modal-container {
+      transform: scale(0.95) translateY(0);
+    }
   }
 
   .modal-leave-to .modal-container {
     opacity: 0;
-    transform: scale(0.95);
+    transform: translateY(20px);
+  }
+
+  @media (min-width: 640px) {
+    .modal-leave-to .modal-container {
+      transform: scale(0.97);
+    }
   }
 </style>

@@ -33,6 +33,8 @@
 
   const isResolving = ref(false)
   const isRejecting = ref(false)
+
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const isRestoring = ref(false)
   const resolutionNotes = ref('')
   const isImageZoomed = ref(false)
@@ -234,7 +236,7 @@
   <Teleport to="body">
     <div
       v-if="props.modelValue && props.appeal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6"
+      class="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-4 md:p-6"
     >
       <!-- Backdrop -->
       <div

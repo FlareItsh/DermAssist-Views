@@ -79,6 +79,7 @@
 
   // Form & Modal State
   const showModal = ref(false)
+  useModalLock().registerModal(showModal)
   const isEditing = ref(false)
   const editingUuid = ref<string | null>(null)
   const isSaving = ref(false)
@@ -551,16 +552,26 @@
       <div
         v-if="showModal"
         @click.self="closeModal"
-        class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 p-4"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
       >
         <div
-          class="relative my-8 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-3xl border border-gray-100 bg-white p-5 shadow-2xl duration-200 sm:p-7"
+          class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
         >
-          <!-- Modal Header -->
-          <div class="flex items-center justify-between border-b border-gray-100 pb-4">
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Sticky Modal Header -->
+          <div
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5 backdrop-blur-md"
+          >
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
               >
                 <Icon
                   name="lucide:pill"
@@ -568,25 +579,29 @@
                 />
               </div>
               <div>
-                <h2 class="text-base font-bold text-gray-900 sm:text-lg">
+                <h2 class="text-foreground text-base font-bold sm:text-lg">
                   {{ isEditing ? 'Edit Medicine' : 'Add Medicine' }}
                 </h2>
+                <p class="text-muted-foreground text-xs">
+                  Configure clinical medicine details and dosage variants
+                </p>
               </div>
             </div>
             <button
               type="button"
               @click="closeModal"
-              class="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl p-2.5 transition active:scale-95"
+              aria-label="Close dialog"
             >
               <Icon
                 name="lucide:x"
-                class="text-lg"
+                class="h-5 w-5"
               />
             </button>
           </div>
 
           <!-- Modal Body (Scrollable) -->
-          <div class="flex-1 space-y-5 overflow-y-auto py-5 pr-1">
+          <div class="custom-scrollbar flex-1 space-y-5 overflow-y-auto p-5 sm:p-7">
             <!-- Medicine Name -->
             <div class="space-y-1.5">
               <label class="text-[11px] font-bold tracking-wider text-gray-600 uppercase">
@@ -729,12 +744,14 @@
             </div>
           </div>
 
-          <!-- Modal Footer -->
-          <div class="flex items-center justify-end gap-3 border-t border-gray-100 pt-4">
+          <!-- Sticky Modal Footer -->
+          <div
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-3 border-t px-5 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <button
               type="button"
               @click="closeModal"
-              class="rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100"
+              class="min-h-[44px] cursor-pointer rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-neutral-800"
             >
               Cancel
             </button>
@@ -742,7 +759,7 @@
               type="button"
               @click="handleSaveMedicine"
               :disabled="isSaving"
-              class="bg-primary hover:bg-primary/90 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50"
+              class="bg-primary hover:bg-primary/90 inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-50"
             >
               <Icon
                 v-if="isSaving"

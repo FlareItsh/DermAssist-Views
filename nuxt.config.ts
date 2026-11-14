@@ -43,9 +43,14 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   app: {
     head: {
+      meta: [
+        { name: 'theme-color', content: '#0f172a' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
+      ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/DALogo.png' },
-        { rel: 'apple-touch-icon', href: '/DALogo.png' }
+        { rel: 'apple-touch-icon', href: '/icons/pwa-192x192.png' }
       ]
     }
   },
@@ -86,8 +91,52 @@ export default defineNuxtConfig({
     '@nuxt/ui',
     '@nuxt/fonts',
     '@nuxt/icon',
-    '@vercel/analytics'
+    '@vercel/analytics',
+    '@vite-pwa/nuxt'
   ],
+  pwa: {
+    registerType: 'autoUpdate',
+    manifest: {
+      name: 'DermAssist - Deep Learning Dermatology Platform',
+      short_name: 'DermAssist',
+      description: 'AI-Powered Skin Disease Diagnosis & Teleconsultation',
+      theme_color: '#0f172a',
+      background_color: '#ffffff',
+      display: 'standalone',
+      orientation: 'portrait-primary',
+      start_url: '/',
+      scope: '/',
+      icons: [
+        {
+          src: '/icons/pwa-192x192.png',
+          sizes: '192x192',
+          type: 'image/png'
+        },
+        {
+          src: '/icons/pwa-512x512.png',
+          sizes: '512x512',
+          type: 'image/png'
+        },
+        {
+          src: '/icons/pwa-maskable-512x512.png',
+          sizes: '512x512',
+          type: 'image/png',
+          purpose: 'maskable'
+        }
+      ]
+    },
+    workbox: {
+      navigateFallback: undefined,
+      globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}']
+    },
+    client: {
+      installPrompt: true
+    },
+    devOptions: {
+      enabled: false,
+      type: 'module'
+    }
+  },
   image: {
     // Allow the storage host (ngrok, localhost, LAN, etc.) through IPX
     domains: ['localhost', '127.0.0.1', ...imageDomainsFromEnv]

@@ -351,14 +351,6 @@
   const { clinics, fetchClinics, addClinic, updateClinic, removeClinic } = useDoctorClinics()
   const showAddClinicModal = ref(false)
   const isClinicSubmitting = ref(false)
-  const clinicForm = reactive({
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    logo: '',
-    logoPreview: ''
-  })
   const clinicError = ref('')
 
   // Edit Clinic State & Handlers
@@ -366,54 +358,9 @@
   const isEditClinicSubmitting = ref(false)
   const editingClinic = ref<any>(null)
   const editClinicError = ref('')
-  const editClinicForm = reactive({
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    is_active: true,
-    logo: '',
-    logoPreview: ''
-  })
-
-  const handleClinicLogoUpload = (e: Event, isEdit: boolean) => {
-    const target = e.target as HTMLInputElement
-    const file = target.files?.[0]
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file (PNG, JPG, or WebP).')
-      return
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Clinic logo must be under 2MB.')
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = ev => {
-      const base64 = ev.target?.result as string
-      if (isEdit) {
-        editClinicForm.logo = base64
-        editClinicForm.logoPreview = base64
-      } else {
-        clinicForm.logo = base64
-        clinicForm.logoPreview = base64
-      }
-    }
-    reader.readAsDataURL(file)
-  }
 
   const openEditClinicModal = (clinic: any) => {
     editingClinic.value = clinic
-    editClinicForm.name = clinic.name || ''
-    editClinicForm.address = clinic.address || ''
-    editClinicForm.phone = clinic.phone || ''
-    editClinicForm.email = clinic.email || ''
-    editClinicForm.is_active = clinic.is_active !== false
-    editClinicForm.logo = ''
-    editClinicForm.logoPreview = clinic.logo_url || clinic.logo_path || ''
     editClinicError.value = ''
     showEditClinicModal.value = true
   }
@@ -424,11 +371,16 @@
     editClinicError.value = ''
   }
 
-  const handleUpdateClinic = async () => {
-    if (!editClinicForm.name.trim()) {
-      editClinicError.value = 'Clinic name is required.'
-      return
-    }
+  const handleUpdateClinic = async (payload: {
+    name: string
+    address: string | null
+    phone: string | null
+    email: string | null
+    is_active: boolean
+    logo: string | null
+    logoPreview: string
+    removedLogo: boolean
+  }) => {
     if (!editingClinic.value) return
 
     isEditClinicSubmitting.value = true
@@ -436,19 +388,19 @@
     try {
       const targetUuid = editingClinic.value.uuid || editingClinic.value.id
       const updatePayload: Record<string, any> = {
-        name: editClinicForm.name.trim(),
-        address: editClinicForm.address.trim() || null,
-        phone: editClinicForm.phone.trim() || null,
-        email: editClinicForm.email.trim() || null,
-        is_active: editClinicForm.is_active
+        name: payload.name.trim(),
+        address: payload.address?.trim() || null,
+        phone: payload.phone?.trim() || null,
+        email: payload.email?.trim() || null,
+        is_active: payload.is_active
       }
-      if (editClinicForm.logo) {
-        updatePayload.logo = editClinicForm.logo
-      } else if (!editClinicForm.logoPreview && editingClinic.value.logo_path) {
+      if (payload.logo) {
+        updatePayload.logo = payload.logo
+      } else if (payload.removedLogo && editingClinic.value.logo_path) {
         updatePayload.logo = null
       }
       await updateClinic(targetUuid, updatePayload)
-      toast.success(`Clinic "${editClinicForm.name.trim()}" updated successfully.`)
+      toast.success(`Clinic "${payload.name.trim()}" updated successfully.`)
       closeEditClinicModal()
     } catch (err: any) {
       editClinicError.value = err.data?.message || err.message || 'Failed to update clinic branch.'
@@ -462,29 +414,25 @@
   const showDeleteClinicModal = ref(false)
   const isDeletingClinic = ref(false)
 
-  const handleCreateClinic = async () => {
-    if (!clinicForm.name.trim()) {
-      clinicError.value = 'Clinic name is required.'
-      return
-    }
+  const handleCreateClinic = async (payload: {
+    name: string
+    address: string | null
+    phone: string | null
+    email: string | null
+    logo: string | null
+  }) => {
     isClinicSubmitting.value = true
     clinicError.value = ''
     try {
       await addClinic({
-        name: clinicForm.name.trim(),
-        address: clinicForm.address.trim() || null,
-        phone: clinicForm.phone.trim() || null,
-        email: clinicForm.email.trim() || null,
-        logo: clinicForm.logo || null
+        name: payload.name.trim(),
+        address: payload.address?.trim() || null,
+        phone: payload.phone?.trim() || null,
+        email: payload.email?.trim() || null,
+        logo: payload.logo || null
       })
-      toast.success(`Clinic "${clinicForm.name.trim()}" added successfully.`)
+      toast.success(`Clinic "${payload.name.trim()}" added successfully.`)
       showAddClinicModal.value = false
-      clinicForm.name = ''
-      clinicForm.address = ''
-      clinicForm.phone = ''
-      clinicForm.email = ''
-      clinicForm.logo = ''
-      clinicForm.logoPreview = ''
     } catch (err: any) {
       clinicError.value = err.data?.message || err.message || 'Failed to add clinic branch.'
       toast.error(clinicError.value)
@@ -527,6 +475,7 @@
   } = useDoctorClinicDoctors()
 
   const showAssignDoctorModal = ref(false)
+  useModalLock().registerModal(showAssignDoctorModal)
   const isAssigningDoctor = ref(false)
   const assignDoctorError = ref('')
   const doctorSearchQuery = ref('')
@@ -870,6 +819,7 @@
 
   // ─── Recurring Schedule Blocked Dates & Redundancy State ────────
   const showRecurringBlockedModal = ref(false)
+  useModalLock().registerModal(showRecurringBlockedModal)
   const isResolvingRecurringConflict = ref(false)
   const selectedBlockedResolutionOption = ref<'keep_blocked' | 'override_blocked' | null>(null)
   const pendingRecurringDutyData = ref<{
@@ -1747,15 +1697,6 @@
     }
   }
 
-  const clearClinicLogo = () => {
-    clinicForm.logo = ''
-    clinicForm.logoPreview = ''
-  }
-
-  const clearEditClinicLogo = () => {
-    editClinicForm.logo = ''
-    editClinicForm.logoPreview = ''
-  }
 </script>
 
 <template>
@@ -2656,21 +2597,32 @@
               <div class="flex items-start justify-between gap-3">
                 <div class="flex min-w-0 items-start gap-3">
                   <div
-                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
-                    :class="
-                      clinic.is_owner !== false
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                    "
+                    class="border-border/60 bg-card relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border p-1 shadow-2xs"
                   >
-                    <Icon
-                      :name="
-                        clinic.is_owner !== false
-                          ? 'heroicons:building-office-2'
-                          : 'heroicons:building-library'
-                      "
-                      class="h-5 w-5"
+                    <img
+                      v-if="clinic.logo_url"
+                      :src="clinic.logo_url"
+                      :alt="clinic.name"
+                      class="h-full w-full object-contain"
                     />
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center rounded-xl"
+                      :class="
+                        clinic.is_owner !== false
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                      "
+                    >
+                      <Icon
+                        :name="
+                          clinic.is_owner !== false
+                            ? 'heroicons:building-office-2'
+                            : 'heroicons:building-library'
+                        "
+                        class="h-5 w-5"
+                      />
+                    </div>
                   </div>
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
@@ -4482,372 +4434,49 @@
     </div>
 
     <!-- Add Clinic Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showAddClinicModal"
-        @click.self="showAddClinicModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      >
-        <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-              >
-                <Icon
-                  name="heroicons:building-office-2"
-                  class="h-5 w-5"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-bold">Add Clinic Branch</h3>
-                <p class="text-muted-foreground text-xs">
-                  Register a new clinic location where you practice.
-                </p>
-              </div>
-            </div>
-            <button
-              @click="showAddClinicModal = false"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
-            >
-              <Icon
-                name="heroicons:x-mark"
-                class="h-5 w-5"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="handleCreateClinic"
-            class="space-y-4"
-          >
-            <div
-              v-if="clinicError"
-              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600"
-            >
-              {{ clinicError }}
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
-              <input
-                v-model="clinicForm.name"
-                type="text"
-                required
-                placeholder="e.g. St. Luke's Medical Center - Rm 402"
-                class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
-              <input
-                v-model="clinicForm.address"
-                type="text"
-                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
-                class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Contact Phone</label>
-                <input
-                  v-model="clinicForm.phone"
-                  type="text"
-                  placeholder="e.g. +63 917 123 4567"
-                  class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Clinic Email</label>
-                <input
-                  v-model="clinicForm.email"
-                  type="email"
-                  placeholder="e.g. clinic@derma.com"
-                  class="border-border bg-foreground/5 focus:border-primary w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Clinic Logo Upload (for Prescriptions) -->
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold"
-                >Clinic Logo (for Prescription Pad Header)</label
-              >
-              <div class="flex items-center gap-3">
-                <div
-                  v-if="clinicForm.logoPreview"
-                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
-                >
-                  <img
-                    :src="clinicForm.logoPreview"
-                    class="max-h-full max-w-full object-contain"
-                    alt="Clinic Logo"
-                  />
-                  <button
-                    type="button"
-                    @click="clearClinicLogo"
-                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
-                  >
-                    <Icon
-                      name="lucide:x"
-                      class="text-[10px]"
-                    />
-                  </button>
-                </div>
-                <label
-                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
-                >
-                  <Icon
-                    name="lucide:image"
-                    class="text-primary text-sm"
-                  />
-                  <span>{{
-                    clinicForm.logoPreview ? 'Change Clinic Logo' : 'Upload Clinic Logo (PNG/JPG)'
-                  }}</span>
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    class="hidden"
-                    @change="handleClinicLogoUpload($event, false)"
-                  />
-                </label>
-              </div>
-              <p class="text-muted-foreground text-[10px]">
-                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
-                default.
-              </p>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="showAddClinicModal = false"
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                :loading="isClinicSubmitting"
-              >
-                Save Clinic
-              </AppButton>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <AppModalClinicBranch
+      v-model="showAddClinicModal"
+      mode="create"
+      :loading="isClinicSubmitting"
+      :error-message="clinicError"
+      @save="handleCreateClinic"
+    />
 
     <!-- Edit Clinic Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showEditClinicModal"
-        @click.self="closeEditClinicModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      >
-        <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
-        >
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2.5">
-              <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-              >
-                <Icon
-                  name="heroicons:pencil-square"
-                  class="h-5 w-5"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-bold">Edit Clinic Branch</h3>
-                <p class="text-muted-foreground text-xs">
-                  Update location and contact information for this clinic.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="closeEditClinicModal"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
-            >
-              <Icon
-                name="heroicons:x-mark"
-                class="h-5 w-5"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="handleUpdateClinic"
-            class="space-y-4"
-          >
-            <div
-              v-if="editClinicError"
-              class="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
-            >
-              {{ editClinicError }}
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Clinic / Hospital Name *</label>
-              <input
-                v-model="editClinicForm.name"
-                type="text"
-                required
-                placeholder="e.g. St. Luke's Medical Center - Rm 402"
-                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold">Address / Floor & Room</label>
-              <input
-                v-model="editClinicForm.address"
-                type="text"
-                placeholder="e.g. 32nd St, Bonifacio Global City, Taguig"
-                class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-              />
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-2">
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Contact Phone</label>
-                <input
-                  v-model="editClinicForm.phone"
-                  type="text"
-                  placeholder="e.g. +63 917 123 4567"
-                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-foreground text-xs font-bold">Clinic Email</label>
-                <input
-                  v-model="editClinicForm.email"
-                  type="email"
-                  placeholder="e.g. clinic@derma.com"
-                  class="border-border bg-foreground/5 focus:border-primary text-foreground w-full rounded-xl border px-3.5 py-2.5 text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <!-- Clinic Logo Upload (for Prescriptions) -->
-            <div class="space-y-1.5">
-              <label class="text-foreground text-xs font-bold"
-                >Clinic Logo (for Prescription Pad Header)</label
-              >
-              <div class="flex items-center gap-3">
-                <div
-                  v-if="editClinicForm.logoPreview"
-                  class="border-border bg-card relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border p-1"
-                >
-                  <img
-                    :src="editClinicForm.logoPreview"
-                    class="max-h-full max-w-full object-contain"
-                    alt="Clinic Logo"
-                  />
-                  <button
-                    type="button"
-                    @click="clearEditClinicLogo"
-                    class="absolute top-0 right-0 rounded-bl-lg bg-rose-500 p-0.5 text-white"
-                  >
-                    <Icon
-                      name="lucide:x"
-                      class="text-[10px]"
-                    />
-                  </button>
-                </div>
-                <label
-                  class="border-border hover:border-primary bg-foreground/5 hover:bg-foreground/10 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed px-3 py-2 text-xs font-semibold transition-colors"
-                >
-                  <Icon
-                    name="lucide:image"
-                    class="text-primary text-sm"
-                  />
-                  <span>{{
-                    editClinicForm.logoPreview
-                      ? 'Change Clinic Logo'
-                      : 'Upload Clinic Logo (PNG/JPG)'
-                  }}</span>
-                  <input
-                    type="file"
-                    accept="image/png, image/jpeg, image/webp"
-                    class="hidden"
-                    @change="handleClinicLogoUpload($event, true)"
-                  />
-                </label>
-              </div>
-              <p class="text-muted-foreground text-[10px]">
-                Appears at top-left of prescription slips. If empty, DermAssist logo is used by
-                default.
-              </p>
-            </div>
-
-            <!-- Active Status Toggle -->
-            <div
-              class="border-border/60 bg-foreground/[0.02] flex items-center justify-between rounded-xl border p-3.5"
-            >
-              <div>
-                <div class="text-foreground text-xs font-bold">Active Clinic Branch</div>
-                <div class="text-muted-foreground text-[11px]">
-                  Allow patient appointments and availability allocation at this clinic branch
-                </div>
-              </div>
-              <label class="relative inline-flex cursor-pointer items-center">
-                <input
-                  type="checkbox"
-                  v-model="editClinicForm.is_active"
-                  class="peer sr-only"
-                />
-                <div
-                  class="peer bg-muted-foreground/20 after:border-border/40 peer-checked:bg-primary h-6 w-11 rounded-full transition-colors peer-focus:outline-hidden after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:bg-white after:transition-all after:content-[''] peer-checked:after:translate-x-full peer-checked:after:border-white"
-                ></div>
-              </label>
-            </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="closeEditClinicModal"
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                :loading="isEditClinicSubmitting"
-              >
-                Update Clinic
-              </AppButton>
-            </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+    <AppModalClinicBranch
+      v-model="showEditClinicModal"
+      mode="edit"
+      :clinic="editingClinic"
+      :loading="isEditClinicSubmitting"
+      :error-message="editClinicError"
+      @save="handleUpdateClinic"
+    />
 
     <!-- Assign Doctor to Seat Modal -->
     <Teleport to="body">
       <div
         v-if="showAssignDoctorModal"
         @click.self="showAssignDoctorModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
       >
         <div
-          class="bg-card border-border animate-in fade-in zoom-in-95 w-full max-w-lg space-y-5 rounded-3xl border p-6 shadow-2xl sm:p-8"
+          class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
         >
-          <div class="flex items-center justify-between">
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Sticky Header -->
+          <div
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5 backdrop-blur-md"
+          >
             <div class="flex items-center gap-2.5">
               <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
+                class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
               >
                 <Icon
                   name="lucide:user-plus"
@@ -4855,15 +4484,17 @@
                 />
               </div>
               <div>
-                <h3 class="text-foreground text-lg font-bold">Assign Associate Doctor</h3>
+                <h3 class="text-foreground text-base sm:text-lg font-bold">Assign Associate Doctor</h3>
                 <p class="text-muted-foreground text-xs">
                   Add a doctor to your clinic subscription seat pool.
                 </p>
               </div>
             </div>
             <button
+              type="button"
               @click="showAssignDoctorModal = false"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl p-1"
+              class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl p-2.5 transition active:scale-95"
+              aria-label="Close modal"
             >
               <Icon
                 name="lucide:x"
@@ -4873,8 +4504,9 @@
           </div>
 
           <form
+            id="assign-doctor-form"
             @submit.prevent="handleAssignDoctor"
-            class="space-y-4"
+            class="custom-scrollbar flex-1 overflow-y-auto p-5 sm:p-7 space-y-4"
           >
             <div
               v-if="assignDoctorError"
@@ -5040,26 +4672,32 @@
                 active subscription plan.</span
               >
             </div>
-
-            <div class="flex items-center justify-end gap-3 pt-2">
-              <AppButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="showAssignDoctorModal = false"
-              >
-                Cancel
-              </AppButton>
-              <AppButton
-                type="submit"
-                variant="solid"
-                size="sm"
-                :loading="isAssigningDoctor"
-              >
-                Send Invitation
-              </AppButton>
-            </div>
           </form>
+
+          <!-- Sticky Footer -->
+          <div
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
+            <AppButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              class="min-h-[44px] cursor-pointer"
+              @click="showAssignDoctorModal = false"
+            >
+              Cancel
+            </AppButton>
+            <AppButton
+              type="submit"
+              form="assign-doctor-form"
+              variant="solid"
+              size="sm"
+              class="min-h-[44px] cursor-pointer"
+              :loading="isAssigningDoctor"
+            >
+              Send Invitation
+            </AppButton>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -5166,240 +4804,272 @@
       <div
         v-if="showRecurringBlockedModal && pendingRecurringDutyData"
         @click.self="closeRecurringBlockedModal"
-        class="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 duration-200"
+        class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs duration-200"
       >
         <div
-          class="border-border bg-card text-foreground relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border p-6 shadow-2xl"
+          class="border-border bg-card text-foreground relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
         >
-          <!-- Warning Icon & Headline -->
-          <div class="flex items-start gap-4">
-            <div
-              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/10"
+          <!-- Native Mobile Grab Handle Pill -->
+          <div
+            class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0 bg-card/95"
+            aria-hidden="true"
+          >
+            <div class="h-1.5 w-11 rounded-full bg-muted-foreground/30"></div>
+          </div>
+
+          <!-- Sticky Header -->
+          <div
+            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5 backdrop-blur-md"
+          >
+            <div class="flex items-center gap-3">
+              <div
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 ring-4 ring-amber-500/10"
+              >
+                <Icon
+                  name="heroicons:exclamation-triangle-20-solid"
+                  class="h-5 w-5"
+                />
+              </div>
+              <div class="min-w-0">
+                <h3 class="text-foreground truncate text-base sm:text-lg font-bold">Time-Off Conflict Detected</h3>
+                <p class="text-muted-foreground truncate text-xs">
+                  Review conflicting dates for recurring schedule
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="closeRecurringBlockedModal"
+              class="text-muted-foreground hover:text-foreground hover:bg-foreground/5 cursor-pointer rounded-xl p-2.5 transition active:scale-95"
+              aria-label="Close modal"
             >
               <Icon
-                name="heroicons:exclamation-triangle-20-solid"
-                class="h-6 w-6"
+                name="lucide:x"
+                class="h-5 w-5"
               />
-            </div>
-            <div class="min-w-0 flex-1">
-              <h3 class="text-foreground text-lg font-bold">Time-Off Conflict Detected</h3>
-              <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-                You are setting a repeating clinic schedule, but
-                <span class="text-foreground font-bold">
-                  {{ pendingRecurringDutyData.conflictingBlockedDates.length }} day{{
-                    pendingRecurringDutyData.conflictingBlockedDates.length === 1 ? '' : 's'
-                  }}
-                </span>
-                during this period are already marked as your
-                <span class="font-semibold text-rose-500">Time-Off (Blocked)</span>.
-              </p>
-            </div>
+            </button>
           </div>
 
-          <!-- List of Conflicting Blocked Dates -->
-          <div class="mt-4 space-y-2">
-            <p class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-              Affected Time-Off Dates
+          <!-- Scrollable Body -->
+          <div class="custom-scrollbar flex-1 overflow-y-auto p-5 sm:p-7 space-y-4">
+            <p class="text-muted-foreground text-xs leading-relaxed">
+              You are setting a repeating clinic schedule, but
+              <span class="text-foreground font-bold">
+                {{ pendingRecurringDutyData.conflictingBlockedDates.length }} day{{
+                  pendingRecurringDutyData.conflictingBlockedDates.length === 1 ? '' : 's'
+                }}
+              </span>
+              during this period are already marked as your
+              <span class="font-semibold text-rose-500">Time-Off (Blocked)</span>.
             </p>
-            <div
-              class="border-border bg-foreground/[0.02] divide-border max-h-36 divide-y overflow-y-auto rounded-2xl border"
-            >
+
+            <!-- List of Conflicting Blocked Dates -->
+            <div class="space-y-2">
+              <p class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
+                Affected Time-Off Dates
+              </p>
               <div
-                v-for="dateStr in pendingRecurringDutyData.conflictingBlockedDates"
-                :key="dateStr"
-                class="flex items-center justify-between p-2.5 text-xs"
+                class="border-border bg-foreground/[0.02] divide-border max-h-36 divide-y overflow-y-auto rounded-2xl border"
               >
-                <div class="flex items-center gap-2">
-                  <Icon
-                    name="heroicons:calendar-days"
-                    class="text-muted-foreground h-4 w-4"
-                  />
-                  <span class="text-foreground font-semibold">
-                    {{ formatReadableDate(dateStr) }}
+                <div
+                  v-for="dateStr in pendingRecurringDutyData.conflictingBlockedDates"
+                  :key="dateStr"
+                  class="flex items-center justify-between p-2.5 text-xs"
+                >
+                  <div class="flex items-center gap-2">
+                    <Icon
+                      name="heroicons:calendar-days"
+                      class="text-muted-foreground h-4 w-4"
+                    />
+                    <span class="text-foreground font-semibold">
+                      {{ formatReadableDate(dateStr) }}
+                    </span>
+                  </div>
+                  <span
+                    class="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-500"
+                  >
+                    Time Off / Blocked
                   </span>
                 </div>
-                <span
-                  class="rounded-full border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-bold text-rose-500"
-                >
-                  Time Off / Blocked
-                </span>
               </div>
             </div>
-          </div>
 
-          <!-- Redundant notice if some days are identical -->
-          <div
-            v-if="pendingRecurringDutyData.redundantDates.length > 0"
-            class="mt-3 flex items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-[11px] text-sky-700 dark:text-sky-300"
-          >
-            <Icon
-              name="heroicons:information-circle-20-solid"
-              class="h-4 w-4 shrink-0"
-            />
-            <span>
-              {{ pendingRecurringDutyData.redundantDates.length }} of the days already have this
-              exact clinic schedule and will not be duplicated.
-            </span>
-          </div>
-
-          <!-- Layman Decision Prompt -->
-          <div class="mt-4">
-            <p class="text-foreground text-xs font-bold">
-              Choose how you would like to handle your scheduled time-off:
-            </p>
-            <p class="text-muted-foreground mt-0.5 text-[11px]">
-              Select an option below to proceed. You must choose an option before confirming.
-            </p>
-          </div>
-
-          <!-- Selectable Options List -->
-          <div class="mt-3 space-y-2.5">
-            <!-- Option 1: Keep Time Off (Blocked Overrides) -->
+            <!-- Redundant notice if some days are identical -->
             <div
-              role="button"
-              tabindex="0"
-              @click="selectKeepBlockedOption"
-              class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
-              :class="[
-                selectedBlockedResolutionOption === 'keep_blocked'
-                  ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-2 ring-emerald-500/30'
-                  : 'border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/[0.03]'
-              ]"
+              v-if="pendingRecurringDutyData.redundantDates.length > 0"
+              class="flex items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-[11px] text-sky-700 dark:text-sky-300"
             >
-              <div class="flex items-start justify-between gap-3">
-                <div class="flex min-w-0 flex-1 items-start gap-3">
-                  <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
-                    :class="
-                      selectedBlockedResolutionOption === 'keep_blocked'
-                        ? 'bg-emerald-500 text-white'
-                        : 'bg-emerald-500/10 text-emerald-600'
-                    "
-                  >
-                    <Icon
-                      name="heroicons:shield-check-20-solid"
-                      class="h-5 w-5"
-                    />
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-1.5">
-                      <p class="text-foreground text-xs font-bold">
-                        Keep My Time Off (Skip Blocked Days)
-                      </p>
-                      <span
-                        class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600"
-                      >
-                        Recommended
-                      </span>
+              <Icon
+                name="heroicons:information-circle-20-solid"
+                class="h-4 w-4 shrink-0"
+              />
+              <span>
+                {{ pendingRecurringDutyData.redundantDates.length }} of the days already have this
+                exact clinic schedule and will not be duplicated.
+              </span>
+            </div>
+
+            <!-- Layman Decision Prompt -->
+            <div>
+              <p class="text-foreground text-xs font-bold">
+                Choose how you would like to handle your scheduled time-off:
+              </p>
+              <p class="text-muted-foreground mt-0.5 text-[11px]">
+                Select an option below to proceed. You must choose an option before confirming.
+              </p>
+            </div>
+
+            <!-- Selectable Options List -->
+            <div class="space-y-2.5">
+              <!-- Option 1: Keep Time Off (Blocked Overrides) -->
+              <div
+                role="button"
+                tabindex="0"
+                @click="selectKeepBlockedOption"
+                class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
+                :class="[
+                  selectedBlockedResolutionOption === 'keep_blocked'
+                    ? 'border-emerald-500 bg-emerald-500/10 shadow-xs ring-2 ring-emerald-500/30'
+                    : 'border-border bg-card hover:border-emerald-500/50 hover:bg-emerald-500/[0.03]'
+                ]"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex min-w-0 flex-1 items-start gap-3">
+                    <div
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
+                      :class="
+                        selectedBlockedResolutionOption === 'keep_blocked'
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-emerald-500/10 text-emerald-600'
+                      "
+                    >
+                      <Icon
+                        name="heroicons:shield-check-20-solid"
+                        class="h-5 w-5"
+                      />
                     </div>
-                    <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                      Leave your time-off untouched. Clinic hours will only be scheduled on your
-                      free, unblocked days ({{
-                        pendingRecurringDutyData.targetDates.filter(
-                          d =>
-                            !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
-                            !pendingRecurringDutyData.redundantDates.includes(d)
-                        ).length
-                      }}
-                      open day{{
-                        pendingRecurringDutyData.targetDates.filter(
-                          d =>
-                            !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
-                            !pendingRecurringDutyData.redundantDates.includes(d)
-                        ).length === 1
-                          ? ''
-                          : 's'
-                      }}).
-                    </p>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <p class="text-foreground text-xs font-bold">
+                          Keep My Time Off (Skip Blocked Days)
+                        </p>
+                        <span
+                          class="rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600"
+                        >
+                          Recommended
+                        </span>
+                      </div>
+                      <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                        Leave your time-off untouched. Clinic hours will only be scheduled on your
+                        free, unblocked days ({{
+                          pendingRecurringDutyData.targetDates.filter(
+                            d =>
+                              !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
+                              !pendingRecurringDutyData.redundantDates.includes(d)
+                          ).length
+                        }}
+                        open day{{
+                          pendingRecurringDutyData.targetDates.filter(
+                            d =>
+                              !pendingRecurringDutyData.conflictingBlockedDates.includes(d) &&
+                              !pendingRecurringDutyData.redundantDates.includes(d)
+                          ).length === 1
+                            ? ''
+                            : 's'
+                        }}).
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <!-- Radio Check Indicator -->
-                <div class="shrink-0 pt-0.5">
-                  <div
-                    class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
-                    :class="
-                      selectedBlockedResolutionOption === 'keep_blocked'
-                        ? 'bg-emerald-500 text-white shadow-2xs'
-                        : 'border-border/80 border-2 group-hover:border-emerald-500/60'
-                    "
-                  >
-                    <Icon
-                      v-if="selectedBlockedResolutionOption === 'keep_blocked'"
-                      name="heroicons:check-20-solid"
-                      class="h-3.5 w-3.5"
-                    />
+                  <!-- Radio Check Indicator -->
+                  <div class="shrink-0 pt-0.5">
+                    <div
+                      class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
+                      :class="
+                        selectedBlockedResolutionOption === 'keep_blocked'
+                          ? 'bg-emerald-500 text-white shadow-2xs'
+                          : 'border-border/80 border-2 group-hover:border-emerald-500/60'
+                      "
+                    >
+                      <Icon
+                        v-if="selectedBlockedResolutionOption === 'keep_blocked'"
+                        name="heroicons:check-20-solid"
+                        class="h-3.5 w-3.5"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <!-- Option 2: Schedule Overrides (Open Clinic on All Days) -->
-            <div
-              role="button"
-              tabindex="0"
-              @click="selectOverrideBlockedOption"
-              class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
-              :class="[
-                selectedBlockedResolutionOption === 'override_blocked'
-                  ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-2 ring-amber-500/30'
-                  : 'border-border bg-card hover:border-amber-500/50 hover:bg-amber-500/[0.03]'
-              ]"
-            >
-              <div class="flex items-start justify-between gap-3">
-                <div class="flex min-w-0 flex-1 items-start gap-3">
-                  <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
-                    :class="
-                      selectedBlockedResolutionOption === 'override_blocked'
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-amber-500/10 text-amber-600'
-                    "
-                  >
-                    <Icon
-                      name="heroicons:arrow-path-rounded-square-20-solid"
-                      class="h-5 w-5"
-                    />
+              <!-- Option 2: Schedule Overrides (Open Clinic on All Days) -->
+              <div
+                role="button"
+                tabindex="0"
+                @click="selectOverrideBlockedOption"
+                class="group relative w-full cursor-pointer rounded-2xl border p-3.5 text-left transition-all outline-none"
+                :class="[
+                  selectedBlockedResolutionOption === 'override_blocked'
+                    ? 'border-amber-500 bg-amber-500/10 shadow-xs ring-2 ring-amber-500/30'
+                    : 'border-border bg-card hover:border-amber-500/50 hover:bg-amber-500/[0.03]'
+                ]"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex min-w-0 flex-1 items-start gap-3">
+                    <div
+                      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition group-hover:scale-105"
+                      :class="
+                        selectedBlockedResolutionOption === 'override_blocked'
+                          ? 'bg-amber-500 text-white'
+                          : 'bg-amber-500/10 text-amber-600'
+                      "
+                    >
+                      <Icon
+                        name="heroicons:arrow-path-rounded-square-20-solid"
+                        class="h-5 w-5"
+                      />
+                    </div>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-foreground text-xs font-bold">
+                        Open Clinic on All Days (Cancel Time Off)
+                      </p>
+                      <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
+                        Cancel your time-off on those days. Clinic hours will be scheduled across all
+                        selected dates.
+                      </p>
+                    </div>
                   </div>
-                  <div class="min-w-0 flex-1">
-                    <p class="text-foreground text-xs font-bold">
-                      Open Clinic on All Days (Cancel Time Off)
-                    </p>
-                    <p class="text-muted-foreground mt-0.5 text-[11px] leading-relaxed">
-                      Cancel your time-off on those days. Clinic hours will be scheduled across all
-                      selected dates.
-                    </p>
-                  </div>
-                </div>
 
-                <!-- Radio Check Indicator -->
-                <div class="shrink-0 pt-0.5">
-                  <div
-                    class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
-                    :class="
-                      selectedBlockedResolutionOption === 'override_blocked'
-                        ? 'bg-amber-500 text-white shadow-2xs'
-                        : 'border-border/80 border-2 group-hover:border-amber-500/60'
-                    "
-                  >
-                    <Icon
-                      v-if="selectedBlockedResolutionOption === 'override_blocked'"
-                      name="heroicons:check-20-solid"
-                      class="h-3.5 w-3.5"
-                    />
+                  <!-- Radio Check Indicator -->
+                  <div class="shrink-0 pt-0.5">
+                    <div
+                      class="flex h-5 w-5 items-center justify-center rounded-full transition-all"
+                      :class="
+                        selectedBlockedResolutionOption === 'override_blocked'
+                          ? 'bg-amber-500 text-white shadow-2xs'
+                          : 'border-border/80 border-2 group-hover:border-amber-500/60'
+                      "
+                    >
+                      <Icon
+                        v-if="selectedBlockedResolutionOption === 'override_blocked'"
+                        name="heroicons:check-20-solid"
+                        class="h-3.5 w-3.5"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Footer Actions -->
-          <div class="border-border/60 mt-5 flex items-center justify-between border-t pt-3.5">
+          <!-- Sticky Footer Actions -->
+          <div
+            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          >
             <button
               type="button"
               :disabled="isResolvingRecurringConflict"
               @click="closeRecurringBlockedModal"
-              class="text-muted-foreground hover:text-foreground cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition"
+              class="text-muted-foreground hover:text-foreground min-h-[44px] cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold transition"
             >
               Cancel & Review
             </button>
@@ -5408,7 +5078,7 @@
               type="button"
               :disabled="!selectedBlockedResolutionOption || isResolvingRecurringConflict"
               @click="handleProceedRecurringResolution"
-              class="flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all"
+              class="flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all"
               :class="[
                 !selectedBlockedResolutionOption || isResolvingRecurringConflict
                   ? 'bg-foreground/10 text-muted-foreground/60 cursor-not-allowed opacity-60'

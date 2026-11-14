@@ -27,6 +27,7 @@
   }>()
 
   const { getStorageUrl } = useStorage()
+  useModalLock().registerModal(toRef(props, 'modelValue'))
 
   const isMobile = ref(false)
   const updateIsMobile = () => {
@@ -643,16 +644,20 @@
 </script>
 
 <template>
-  <div v-if="modelValue">
-    <!-- Mobile View Mode: Full-window component covering screen with back button -->
-    <div
-      v-if="isInlineMode"
-      class="bg-card fixed inset-0 z-[1000] flex h-full w-full flex-col overflow-hidden"
-    >
-      <!-- Mobile Top Header with Back Button and Identity -->
+  <Teleport
+    to="body"
+    :disabled="inline"
+  >
+    <div v-if="modelValue">
+      <!-- Mobile View Mode: Full-window component covering screen with back button -->
       <div
-        class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3 py-3 shadow-sm"
+        v-if="isInlineMode"
+        class="bg-card fixed inset-0 z-[120] flex h-full w-full flex-col overflow-hidden pb-[max(1rem,env(safe-area-inset-bottom))]"
       >
+        <!-- Mobile Top Header with Back Button and Identity -->
+        <div
+          class="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 shadow-xs"
+        >
         <div class="flex min-w-0 flex-1 items-center gap-2">
           <!-- Back Button -->
           <button
@@ -993,16 +998,15 @@
       </div>
     </div>
 
-    <!-- Desktop Modal Mode (teleports to body) -->
-    <Teleport
+    <!-- Desktop Modal Mode -->
+    <Transition
       v-else
-      to="body"
+      name="modal"
     >
-      <Transition name="modal">
-        <div
-          class="fixed inset-0 z-[1000] flex items-center justify-center overflow-y-auto bg-black/50 p-4"
-          @click.self="closeModal"
-        >
+      <div
+        class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs"
+        @click.self="closeModal"
+      >
           <div
             class="bg-card border-border my-auto flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
           >
@@ -1536,8 +1540,8 @@
           </div>
         </div>
       </Transition>
-    </Teleport>
-  </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

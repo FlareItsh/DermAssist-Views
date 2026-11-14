@@ -28,6 +28,8 @@
 
   const activeTab = ref<'terms' | 'privacy' | 'cookies'>(props.initialTab)
   const localConsentDataset = ref<boolean>(props.initialConsentDataset)
+
+  useModalLock().registerModal(toRef(props, 'modelValue'))
   const scrollContainerRef = ref<HTMLElement | null>(null)
   const termsRead = ref(false)
   const privacyRead = ref(false)
