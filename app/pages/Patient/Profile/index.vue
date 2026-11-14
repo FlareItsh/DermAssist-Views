@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { authService } from '~/api/auth/AuthService'
+  import { useAuth } from '~/composables/useAuth'
   import { userService } from '~/api/user/UserService'
   import { toast } from 'vue-sonner'
   import { $api } from '~/composables/useApi'
@@ -7,9 +9,10 @@
     layout: 'dashboard-sidebar-layout'
   })
 
-  const userUuid = useCookie('user_uuid').value as string
-  const { data: response, refresh } = userService.useShow(userUuid, {
-    key: `userProfile-${userUuid}`
+  const { uuid: authUserUuid, user: currentAuthUser, fetchUser } = useAuth()
+  const userUuid = computed(() => authUserUuid.value)
+  const { data: response, refresh } = userService.useShow(userUuid.value, {
+    key: `userProfile-${userUuid.value}`
   })
   // Laravel JsonResource wraps single resources under `data` — unwrap at source
   const user = computed(() => (response.value as any)?.data ?? response.value)
@@ -508,20 +511,11 @@
       // Always re-geocode before saving to ensure coordinates match the current address
       await geocodeAddress()
 
-      await userService.update(useCookie('user_uuid').value as string, form)
+      await userService.update(userUuid.value, form)
       initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
       toast.success('Profile updated successfully.')
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
-
-      // Update name cookies
-      const userName = useCookie('user_name')
-      const authName = useCookie('auth_user_name')
-      const fullDisplayName = [form.first_name, middleInitial.value, form.last_name]
-        .filter(Boolean)
-        .join(' ')
-      userName.value = fullDisplayName
-      authName.value = fullDisplayName
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid.value}`), fetchUser(true)])
 
       setTimeout(() => {
         isSuccess.value = false
@@ -536,14 +530,20 @@
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
     isLogoutModalOpen.value = false
-    useCookie('auth_token').value = null
-    useCookie('user_role').value = null
-    useCookie('user_uuid').value = null
-    useCookie('user_name').value = null
-    useCookie('auth_user_name').value = null
-    navigateTo('/auth/login')
+    try {
+      await authService.logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      useSessionCleanup().clearSessionCaches()
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
+    }
   }
 </script>
 

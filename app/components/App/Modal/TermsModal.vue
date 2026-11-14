@@ -484,11 +484,10 @@
                         </h4>
                         <p class="text-muted-foreground mt-1">
                           All fees and transactions processed on DermAssist—including doctor
-                          professional subscription plans, consultation appointment bookings,
-                          feature add-ons, and AI scan quota purchases—are strictly final,
-                          non-refundable, and non-creditable. Due to the immediate provisioning of
-                          clinical AI services, cloud computational resources, and doctor time
-                          allocations:
+                          professional subscription plans, appointments, feature add-ons, and AI
+                          scan quota purchases—are strictly final, non-refundable, and
+                          non-creditable. Due to the immediate provisioning of clinical AI services,
+                          cloud computational resources, and doctor time allocations:
                         </p>
                         <ul class="text-muted-foreground mt-2 list-disc space-y-1.5 pl-5">
                           <li>
@@ -530,7 +529,7 @@
                           Summary of No-Refund Commitment
                         </p>
                         <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
-                          By proceeding with any subscription or consultation booking on DermAssist,
+                          By proceeding with any subscription or appointment booking on DermAssist,
                           you explicitly acknowledge and accept this strict no-refund policy. Please
                           verify plan tier selections and appointment details prior to completing
                           any transaction.

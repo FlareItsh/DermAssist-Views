@@ -67,9 +67,10 @@
   const route = useRoute()
   const router = useRouter()
 
-  const userUuidCookie = useCookie('user_uuid')
-  const doctorUuidCookie = useCookie('doctor_uuid')
-  const userRole = useCookie('user_role')
+  const { uuid: authUuid, doctorUuid: authDoctorUuid, role: authRole } = useAuth()
+  const userUuidCookie = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const doctorUuidCookie = computed(() => authDoctorUuid.value || useCookie('doctor_uuid').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const { data: currentUserResp } = await userService.useShow(
     () => userUuidCookie.value as string,
@@ -820,7 +821,7 @@
     isAcceptingBookingDirect.value = uuid
     try {
       await appointmentService.accept(uuid)
-      toast.success('Appointment booking confirmed successfully.')
+      toast.success('Appointment confirmed successfully.')
       await fetchMessages(1)
       await fetchAppointments()
     } catch (e: any) {
@@ -2577,7 +2578,7 @@
                             {{
                               msg.appointment_data?.diagnosis?.scan_type === 'in_clinic'
                                 ? 'Clinical Findings'
-                                : 'AI Scan Result (Home Self-Assessment)'
+                                : 'AI Skin Scan Result'
                             }}
                           </p>
                           <h4
@@ -2710,9 +2711,7 @@
                         class="w-full cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-slate-700 shadow-2xs transition-all hover:bg-slate-50 active:scale-95 sm:w-auto"
                       >
                         {{
-                          getAppointmentScheduleFromMsg(msg)
-                            ? 'Adjust Schedule'
-                            : 'Accept & Schedule'
+                          getAppointmentScheduleFromMsg(msg) ? 'Adjust Time' : 'Accept & Set Time'
                         }}
                       </button>
 
@@ -3898,8 +3897,8 @@
       <AppModalConfirmation
         v-model="showAcceptConfirmModal"
         title="Accept Reschedule?"
-        description="Are you sure you want to accept this proposed appointment schedule? The appointment date and time will be officially updated."
-        confirm-text="Yes, Accept Schedule"
+        description="Are you sure you want to accept this proposed appointment time? The appointment date and time will be officially updated."
+        confirm-text="Yes, Accept Reschedule"
         cancel-text="Go Back"
         confirm-variant="solid"
         icon="material-symbols:check-circle-rounded"
@@ -3913,7 +3912,7 @@
       <AppModalConfirmation
         v-model="showPatientDirectBookingModal"
         title="Request Clinical Appointment"
-        :description="`Would you like to request an appointment with ${otherPersonName}? This submits a consultation booking request directly without attaching any skin scans.`"
+        :description="`Would you like to request an appointment with ${otherPersonName}? This submits an appointment request directly without attaching any skin scans.`"
         confirm-text="Request Appointment"
         cancel-text="Cancel"
         confirm-variant="solid"

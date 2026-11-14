@@ -23,8 +23,9 @@
   } = useFormSanitizer()
   import type { DonutEntry } from '../DonutChart.vue'
 
-  const userUuid = useCookie('user_uuid')
-  const userName = useCookie('user_name')
+  const { uuid: authUuid, fullName: authFullName, role: authRole } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
   const patientAge = ref<string | number | null>(null)
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments, declinedAppointments } = useAppointments()
@@ -197,7 +198,7 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        (props.role === 'doctor' || useCookie('user_role').value === 'doctor')
+        (props.role === 'doctor' || authRole.value === 'doctor' || useCookie('user_role').value === 'doctor')
       ) {
         toast.error(
           'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
@@ -2563,10 +2564,10 @@
               isDoctorRegistered
                 ? 'Your Attending Doctor'
                 : hasActiveAppointment
-                  ? 'Your Referred Doctor'
+                  ? 'Your Referred Dermatologist'
                   : hasDeclinedAppointment
-                    ? 'Attending Doctor'
-                    : 'Nearest Specialist'
+                    ? 'Attending Dermatologist'
+                    : 'Nearest Dermatologist'
             }}
           </h3>
         </div>
@@ -2840,10 +2841,10 @@
                   isSending
                     ? 'Sending...'
                     : hasActiveAppointment
-                      ? 'Send Findings'
+                      ? 'Send Scan'
                       : hasDeclinedAppointment
                         ? 'Rebook Appointment'
-                        : 'Book Consultation'
+                        : 'Book Appointment'
                 }}
               </span>
             </AppButton>

@@ -87,8 +87,9 @@ let activeAppointmentFetch: Promise<void> | null = null
 
 export const useAppointments = () => {
   const { calculateAge } = useFormSanitizer()
-  const userUuid = useCookie('user_uuid')
-  const userRole = useCookie('user_role')
+  const { uuid: authUuid, role: authRole } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   // Use a ref for the current user in this instance to detect changes
   const localUserUuid = ref(userUuid.value)

@@ -78,15 +78,13 @@
   }
 
   const registeredPatientsCount = computed(() => {
-    return (props.patients || []).filter(
-      (p: any) => p.isRegistered || (!p.isWalkIn && p.email)
-    ).length
+    return (props.patients || []).filter((p: any) => p.isRegistered || (!p.isWalkIn && p.email))
+      .length
   })
 
   const walkinPatientsCount = computed(() => {
-    return (props.patients || []).filter(
-      (p: any) => p.isWalkIn || (!p.isRegistered && !p.email)
-    ).length
+    return (props.patients || []).filter((p: any) => p.isWalkIn || (!p.isRegistered && !p.email))
+      .length
   })
 
   const filteredPatientList = computed(() => {
@@ -155,7 +153,8 @@
   const { getStorageUrl } = useStorage()
   const avatarError = ref(false)
 
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const isDoctor = computed(() => userRole.value === 'doctor')
 
   const getTodayStr = () => {
@@ -646,11 +645,11 @@
             <h2 class="text-foreground truncate text-sm font-bold">
               {{
                 displayPatientName ||
-                (isRescheduleMode ? 'Reschedule Appointment' : 'Schedule Appointment')
+                (isRescheduleMode ? 'Reschedule Appointment' : 'Set Appointment')
               }}
             </h2>
             <p class="truncate text-[11px] font-semibold text-indigo-600">
-              {{ isRescheduleMode ? 'Propose New Schedule' : 'Schedule Appointment' }}
+              {{ isRescheduleMode ? 'Propose Reschedule' : 'Set Appointment' }}
             </p>
           </div>
         </div>
@@ -660,24 +659,27 @@
       <span
         class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
       >
-        {{ isRescheduleMode ? 'Reschedule Proposal' : 'New Schedule' }}
+        {{ isRescheduleMode ? 'Reschedule Proposal' : 'New Appointment' }}
       </span>
     </div>
 
     <!-- Scrollable configuration body -->
     <div class="flex flex-col gap-4 p-4 pb-28">
       <!-- Patient Selector & Identity (Mobile) -->
-      <div
-        v-if="!props.appointmentUuid && props.patients && props.patients.length > 0"
-      >
+      <div v-if="!props.appointmentUuid && props.patients && props.patients.length > 0">
         <!-- State 1: Verified Selected Patient Card -->
         <div
           v-if="internalSelectedPatient && !isSwitchingPatient"
           class="rounded-2xl border border-gray-200 bg-white p-3 shadow-2xs"
         >
           <div class="mb-1.5 flex items-center justify-between">
-            <div class="flex items-center gap-1 text-[10px] font-bold tracking-wider text-gray-500 uppercase">
-              <Icon name="heroicons:check-badge-20-solid" class="h-3.5 w-3.5 text-emerald-600" />
+            <div
+              class="flex items-center gap-1 text-[10px] font-bold tracking-wider text-gray-500 uppercase"
+            >
+              <Icon
+                name="heroicons:check-badge-20-solid"
+                class="h-3.5 w-3.5 text-emerald-600"
+              />
               <span>Selected Patient</span>
             </div>
             <button
@@ -686,12 +688,17 @@
               @click="handleSwitchPatient"
               class="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-700 transition hover:bg-indigo-50 hover:text-indigo-600"
             >
-              <Icon name="heroicons:arrow-path-20-solid" class="h-3 w-3" />
+              <Icon
+                name="heroicons:arrow-path-20-solid"
+                class="h-3 w-3"
+              />
               <span>Switch</span>
             </button>
           </div>
           <div class="flex items-center gap-2.5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-xs font-bold text-indigo-700">
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-xs font-bold text-indigo-700"
+            >
               <img
                 v-if="internalSelectedPatient.avatar && !avatarError"
                 :src="getStorageUrl(internalSelectedPatient.avatar)"
@@ -708,7 +715,11 @@
                 </span>
                 <span
                   class="rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-                  :class="internalSelectedPatient.isWalkIn ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'"
+                  :class="
+                    internalSelectedPatient.isWalkIn
+                      ? 'bg-amber-50 text-amber-700'
+                      : 'bg-indigo-50 text-indigo-700'
+                  "
                 >
                   {{ internalSelectedPatient.isWalkIn ? 'Walk-in' : 'Registered' }}
                 </span>
@@ -756,7 +767,10 @@
               @click="patientSearchQuery = ''"
               class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400"
             >
-              <Icon name="material-symbols:close-rounded" class="h-3.5 w-3.5" />
+              <Icon
+                name="material-symbols:close-rounded"
+                class="h-3.5 w-3.5"
+              />
             </button>
           </div>
 
@@ -768,7 +782,9 @@
               class="flex cursor-pointer items-center justify-between gap-2 rounded-lg p-1.5 transition hover:bg-indigo-50/60 active:scale-[0.99]"
             >
               <div class="flex min-w-0 items-center gap-2">
-                <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-700">
+                <div
+                  class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-indigo-50 text-[10px] font-bold text-indigo-700"
+                >
                   <span v-if="!pat.avatar">{{ getPatientInitials(pat) }}</span>
                   <img
                     v-else
@@ -778,13 +794,19 @@
                   />
                 </div>
                 <div class="min-w-0">
-                  <div class="truncate text-xs font-bold text-gray-800">{{ getPatientName(pat) }}</div>
-                  <div class="truncate text-[10px] text-gray-500">{{ pat.email || pat.contact_number || pat.id }}</div>
+                  <div class="truncate text-xs font-bold text-gray-800">
+                    {{ getPatientName(pat) }}
+                  </div>
+                  <div class="truncate text-[10px] text-gray-500">
+                    {{ pat.email || pat.contact_number || pat.id }}
+                  </div>
                 </div>
               </div>
               <span
                 class="shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
-                :class="pat.isWalkIn ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'"
+                :class="
+                  pat.isWalkIn ? 'bg-amber-50 text-amber-700' : 'bg-indigo-50 text-indigo-700'
+                "
               >
                 {{ pat.isWalkIn ? 'Walk-in' : 'Registered' }}
               </span>
@@ -1063,10 +1085,10 @@
         @click="confirmSchedule"
       >
         <template v-if="isScheduling">
-          {{ isRescheduleMode ? 'Proposing Schedule...' : 'Scheduling...' }}
+          {{ isRescheduleMode ? 'Proposing...' : 'Confirming...' }}
         </template>
         <template v-else>
-          {{ isRescheduleMode ? 'Propose Schedule' : 'Confirm Schedule' }}
+          {{ isRescheduleMode ? 'Propose Reschedule' : 'Confirm Appointment' }}
         </template>
       </AppButton>
       <AppButton
@@ -1114,12 +1136,15 @@
             <div class="mb-5 flex items-start justify-between gap-4">
               <div>
                 <h3 class="text-xl font-bold tracking-tight text-gray-900 sm:text-2xl">
-                  {{ isRescheduleMode ? 'Propose New Schedule' : 'Schedule Appointment' }}
+                  {{ isRescheduleMode ? 'Propose Reschedule' : 'Set Appointment' }}
                 </h3>
 
                 <!-- Patient identification (reschedule mode or when no patient picker list available) -->
                 <div
-                  v-if="displayPatientName && (isRescheduleMode || !props.patients || props.patients.length === 0)"
+                  v-if="
+                    displayPatientName &&
+                    (isRescheduleMode || !props.patients || props.patients.length === 0)
+                  "
                   class="mt-1 flex items-center gap-1.5 text-xs font-bold text-indigo-600"
                 >
                   <Icon
@@ -1155,8 +1180,13 @@
                 class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-3.5 shadow-2xs transition hover:border-indigo-200 hover:shadow-xs"
               >
                 <div class="mb-2 flex items-center justify-between">
-                  <div class="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">
-                    <Icon name="heroicons:check-badge-20-solid" class="h-4 w-4 text-emerald-600" />
+                  <div
+                    class="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                  >
+                    <Icon
+                      name="heroicons:check-badge-20-solid"
+                      class="h-4 w-4 text-emerald-600"
+                    />
                     <span>Selected Patient</span>
                   </div>
                   <button
@@ -1165,14 +1195,19 @@
                     @click="handleSwitchPatient"
                     class="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/80 px-2.5 py-1 text-xs font-semibold text-gray-700 transition hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 active:scale-95"
                   >
-                    <Icon name="heroicons:arrow-path-20-solid" class="h-3.5 w-3.5" />
+                    <Icon
+                      name="heroicons:arrow-path-20-solid"
+                      class="h-3.5 w-3.5"
+                    />
                     <span>Switch Patient</span>
                   </button>
                 </div>
 
                 <div class="flex items-center gap-3">
                   <!-- Avatar / Initials -->
-                  <div class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-indigo-700 shadow-2xs">
+                  <div
+                    class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-indigo-700 shadow-2xs"
+                  >
                     <img
                       v-if="internalSelectedPatient.avatar && !avatarError"
                       :src="getStorageUrl(internalSelectedPatient.avatar)"
@@ -1180,7 +1215,10 @@
                       class="h-full w-full object-cover"
                       @error="avatarError = true"
                     />
-                    <span v-else class="text-xs font-extrabold uppercase">
+                    <span
+                      v-else
+                      class="text-xs font-extrabold uppercase"
+                    >
                       {{ getPatientInitials(internalSelectedPatient) }}
                     </span>
                   </div>
@@ -1193,21 +1231,38 @@
                       </h4>
                       <span
                         class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        :class="internalSelectedPatient.isWalkIn
-                          ? 'border border-amber-200 bg-amber-50 text-amber-700'
-                          : 'border border-indigo-100 bg-indigo-50 text-indigo-700'"
+                        :class="
+                          internalSelectedPatient.isWalkIn
+                            ? 'border border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border border-indigo-100 bg-indigo-50 text-indigo-700'
+                        "
                       >
                         {{ internalSelectedPatient.isWalkIn ? 'Walk-in' : 'Registered' }}
                       </span>
                     </div>
-                    <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                      <span v-if="internalSelectedPatient.email" class="truncate">
+                    <div
+                      class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500"
+                    >
+                      <span
+                        v-if="internalSelectedPatient.email"
+                        class="truncate"
+                      >
                         {{ internalSelectedPatient.email }}
                       </span>
-                      <span v-if="internalSelectedPatient.contact_number || internalSelectedPatient.phone" class="font-mono text-gray-600">
-                        {{ internalSelectedPatient.contact_number || internalSelectedPatient.phone }}
+                      <span
+                        v-if="
+                          internalSelectedPatient.contact_number || internalSelectedPatient.phone
+                        "
+                        class="font-mono text-gray-600"
+                      >
+                        {{
+                          internalSelectedPatient.contact_number || internalSelectedPatient.phone
+                        }}
                       </span>
-                      <span v-if="internalSelectedPatient.age && internalSelectedPatient.age !== 'N/A'" class="text-gray-400">
+                      <span
+                        v-if="internalSelectedPatient.age && internalSelectedPatient.age !== 'N/A'"
+                        class="text-gray-400"
+                      >
                         {{ internalSelectedPatient.age }} yrs • {{ internalSelectedPatient.gender }}
                       </span>
                     </div>
@@ -1244,7 +1299,7 @@
                     v-model="patientSearchQuery"
                     type="text"
                     placeholder="Search patient by name, email, or phone..."
-                    class="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2 pr-9 pl-9 text-xs font-medium text-gray-800 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10"
+                    class="w-full rounded-xl border border-gray-200 bg-gray-50/50 py-2 pr-9 pl-9 text-xs font-medium text-gray-800 placeholder-gray-400 transition outline-none focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10"
                     autofocus
                   />
                   <button
@@ -1254,7 +1309,10 @@
                     class="absolute top-1/2 right-2.5 -translate-y-1/2 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                     title="Clear search"
                   >
-                    <Icon name="material-symbols:close-rounded" class="h-4 w-4" />
+                    <Icon
+                      name="material-symbols:close-rounded"
+                      class="h-4 w-4"
+                    />
                   </button>
                 </div>
 
@@ -1265,9 +1323,11 @@
                       type="button"
                       @click="patientFilterTab = 'all'"
                       class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
-                      :class="patientFilterTab === 'all'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                      :class="
+                        patientFilterTab === 'all'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+                      "
                     >
                       All ({{ props.patients.length }})
                     </button>
@@ -1275,9 +1335,11 @@
                       type="button"
                       @click="patientFilterTab = 'registered'"
                       class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
-                      :class="patientFilterTab === 'registered'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                      :class="
+                        patientFilterTab === 'registered'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+                      "
                     >
                       Registered ({{ registeredPatientsCount }})
                     </button>
@@ -1285,9 +1347,11 @@
                       type="button"
                       @click="patientFilterTab = 'walkin'"
                       class="cursor-pointer rounded-lg px-2 py-0.5 text-[11px] font-bold transition"
-                      :class="patientFilterTab === 'walkin'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'"
+                      :class="
+                        patientFilterTab === 'walkin'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200/70'
+                      "
                     >
                       Walk-in ({{ walkinPatientsCount }})
                     </button>
@@ -1306,7 +1370,9 @@
                     class="group flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-transparent p-2 transition hover:border-indigo-100 hover:bg-indigo-50/50 active:scale-[0.99]"
                   >
                     <div class="flex min-w-0 items-center gap-2.5">
-                      <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-[11px] font-bold text-indigo-700 group-hover:bg-indigo-100">
+                      <div
+                        class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-gray-100 bg-indigo-50 text-[11px] font-bold text-indigo-700 group-hover:bg-indigo-100"
+                      >
                         <img
                           v-if="pat.avatar"
                           :src="getStorageUrl(pat.avatar)"
@@ -1316,7 +1382,9 @@
                         <span v-else>{{ getPatientInitials(pat) }}</span>
                       </div>
                       <div class="min-w-0">
-                        <div class="truncate text-xs font-bold text-gray-800 group-hover:text-indigo-900">
+                        <div
+                          class="truncate text-xs font-bold text-gray-800 group-hover:text-indigo-900"
+                        >
                           {{ getPatientName(pat) }}
                         </div>
                         <div class="truncate text-[11px] text-gray-500">
@@ -1328,9 +1396,11 @@
                     <div class="flex shrink-0 items-center gap-2">
                       <span
                         class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        :class="pat.isWalkIn
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-indigo-50 text-indigo-700'"
+                        :class="
+                          pat.isWalkIn
+                            ? 'bg-amber-50 text-amber-700'
+                            : 'bg-indigo-50 text-indigo-700'
+                        "
                       >
                         {{ pat.isWalkIn ? 'Walk-in' : 'Registered' }}
                       </span>
@@ -1346,7 +1416,10 @@
                     v-if="filteredPatientList.length === 0"
                     class="flex flex-col items-center justify-center py-6 text-center text-xs text-gray-400"
                   >
-                    <Icon name="heroicons:user-minus-20-solid" class="mb-1 text-2xl text-gray-300" />
+                    <Icon
+                      name="heroicons:user-minus-20-solid"
+                      class="mb-1 text-2xl text-gray-300"
+                    />
                     <p class="font-semibold text-gray-600">No patients found</p>
                     <p class="text-[11px] text-gray-400">
                       No matching patient for "{{ patientSearchQuery }}".
@@ -1367,7 +1440,7 @@
                   class="shrink-0 text-lg text-amber-600"
                 />
                 <div>
-                  <div class="font-bold text-amber-800">Patient's Preferred Schedule:</div>
+                  <div class="font-bold text-amber-800">Patient's Preferred Time:</div>
                   <div class="font-semibold text-gray-900">
                     {{ patientRequestedScheduleFormatted }}
                   </div>
@@ -1528,7 +1601,7 @@
                   class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-gray-200/80 bg-white px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-xs"
                 >
                   <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-                  Not Available for Booking
+                  Not Available for Appointment
                 </div>
               </div>
             </div>
@@ -1605,10 +1678,10 @@
                 @click="confirmSchedule"
               >
                 <template v-if="isScheduling">
-                  {{ isRescheduleMode ? 'Proposing Schedule...' : 'Scheduling...' }}
+                  {{ isRescheduleMode ? 'Proposing...' : 'Confirming...' }}
                 </template>
                 <template v-else>
-                  {{ isRescheduleMode ? 'Propose Schedule' : 'Confirm Schedule' }}
+                  {{ isRescheduleMode ? 'Propose Reschedule' : 'Confirm Appointment' }}
                 </template>
               </AppButton>
               <AppButton

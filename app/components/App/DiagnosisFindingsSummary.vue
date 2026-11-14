@@ -40,8 +40,11 @@
     saveActiveDiagnosisState
   } = useDiagnosis()
 
-  const userName = useCookie('user_name')
-  const authUserName = useCookie('auth_user_name')
+  const { fullName: authFullName } = useAuth()
+  const userName = computed(
+    () => authFullName.value || useCookie('user_name').value || useCookie('auth_user_name').value || ''
+  )
+  const authUserName = userName
   const recentNames = useCookie<string[]>('recent_names', { default: () => [] })
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()
 

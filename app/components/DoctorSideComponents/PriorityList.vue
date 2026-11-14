@@ -20,7 +20,8 @@
   const { getStorageUrl } = useStorage()
   const { priorityIds, removeFromPriority, isInPriority } = usePriorityList()
   const { searchQuery } = useSearch()
-  const currentDoctorUuid = useCookie('user_uuid')
+  const { uuid: authUuid, role: authRole } = useAuth()
+  const currentDoctorUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const registeredPatients = ref<any[]>([])
   const isLoading = ref(false)
@@ -192,7 +193,7 @@
   }
 
   const rolePrefix = computed(() => {
-    const role = useCookie('user_role').value
+    const role = authRole.value || useCookie('user_role').value
     return role === 'secretary' ? '/secretary' : '/doctor'
   })
 

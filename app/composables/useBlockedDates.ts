@@ -25,8 +25,9 @@ export type BlockedSlot = AvailabilitySlot
  * State is shared globally via `useState` so multiple components stay in sync.
  */
 export const useBlockedDates = () => {
-  const userUuid = useCookie('user_uuid')
-  const userRole = useCookie('user_role')
+  const { uuid: authUuid, role: authRole } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const allSlots = useState<AvailabilitySlot[]>('doctor_all_avail_slots', () => [])
   const isFetchingBlocked = ref(false)

@@ -154,8 +154,9 @@
     }
   }
 
+  const { role: authRole } = useAuth()
   const rolePrefix = computed(() => {
-    const role = useCookie('user_role').value
+    const role = authRole.value || useCookie('user_role').value
     return role === 'secretary' ? '/secretary' : '/doctor'
   })
 

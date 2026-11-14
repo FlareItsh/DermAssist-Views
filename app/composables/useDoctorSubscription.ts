@@ -106,7 +106,8 @@ export const useDoctorSubscription = () => {
       return currentSubscription.value
     }
 
-    const role = useCookie('user_role').value
+    const { role: authRole } = useAuth()
+    const role = authRole.value || useCookie('user_role').value
     if (role !== 'doctor') return null
 
     isLoadingSubscription.value = true

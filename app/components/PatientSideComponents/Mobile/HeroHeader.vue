@@ -4,6 +4,7 @@
   import { userService } from '~/api/user/UserService'
   import { authService } from '~/api/auth/AuthService'
   import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
+  import { useAuth } from '~/composables/useAuth'
 
   const route = useRoute()
   const { searchQuery } = useSearch()
@@ -11,6 +12,7 @@
   const { unreadNotifications } = useAppNotifications()
   const { hasUnseenUpdate, fetchPublishedPatchNotes } = usePatchNotes()
   const { allAppointments } = useAppointments()
+  const { uuid: authUserUuid } = useAuth()
   const {
     pendingTodayMedications,
     fetchPrescriptionsAndLogs,
@@ -71,8 +73,8 @@
     }
   )
 
-  const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
-    key: `userProfile-${useCookie('user_uuid').value}`
+  const { data: response } = userService.useShow(() => authUserUuid.value, {
+    key: `userProfile-${authUserUuid.value}`
   })
 
   const user = computed(() => (response.value as any)?.data ?? response.value)
@@ -103,7 +105,11 @@
       console.error('Logout failed:', error)
     } finally {
       useSessionCleanup().clearSessionCaches()
-      await navigateTo('/auth/login')
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
     }
   }
 

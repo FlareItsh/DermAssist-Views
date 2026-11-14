@@ -1,7 +1,8 @@
 <script setup lang="ts">
   import type { AppNotification } from '~/composables/useAppNotifications'
 
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const {
     notifications,

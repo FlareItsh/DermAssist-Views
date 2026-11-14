@@ -22,8 +22,9 @@
   const { searchQuery } = useSearch()
   const { generatePin, generateTemporaryPassword, copyToClipboard } = usePasswordGenerator()
   const showPassword = ref(false)
-  const userUuid = useCookie('user_uuid')
-  const doctorUuid = useCookie('doctor_uuid')
+  const { uuid: authUuid, doctorUuid: authDoctorUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const doctorUuid = computed(() => authDoctorUuid.value || useCookie('doctor_uuid').value || '')
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
@@ -1659,7 +1660,7 @@
                   type="button"
                   @click="openBookAppointmentModal(patient)"
                   class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
-                  title="Schedule Appointment"
+                  title="Book Appointment"
                 >
                   <Icon
                     name="lucide:calendar-plus"

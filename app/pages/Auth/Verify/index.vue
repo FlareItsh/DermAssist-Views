@@ -15,8 +15,8 @@
   const errorMessage = ref('')
   const successMessage = ref('')
 
-  const authToken = useCookie('auth_token')
-  const userRole = useCookie('user_role')
+  const { token: authToken, role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const verifyToken = async (tokenToVerify: string) => {
     const cleanToken = tokenToVerify.trim()

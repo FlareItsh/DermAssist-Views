@@ -42,7 +42,8 @@
     walkInPatientInfo,
     saveActiveDiagnosisState
   } = useDiagnosis()
-  const userName = useCookie('user_name')
+  const { fullName: authFullName } = useAuth()
+  const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
 
   const storageKey = computed(() => {
     if (props.diagnosisUuid) return `draft_clinical_note_diag_${props.diagnosisUuid}`
@@ -445,7 +446,7 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        useCookie('user_role').value === 'doctor'
+        (useAuth().role.value || useCookie('user_role').value) === 'doctor'
       ) {
         toast.error(
           'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',

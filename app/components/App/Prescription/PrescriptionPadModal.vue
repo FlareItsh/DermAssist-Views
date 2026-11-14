@@ -109,14 +109,11 @@
     { immediate: true }
   )
 
-  watch(
-    prescriptionData,
-    () => {
-      nextTick(() => {
-        setTimeout(updateDimensions, 60)
-      })
-    }
-  )
+  watch(prescriptionData, () => {
+    nextTick(() => {
+      setTimeout(updateDimensions, 60)
+    })
+  })
 
   const handleDownloadPdf = async () => {
     if (!effectiveUuid.value) {
@@ -336,7 +333,7 @@
             <div
               ref="slipRef"
               id="prescription-slip-printable"
-              class="flex flex-col justify-between w-[520px] shrink-0 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-md transition-transform duration-200 sm:p-7"
+              class="flex w-[520px] shrink-0 flex-col justify-between rounded-2xl border border-gray-200/80 bg-white p-6 shadow-md transition-transform duration-200 sm:p-7"
               :style="{
                 transform: `scale(${currentScale})`,
                 transformOrigin: 'top center',
@@ -346,275 +343,302 @@
               <!-- Upper Content: Header, Patient Details, Diagnosis, Prescription, Education -->
               <div class="space-y-3">
                 <!-- 1. Header: Clinic Logo (Left) | Clinic Details & PTR (Right) -->
-              <div
-                class="mb-3 flex items-start justify-between gap-4 border-b-2 border-indigo-600 pb-3"
-              >
-                <div class="shrink-0">
-                  <img
-                    :src="prescriptionData.logoUrl || '/DA_Logo.jpg'"
-                    alt="Clinic Logo"
-                    class="h-11 w-auto max-w-[110px] object-contain"
-                  />
-                </div>
-
-                <div class="min-w-0 flex-1 text-right">
-                  <h4 class="text-xs sm:text-sm font-extrabold tracking-tight text-indigo-950 uppercase">
-                    {{ prescriptionData.clinicName || 'DermAssist Clinical Dermatology' }}
-                  </h4>
-                  <p class="mt-0.5 text-[10px] leading-tight text-gray-500">
-                    {{ prescriptionData.clinicAddress }}
-                  </p>
-                  <p
-                    v-if="prescriptionData.clinicPhone || prescriptionData.clinicEmail"
-                    class="mt-0.5 text-[9px] text-gray-400"
-                  >
-                    <span v-if="prescriptionData.clinicPhone"
-                      >Phone: {{ prescriptionData.clinicPhone }}</span
-                    >
-                    <span v-if="prescriptionData.clinicPhone && prescriptionData.clinicEmail">
-                      &bull;
-                    </span>
-                    <span v-if="prescriptionData.clinicEmail">{{
-                      prescriptionData.clinicEmail
-                    }}</span>
-                  </p>
-                  <div class="mt-1 text-[10px] font-bold text-indigo-700">
-                    PTR No.:
-                    <span class="text-gray-900">{{
-                      prescriptionData.ptrNumber || 'N/A'
-                    }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 2. Patient Details -->
-              <div class="mb-3">
-                <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
-                  Patient Details:
-                </div>
                 <div
-                  class="rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 text-xs text-gray-800"
+                  class="mb-3 flex items-start justify-between gap-4 border-b-2 border-indigo-600 pb-3"
                 >
-                  <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
-                        >Name:</span
-                      >
-                      <strong class="ml-1 text-gray-900">{{ prescriptionData.patientName }}</strong>
-                    </div>
-                    <div class="text-right">
-                      <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
-                        >Date of Diagnosis:</span
-                      >
-                      <strong class="ml-1 text-gray-900">{{ prescriptionData.dateFormatted }}</strong>
-                    </div>
-                  </div>
-                  <div class="mt-1 grid grid-cols-2 gap-2 border-t border-gray-100 pt-1 text-[11px]">
-                    <div>
-                      <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
-                        >Age / Sex:</span
-                      >
-                      <span class="ml-1 text-gray-700">{{ prescriptionData.patientAge || 'N/A' }} / {{ prescriptionData.patientSex || 'N/A' }}</span>
-                    </div>
-                    <div class="truncate text-right">
-                      <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
-                        >Address:</span
-                      >
-                      <span class="ml-1 text-gray-600">{{ prescriptionData.patientAddress }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 3. Diagnosis / Notes -->
-              <div class="mb-3">
-                <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
-                  Diagnosis / Notes:
-                </div>
-                <div
-                  class="rounded-r-lg border-l-3 border-indigo-600 bg-indigo-50/50 p-2.5 text-xs"
-                >
-                  <div class="font-bold text-indigo-950">
-                    {{ prescriptionData.diagnosisResult || 'Clinical Dermatology Evaluation' }}
-                  </div>
-                  <p
-                    v-if="prescriptionData.clinicalNotes"
-                    class="mt-1 text-[11px] leading-relaxed text-gray-600"
-                  >
-                    {{ prescriptionData.clinicalNotes }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- 4. Prescription: Header with Rx Logo & Rx Number -->
-              <div class="mb-3">
-                <div class="mb-1.5 flex items-center justify-between">
-                  <div class="flex items-center gap-1.5">
+                  <div class="shrink-0">
                     <img
-                      :src="prescriptionData.rxSymbolUrl || '/rx_symbol.jpg'"
-                      alt="Rx"
-                      class="h-5 w-auto select-none"
-                      onerror="
-                        this.style.display = 'none'
-                        if (this.nextElementSibling)
-                          this.nextElementSibling.style.display = 'inline-block'
-                      "
+                      :src="prescriptionData.logoUrl || '/DA_Logo.jpg'"
+                      alt="Clinic Logo"
+                      class="h-11 w-auto max-w-[110px] object-contain"
                     />
-                    <span
-                      class="hidden font-serif text-lg leading-none font-extrabold text-indigo-700"
-                    >
-                      R<sub class="text-xs font-bold italic">x</sub>
-                    </span>
-                    <span class="text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
-                      Prescription:
-                    </span>
                   </div>
-                  <span
-                    class="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 font-mono text-[10px] font-bold text-indigo-700"
-                  >
-                    {{ prescriptionData.prescriptionNumber }}
-                  </span>
+
+                  <div class="min-w-0 flex-1 text-right">
+                    <h4
+                      class="text-xs font-extrabold tracking-tight text-indigo-950 uppercase sm:text-sm"
+                    >
+                      {{ prescriptionData.clinicName || 'DermAssist Clinical Dermatology' }}
+                    </h4>
+                    <p class="mt-0.5 text-[10px] leading-tight text-gray-500">
+                      {{ prescriptionData.clinicAddress }}
+                    </p>
+                    <p
+                      v-if="prescriptionData.clinicPhone || prescriptionData.clinicEmail"
+                      class="mt-0.5 text-[9px] text-gray-400"
+                    >
+                      <span v-if="prescriptionData.clinicPhone"
+                        >Phone: {{ prescriptionData.clinicPhone }}</span
+                      >
+                      <span v-if="prescriptionData.clinicPhone && prescriptionData.clinicEmail">
+                        &bull;
+                      </span>
+                      <span v-if="prescriptionData.clinicEmail">{{
+                        prescriptionData.clinicEmail
+                      }}</span>
+                    </p>
+                    <div class="mt-1 text-[10px] font-bold text-indigo-700">
+                      PTR No.:
+                      <span class="text-gray-900">{{ prescriptionData.ptrNumber || 'N/A' }}</span>
+                    </div>
+                  </div>
                 </div>
 
-                <!-- 4-Column Prescription Table -->
-                <div class="overflow-hidden rounded-lg border border-gray-200">
-                  <table class="w-full border-collapse text-left text-xs">
-                    <thead>
-                      <tr class="border-b border-gray-200 bg-gray-50 text-[9px] font-bold tracking-wider text-gray-600 uppercase">
-                        <th class="w-8 px-2 py-1.5 text-center">#</th>
-                        <th class="px-2.5 py-1.5">Medicine &amp; Formulation</th>
-                        <th class="w-24 px-2 py-1.5 text-center">Quantity</th>
-                        <th class="px-2.5 py-1.5">Direction / Sig</th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 text-[11px]">
-                      <template v-if="prescriptionData.items && prescriptionData.items.length > 0">
-                        <tr
-                          v-for="(item, idx) in prescriptionData.items"
-                          :key="idx"
-                          class="hover:bg-gray-50/50"
+                <!-- 2. Patient Details -->
+                <div class="mb-3">
+                  <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
+                    Patient Details:
+                  </div>
+                  <div
+                    class="rounded-xl border border-gray-100 bg-gray-50/80 p-2.5 text-xs text-gray-800"
+                  >
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                          >Name:</span
                         >
-                          <td class="px-2 py-2 text-center font-bold text-gray-400">
-                            {{ idx + 1 }}
-                          </td>
-                          <td class="px-2.5 py-2 font-bold text-gray-900">
-                            {{ item.medication }}
-                          </td>
-                          <td class="px-2 py-2 text-center font-mono font-bold text-indigo-700">
-                            {{ item.quantity ? (item.quantity.startsWith('#') ? item.quantity : `#${item.quantity}`) : '—' }}
-                          </td>
-                          <td class="px-2.5 py-2 text-gray-700">
-                            {{ item.instructions || 'As prescribed by physician' }}
+                        <strong class="ml-1 text-gray-900">{{
+                          prescriptionData.patientName
+                        }}</strong>
+                      </div>
+                      <div class="text-right">
+                        <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                          >Date of Diagnosis:</span
+                        >
+                        <strong class="ml-1 text-gray-900">{{
+                          prescriptionData.dateFormatted
+                        }}</strong>
+                      </div>
+                    </div>
+                    <div
+                      class="mt-1 grid grid-cols-2 gap-2 border-t border-gray-100 pt-1 text-[11px]"
+                    >
+                      <div>
+                        <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                          >Age / Sex:</span
+                        >
+                        <span class="ml-1 text-gray-700"
+                          >{{ prescriptionData.patientAge || 'N/A' }} /
+                          {{ prescriptionData.patientSex || 'N/A' }}</span
+                        >
+                      </div>
+                      <div class="truncate text-right">
+                        <span class="text-[9px] font-bold tracking-wider text-gray-400 uppercase"
+                          >Address:</span
+                        >
+                        <span class="ml-1 text-gray-600">{{
+                          prescriptionData.patientAddress
+                        }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 3. Diagnosis / Notes -->
+                <div class="mb-3">
+                  <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
+                    Diagnosis / Notes:
+                  </div>
+                  <div
+                    class="rounded-r-lg border-l-3 border-indigo-600 bg-indigo-50/50 p-2.5 text-xs"
+                  >
+                    <div class="font-bold text-indigo-950">
+                      {{ prescriptionData.diagnosisResult || 'Clinical Dermatology Evaluation' }}
+                    </div>
+                    <p
+                      v-if="prescriptionData.clinicalNotes"
+                      class="mt-1 text-[11px] leading-relaxed text-gray-600"
+                    >
+                      {{ prescriptionData.clinicalNotes }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- 4. Prescription: Header with Rx Logo & Rx Number -->
+                <div class="mb-3">
+                  <div class="mb-1.5 flex items-center justify-between">
+                    <div class="flex items-center gap-1.5">
+                      <img
+                        :src="prescriptionData.rxSymbolUrl || '/rx_symbol.jpg'"
+                        alt="Rx"
+                        class="h-5 w-auto select-none"
+                        onerror="
+                          this.style.display = 'none'
+                          if (this.nextElementSibling)
+                            this.nextElementSibling.style.display = 'inline-block'
+                        "
+                      />
+                      <span
+                        class="hidden font-serif text-lg leading-none font-extrabold text-indigo-700"
+                      >
+                        R<sub class="text-xs font-bold italic">x</sub>
+                      </span>
+                      <span class="text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
+                        Prescription:
+                      </span>
+                    </div>
+                    <span
+                      class="rounded-md border border-indigo-100 bg-indigo-50 px-2 py-0.5 font-mono text-[10px] font-bold text-indigo-700"
+                    >
+                      {{ prescriptionData.prescriptionNumber }}
+                    </span>
+                  </div>
+
+                  <!-- 4-Column Prescription Table -->
+                  <div class="overflow-hidden rounded-lg border border-gray-200">
+                    <table class="w-full border-collapse text-left text-xs">
+                      <thead>
+                        <tr
+                          class="border-b border-gray-200 bg-gray-50 text-[9px] font-bold tracking-wider text-gray-600 uppercase"
+                        >
+                          <th class="w-8 px-2 py-1.5 text-center">#</th>
+                          <th class="px-2.5 py-1.5">Medicine &amp; Formulation</th>
+                          <th class="w-24 px-2 py-1.5 text-center">Quantity</th>
+                          <th class="px-2.5 py-1.5">Direction / Sig</th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-100 text-[11px]">
+                        <template
+                          v-if="prescriptionData.items && prescriptionData.items.length > 0"
+                        >
+                          <tr
+                            v-for="(item, idx) in prescriptionData.items"
+                            :key="idx"
+                            class="hover:bg-gray-50/50"
+                          >
+                            <td class="px-2 py-2 text-center font-bold text-gray-400">
+                              {{ idx + 1 }}
+                            </td>
+                            <td class="px-2.5 py-2 font-bold text-gray-900">
+                              {{ item.medication }}
+                            </td>
+                            <td class="px-2 py-2 text-center font-mono font-bold text-indigo-700">
+                              {{
+                                item.quantity
+                                  ? item.quantity.startsWith('#')
+                                    ? item.quantity
+                                    : `#${item.quantity}`
+                                  : '—'
+                              }}
+                            </td>
+                            <td class="px-2.5 py-2 text-gray-700">
+                              {{ item.instructions || 'As prescribed by physician' }}
+                            </td>
+                          </tr>
+                        </template>
+                        <tr v-else-if="prescriptionData.rawPrescription">
+                          <td
+                            colspan="4"
+                            class="p-3 font-mono text-xs whitespace-pre-wrap text-gray-800"
+                          >
+                            {{ prescriptionData.rawPrescription }}
                           </td>
                         </tr>
-                      </template>
-                      <tr v-else-if="prescriptionData.rawPrescription">
-                        <td colspan="4" class="p-3 font-mono text-xs whitespace-pre-wrap text-gray-800">
-                          {{ prescriptionData.rawPrescription }}
-                        </td>
-                      </tr>
-                      <tr v-else>
-                        <td colspan="4" class="py-6 text-center text-xs text-gray-400 italic">
-                          No prescription medications drafted.
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <!-- 5. Patient Education & Instructions (if present) -->
-              <div
-                v-if="prescriptionData.patientEducation"
-                class="mb-3"
-              >
-                <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
-                  Patient Education &amp; Instructions:
-                </div>
-                <div
-                  class="rounded-lg border border-gray-100 bg-gray-50/80 p-2.5 text-[11px] leading-relaxed text-gray-700"
-                >
-                  {{ prescriptionData.patientEducation }}
-                </div>
-              </div>
-            </div>
-
-            <!-- Bottom Pinned Section: Follow-Up, Signature & Footer -->
-            <div class="mt-auto shrink-0 pt-4">
-              <!-- 6. Follow-Up Consultation Schedule (if present) -->
-              <div
-                v-if="prescriptionData.followUpDateFormatted"
-                class="mb-3"
-              >
-                <div class="mb-1 text-[10px] font-bold tracking-wider text-emerald-700 uppercase">
-                  Follow-Up Consultation Schedule:
-                </div>
-                <div
-                  class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-[11px] text-emerald-900"
-                >
-                  <strong>Scheduled Visit:</strong> {{ prescriptionData.followUpDateFormatted }}
-                  <span v-if="prescriptionData.followUpInstructions">
-                    &bull; {{ prescriptionData.followUpInstructions }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- 7. Doctor Name & Signature (PRC removed for confidentiality) -->
-              <div class="mt-5 border-t border-gray-100 pt-4">
-                <div class="flex items-end justify-between">
-                  <div class="max-w-[220px] text-[9px] text-gray-400">
-                    <div>
-                      Ref: #{{ prescriptionData.recordUuid?.slice(0, 8) }} &bull; Auth:
-                      {{ prescriptionData.verificationHash }}
-                    </div>
-                    <div>Official Medical Prescription &bull; Valid Nationwide</div>
+                        <tr v-else>
+                          <td
+                            colspan="4"
+                            class="py-6 text-center text-xs text-gray-400 italic"
+                          >
+                            No prescription medications drafted.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
+                </div>
 
-                  <!-- Signature Area -->
-                  <div class="flex flex-col items-center text-center">
-                    <div
-                      v-if="prescriptionData.signatureUrl"
-                      class="mb-1"
-                    >
-                      <img
-                        :src="prescriptionData.signatureUrl"
-                        alt="Doctor Signature"
-                        class="h-9 w-auto max-w-[130px] object-contain"
-                      />
-                      <div class="w-36 border-b border-gray-900"></div>
-                    </div>
-                    <div
-                      v-else
-                      class="mb-1 h-7 w-36 border-b border-gray-900"
-                    ></div>
+                <!-- 5. Patient Education & Instructions (if present) -->
+                <div
+                  v-if="prescriptionData.patientEducation"
+                  class="mb-3"
+                >
+                  <div class="mb-1 text-[10px] font-bold tracking-wider text-indigo-700 uppercase">
+                    Patient Education &amp; Instructions:
+                  </div>
+                  <div
+                    class="rounded-lg border border-gray-100 bg-gray-50/80 p-2.5 text-[11px] leading-relaxed text-gray-700"
+                  >
+                    {{ prescriptionData.patientEducation }}
+                  </div>
+                </div>
+              </div>
 
-                    <div class="text-xs font-bold text-gray-900">
-                      Dr. {{ prescriptionData.doctorName || 'Attending Physician' }}
+              <!-- Bottom Pinned Section: Follow-Up, Signature & Footer -->
+              <div class="mt-auto shrink-0 pt-4">
+                <!-- 6. Follow-Up Consultation Schedule (if present) -->
+                <div
+                  v-if="prescriptionData.followUpDateFormatted"
+                  class="mb-3"
+                >
+                  <div class="mb-1 text-[10px] font-bold tracking-wider text-emerald-700 uppercase">
+                    Follow-Up Consultation Schedule:
+                  </div>
+                  <div
+                    class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-[11px] text-emerald-900"
+                  >
+                    <strong>Scheduled Visit:</strong> {{ prescriptionData.followUpDateFormatted }}
+                    <span v-if="prescriptionData.followUpInstructions">
+                      &bull; {{ prescriptionData.followUpInstructions }}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- 7. Doctor Name & Signature (PRC removed for confidentiality) -->
+                <div class="mt-5 border-t border-gray-100 pt-4">
+                  <div class="flex items-end justify-between">
+                    <div class="max-w-[220px] text-[9px] text-gray-400">
+                      <div>
+                        Ref: #{{ prescriptionData.recordUuid?.slice(0, 8) }} &bull; Auth:
+                        {{ prescriptionData.verificationHash }}
+                      </div>
+                      <div>Official Medical Prescription &bull; Valid Nationwide</div>
                     </div>
-                    <div class="text-[9px] font-semibold text-indigo-700">
-                      <span>PTR No.: {{ prescriptionData.ptrNumber || 'N/A' }}</span>
-                      <span v-if="prescriptionData.s2Number">
-                        &bull; S2: {{ prescriptionData.s2Number }}</span
+
+                    <!-- Signature Area -->
+                    <div class="flex flex-col items-center text-center">
+                      <div
+                        v-if="prescriptionData.signatureUrl"
+                        class="mb-1"
                       >
+                        <img
+                          :src="prescriptionData.signatureUrl"
+                          alt="Doctor Signature"
+                          class="h-9 w-auto max-w-[130px] object-contain"
+                        />
+                        <div class="w-36 border-b border-gray-900"></div>
+                      </div>
+                      <div
+                        v-else
+                        class="mb-1 h-7 w-36 border-b border-gray-900"
+                      ></div>
+
+                      <div class="text-xs font-bold text-gray-900">
+                        Dr. {{ prescriptionData.doctorName || 'Attending Dermatologist' }}
+                      </div>
+                      <div class="text-[9px] font-semibold text-indigo-700">
+                        <span>PTR No.: {{ prescriptionData.ptrNumber || 'N/A' }}</span>
+                        <span v-if="prescriptionData.s2Number">
+                          &bull; S2: {{ prescriptionData.s2Number }}</span
+                        >
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <!-- 8. Footer: DermAssist Logo & Note -->
-              <div
-                class="mt-4 flex items-center justify-center gap-1.5 border-t border-gray-100 pt-2.5 text-[9px] text-gray-400"
-              >
-                <img
-                  src="/DA_Logo.jpg"
-                  alt="DermAssist"
-                  class="h-3.5 w-auto object-contain"
-                />
-                <span>Powered by DermAssist</span>
+                <!-- 8. Footer: DermAssist Logo & Note -->
+                <div
+                  class="mt-4 flex items-center justify-center gap-1.5 border-t border-gray-100 pt-2.5 text-[9px] text-gray-400"
+                >
+                  <img
+                    src="/DA_Logo.jpg"
+                    alt="DermAssist"
+                    class="h-3.5 w-auto object-contain"
+                  />
+                  <span>Powered by DermAssist</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
           <div
             v-else

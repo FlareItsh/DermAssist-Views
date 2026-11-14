@@ -213,8 +213,9 @@ let inFlightPrescriptionFetch: Promise<void> | null = null
 let dateWatcherAttached = false
 
 export const usePrescriptions = () => {
-  const userUuid = useCookie('user_uuid')
-  const userRole = useCookie('user_role')
+  const { uuid: authUuid, role: authRole } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { allAppointments } = useAppointments()
 
   const rawRecords = useState<any[]>('patient_raw_prescription_records', () => [])
@@ -373,10 +374,10 @@ export const usePrescriptions = () => {
       const doc = rec?.doctor || rec?.clinical_note?.doctor
       const doctorName = doc
         ? `Dr. ${doc.first_name || ''} ${doc.last_name || ''}`.trim()
-        : 'Attending Physician'
+        : 'Attending Dermatologist'
 
       const conditionLabel =
-        rec?.clinical_note?.final_diagnosis || rec?.label || 'Clinical Consultation'
+        rec?.clinical_note?.final_diagnosis || rec?.label || 'Clinical Appointment'
       const rawDate = rec?.clinical_note?.updated_at || rec?.created_at || ''
       const timestamp = rawDate ? new Date(rawDate).getTime() : 0
       const rxKey = diagUuid || `note-${noteId || entries.length}`
@@ -422,9 +423,9 @@ export const usePrescriptions = () => {
       const doc = rawAppt?.doctor
       const doctorName = doc
         ? `Dr. ${doc.first_name || ''} ${doc.last_name || ''}`.trim()
-        : appt.doctor || 'Attending Physician'
+        : appt.doctor || 'Attending Dermatologist'
 
-      const conditionLabel = note?.final_diagnosis || appt.info || 'Clinical Consultation'
+      const conditionLabel = note?.final_diagnosis || appt.info || 'Clinical Appointment'
       const rawDate = note?.updated_at || appt.completed_at || appt.raw_scheduled_at || ''
       const timestamp = rawDate ? new Date(rawDate).getTime() : 0
       const rxKey = diagUuid || (noteId ? `note-${noteId}` : `appt-${appt.id}`)

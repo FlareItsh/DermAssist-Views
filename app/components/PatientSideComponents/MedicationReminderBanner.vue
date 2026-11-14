@@ -1,8 +1,9 @@
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted, watch } from 'vue'
+  import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
   import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
 
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { allAppointments } = useAppointments()
 
   const {

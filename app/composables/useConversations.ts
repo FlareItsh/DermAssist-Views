@@ -27,7 +27,8 @@ let isConversationListenerBound = false
 let activeConversationFetch: Promise<void> | null = null
 
 export const useConversations = () => {
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const conversations = useState<Conversation[]>('shared_conversations_list', () => [])
   const pending = ref(false)
 

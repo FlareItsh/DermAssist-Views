@@ -549,8 +549,8 @@
         Unlock Dedicated Secretary Management
       </h2>
       <p class="text-muted-foreground mb-8 max-w-xl text-sm leading-relaxed">
-        Streamline your clinic operations by delegating appointment bookings, patient queues, and
-        schedule management to a dedicated secretary account.
+        Streamline your clinic operations by delegating patient appointments, queues, and
+        availability management to a dedicated secretary account.
       </p>
 
       <!-- Benefit Highlights Cards -->
@@ -579,10 +579,9 @@
               class="h-4 w-4"
             />
           </div>
-          <h4 class="text-foreground text-xs font-bold">Queue & Bookings</h4>
+          <h4 class="text-foreground text-xs font-bold">Queue & Appointments</h4>
           <p class="text-muted-foreground text-[11px] leading-normal">
-            Allow your secretary to schedule, reschedule, and manage patient appointments in real
-            time.
+            Allow your secretary to book, reschedule, and manage patient appointments in real time.
           </p>
         </div>
 

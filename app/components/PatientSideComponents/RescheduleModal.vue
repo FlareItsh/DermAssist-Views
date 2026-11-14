@@ -40,9 +40,10 @@
 
   // ── State & Role ─────────────────────────────────────────────────────────────
 
-  const userRole = useCookie('user_role')
-  const userUuid = useCookie('user_uuid')
-  const doctorUuidCookie = useCookie('doctor_uuid')
+  const { role: authRole, uuid: authUuid, doctorUuid: authDoctorUuid } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const doctorUuidCookie = computed(() => authDoctorUuid.value || useCookie('doctor_uuid').value || '')
 
   const isDoctorOrSecretary = computed(() => {
     const r = (userRole.value || '').toLowerCase()
@@ -735,7 +736,7 @@
       <!-- Current Schedule Summary Banner -->
       <div class="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3.5">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-indigo-900">Current Schedule</span>
+          <span class="text-xs font-bold text-indigo-900">Current Appointment Time</span>
           <span
             class="rounded-full bg-indigo-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase"
           >
@@ -743,7 +744,7 @@
           </span>
         </div>
         <p class="mt-1 text-xs font-semibold text-indigo-700">
-          {{ currentApptParsed?.date || 'Pending Schedule' }}
+          {{ currentApptParsed?.date || 'Pending Appointment Time' }}
           <span v-if="currentApptParsed?.time"> at {{ currentApptParsed.time }}</span>
           <span v-if="appointment.location"> ({{ appointment.location }})</span>
         </p>
@@ -980,7 +981,7 @@
           name="lucide:send"
           class="mr-1.5 text-xs"
         />
-        {{ isDoctorOrSecretary ? 'Propose Schedule' : 'Send Reschedule Request' }}
+        {{ isDoctorOrSecretary ? 'Propose Reschedule' : 'Send Reschedule Request' }}
       </AppButton>
       <AppButton
         variant="unstyled"
@@ -1055,12 +1056,12 @@
                 <div>
                   <p class="text-foreground text-sm font-bold">{{ personDisplayName }}</p>
                   <p class="text-muted-foreground text-xs">
-                    {{ appointment.info || 'Consultation' }}
+                    {{ appointment.info || 'Clinical Appointment' }}
                   </p>
                 </div>
               </div>
               <span class="text-muted-foreground hidden text-xs font-medium sm:inline-block">
-                Standard Consultation: <strong class="text-foreground font-semibold">1 hour</strong>
+                Standard Appointment: <strong class="text-foreground font-semibold">1 hour</strong>
               </span>
             </div>
           </div>
@@ -1364,7 +1365,7 @@
                           name="lucide:clock"
                           class="text-xs"
                         />
-                        Duty Schedule: {{ selectedDateClinic.dutyHours }}
+                        Clinic Availability: {{ selectedDateClinic.dutyHours }}
                       </p>
                     </div>
                   </div>
@@ -1549,7 +1550,7 @@
                   name="lucide:send"
                   class="mr-1.5 text-xs"
                 />
-                {{ isDoctorOrSecretary ? 'Propose Schedule' : 'Send Request' }}
+                {{ isDoctorOrSecretary ? 'Propose Reschedule' : 'Send Request' }}
               </AppButton>
             </div>
           </div>

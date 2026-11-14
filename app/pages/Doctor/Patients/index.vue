@@ -3,6 +3,7 @@
   import { conversationService } from '~/api/conversation/ConversationService'
   import { recordService } from '~/api/record/RecordService'
   import { toast } from 'vue-sonner'
+  import { useAuth } from '~/composables/useAuth'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -24,7 +25,7 @@
     useFormSanitizer()
   const { pendingPatientRegistration } = useDiagnosis()
   const showPassword = ref(false)
-  const currentDoctorUuid = useCookie('user_uuid')
+  const { uuid: currentDoctorUuid } = useAuth()
 
   // ─── State ───────────────────────────────────────────────────────────────────
   const doctorRegisteredPatients = ref<any[]>([])
@@ -240,10 +241,7 @@
 
     // 1. Process Doctor-Registered Patients first
     for (const p of doctorRegisteredPatients.value) {
-      if (
-        (p.uuid && p.uuid === currentDoctorUuid.value) ||
-        (p.role && p.role !== 'patient')
-      ) {
+      if ((p.uuid && p.uuid === currentDoctorUuid.value) || (p.role && p.role !== 'patient')) {
         continue
       }
       const key = p.uuid || `reg_${p.id}`
@@ -435,7 +433,8 @@
         continue
       }
 
-      const patientName = patientObj.name ||
+      const patientName =
+        patientObj.name ||
         [patientObj.first_name, patientObj.last_name].filter(Boolean).join(' ') ||
         'Patient'
 
@@ -1757,7 +1756,7 @@
                     type="button"
                     @click.stop="openBookAppointmentModal(patient)"
                     class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 shadow-2xs transition hover:bg-gray-50 hover:text-gray-900 active:scale-95"
-                    title="Schedule Appointment"
+                    title="Book Appointment"
                   >
                     <Icon
                       name="lucide:calendar-plus"

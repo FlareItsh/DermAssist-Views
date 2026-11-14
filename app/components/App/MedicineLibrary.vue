@@ -8,8 +8,9 @@
   } from '~/api/medicine/MedicineService'
   import { userService } from '~/api/user/UserService'
 
-  const userRole = useCookie('user_role')
-  const userUuid = useCookie('user_uuid')
+  const { role: authRole, uuid: authUuid } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const { data: userProfile } = userService.useShow(userUuid.value as string, {
     key: `medicineUser-${userUuid.value}`,

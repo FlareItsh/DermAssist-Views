@@ -170,7 +170,7 @@
         <!-- Schedule & Timeline -->
         <div class="rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
           <h4 class="mb-3 text-xs font-bold tracking-wider text-gray-500 uppercase">
-            Active Schedule Window
+            Active Validity Window
           </h4>
           <div class="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
             <div class="rounded-xl border border-gray-100 bg-white p-3">

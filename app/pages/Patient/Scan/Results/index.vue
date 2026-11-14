@@ -10,7 +10,8 @@
     isNoneState,
     chartData
   } = useDiagnosis()
-  const userName = useCookie('user_name')
+  const { fullName: authFullName } = useAuth()
+  const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
 
   definePageMeta({
     ssr: false,

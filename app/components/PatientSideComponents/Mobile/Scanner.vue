@@ -35,7 +35,8 @@
     return null
   })
 
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const videoRef = ref<HTMLVideoElement | null>(null)
   const canvasRef = ref<HTMLCanvasElement | null>(null)
   const fileInput = ref<HTMLInputElement | null>(null)

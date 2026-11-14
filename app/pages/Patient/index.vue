@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed, watch } from 'vue'
   import { userService } from '~/api/user/UserService'
+  import { useAuth } from '~/composables/useAuth'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -8,9 +9,10 @@
   const { searchQuery } = useSearch()
   const { appointments } = useAppointments()
   const { getStorageUrl } = useStorage()
+  const { uuid: authUserUuid } = useAuth()
 
-  const { data: response } = userService.useShow(useCookie('user_uuid').value as string, {
-    key: `userProfile-${useCookie('user_uuid').value}`
+  const { data: response } = userService.useShow(() => authUserUuid.value, {
+    key: `userProfile-${authUserUuid.value}`
   })
 
   const total_scans = computed(() => response.value?.total_scans ?? 0)
@@ -297,7 +299,7 @@
 
         <AppUsers
           v-else
-          title="Doctors"
+          title="Dermatologists"
           role="doctor"
           status="verified"
         />

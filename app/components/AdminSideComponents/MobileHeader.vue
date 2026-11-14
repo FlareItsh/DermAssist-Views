@@ -5,8 +5,15 @@
     title?: string
   }>()
 
-  const userName = useCookie('user_name')
-  const authUserName = useCookie('auth_user_name')
+  const { fullName: authFullName } = useAuth()
+  const userName = computed(
+    () =>
+      authFullName.value ||
+      useCookie('user_name').value ||
+      useCookie('auth_user_name').value ||
+      'Admin'
+  )
+  const authUserName = userName
   const { hasUnseenUpdate } = usePatchNotes()
 
   const isAccountMenuOpen = ref(false)
@@ -42,7 +49,11 @@
       console.error('Logout failed:', error)
     } finally {
       useSessionCleanup().clearSessionCaches()
-      await navigateTo('/auth/login')
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
     }
   }
 </script>
