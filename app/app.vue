@@ -14,6 +14,7 @@
       <NuxtPage />
     </NuxtLayout>
     <AppCookieBanner />
+    <AppPwaInstallBanner />
   </UApp>
 </template>
 

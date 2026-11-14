@@ -166,7 +166,9 @@ body {
 
 /* Auto-slide mobile bottom navigation out of view when any modal is open */
 #app-mobile-bottom-nav {
-  transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease;
+  transition:
+    transform 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.2s ease;
   will-change: transform, opacity;
 }
 
@@ -209,4 +211,26 @@ body[data-modal-open='true'] #patient-hero-header {
   60% {
     transform: translate3d(4px, 0, 0);
   }
+}
+
+/* App-like Touch & Viewport Hygiene */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+
+html,
+body {
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }

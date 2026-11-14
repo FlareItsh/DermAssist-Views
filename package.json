@@ -3,7 +3,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "nuxt build",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=8192\" nuxt build",
     "dev": "nuxt dev --host 0.0.0.0 --qr",
     "dev:tunnel": "nuxt dev --tunnel --qr",
     "generate": "nuxt generate",
@@ -21,6 +21,7 @@
     "@nuxt/ui": "4.6.0",
     "@tailwindcss/vite": "^4.2.2",
     "@vercel/analytics": "^2.0.1",
+    "@vite-pwa/nuxt": "^1.1.1",
     "laravel-echo": "^2.6.1",
     "nuxt": "^4.4.2",
     "pusher-js": "^8.6.0",
