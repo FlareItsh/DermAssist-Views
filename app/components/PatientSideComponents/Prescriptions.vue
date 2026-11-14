@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted } from 'vue'
+  import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
   import { toast } from 'vue-sonner'
   import { $api } from '~/composables/useApi'
   import {
@@ -31,8 +31,91 @@
   const showPrescriptionPadModal = ref(false)
   const isDownloadingPdf = ref(false)
 
+  // Tracks which medication instruction boxes overflow their container height
+  const overflowingInstructionKeys = ref<Record<string, boolean>>({})
+  const expandedInstructionItem = ref<ParsedMedicationItem | null>(null)
+  const expandedOverlayRef = ref<HTMLElement | null>(null)
+  const instructionScrollEls = new Map<string, HTMLElement>()
+  let instructionResizeObserver: ResizeObserver | null = null
+
+  const checkInstructionOverflows = () => {
+    let changed = false
+    const nextMap: Record<string, boolean> = { ...overflowingInstructionKeys.value }
+    for (const [key, el] of instructionScrollEls.entries()) {
+      if (el) {
+        const isOverflowing = el.scrollHeight > el.clientHeight + 1
+        if (Boolean(nextMap[key]) !== isOverflowing) {
+          nextMap[key] = isOverflowing
+          changed = true
+        }
+      }
+    }
+    if (changed) {
+      overflowingInstructionKeys.value = nextMap
+    }
+  }
+
+  const registerInstructionEl = (key: string, el: HTMLElement | null) => {
+    const prev = instructionScrollEls.get(key)
+    if (prev === el) return
+    if (prev && instructionResizeObserver) {
+      instructionResizeObserver.unobserve(prev)
+    }
+    if (el) {
+      instructionScrollEls.set(key, el)
+      if (instructionResizeObserver) {
+        instructionResizeObserver.observe(el)
+      }
+      nextTick(checkInstructionOverflows)
+    } else {
+      instructionScrollEls.delete(key)
+    }
+  }
+
+  const isInstructionScrollable = (key: string): boolean => {
+    return Boolean(overflowingInstructionKeys.value[key])
+  }
+
+  const handleInstructionClick = (item: ParsedMedicationItem) => {
+    if (!isInstructionScrollable(item.key)) return
+    expandedInstructionItem.value = item
+  }
+
+  const closeExpandedInstruction = () => {
+    expandedInstructionItem.value = null
+  }
+
+  const handleClickOutsideInstruction = (event: MouseEvent | TouchEvent) => {
+    if (!expandedInstructionItem.value) return
+    const target = event.target as Node | null
+    if (expandedOverlayRef.value && target && !expandedOverlayRef.value.contains(target)) {
+      expandedInstructionItem.value = null
+    }
+  }
+
   onMounted(() => {
     fetchPrescriptionsAndLogs()
+    if (typeof ResizeObserver !== 'undefined') {
+      instructionResizeObserver = new ResizeObserver(() => {
+        checkInstructionOverflows()
+      })
+      for (const el of instructionScrollEls.values()) {
+        instructionResizeObserver.observe(el)
+      }
+    }
+    nextTick(checkInstructionOverflows)
+    document.addEventListener('mousedown', handleClickOutsideInstruction)
+    document.addEventListener('touchstart', handleClickOutsideInstruction, { passive: true })
+  })
+
+  onUnmounted(() => {
+    if (instructionResizeObserver) {
+      instructionResizeObserver.disconnect()
+      instructionResizeObserver = null
+    }
+    instructionScrollEls.clear()
+    document.removeEventListener('mousedown', handleClickOutsideInstruction)
+    document.removeEventListener('touchstart', handleClickOutsideInstruction)
   })
 
   watch(
@@ -54,6 +137,15 @@
   const activePrescription = computed<PrescriptionRecordEntry | null>(() => {
     return prescriptionsList.value[currentIndex.value] || null
   })
+
+  watch(
+    activePrescription,
+    () => {
+      expandedInstructionItem.value = null
+      nextTick(checkInstructionOverflows)
+    },
+    { deep: true }
+  )
 
   // Shows the blue shadow when there is an active prescription with at least one medication
   // not yet marked "taken" today (persists even when X / dismissed is clicked on the top banner).
@@ -218,7 +310,7 @@
     <!-- Active Prescription Content -->
     <div
       v-else-if="activePrescription"
-      class="flex min-h-0 flex-1 flex-col justify-between gap-2"
+      class="relative flex min-h-0 flex-1 flex-col justify-between gap-2"
     >
       <!-- Prescribing Doctor & Issue Date Metadata -->
       <div class="border-border/70 flex shrink-0 items-center justify-between gap-2 border-b pb-2">
@@ -336,13 +428,28 @@
 
           <!-- Row 3: Distinguishable Doctor's Instruction (Expands to fill remaining card space; scrolls only inside text area) -->
           <div
-            class="border-primary bg-muted/50 mt-2.5 flex min-h-0 flex-1 flex-col rounded-r-xl border-l-2 px-3 py-2"
+            class="border-primary bg-muted/50 mt-2.5 flex min-h-0 flex-1 flex-col rounded-r-xl border-l-2 px-3 py-2 transition-colors"
+            :class="isInstructionScrollable(item.key) ? 'hover:bg-muted/80 cursor-pointer' : ''"
+            :title="isInstructionScrollable(item.key) ? 'Click to expand instruction' : undefined"
+            @click.stop="handleInstructionClick(item)"
           >
-            <span class="text-primary shrink-0 text-[10px] font-bold tracking-wide uppercase">
-              Doctor's Instruction
-            </span>
+            <div class="flex shrink-0 items-center justify-between gap-2">
+              <span class="text-primary text-[10px] font-bold tracking-wide uppercase">
+                Doctor's Instruction
+              </span>
+              <span
+                v-if="isInstructionScrollable(item.key)"
+                class="text-muted-foreground flex items-center gap-1 text-[10px] font-medium"
+              >
+                <Icon
+                  name="lucide:maximize-2"
+                  class="text-[10px]"
+                />
+              </span>
+            </div>
             <div
-              class="custom-scrollbar mt-1 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1"
+              :ref="el => registerInstructionEl(item.key, el as HTMLElement | null)"
+              class="custom-scrollbar mt-1 max-h-24 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 md:max-h-none"
             >
               <p class="text-foreground text-xs leading-relaxed font-medium break-words">
                 {{ item.instructions || 'Follow the prescribed dosage schedule above.' }}
@@ -351,6 +458,53 @@
           </div>
         </div>
       </div>
+
+      <!-- Expanded Doctor's Instruction Overlay (Covers Upper Components When Clicked) -->
+      <Transition name="instruction-overlay">
+        <div
+          v-if="expandedInstructionItem"
+          ref="expandedOverlayRef"
+          class="bg-card border-border/80 absolute inset-0 z-20 flex flex-col rounded-2xl border p-3 shadow-lg"
+        >
+          <div
+            class="border-border/60 flex shrink-0 items-center justify-between gap-2 border-b pb-2"
+          >
+            <div class="min-w-0">
+              <span class="text-primary block text-[10px] font-bold tracking-wide uppercase">
+                Doctor's Instruction
+              </span>
+              <p class="text-foreground truncate text-xs font-bold">
+                {{ expandedInstructionItem.medication }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click.stop="closeExpandedInstruction"
+              class="text-muted-foreground hover:text-foreground hover:bg-muted flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
+              title="Collapse instruction"
+              aria-label="Collapse instruction"
+            >
+              <Icon
+                name="lucide:minimize-2"
+                class="text-xs"
+              />
+            </button>
+          </div>
+
+          <div
+            class="border-primary bg-muted/50 mt-2.5 flex min-h-0 flex-1 flex-col rounded-r-xl border-l-2 px-3 py-2.5"
+          >
+            <div class="custom-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1">
+              <p class="text-foreground text-xs leading-relaxed font-medium break-words">
+                {{
+                  expandedInstructionItem.instructions ||
+                  'Follow the prescribed dosage schedule above.'
+                }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Transition>
 
       <!-- Collapsible Patient Education Note (if present) -->
       <div
@@ -442,3 +596,19 @@
     />
   </div>
 </template>
+
+<style scoped>
+  .instruction-overlay-enter-active,
+  .instruction-overlay-leave-active {
+    transform-origin: bottom center;
+    transition:
+      opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .instruction-overlay-enter-from,
+  .instruction-overlay-leave-to {
+    opacity: 0;
+    transform: translateY(10px) scaleY(0.94);
+  }
+</style>
