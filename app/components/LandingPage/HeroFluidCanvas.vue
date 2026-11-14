@@ -25,13 +25,14 @@
         <h1
           class="text-3xl leading-[1.12] font-extrabold tracking-tight text-white sm:text-4xl sm:leading-tight md:text-5xl lg:text-[56px]"
         >
-          AI-Driven Skin Care That Connects You to Experts
+          AI&mdash;Assisted Skin Care That Connects You to Experts.
         </h1>
 
         <p
           class="mt-3.5 max-w-sm text-sm leading-relaxed font-normal text-white/90 sm:mt-5 sm:max-w-lg sm:text-base md:mt-6 md:text-lg lg:text-xl"
         >
-          Detect skin conditions early and connect with licensed doctors &mdash;all in one place.
+          Scan suspicious spots or rashes for immediate screening results, then review your case
+          directly with certified dermatologists.
         </p>
 
         <div class="mt-6 flex w-full justify-center sm:mt-8 md:mt-10 md:justify-start">
