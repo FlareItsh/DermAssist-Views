@@ -63,9 +63,6 @@
           <h4 class="truncate text-sm font-semibold text-zinc-900 dark:text-white">
             Install DermAssist App
           </h4>
-          <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">
-            Fast access, standalone mode & offline support
-          </p>
         </div>
       </div>
 
