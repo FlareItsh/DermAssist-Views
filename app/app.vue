@@ -1,5 +1,6 @@
 <template>
   <UApp>
+    <VitePwaManifest />
     <Toaster
       position="top-right"
       richColors
