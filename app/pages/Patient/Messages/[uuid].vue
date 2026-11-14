@@ -8,7 +8,8 @@
 
   const route = useRoute()
   const uuid = route.params.uuid as string
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const { data: response } = await conversationService.useShow(() => route.params.uuid as string)
   const conversation = computed(() => (response.value as any)?.data ?? response.value)

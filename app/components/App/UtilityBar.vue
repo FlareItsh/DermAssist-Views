@@ -61,8 +61,9 @@
   const route = useRoute()
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
-  const userRole = useCookie('user_role')
-  const userUuid = useCookie('user_uuid')
+  const { role: authRole, uuid: authUuid } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const { data: userProfile, refresh } = await userService.useShow(() => userUuid.value as string, {
     key: `userProfile-${userUuid.value}`
@@ -284,8 +285,11 @@
       console.error('Backend logout failed:', e)
     } finally {
       useSessionCleanup().clearSessionCaches()
-
-      navigateTo('/auth/login')
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
     }
   }
 </script>

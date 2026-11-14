@@ -43,10 +43,20 @@ let isPollingActive = false
 
 export const useAppNotifications = () => {
   const route = useRoute()
-  const userRole = useCookie('user_role')
-  const userUuid = useCookie('user_uuid')
-  const accountStatusCookie = useCookie('account_status')
-  const verificationDeadlineCookie = useCookie('verification_deadline')
+  const {
+    role: authRole,
+    uuid: authUuid,
+    accountStatus: authAccountStatus,
+    verificationDeadline: authVerificationDeadline
+  } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const accountStatusCookie = computed(
+    () => authAccountStatus.value || useCookie('account_status').value || 'active'
+  )
+  const verificationDeadlineCookie = computed(
+    () => authVerificationDeadline.value || useCookie('verification_deadline').value || null
+  )
 
   const {
     publishedPatchNotes,
@@ -756,8 +766,8 @@ export const useAppNotifications = () => {
           list.push({
             id: `appt-reschedule-${appt.id}`,
             type: 'appointment',
-            title: 'Schedule Proposed',
-            description: `${appt.doctor} proposed a new schedule for your appointment. Please review and accept or propose another date.`,
+            title: 'Reschedule Proposed',
+            description: `${appt.doctor} proposed a new time for your appointment. Please review and accept or propose another date.`,
             time: 'Action needed',
             icon: 'material-symbols:edit-calendar-rounded',
             color: 'text-warning',

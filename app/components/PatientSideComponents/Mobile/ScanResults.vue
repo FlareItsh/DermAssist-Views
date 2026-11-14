@@ -33,8 +33,9 @@
     hasCompetingDiseases,
     chartData
   } = useDiagnosis()
-  const userName = useCookie('user_name')
-  const userUuid = useCookie('user_uuid')
+  const { fullName: authFullName, uuid: authUuid } = useAuth()
+  const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments } = useAppointments()
@@ -801,10 +802,10 @@
       <h3 class="mb-3 text-xs font-semibold tracking-wider text-gray-500 uppercase">
         {{
           isDoctorRegistered
-            ? 'Your Attending Doctor'
+            ? 'Your Attending Dermatologist'
             : hasActiveAppointment
-              ? 'Your Preferred Doctor'
-              : 'Nearest Specialist'
+              ? 'Your Preferred Dermatologist'
+              : 'Nearest Dermatologist'
         }}
       </h3>
 
@@ -930,7 +931,7 @@
                 name="material-symbols:verified-outline-rounded"
                 size="13"
               />
-              <span>Verified Specialist</span>
+              <span>Verified Dermatologist</span>
             </div>
             <p
               v-if="nearestDoctor.affiliation"
@@ -983,7 +984,7 @@
             @click="selectAlternativeDoctor(availabilityStatus.alternatives[0])"
             class="mt-1 w-full rounded-lg bg-gray-100 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200"
           >
-            Select Doctor
+            Select Dermatologist
           </button>
         </div>
       </div>
@@ -1041,7 +1042,7 @@
           class="shrink-0"
         />
         <span class="truncate">{{
-          isSending ? 'Sending...' : hasActiveAppointment ? 'Send Findings' : 'Book Consultation'
+          isSending ? 'Sending...' : hasActiveAppointment ? 'Send Scan' : 'Book Appointment'
         }}</span>
       </button>
     </div>

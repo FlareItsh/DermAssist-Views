@@ -44,7 +44,8 @@
       sendMessage()
     }
   }
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { appointments, fetchAppointments } = useAppointments()
 
   const activeAppointment = computed(() => {

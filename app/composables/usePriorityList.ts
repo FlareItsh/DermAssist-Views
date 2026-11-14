@@ -1,7 +1,8 @@
 import { useState } from '#app'
 
 export const usePriorityList = () => {
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   // Store all priority lists in one cookie map: { [uuid]: string[] }
   const allPriorityLists = useCookie<Record<string, string[]>>('dermassist_priority_storage', {

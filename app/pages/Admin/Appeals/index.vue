@@ -113,14 +113,12 @@
   const hasPatientConsent = (appeal: AdminAppeal) => {
     const diag = appeal.diagnosis
     return Boolean(
-      diag?.patient_consented_dataset ||
-      diag?.patient_consent ||
-      diag?.patient?.consent_dataset
+      diag?.patient_consented_dataset || diag?.patient_consent || diag?.patient?.consent_dataset
     )
   }
 
   const getContactDetails = (appeal: AdminAppeal) => {
-    return appeal.user?.email || appeal.user?.affiliation || 'Specialist'
+    return appeal.user?.email || appeal.user?.affiliation || 'Dermatologist'
   }
 
   const formatDate = (date?: string | null) => {
@@ -213,27 +211,36 @@
     <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
       <div>
         <div class="flex items-center gap-2">
-          <span class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[11px] font-bold text-rose-600 border border-rose-100 uppercase tracking-wider">
-            <Icon name="lucide:shield-alert" size="12" />
+          <span
+            class="inline-flex items-center gap-1 rounded-md border border-rose-100 bg-rose-50 px-2 py-0.5 text-[11px] font-bold tracking-wider text-rose-600 uppercase"
+          >
+            <Icon
+              name="lucide:shield-alert"
+              size="12"
+            />
             Moderation & Quality Assurance
           </span>
         </div>
-        <h1 class="mt-2 text-2xl font-black text-gray-950 md:text-3xl tracking-tight">
+        <h1 class="mt-2 text-2xl font-black tracking-tight text-gray-950 md:text-3xl">
           Doctor Scan Appeals
         </h1>
-        <p class="mt-1 max-w-2xl text-xs sm:text-sm text-gray-500">
-          Review physician diagnostic corrections, audit clinical rationale, and ingest verified cases into the AI retraining pipeline.
+        <p class="mt-1 max-w-2xl text-xs text-gray-500 sm:text-sm">
+          Review physician diagnostic corrections, audit clinical rationale, and ingest verified
+          cases into the AI retraining pipeline.
         </p>
       </div>
 
-      <div class="flex items-center gap-2.5 shrink-0">
+      <div class="flex shrink-0 items-center gap-2.5">
         <AppButton
           variant="outline"
           size="sm"
           to="/admin/dataset"
           class="gap-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-950"
         >
-          <Icon name="lucide:database" size="14" />
+          <Icon
+            name="lucide:database"
+            size="14"
+          />
           Retraining Dataset
         </AppButton>
       </div>
@@ -289,28 +296,31 @@
           <input
             v-model="searchQuery"
             type="text"
-            class="w-full rounded-xl border border-gray-200 bg-white py-2 pr-8 pl-9 text-xs text-gray-800 placeholder-gray-400 transition-all outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+            class="focus:border-primary focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-white py-2 pr-8 pl-9 text-xs text-gray-800 placeholder-gray-400 transition-all outline-none focus:ring-2"
             placeholder="Search doctor, patient, disease, UUID..."
           />
           <button
             v-if="searchQuery"
             type="button"
             @click="clearSearch"
-            class="absolute top-1/2 right-2.5 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+            class="absolute top-1/2 right-2.5 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600"
             title="Clear search"
           >
-            <Icon name="lucide:x" size="13" />
+            <Icon
+              name="lucide:x"
+              size="13"
+            />
           </button>
         </div>
 
         <!-- Sleek Segmented Filter Tabs -->
         <div
-          class="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-100/70 p-1 self-start sm:self-auto"
+          class="flex items-center gap-1 self-start rounded-xl border border-gray-200 bg-gray-100/70 p-1 sm:self-auto"
         >
           <button
             type="button"
             @click="filterStatus = 'pending'"
-            class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer"
+            class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
             :class="
               filterStatus === 'pending'
                 ? 'bg-white font-bold text-gray-950 shadow-2xs'
@@ -319,7 +329,7 @@
           >
             <span>Pending Review</span>
             <span
-              class="rounded-full px-1.5 py-0.2 text-[10px] font-bold transition-colors"
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold transition-colors"
               :class="
                 filterStatus === 'pending'
                   ? 'bg-amber-100 text-amber-800'
@@ -333,7 +343,7 @@
           <button
             type="button"
             @click="filterStatus = 'resolved'"
-            class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer"
+            class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
             :class="
               filterStatus === 'resolved'
                 ? 'bg-white font-bold text-gray-950 shadow-2xs'
@@ -342,7 +352,7 @@
           >
             <span>Resolved</span>
             <span
-              class="rounded-full px-1.5 py-0.2 text-[10px] font-bold transition-colors"
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold transition-colors"
               :class="
                 filterStatus === 'resolved'
                   ? 'bg-emerald-100 text-emerald-800'
@@ -356,7 +366,7 @@
           <button
             type="button"
             @click="filterStatus = 'rejected'"
-            class="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer"
+            class="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all"
             :class="
               filterStatus === 'rejected'
                 ? 'bg-white font-bold text-gray-950 shadow-2xs'
@@ -365,7 +375,7 @@
           >
             <span>Rejected</span>
             <span
-              class="rounded-full px-1.5 py-0.2 text-[10px] font-bold transition-colors"
+              class="py-0.2 rounded-full px-1.5 text-[10px] font-bold transition-colors"
               :class="
                 filterStatus === 'rejected'
                   ? 'bg-rose-100 text-rose-800'
@@ -425,7 +435,7 @@
           <div class="flex min-w-0 items-start gap-4">
             <!-- Scan Image Thumbnail with hover affordance -->
             <div
-              class="group/thumb relative h-16 w-16 sm:h-18 sm:w-18 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-950 shadow-2xs transition-all group-hover:border-gray-300"
+              class="group/thumb relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-950 shadow-2xs transition-all group-hover:border-gray-300 sm:h-18 sm:w-18"
             >
               <img
                 v-if="getScanThumbnail(appeal)"
@@ -447,33 +457,43 @@
                 v-if="getScanThumbnail(appeal)"
                 class="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover/thumb:opacity-100"
               >
-                <Icon name="lucide:maximize-2" size="14" class="text-white" />
+                <Icon
+                  name="lucide:maximize-2"
+                  size="14"
+                  class="text-white"
+                />
               </div>
             </div>
 
             <!-- Doctor, Patient & Scan Context -->
             <div class="min-w-0 flex-1 space-y-1">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="truncate text-sm sm:text-base font-bold text-gray-950">
+                <h3 class="truncate text-sm font-bold text-gray-950 sm:text-base">
                   Dr. {{ getDoctorName(appeal) }}
                 </h3>
                 <span
                   v-if="appeal.status === 'resolved'"
-                  class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200/60"
+                  class="inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
                 >
-                  <Icon name="lucide:check-circle-2" size="11" />
+                  <Icon
+                    name="lucide:check-circle-2"
+                    size="11"
+                  />
                   Resolved
                 </span>
                 <span
                   v-else-if="appeal.status === 'rejected'"
-                  class="inline-flex items-center gap-1 rounded-md bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700 border border-rose-200/60"
+                  class="inline-flex items-center gap-1 rounded-md border border-rose-200/60 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-700"
                 >
-                  <Icon name="lucide:x-circle" size="11" />
+                  <Icon
+                    name="lucide:x-circle"
+                    size="11"
+                  />
                   Rejected
                 </span>
                 <span
                   v-if="(appeal as any).resubmission_count"
-                  class="inline-flex items-center gap-1 rounded-md bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 border border-purple-200/60"
+                  class="inline-flex items-center gap-1 rounded-md border border-purple-200/60 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700"
                 >
                   Round {{ (appeal as any).resubmission_count + 1 }}
                 </span>
@@ -481,8 +501,12 @@
 
               <!-- Patient & Doctor Affiliation -->
               <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
-                <span class="inline-flex items-center gap-1 text-gray-700 font-medium truncate">
-                  <Icon name="lucide:user" size="12" class="text-gray-400 shrink-0" />
+                <span class="inline-flex items-center gap-1 truncate font-medium text-gray-700">
+                  <Icon
+                    name="lucide:user"
+                    size="12"
+                    class="shrink-0 text-gray-400"
+                  />
                   Patient: <strong class="text-gray-900">{{ getPatientName(appeal) }}</strong>
                 </span>
                 <span class="text-gray-300">•</span>
@@ -501,7 +525,7 @@
           </div>
 
           <!-- Middle: Diagnostic Discrepancy & Clinical Note -->
-          <div class="flex flex-1 flex-col justify-center gap-2 lg:max-w-md xl:max-w-lg min-w-0">
+          <div class="flex min-w-0 flex-1 flex-col justify-center gap-2 lg:max-w-md xl:max-w-lg">
             <!-- Discrepancy comparison badge row -->
             <div class="flex flex-wrap items-center gap-2 text-xs">
               <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">AI:</span>
@@ -512,7 +536,7 @@
                 {{ appeal.diagnosis_label || 'Unlabeled' }}
                 <span
                   v-if="appeal.diagnosis?.confidence"
-                  class="ml-1 opacity-80 font-mono text-[10px]"
+                  class="ml-1 font-mono text-[10px] opacity-80"
                 >
                   ({{ Math.round(Number(appeal.diagnosis.confidence) * 100) }}%)
                 </span>
@@ -520,10 +544,12 @@
 
               <Icon
                 name="lucide:arrow-right"
-                class="text-xs text-gray-400 shrink-0"
+                class="shrink-0 text-xs text-gray-400"
               />
 
-              <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">Doctor:</span>
+              <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase"
+                >Doctor:</span
+              >
               <AppBadge
                 color="success"
                 size="xs"
@@ -539,11 +565,11 @@
 
               <!-- Gate 1 Patient Consent Indicator -->
               <span
-                class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition-colors ml-auto sm:ml-0"
+                class="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold transition-colors sm:ml-0"
                 :class="
                   hasPatientConsent(appeal)
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
-                    : 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                    ? 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
+                    : 'border border-amber-200/60 bg-amber-50 text-amber-700'
                 "
               >
                 <Icon
@@ -556,7 +582,7 @@
 
             <!-- Doctor's Justification Quote -->
             <p
-              class="line-clamp-2 rounded-r-lg border-l-2 border-primary/50 bg-gray-50/70 px-2.5 py-1 text-xs text-gray-600 italic break-words"
+              class="border-primary/50 line-clamp-2 rounded-r-lg border-l-2 bg-gray-50/70 px-2.5 py-1 text-xs break-words text-gray-600 italic"
             >
               "{{ appeal.description || 'No specific clinical description provided.' }}"
             </p>
@@ -569,7 +595,7 @@
             <button
               type="button"
               @click.stop="handleOpenDetail(appeal)"
-              class="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 text-xs font-semibold text-gray-800 shadow-2xs transition-colors hover:bg-gray-50 hover:text-gray-950 hover:border-gray-300 cursor-pointer"
+              class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white px-3.5 text-xs font-semibold text-gray-800 shadow-2xs transition-colors hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950"
             >
               <Icon
                 name="lucide:eye"
@@ -584,7 +610,7 @@
               <button
                 type="button"
                 @click.stop="resolveAppeal(appeal.uuid, $event)"
-                class="inline-flex h-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 text-xs font-bold text-emerald-700 shadow-2xs transition-colors hover:bg-emerald-100/80 hover:border-emerald-300 cursor-pointer"
+                class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/60 px-3 text-xs font-bold text-emerald-700 shadow-2xs transition-colors hover:border-emerald-300 hover:bg-emerald-100/80"
                 title="Quickly approve and ingest scan for AI retraining"
               >
                 <Icon
@@ -598,7 +624,7 @@
               <button
                 type="button"
                 @click.stop="openRejectModal(appeal, $event)"
-                class="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50/60 px-3 text-xs font-bold text-rose-700 shadow-2xs transition-colors hover:bg-rose-100/80 hover:border-rose-300 cursor-pointer"
+                class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-rose-200 bg-rose-50/60 px-3 text-xs font-bold text-rose-700 shadow-2xs transition-colors hover:border-rose-300 hover:bg-rose-100/80"
                 title="Reject this appeal"
               >
                 <Icon
@@ -615,7 +641,7 @@
               v-else
               type="button"
               @click.stop="restoreAppeal(appeal.uuid, $event)"
-              class="inline-flex h-9 items-center justify-center rounded-xl border border-amber-200 bg-amber-50/60 px-3 text-xs font-bold text-amber-700 shadow-2xs transition-colors hover:bg-amber-100/80 hover:border-amber-300 cursor-pointer"
+              class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-amber-200 bg-amber-50/60 px-3 text-xs font-bold text-amber-700 shadow-2xs transition-colors hover:border-amber-300 hover:bg-amber-100/80"
               title="Restore appeal back to pending moderation"
             >
               <Icon
@@ -635,7 +661,7 @@
         class="px-5 py-14 text-center"
       >
         <div
-          class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-50 border border-gray-100 text-gray-400"
+          class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-gray-100 bg-gray-50 text-gray-400"
         >
           <Icon
             :name="
@@ -676,7 +702,10 @@
           @click="clearSearch"
           class="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-2xs hover:bg-gray-50"
         >
-          <Icon name="lucide:x" size="13" />
+          <Icon
+            name="lucide:x"
+            size="13"
+          />
           Clear search query
         </button>
       </div>

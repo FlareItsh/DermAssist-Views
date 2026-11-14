@@ -522,7 +522,7 @@
       return
     }
 
-    const doctorUuid = useCookie('user_uuid').value
+    const doctorUuid = useAuth().uuid.value || useCookie('user_uuid').value
     if (!doctorUuid) {
       toast.error('Doctor profile session not found.')
       return
@@ -673,7 +673,7 @@
   }
 
   const executePasteSchedule = async () => {
-    const doctorUuid = useCookie('user_uuid').value
+    const doctorUuid = useAuth().uuid.value || useCookie('user_uuid').value
     if (!doctorUuid) {
       toast.error('Doctor profile session not found.')
       return
@@ -773,7 +773,9 @@
       <!-- Left: Week Navigation -->
       <div class="flex items-center gap-3">
         <!-- Week Navigation Controls -->
-        <div class="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white p-1 shadow-2xs">
+        <div
+          class="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white p-1 shadow-2xs"
+        >
           <button
             @click="prevWeek"
             class="cursor-pointer rounded-lg p-1 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
@@ -850,7 +852,7 @@
         <select
           v-if="clinics.length > 0"
           v-model="selectedClinicId"
-          class="h-8 cursor-pointer rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-2xs outline-none transition hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          class="h-8 cursor-pointer rounded-xl border border-gray-200 bg-white px-3 text-xs font-semibold text-gray-700 shadow-2xs transition outline-none hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
         >
           <option value="all">All Clinic Branches</option>
           <option
@@ -904,9 +906,7 @@
             </div>
             <span
               class="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold"
-              :class="
-                day.isToday ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-800'
-              "
+              :class="day.isToday ? 'bg-indigo-600 text-white shadow-xs' : 'text-gray-800'"
             >
               {{ day.dayNumber }}
             </span>
@@ -977,7 +977,7 @@
             <div
               v-for="duty in getDutySlotsForDay(day.dateStr)"
               :key="duty.uuid"
-              class="group/duty absolute right-1.5 left-1.5 z-5 overflow-hidden rounded-xl border border-emerald-300/80 bg-emerald-50/70 border-l-[3.5px] border-l-emerald-600 p-2 shadow-2xs transition-all hover:border-emerald-400 hover:shadow-xs"
+              class="group/duty absolute right-1.5 left-1.5 z-5 overflow-hidden rounded-xl border border-l-[3.5px] border-emerald-300/80 border-l-emerald-600 bg-emerald-50/70 p-2 shadow-2xs transition-all hover:border-emerald-400 hover:shadow-xs"
               :class="draggedDuty?.uuid === duty.uuid ? 'opacity-40 ring-2 ring-emerald-500' : ''"
               :style="{ top: `${duty.topPct}%`, height: `${duty.heightPct}%` }"
             >
@@ -1049,8 +1049,8 @@
               class="group/blocked absolute right-1.5 left-1.5 z-6 overflow-hidden rounded-xl p-2 shadow-2xs transition-all"
               :class="
                 blocked.isAllDay
-                  ? 'border border-gray-200/90 bg-gray-50/70 border-dashed border-l-[3.5px] border-l-gray-400 hover:border-gray-300'
-                  : 'border border-rose-200/90 bg-rose-50/60 border-l-[3.5px] border-l-rose-500 hover:border-rose-300'
+                  ? 'border border-l-[3.5px] border-dashed border-gray-200/90 border-l-gray-400 bg-gray-50/70 hover:border-gray-300'
+                  : 'border border-l-[3.5px] border-rose-200/90 border-l-rose-500 bg-rose-50/60 hover:border-rose-300'
               "
               :style="{ top: `${blocked.topPct}%`, height: `${blocked.heightPct}%` }"
             >
@@ -1188,9 +1188,9 @@
                 />
               </div>
               <div>
-                <h3 class="text-foreground text-base font-bold">Copy Day's Schedule</h3>
+                <h3 class="text-foreground text-base font-bold">Copy Day's Availability</h3>
                 <p class="text-muted-foreground text-xs">
-                  Replicate duty hours to other days of the week.
+                  Replicate clinic availability to other days of the week.
                 </p>
               </div>
             </div>
@@ -1238,7 +1238,7 @@
           <div class="space-y-2">
             <div class="flex items-center justify-between">
               <label class="text-muted-foreground text-[11px] font-bold tracking-wider uppercase">
-                Paste Schedule To:
+                Paste Availability To:
               </label>
               <div
                 class="text-muted-foreground flex items-center gap-1.5 text-[11px] font-semibold"
@@ -1414,8 +1414,8 @@
     <!-- Confirmation Modal for Drag-to-Copy Schedule -->
     <AppModalConfirmation
       v-model="showConfirmDropModal"
-      title="Confirm Schedule Copy"
-      confirm-text="Copy Schedule"
+      title="Confirm Availability Copy"
+      confirm-text="Copy Availability"
       cancel-text="Cancel"
       confirm-variant="solid"
       icon="heroicons:document-duplicate"
@@ -1548,7 +1548,7 @@
     <!-- Delete Slot Confirmation Modal -->
     <AppModalConfirmation
       v-model="showDeleteSlotModal"
-      title="Remove Schedule Period?"
+      title="Remove Availability Period?"
       :description="
         slotToDelete
           ? `Are you sure you want to remove this ${

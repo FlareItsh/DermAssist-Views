@@ -5,7 +5,8 @@
     type DoctorPlan
   } from '~/api/subscription/DoctorSubscriptionService'
 
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const { isSubscribed, currentSubscription, planName, fetchSubscription } = useDoctorSubscription()
 
   const allPlans = ref<DoctorPlan[]>([])

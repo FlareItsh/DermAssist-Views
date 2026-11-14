@@ -136,7 +136,11 @@
       console.error('Logout failed:', error)
     } finally {
       useSessionCleanup().clearSessionCaches()
-      await navigateTo('/auth/login')
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
     }
   }
 </script>

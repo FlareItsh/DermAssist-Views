@@ -688,7 +688,7 @@
               <h2 class="text-foreground truncate text-sm font-bold">
                 {{ doctorDisplayName }}
               </h2>
-              <p class="truncate text-[11px] font-semibold text-indigo-600">Request Consultation</p>
+              <p class="truncate text-[11px] font-semibold text-indigo-600">Request Appointment</p>
             </div>
           </div>
         </div>
@@ -697,7 +697,7 @@
         <span
           class="shrink-0 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-700"
         >
-          Consultation
+          Appointment
         </span>
       </div>
 
@@ -917,12 +917,12 @@
         <!-- Consultation Notes & Presets -->
         <div class="border-border bg-card rounded-2xl border p-4 shadow-sm">
           <label class="text-foreground mb-1 block text-xs font-bold">
-            Consultation Reason / Notes
+            Appointment Reason / Notes
           </label>
           <input
             v-model="purpose"
             type="text"
-            placeholder="e.g. General consultation or skin check"
+            placeholder="e.g. General appointment or skin check"
             class="border-border bg-background text-foreground mb-2 w-full rounded-xl border px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <div class="flex flex-wrap gap-1.5">
@@ -949,7 +949,7 @@
         class="border-border bg-card fixed right-0 bottom-0 left-0 z-50 flex items-center justify-between border-t p-3 shadow-lg"
       >
         <div class="min-w-0 flex-1 pr-3">
-          <p class="text-muted-foreground text-[10px]">Preferred Consultation</p>
+          <p class="text-muted-foreground text-[10px]">Preferred Appointment</p>
           <p class="text-foreground truncate text-xs font-bold">
             <span v-if="selectedDate">
               {{ selectedDate }}
@@ -1020,10 +1020,10 @@
                     <p
                       class="text-[10px] font-bold tracking-widest text-white uppercase opacity-80"
                     >
-                      Book Consultation
+                      Book Appointment
                     </p>
                     <h3 class="text-base leading-tight font-black text-white">
-                      Request Consultation
+                      Request Appointment
                     </h3>
                   </div>
                 </div>
@@ -1077,7 +1077,7 @@
                   </div>
                 </div>
                 <span class="text-muted-foreground hidden text-xs font-medium sm:inline-block">
-                  Standard Consultation:
+                  Standard Appointment:
                   <strong class="text-foreground font-semibold">1 hour</strong>
                 </span>
               </div>
@@ -1304,7 +1304,7 @@
                             name="lucide:clock"
                             class="text-xs"
                           />
-                          Duty Schedule: {{ selectedDateClinic.dutyHours }}
+                          Clinic Availability: {{ selectedDateClinic.dutyHours }}
                         </p>
                       </div>
                     </div>
@@ -1407,15 +1407,15 @@
                     />
                     <p class="font-bold">No Available Time Slots</p>
                     <p class="mt-1 text-[11px] opacity-80">
-                      All consultation hours for this date are fully booked or blocked. Please
-                      select another date.
+                      All appointment hours for this date are fully booked or blocked. Please select
+                      another date.
                     </p>
                   </div>
 
                   <!-- Reason / Notes Input & Presets -->
                   <div class="mt-5 border-t pt-4">
                     <label class="text-foreground mb-1 block text-xs font-bold">
-                      Consultation Reason / Notes
+                      Appointment Reason / Notes
                     </label>
                     <input
                       v-model="purpose"
@@ -1478,7 +1478,7 @@
                 </div>
                 <div>
                   <p class="text-muted-foreground text-[10px] font-bold uppercase">
-                    Selected Schedule
+                    Selected Appointment Time
                   </p>
                   <p class="text-foreground text-xs font-bold">
                     <span v-if="selectedDate">

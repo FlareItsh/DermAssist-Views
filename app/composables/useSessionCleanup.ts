@@ -14,7 +14,11 @@ export const useSessionCleanup = () => {
     useCookie('account_status', { path: '/' }).value = null
     useCookie('verification_deadline', { path: '/' }).value = null
 
-    useState<any>('auth_user').value = null
+    useState<any>('auth_user', () => null).value = null
+
+    try {
+      useEcho().disconnectEcho()
+    } catch {}
 
     useState<any[]>('shared_appointments_list').value = []
     useState<any[]>('shared_pending_appointments_list').value = []

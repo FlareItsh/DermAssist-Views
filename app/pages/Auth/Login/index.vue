@@ -96,6 +96,8 @@
   const completeLoginSession = async (response: LoginResponse) => {
     if (!response.token) return
 
+    useSessionCleanup().clearSessionCaches()
+
     const token = useCookie('auth_token', {
       maxAge: 60 * 60 * 24 * 7,
       path: '/'
@@ -107,51 +109,11 @@
     const rawRole = userData?.role?.slug || userData?.role || 'patient'
     const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
-    const role = useCookie('user_role', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    role.value = baseRole
-
-    const userName = useCookie('user_name', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    const authName = useCookie('auth_user_name', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
-    userName.value = fullName
-    authName.value = fullName
-
-    const userUuid = useCookie('user_uuid', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    userUuid.value = userData?.uuid
-
-    const doctorUuid = useCookie('doctor_uuid', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    doctorUuid.value = userData?.doctor_uuid || null
-
-    const accountStatusCookie = useCookie('account_status', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    accountStatusCookie.value = userData?.account_status || 'active'
-
-    const verificationDeadlineCookie = useCookie('verification_deadline', {
-      maxAge: 60 * 60 * 24 * 7,
-      path: '/'
-    })
-    verificationDeadlineCookie.value = userData?.verification_deadline || null
-
     const route = useRoute()
     const guestTokenCookie = useCookie<string | null>('da_guest_token')
     const claimToken = (route.query.claim_scan as string) || guestTokenCookie.value
+
+    let targetUrl = `/${baseRole}`
 
     if (claimToken && baseRole === 'patient') {
       try {
@@ -160,8 +122,7 @@
         if (claimRes?.data?.uuid) {
           toast.success('Your guest scan has been claimed and unlocked!')
           if (userData?.terms_accepted_at) {
-            await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
-            return
+            targetUrl = `/Patient/Records/${claimRes.data.uuid}`
           }
         }
       } catch (e) {
@@ -169,7 +130,11 @@
       }
     }
 
-    await navigateTo(`/${baseRole}`)
+    if (import.meta.client) {
+      window.location.href = targetUrl
+    } else {
+      await navigateTo(targetUrl)
+    }
   }
 
   const submitForm = async () => {

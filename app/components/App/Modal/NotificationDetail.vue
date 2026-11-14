@@ -166,7 +166,8 @@
       navigateTo(props.notification.to)
     }
   }
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const updatesRoute = computed(() => {
     if (userRole.value === 'doctor') return '/doctor/updates'

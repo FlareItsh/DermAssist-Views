@@ -1,9 +1,7 @@
-import { $api } from '~/composables/useApi'
+import { useAuth } from '~/composables/useAuth'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  const token = useCookie('auth_token', { path: '/' })
-  const roleCookie = useCookie('user_role', { path: '/' })
-  const authUser = useState<any>('auth_user', () => null)
+  const { token, user: authUser, role: authRole, fetchUser, clearAuth } = useAuth()
 
   const path = to.path.toLowerCase()
   const normalizedPath = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path
@@ -23,7 +21,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   }
 
   // Authoritative role & terms validation from backend on protected/admin navigation
-  let verifiedRole = authUser.value?.role?.slug || authUser.value?.role
+  let verifiedRole = authRole.value
   if (
     token.value &&
     (!verifiedRole ||
@@ -32,26 +30,18 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
       authUser.value.terms_accepted_at === undefined)
   ) {
     try {
-      const res: any = await $api('/user')
-      const userData = res?.data || res
-      authUser.value = userData
+      const userData = await fetchUser(true)
       const trueRole = (userData?.role?.slug || userData?.role || '').toLowerCase()
       verifiedRole = trueRole
-
-      if (roleCookie.value !== trueRole) {
-        roleCookie.value = trueRole
-      }
     } catch {
-      token.value = null
-      roleCookie.value = null
-      authUser.value = null
+      clearAuth()
       if (isProtectedRoute || isDashboardUtilityRoute) {
         return navigateTo('/auth/login')
       }
     }
   }
 
-  const effectiveRole = (verifiedRole || roleCookie.value || '').toLowerCase()
+  const effectiveRole = (verifiedRole || '').toLowerCase()
 
   // If trying to access an Auth route while already logged in (exempt OAuth callback, verify, check-email, and doctor step 2 onboarding)
   const isDoctorOnboarding =

@@ -65,7 +65,8 @@
   }>()
 
   const { getStorageUrl } = useStorage()
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
 
   const userDetails = ref<any>(null)
   const isLoadingUser = ref(false)
@@ -373,7 +374,7 @@
             type="button"
             @click="handleScheduleClick"
             class="hover:bg-foreground/5 flex flex-col items-center gap-1.5 rounded-2xl p-2.5 transition-all active:scale-95"
-            title="Schedule Visit"
+            title="Book Appointment"
           >
             <div
               class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 shadow-xs"
@@ -383,7 +384,7 @@
                 class="text-lg"
               />
             </div>
-            <span class="text-foreground/70 text-[11px] font-semibold">Schedule</span>
+            <span class="text-foreground/70 text-[11px] font-semibold">Appointment</span>
           </button>
 
           <!-- Search Conversation -->
@@ -531,7 +532,7 @@
                 name="solar:calendar-add-linear"
                 class="text-sm"
               />
-              Book an Appointment
+              Book Appointment
             </button>
           </div>
         </div>
@@ -696,7 +697,7 @@
             class="border-primary/20 bg-primary/5 rounded-xl border px-3.5 py-2.5"
           >
             <span class="text-primary block text-[10px] font-bold tracking-wider uppercase">
-              Attending Physician
+              Attending Dermatologist
             </span>
             <p class="text-foreground mt-0.5 font-bold">
               Dr. {{ userDetails.registered_by_doctor.first_name }}

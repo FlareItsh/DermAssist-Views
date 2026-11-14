@@ -76,7 +76,7 @@
     <div class="mb-4 flex items-center justify-between gap-4">
       <div class="flex items-center gap-2">
         <div class="bg-secondary h-5 w-1 shrink-0 rounded-full"></div>
-        <h3 class="text-foreground text-base font-bold">Doctors Nearby</h3>
+        <h3 class="text-foreground text-base font-bold">Dermatologists Nearby</h3>
       </div>
       <div class="flex items-center gap-2">
         <span

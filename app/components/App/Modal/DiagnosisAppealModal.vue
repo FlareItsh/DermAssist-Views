@@ -33,7 +33,8 @@
     (e: 'appeal-updated', appeal: any): void
   }>()
 
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   // Form states
   const suggestedLabel = ref('')

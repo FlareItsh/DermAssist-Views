@@ -48,10 +48,11 @@
   }
 
   const router = useRouter()
+  const { role: authRole } = useAuth()
   const goToChat = (conversationUuid: string | undefined) => {
     if (!conversationUuid) return
     closePopover()
-    const role = useCookie('user_role').value
+    const role = authRole.value || useCookie('user_role').value
     const prefix = role === 'secretary' ? '/secretary' : '/doctor'
     navigateTo(`${prefix}/messages/${conversationUuid}`)
   }

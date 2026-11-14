@@ -2,7 +2,8 @@
   const { appointments, allAppointments } = useAppointments()
   const { getStorageUrl } = useStorage()
   const { addToPriority, removeFromPriority, isInPriority } = usePriorityList()
-  const currentDoctorUuid = useCookie('user_uuid')
+  const { uuid: authUuid, role: authRole } = useAuth()
+  const currentDoctorUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const getInitials = (firstName: string, lastName: string, fallback: string): string => {
     if (firstName || lastName) {
@@ -164,7 +165,7 @@
   }
 
   const rolePrefix = computed(() => {
-    const role = useCookie('user_role').value
+    const role = authRole.value || useCookie('user_role').value
     return role === 'secretary' ? '/secretary' : '/doctor'
   })
 

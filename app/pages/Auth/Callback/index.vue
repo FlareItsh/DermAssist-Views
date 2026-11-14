@@ -94,49 +94,9 @@
       const rawRole = userData?.role?.slug || userData?.role || 'patient'
       const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
-      // Set session cookies
-      const roleCookie = useCookie('user_role', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      roleCookie.value = baseRole
-
       const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
       userGreeting.value = userData?.first_name || fullName || 'User'
 
-      const userName = useCookie('user_name', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      const authName = useCookie('auth_user_name', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      userName.value = fullName
-      authName.value = fullName
-
-      const userUuid = useCookie('user_uuid', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      userUuid.value = userData?.uuid
-
-      const doctorUuid = useCookie('doctor_uuid', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      doctorUuid.value = userData?.doctor_uuid || null
-
-      const accountStatusCookie = useCookie('account_status', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
-      accountStatusCookie.value = userData?.account_status || 'active'
-
-      const verificationDeadlineCookie = useCookie('verification_deadline', {
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      })
       const isDoctor = baseRole === 'doctor'
       const needsPrcOnboarding =
         isDoctor &&
@@ -154,12 +114,15 @@
 
       // Smooth navigate to designated role dashboard or Step 2 for doctors
       setTimeout(async () => {
-        if (needsPrcOnboarding) {
-          await navigateTo('/auth/register?step=2&role=doctor&source=google', { replace: true })
+        const dest = needsPrcOnboarding
+          ? '/auth/register?step=2&role=doctor&source=google'
+          : `/${baseRole}`
+        if (import.meta.client) {
+          window.location.href = dest
         } else {
-          await navigateTo(`/${baseRole}`, { replace: true })
+          await navigateTo(dest, { replace: true })
         }
-      }, 600)
+      }, 400)
     } catch (err: any) {
       const msg = err?.data?.message || err?.message || 'Failed to authenticate with Google.'
       errorMessage.value = msg

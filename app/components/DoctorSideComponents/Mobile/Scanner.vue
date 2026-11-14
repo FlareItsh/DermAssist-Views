@@ -38,8 +38,9 @@
     saveActiveDiagnosisState
   } = useDiagnosis()
 
-  const userUuid = useCookie('user_uuid')
-  const userName = useCookie('user_name')
+  const { uuid: authUuid, fullName: authFullName } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
+  const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
   const { isLimitReached, applyQuota, fetchQuota } = useScanQuota()
   const { getStorageUrl } = useStorage()
   const { appointments, pendingAppointments, fetchAppointments } = useAppointments()

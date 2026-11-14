@@ -408,8 +408,7 @@
     isLoading.value = true
 
     try {
-      const authToken = useCookie('auth_token')
-      const userUuid = useCookie('user_uuid')
+      const { token: authToken, uuid: userUuid } = useAuth()
 
       // Case A: Doctor onboarding via Google completing or skipping Step 2
       if (
@@ -473,52 +472,9 @@
         const rawRole = userData?.role?.slug || userData?.role || role.value || 'patient'
         const baseRole = String(rawRole).split('/')[0].toLowerCase() || 'patient'
 
-        // Set the user role cookie for middleware
-        const roleCookie = useCookie('user_role', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        roleCookie.value = baseRole
-
-        const userName = useCookie('user_name', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        const authName = useCookie('auth_user_name', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        const fullName = `${userData?.first_name || ''} ${userData?.last_name || ''}`.trim()
-        userName.value = fullName
-        authName.value = fullName
-
-        const userUuid = useCookie('user_uuid', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        userUuid.value = userData?.uuid
-
         if (import.meta.client && userData?.uuid) {
           localStorage.setItem(`da_pending_terms_reminder_${userData.uuid}`, '1')
         }
-
-        const doctorUuid = useCookie('doctor_uuid', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        doctorUuid.value = userData?.doctor_uuid || null
-
-        const accountStatusCookie = useCookie('account_status', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        accountStatusCookie.value = userData?.account_status || 'active'
-
-        const verificationDeadlineCookie = useCookie('verification_deadline', {
-          maxAge: 60 * 60 * 24 * 7,
-          path: '/'
-        })
-        verificationDeadlineCookie.value = userData?.verification_deadline || null
 
         if (userData?.account_status === 'pending_verification') {
           toast.info(
@@ -532,6 +488,8 @@
         const guestTokenCookie = useCookie<string | null>('da_guest_token')
         const claimToken = (route.query.claim_scan as string) || guestTokenCookie.value
 
+        let targetUrl = `/${baseRole}`
+
         if (claimToken && baseRole === 'patient') {
           try {
             const claimRes = await scanQuotaService.claimGuestScan(claimToken)
@@ -543,8 +501,7 @@
                 userData?.uuid &&
                 localStorage.getItem(`da_pending_terms_reminder_${userData.uuid}`) === '1'
               if (userData?.terms_accepted_at && !hasPendingReminder) {
-                await navigateTo(`/Patient/Records/${claimRes.data.uuid}`)
-                return
+                targetUrl = `/Patient/Records/${claimRes.data.uuid}`
               }
             }
           } catch (e) {
@@ -552,8 +509,11 @@
           }
         }
 
-        // Redirect based on role
-        await navigateTo(`/${baseRole}`)
+        if (import.meta.client) {
+          window.location.href = targetUrl
+        } else {
+          await navigateTo(targetUrl)
+        }
       }
     } catch (err: any) {
       console.error('Registration Error:', err)
@@ -915,9 +875,9 @@
                   class="text-xs font-bold transition-colors"
                   :class="role === 'doctor' ? 'text-primary' : 'text-foreground'"
                 >
-                  Doctor
+                  Dermatologist
                 </p>
-                <p class="text-foreground/60 text-xs font-medium">Medical Professional</p>
+                <p class="text-foreground/60 text-xs font-medium">Licensed Dermatologist</p>
               </div>
             </AppButton>
           </div>
@@ -1261,10 +1221,10 @@
 
           <div class="text-center">
             <h1 class="text-foreground text-2xl font-bold tracking-tight sm:text-3xl">
-              Doctor Verification
+              Dermatologist Verification
             </h1>
             <p class="text-foreground/60 mt-1 text-xs sm:text-sm">
-              Verify your professional medical license to start consultations.
+              Verify your professional medical license to start dermatological consultations.
             </p>
           </div>
 

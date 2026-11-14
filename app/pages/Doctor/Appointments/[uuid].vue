@@ -102,7 +102,7 @@
     isProcessingBooking.value = true
     try {
       await appointmentService.accept(appointment.value.id)
-      toast.success('Appointment request accepted.')
+      toast.success('Appointment accepted successfully.')
       await fetchAppointments()
     } catch (e: any) {
       toast.error(
@@ -118,7 +118,7 @@
     isProcessingBooking.value = true
     try {
       await appointmentService.update(appointment.value.id, { status: 'declined' })
-      toast.success('Appointment request declined.')
+      toast.success('Appointment declined.')
       await fetchAppointments()
       await router.push('/Doctor/Appointments')
     } catch (e: any) {
@@ -656,6 +656,17 @@
         :appointment-uuid="uuid"
         :diagnosis-id="appointment.in_clinic_diagnosis_id || appointment.diagnosis_id"
         :diagnosis-uuid="appointment.in_clinic_diagnosis?.uuid || appointment.diagnosis?.uuid"
+        :condition-name="
+          appointment.in_clinic_diagnosis?.label || appointment.diagnosis?.label || appointment.info
+        "
+        :is-out-of-scope="
+          appointment.in_clinic_diagnosis?.is_out_of_scope || appointment.diagnosis?.is_out_of_scope
+        "
+        :detected-category="
+          appointment.in_clinic_diagnosis?.out_of_scope_category ||
+          appointment.diagnosis?.out_of_scope_category
+        "
+        :active-appeal="appointment.in_clinic_diagnosis?.appeal || appointment.diagnosis?.appeal"
       />
     </div>
 

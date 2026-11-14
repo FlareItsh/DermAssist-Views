@@ -14,7 +14,8 @@
 
   const route = useRoute()
   const router = useRouter()
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const { getStorageUrl } = useStorage()
 
   // ── Appointment Store ────────────────────────────────────────────────────────
@@ -446,7 +447,7 @@
             <input
               v-model="doctorSearchQuery"
               type="text"
-              placeholder="Search doctor or clinic..."
+              placeholder="Search dermatologist or clinic..."
               class="focus:border-primary focus:ring-primary/20 w-full rounded-2xl border border-gray-300 bg-white py-2 pr-3 pl-8 text-xs font-medium text-gray-900 shadow-2xs transition-colors placeholder:text-gray-400 focus:ring-2 focus:outline-none"
             />
           </div>
@@ -569,7 +570,7 @@
                 type="button"
                 @click="handleStartChatWithDoctor(doc)"
                 class="hover:bg-primary/10 text-primary border-primary/20 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border transition-all active:scale-95"
-                title="Message Doctor"
+                title="Message Dermatologist"
               >
                 <Icon
                   name="mingcute:message-4-line"
@@ -589,7 +590,9 @@
             name="solar:users-group-two-rounded-outline"
             class="mb-2 text-3xl text-gray-300"
           />
-          <p class="text-xs font-semibold text-gray-500">No doctors match your search query</p>
+          <p class="text-xs font-semibold text-gray-500">
+            No dermatologists match your search query
+          </p>
         </div>
       </div>
 
@@ -602,9 +605,9 @@
           <div class="flex items-center gap-3">
             <div class="bg-primary h-8 w-1 shrink-0 rounded-full"></div>
             <div>
-              <h2 class="text-foreground text-xl font-bold">My Consultations</h2>
+              <h2 class="text-foreground text-xl font-bold">My Appointments</h2>
               <p class="text-muted-foreground text-xs">
-                Track active schedules, pending approvals, and past consultation history
+                Track active appointments, pending requests, and appointment history
               </p>
             </div>
           </div>
@@ -674,13 +677,13 @@
             </div>
             <div>
               <p class="font-bold text-amber-900">
-                {{ pendingAppointments.length }} Pending Consultation Request{{
+                {{ pendingAppointments.length }} Pending Appointment Request{{
                   pendingAppointments.length > 1 ? 's' : ''
                 }}
               </p>
               <p class="text-[11px] text-amber-800">
-                Awaiting doctor confirmation. Requested slots are pending approval and not finalized
-                until accepted.
+                Awaiting dermatologist confirmation. Requested slots are pending approval and not
+                finalized until accepted.
               </p>
             </div>
           </div>
@@ -701,7 +704,7 @@
             <input
               v-model="appointmentSearchQuery"
               type="text"
-              placeholder="Search consultations by doctor or date..."
+              placeholder="Search consultations by dermatologist or date..."
               class="focus:border-primary focus:ring-primary/20 w-full rounded-2xl border border-gray-300 bg-white py-2 pr-3 pl-8 text-xs font-medium text-gray-900 shadow-2xs transition-colors placeholder:text-gray-400 focus:ring-2 focus:outline-none"
             />
           </div>
@@ -739,7 +742,7 @@
                     </span>
                   </div>
                   <p class="text-muted-foreground truncate text-xs">
-                    {{ appt.info || 'Clinical Consultation' }}
+                    {{ appt.info || 'Clinical Appointment' }}
                   </p>
                 </div>
               </div>
@@ -752,7 +755,7 @@
                   name="material-symbols:calendar-today-rounded"
                   class="text-primary text-sm"
                 />
-                <span>{{ appt.date || 'Pending Schedule' }}</span>
+                <span>{{ appt.date || 'Pending Appointment Date' }}</span>
                 <span
                   v-if="appt.time"
                   class="text-gray-400"
@@ -803,7 +806,7 @@
                 />
               </div>
               <div class="flex-1">
-                <p class="font-bold text-amber-900">Awaiting Doctor Confirmation</p>
+                <p class="font-bold text-amber-900">Awaiting Dermatologist Confirmation</p>
                 <p class="mt-0.5 text-[11px] leading-relaxed text-amber-800">
                   Your appointment request for
                   <strong
@@ -840,7 +843,7 @@
                       appt.requested_reschedule_time ? ` at ${appt.requested_reschedule_time}` : ''
                     }}
                   </span>
-                  <span v-else> Reschedule Request Pending Doctor Review </span>
+                  <span v-else> Reschedule Request Pending Dermatologist Review </span>
                 </p>
                 <p
                   v-if="appt.active_reschedule_proposal?.reason"
@@ -881,7 +884,9 @@
                 v-else-if="appt.active_reschedule_proposal"
                 class="flex shrink-0 items-center gap-2"
               >
-                <span class="text-[11px] font-semibold text-amber-800">Pending Doctor Review</span>
+                <span class="text-[11px] font-semibold text-amber-800"
+                  >Pending Dermatologist Review</span
+                >
                 <button
                   type="button"
                   @click="handleWithdrawProposal(appt)"
@@ -895,7 +900,9 @@
                 v-else
                 class="flex shrink-0 items-center gap-2"
               >
-                <span class="text-[11px] font-semibold text-amber-800">Pending Doctor Review</span>
+                <span class="text-[11px] font-semibold text-amber-800"
+                  >Pending Dermatologist Review</span
+                >
               </div>
             </div>
 
@@ -1010,7 +1017,7 @@
     <AppModalConfirmation
       v-if="showCancelModal"
       v-model="showCancelModal"
-      title="Cancel Consultation?"
+      title="Cancel Appointment?"
       description="Are you sure you want to cancel this appointment request? Your scheduled slot will be released back to the clinic."
       confirm-text="Yes, Cancel Appointment"
       cancel-text="Keep Appointment"

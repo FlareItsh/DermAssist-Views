@@ -473,7 +473,7 @@
       label: 'Doctor',
       value: 'doctor',
       icon: 'lucide:stethoscope',
-      desc: 'Physician with clinical & scanning privileges'
+      desc: 'Dermatologist with clinical & scanning privileges'
     },
     {
       label: 'Secretary',
@@ -1079,10 +1079,10 @@
                   name="lucide:stethoscope"
                   class="text-lg text-indigo-600"
                 />
-                Assigned Supervising Physician
+                Assigned Supervising Dermatologist
               </h2>
               <p class="mt-0.5 text-xs text-gray-500 sm:text-sm">
-                Physician whose clinic and consultations this secretary supports.
+                Dermatologist whose clinic and appointments this secretary supports.
               </p>
             </div>
             <span
@@ -1329,7 +1329,7 @@
                   </div>
                   <div>
                     <p class="text-xs font-bold tracking-wider text-sky-600 uppercase">
-                      Sponsoring Physician
+                      Sponsoring Dermatologist
                     </p>
                     <p class="mt-0.5 text-sm font-black text-gray-950">
                       Dr. {{ user.registered_by_doctor.first_name }}
@@ -1597,7 +1597,7 @@
                   v-if="user.doctor_affiliation.associate_membership.owner_doctor"
                   class="pt-1 font-semibold text-gray-700"
                 >
-                  Lead Physician: Dr.
+                  Lead Dermatologist: Dr.
                   {{ user.doctor_affiliation.associate_membership.owner_doctor.name }}
                   <span class="font-normal text-gray-400"
                     >({{ user.doctor_affiliation.associate_membership.owner_doctor.email }})</span

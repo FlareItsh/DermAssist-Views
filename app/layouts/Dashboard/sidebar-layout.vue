@@ -103,12 +103,10 @@
 <script setup lang="ts">
   import { toast } from 'vue-sonner'
   import { authService } from '~/api/auth/AuthService'
-  import { $api } from '~/composables/useApi'
+  import { useAuth } from '~/composables/useAuth'
 
   const route = useRoute()
-  const userRole = useCookie('user_role', { path: '/' })
-  const authToken = useCookie('auth_token', { path: '/' })
-  const authUser = useState<any>('auth_user', () => null)
+  const { token: authToken, user: authUser, role: userRole, fetchUser } = useAuth()
 
   const isHydrated = ref(false)
   const isAcceptingTerms = ref(false)
@@ -116,7 +114,7 @@
 
   const syncPendingTermsReminder = () => {
     if (!import.meta.client) return
-    const uuid = authUser.value?.uuid || useCookie('user_uuid', { path: '/' }).value
+    const uuid = authUser.value?.uuid
     hasPendingTermsReminder.value = Boolean(
       uuid && localStorage.getItem(`da_pending_terms_reminder_${uuid}`) === '1'
     )
@@ -164,7 +162,7 @@
         }
       }
       if (import.meta.client) {
-        const uuid = authUser.value?.uuid || useCookie('user_uuid', { path: '/' }).value
+        const uuid = authUser.value?.uuid
         if (uuid) {
           localStorage.removeItem(`da_pending_terms_reminder_${uuid}`)
         }
@@ -190,7 +188,11 @@
       useSessionCleanup().clearSessionCaches()
       isAcceptingTerms.value = false
       toast.info('You must agree to the Terms & Conditions to access your account.')
-      await navigateTo('/auth/login')
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
     }
   }
 
@@ -533,11 +535,7 @@
 
     if (authToken.value && (!authUser.value || authUser.value.terms_accepted_at === undefined)) {
       try {
-        const res: any = await $api('/user')
-        const userData = res?.data || res
-        if (userData) {
-          authUser.value = userData
-        }
+        await fetchUser(true)
       } catch {
         // Handled by global auth middleware if token is invalid
       }
@@ -545,9 +543,7 @@
 
     syncPendingTermsReminder()
 
-    const effectiveRole = String(
-      userRole.value || authUser.value?.role?.slug || authUser.value?.role || ''
-    ).toLowerCase()
+    const effectiveRole = userRole.value
     const normalizedPath =
       route.path.length > 1 && route.path.endsWith('/')
         ? route.path.slice(0, -1).toLowerCase()

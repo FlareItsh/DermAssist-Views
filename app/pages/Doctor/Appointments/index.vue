@@ -25,9 +25,16 @@
 
   const { getStorageUrl } = useStorage()
   const { searchQuery } = useSearch()
-  const { resetScanner, appointmentUuid, patientUuid, saveActiveDiagnosisState, pendingPatientRegistration } = useDiagnosis()
+  const {
+    resetScanner,
+    appointmentUuid,
+    patientUuid,
+    saveActiveDiagnosisState,
+    pendingPatientRegistration
+  } = useDiagnosis()
   const { calculateAge } = useFormSanitizer()
-  const currentDoctorUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const currentDoctorUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   // Patient directory data for Schedule New Appointment modal
   const doctorRegisteredPatients = ref<any[]>([])
@@ -94,7 +101,7 @@
   const promptRejectBooking = (appt: any) => {
     pendingBookingAppt.value = appt
     bookingActionType.value = 'reject'
-    bookingRejectReason.value = 'Slot unavailable or schedule conflict'
+    bookingRejectReason.value = 'Slot unavailable or availability conflict'
     showBookingModal.value = true
   }
 
@@ -104,12 +111,12 @@
     try {
       if (bookingActionType.value === 'accept') {
         await appointmentService.accept(pendingBookingAppt.value.id)
-        toast.success('Appointment booking confirmed successfully.')
+        toast.success('Appointment confirmed successfully.')
       } else {
         await appointmentService.reject(pendingBookingAppt.value.id, {
-          reason: bookingRejectReason.value || 'Booking declined by practice'
+          reason: bookingRejectReason.value || 'Appointment declined by clinic'
         })
-        toast.success('Appointment booking request rejected.')
+        toast.success('Appointment request declined.')
       }
       showBookingModal.value = false
       pendingBookingAppt.value = null
@@ -393,10 +400,7 @@
 
     // 1. Process Doctor-Registered Patients first
     for (const p of doctorRegisteredPatients.value) {
-      if (
-        (p.uuid && p.uuid === currentDoctorUuid.value) ||
-        (p.role && p.role !== 'patient')
-      ) {
+      if ((p.uuid && p.uuid === currentDoctorUuid.value) || (p.role && p.role !== 'patient')) {
         continue
       }
       const key = p.uuid || `reg_${p.id}`
@@ -479,8 +483,7 @@
 
     // 3. Merge conversations (chat patients)
     for (const conv of doctorConversations.value) {
-      const otherUser =
-        conv.user1_uuid === currentDoctorUuid.value ? conv.user2 : conv.user1
+      const otherUser = conv.user1_uuid === currentDoctorUuid.value ? conv.user2 : conv.user1
       if (!otherUser || otherUser.role !== 'patient') continue
 
       const key = otherUser.uuid || `reg_${otherUser.id}`
@@ -991,7 +994,7 @@
             name="lucide:calendar-plus"
             class="text-sm"
           />
-          Book an Appointment
+          Book Appointment
         </button>
       </div>
 
@@ -1256,7 +1259,7 @@
                   name="material-symbols:check-circle-rounded"
                   class="text-sm"
                 />
-                Accept Booking
+                Accept Appointment
               </button>
 
               <button
@@ -1562,19 +1565,21 @@
     <AppModalConfirmation
       v-model="showBookingModal"
       :title="
-        bookingActionType === 'accept' ? 'Accept Booking Request?' : 'Decline Booking Request?'
+        bookingActionType === 'accept'
+          ? 'Accept Appointment Request?'
+          : 'Decline Appointment Request?'
       "
       :description="
         bookingActionType === 'accept'
           ? pendingBookingAppt?.date && pendingBookingAppt?.time
-            ? `Confirm and lock consultation slot for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}.`
-            : 'Confirm and lock this consultation slot. Availability will be atomically checked.'
+            ? `Confirm and lock appointment slot for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}.`
+            : 'Confirm and lock this appointment slot. Availability will be atomically checked.'
           : pendingBookingAppt?.date && pendingBookingAppt?.time
-            ? `Are you sure you want to decline the booking request for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}? The patient will be notified.`
-            : 'Are you sure you want to decline this booking request? The patient will be notified.'
+            ? `Are you sure you want to decline the appointment request for ${pendingBookingAppt?.patientName || 'the patient'} on ${pendingBookingAppt?.date} at ${pendingBookingAppt?.time}? The patient will be notified.`
+            : 'Are you sure you want to decline this appointment request? The patient will be notified.'
       "
       :confirm-text="
-        bookingActionType === 'accept' ? 'Yes, Confirm Booking' : 'Yes, Decline Request'
+        bookingActionType === 'accept' ? 'Yes, Confirm Appointment' : 'Yes, Decline Request'
       "
       cancel-text="Go Back"
       confirm-variant="solid"
@@ -1620,7 +1625,7 @@
     <!-- 1e. Cancel Appointment Modal -->
     <AppModalConfirmation
       v-model="showCancelModal"
-      title="Cancel Consultation?"
+      title="Cancel Appointment?"
       description="Are you sure you want to cancel this scheduled appointment? Any pending proposals will be closed."
       confirm-text="Yes, Cancel Appointment"
       cancel-text="Go Back"
@@ -1764,7 +1769,7 @@
                   name="material-symbols:edit-document-outline"
                   class="text-base"
                 />
-                Open Clinical Consultation
+                Open Clinical Note
               </button>
 
               <button

@@ -413,8 +413,10 @@
           <!-- ── Step 1: Patient Picker ──────────────────────────────── -->
           <template v-if="step === 1">
             <div class="flex w-[95vw] flex-col p-8 sm:w-[550px] lg:w-[34rem]">
-              <h3 class="mb-2 text-2xl font-bold">New Schedule</h3>
-              <p class="mb-6 text-sm text-gray-500">Select a patient to schedule a follow-up</p>
+              <h3 class="mb-2 text-2xl font-bold">Book Appointment</h3>
+              <p class="mb-6 text-sm text-gray-500">
+                Select a patient to book a follow-up appointment
+              </p>
 
               <div
                 v-if="completedPatients.length === 0"
@@ -476,7 +478,7 @@
             <div class="flex w-[95vw] flex-col p-8 sm:w-[600px] lg:w-[36rem]">
               <div class="mb-4 flex items-center justify-between">
                 <div>
-                  <h3 class="text-2xl font-bold">Schedule Appointment</h3>
+                  <h3 class="text-2xl font-bold">Appointment Details</h3>
                   <p
                     class="mt-0.5 text-xs font-bold text-indigo-600"
                     v-if="selectedPatient"
@@ -592,7 +594,7 @@
                       class="mt-0.5 shrink-0 text-sm"
                     />
                     <div>
-                      <p class="font-bold">Schedule Conflict with Existing Appointment</p>
+                      <p class="font-bold">Conflict with Existing Appointment</p>
                       <p class="mt-0.5 text-red-500">
                         This time overlaps with an existing appointment ({{
                           overlappingAppointment.start_time
@@ -680,7 +682,7 @@
                   :disabled="!isFormValid || isScheduling"
                   @click="confirmSchedule"
                 >
-                  {{ isScheduling ? 'Scheduling...' : 'Confirm Schedule' }}
+                  {{ isScheduling ? 'Booking...' : 'Confirm Appointment' }}
                 </AppButton>
                 <AppButton
                   variant="unstyled"

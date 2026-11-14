@@ -18,7 +18,8 @@
   }>()
 
   const { getStorageUrl } = useStorage()
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   // Step state: 'options' | 'select_doctor' | 'confirm'
   const step = ref<'options' | 'select_doctor' | 'confirm'>('options')
@@ -88,7 +89,7 @@
                 last_name: c.doctor.last_name || c.doctor.name?.split(' ').slice(1).join(' ') || '',
                 name: c.doctor.name,
                 avatar_path: c.doctor.avatar_path,
-                affiliation: c.doctor.affiliation || 'Attending Specialist',
+                affiliation: c.doctor.affiliation || 'Attending Dermatologist',
                 city: c.doctor.city || '',
                 province: c.doctor.province || '',
                 conversation_uuid: c.id,
@@ -384,11 +385,11 @@
                       ? 'Share Scan Findings'
                       : step === 'select_doctor'
                         ? selectedAction === 'chat'
-                          ? 'Select Doctor for Chat'
-                          : 'Select Doctor for Consultation'
+                          ? 'Select Dermatologist for Chat'
+                          : 'Select Dermatologist for Appointment'
                         : selectedAction === 'chat'
                           ? 'Send Scan via Chat'
-                          : 'Book Consultation'
+                          : 'Book Appointment'
                   }}
                 </h3>
                 <p class="text-[11px] font-semibold text-gray-500">Record Ref: #{{ shortId }}</p>
@@ -482,7 +483,7 @@
                 />
               </button>
 
-              <!-- Option 2: Book Consultation -->
+              <!-- Option 2: Book Appointment -->
               <button
                 type="button"
                 @click="handleChooseAppointmentOption"
@@ -498,13 +499,11 @@
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1.5">
-                    <p class="text-xs font-bold text-gray-900 sm:text-sm">
-                      Book Doctor Consultation
-                    </p>
+                    <p class="text-xs font-bold text-gray-900 sm:text-sm">Book Appointment</p>
                     <span
                       class="rounded-full bg-blue-100 px-2 py-0.5 text-[9px] font-bold tracking-wider text-blue-700 uppercase"
                     >
-                      Clinic Visit
+                      In-Clinic Appointment
                     </span>
                   </div>
                   <p class="mt-0.5 text-xs text-gray-500">
@@ -570,7 +569,7 @@
                     name="solar:magnifer-linear"
                     size="15"
                   />
-                  <span>All Specialists</span>
+                  <span>All Dermatologists</span>
                   <span
                     class="py-0.2 rounded-full px-1.5 text-[10px] font-bold"
                     :class="

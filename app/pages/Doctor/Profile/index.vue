@@ -5,6 +5,8 @@
     type DoctorSubscription,
     type DoctorPlan
   } from '~/api/subscription/DoctorSubscriptionService'
+  import { authService } from '~/api/auth/AuthService'
+  import { useAuth } from '~/composables/useAuth'
   import { userService } from '~/api/user/UserService'
   import { toast } from 'vue-sonner'
 
@@ -12,9 +14,11 @@
     layout: 'dashboard-sidebar-layout'
   })
 
+  const { uuid: authUserUuid, user: currentAuthUser, fetchUser } = useAuth()
+
   // Doctors might have verification data
-  const { data: response, refresh } = userService.useShow(useCookie('user_uuid').value as string, {
-    key: `userProfile-${useCookie('user_uuid').value}`
+  const { data: response, refresh } = userService.useShow(authUserUuid.value, {
+    key: `userProfile-${authUserUuid.value}`
   })
   // Laravel JsonResource wraps single resources under `data` — unwrap at source
   const user = computed(() => (response.value as any)?.data ?? response.value)
@@ -98,7 +102,7 @@
     ])
   })
 
-  const doctorUuid = useCookie('user_uuid').value
+  const doctorUuid = authUserUuid.value
   const isUploadingAvatar = ref(false)
   const avatarInputRef = ref<HTMLInputElement | null>(null)
   const showCropModal = ref(false)
@@ -1177,7 +1181,7 @@
 
         await doctorAvailabilityService.createForDoctor(doctorUuid, payload)
         availSuccessMsg.value = isAvailable
-          ? 'Clinic Duty Schedule added successfully!'
+          ? 'Clinic Availability added successfully!'
           : 'Blocked / Away period added successfully!'
         toast.success(availSuccessMsg.value)
         availForm.available_date = ''
@@ -1702,7 +1706,7 @@
         await geocodeAddress()
       }
 
-      await userService.update(useCookie('user_uuid').value as string, form)
+      await userService.update(authUserUuid.value, form)
       form.idPhoto = null
       prcUploadedFileName.value = ''
       prcUploadedFileSize.value = ''
@@ -1712,16 +1716,7 @@
       initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
       toast.success('Doctor profile updated successfully.')
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${doctorUuid}`)])
-
-      // Update name cookies so UI reflects the change (keep Dr. prefix if needed but cookies usually store raw name)
-      const userName = useCookie('user_name')
-      const authName = useCookie('auth_user_name')
-      const fullDisplayName = [form.first_name, middleInitial.value, form.last_name]
-        .filter(Boolean)
-        .join(' ')
-      userName.value = fullDisplayName
-      authName.value = fullDisplayName
+      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${doctorUuid}`), fetchUser(true)])
 
       setTimeout(() => {
         isSuccess.value = false
@@ -1736,14 +1731,20 @@
     }
   }
 
-  const logout = () => {
+  const logout = async () => {
     isLogoutModalOpen.value = false
-    useCookie('auth_token').value = null
-    useCookie('user_role').value = null
-    useCookie('user_uuid').value = null
-    useCookie('user_name').value = null
-    useCookie('auth_user_name').value = null
-    navigateTo('/auth/login')
+    try {
+      await authService.logout()
+    } catch (error) {
+      console.error('Logout failed:', error)
+    } finally {
+      useSessionCleanup().clearSessionCaches()
+      if (import.meta.client) {
+        window.location.href = '/auth/login'
+      } else {
+        await navigateTo('/auth/login')
+      }
+    }
   }
 
   const clearClinicLogo = () => {
@@ -2541,9 +2542,9 @@
                 v-model:barangay="form.barangay"
                 v-model:street="form.street"
                 :coordinates="formattedCoordinates"
-                title="Practice & Clinic Location"
-                subtitle="Where patients will locate your consultation practice."
-                street-label="Street Address / Practice Location"
+                title="Clinic Location"
+                subtitle="Where patients will locate your clinic."
+                street-label="Street Address / Clinic Location"
                 street-placeholder="House No., Street Name, Clinic/Hospital Room"
                 icon="heroicons:map-pin-20-solid"
                 @change="geocodeAddress"
@@ -3747,7 +3748,7 @@
                 :loading="isAddLoading"
                 class="min-w-[150px]"
               >
-                {{ scheduleType === 'duty' ? 'Add Duty Schedule' : 'Block Out Date' }}
+                {{ scheduleType === 'duty' ? 'Add Availability' : 'Block Out Date' }}
               </AppButton>
             </div>
           </form>
@@ -3901,7 +3902,7 @@
                       type="button"
                       @click="openEditSlotModal(slot)"
                       class="text-foreground/40 hover:bg-primary/10 hover:text-primary cursor-pointer rounded-xl p-2 transition-all"
-                      title="Edit Schedule Period"
+                      title="Edit Availability Period"
                     >
                       <Icon
                         name="heroicons:pencil-square"
@@ -4793,9 +4794,9 @@
               class="border-border/60 bg-foreground/[0.02] flex items-center justify-between rounded-xl border p-3.5"
             >
               <div>
-                <div class="text-foreground text-xs font-bold">Active Practice Branch</div>
+                <div class="text-foreground text-xs font-bold">Active Clinic Branch</div>
                 <div class="text-muted-foreground text-[11px]">
-                  Allow patient bookings and duty schedule allocation at this branch
+                  Allow patient appointments and availability allocation at this clinic branch
                 </div>
               </div>
               <label class="relative inline-flex cursor-pointer items-center">
@@ -5149,7 +5150,7 @@
               Booked
             </p>
             <p class="text-[11px] opacity-90">
-              Overwriting will slice/adjust duty hours around these existing bookings.
+              Overwriting will adjust availability hours around these existing appointments.
             </p>
           </div>
         </div>

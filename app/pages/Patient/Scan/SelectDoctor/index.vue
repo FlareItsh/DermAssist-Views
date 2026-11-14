@@ -19,7 +19,8 @@
   const actionType = computed(() => (route.query.action as string) || 'appointment')
 
   const { getStorageUrl } = useStorage()
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const { selectDoctor } = useDoctorSelection()
 
   const allNearbyDoctors = ref<any[]>([])
@@ -150,7 +151,7 @@
       }
     } catch (err: any) {
       console.error('Failed to dispatch direct doctor booking:', err)
-      toast.error(err?.data?.message || err?.message || 'Could not process booking request.')
+      toast.error(err?.data?.message || err?.message || 'Could not process appointment request.')
     } finally {
       isSubmitting.value = false
     }
@@ -200,12 +201,12 @@
       <h1 class="truncate text-center text-base font-semibold text-gray-900 sm:text-xl">
         {{
           isDoctorRegistered
-            ? 'Your Attending Doctor'
+            ? 'Your Attending Dermatologist'
             : diagnosisUuid
               ? actionType === 'chat'
-                ? 'Select Doctor for Chat'
-                : 'Select Doctor for Consultation'
-              : 'Select Specialist'
+                ? 'Select Dermatologist for Chat'
+                : 'Select Dermatologist for Appointment'
+              : 'Select Dermatologist'
         }}
       </h1>
 
@@ -238,8 +239,8 @@
             class="shrink-0 text-lg text-gray-400"
           />
           <p class="text-xs leading-relaxed font-normal text-gray-600 sm:text-sm">
-            Your account was registered by your attending doctor. All appointments and scan findings
-            are managed directly with them.
+            Your account was registered by your attending dermatologist. All appointments and scan
+            findings are managed directly with them.
           </p>
         </div>
 
@@ -259,7 +260,7 @@
               size="12"
               class="shrink-0"
             />
-            <span>Nearest Specialist</span>
+            <span>Nearest Dermatologist</span>
           </div>
 
           <!-- Doctor Avatar -->

@@ -13,7 +13,8 @@
 
   const emit = defineEmits(['close'])
 
-  const userRole = useCookie('user_role')
+  const { role: authRole } = useAuth()
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { getStorageUrl } = useStorage()
   const isImageExpanded = ref(false)
   const isDownloadingPdf = ref(false)
@@ -661,7 +662,7 @@
               <p class="text-[11px] leading-relaxed text-amber-800/90">
                 This result is not one of our 3 main focus conditions (Acne, Eczema, or Herpes).
                 Detailed characteristics are only available for our 3 primary conditions. Please
-                consult a licensed doctor or dermatologist for personal guidance.
+                consult a licensed dermatologist for personal guidance.
               </p>
             </div>
           </div>

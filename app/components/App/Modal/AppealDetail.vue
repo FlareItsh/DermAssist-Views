@@ -190,9 +190,7 @@
     const diag = props.appeal?.diagnosis
     if (!diag) return false
     return Boolean(
-      diag.patient_consented_dataset ||
-      diag.patient_consent ||
-      diag.patient?.consent_dataset
+      diag.patient_consented_dataset || diag.patient_consent || diag.patient?.consent_dataset
     )
   })
 
@@ -252,9 +250,9 @@
         <header
           class="flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/80 px-5 py-3.5 sm:px-6"
         >
-          <div class="flex items-center gap-3 min-w-0">
+          <div class="flex min-w-0 items-center gap-3">
             <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-50 border border-rose-100 text-rose-600"
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-rose-100 bg-rose-50 text-rose-600"
             >
               <Icon
                 name="lucide:stethoscope"
@@ -263,7 +261,7 @@
             </div>
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-base font-bold text-gray-900 tracking-tight sm:text-lg truncate">
+                <h2 class="truncate text-base font-bold tracking-tight text-gray-900 sm:text-lg">
                   Doctor Scan Appeal Inspection
                 </h2>
                 <AppBadge
@@ -292,14 +290,14 @@
                   Round {{ (props.appeal as any).resubmission_count + 1 }}
                 </AppBadge>
               </div>
-              <p class="text-xs text-gray-500 mt-0.5">
+              <p class="mt-0.5 text-xs text-gray-500">
                 Appeal filed {{ formatDate(props.appeal.created_at) }}
               </p>
             </div>
           </div>
 
           <!-- Controls: Cycling and Close -->
-          <div class="flex items-center gap-2 shrink-0">
+          <div class="flex shrink-0 items-center gap-2">
             <div
               v-if="props.appealsList.length > 1"
               class="hidden items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 py-1 sm:flex"
@@ -311,7 +309,7 @@
                 type="button"
                 @click="goToPrev"
                 :disabled="!hasPrev"
-                class="rounded-md p-0.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                class="rounded-md p-0.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
                 title="Previous appeal (Arrow Left)"
               >
                 <Icon
@@ -323,7 +321,7 @@
                 type="button"
                 @click="goToNext"
                 :disabled="!hasNext"
-                class="rounded-md p-0.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed"
+                class="rounded-md p-0.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
                 title="Next appeal (Arrow Right)"
               >
                 <Icon
@@ -348,10 +346,10 @@
         </header>
 
         <!-- Modal Body (Scrollable, NO horizontal overflow) -->
-        <div class="flex-1 overflow-y-auto overflow-x-hidden p-5 sm:p-6 text-gray-900">
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div class="flex-1 overflow-x-hidden overflow-y-auto p-5 text-gray-900 sm:p-6">
+          <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
             <!-- Left Column: Scan Image & Scan Reference -->
-            <div class="space-y-4 lg:col-span-5 lg:sticky lg:top-0">
+            <div class="space-y-4 lg:sticky lg:top-0 lg:col-span-5">
               <div
                 class="group relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-gray-950 shadow-inner"
               >
@@ -384,26 +382,30 @@
               </div>
 
               <!-- Scan Metadata Card -->
-              <div class="rounded-xl border border-gray-200/80 bg-gray-50/70 p-4 text-xs space-y-2.5">
+              <div
+                class="space-y-2.5 rounded-xl border border-gray-200/80 bg-gray-50/70 p-4 text-xs"
+              >
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-gray-500">Scan Reference</span>
                   <button
                     type="button"
                     @click="copyScanReference"
-                    class="group inline-flex items-center gap-1 font-mono font-bold text-gray-800 hover:text-primary transition-colors"
+                    class="group hover:text-primary inline-flex items-center gap-1 font-mono font-bold text-gray-800 transition-colors"
                     title="Click to copy full UUID"
                   >
                     <span>#{{ props.appeal.diagnosis?.uuid?.slice(0, 10) || 'N/A' }}</span>
                     <Icon
                       :name="isCopied ? 'lucide:check' : 'lucide:copy'"
                       size="12"
-                      :class="isCopied ? 'text-emerald-600' : 'text-gray-400 group-hover:text-primary'"
+                      :class="
+                        isCopied ? 'text-emerald-600' : 'group-hover:text-primary text-gray-400'
+                      "
                     />
                   </button>
                 </div>
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-gray-500">Assigned Patient</span>
-                  <span class="font-semibold text-gray-800 truncate">{{ patientName }}</span>
+                  <span class="truncate font-semibold text-gray-800">{{ patientName }}</span>
                 </div>
                 <div class="flex items-center justify-between gap-2">
                   <span class="font-medium text-gray-500">Scan Timestamp</span>
@@ -415,11 +417,11 @@
             </div>
 
             <!-- Right Column: Comparative Assessment & Clinical Audit -->
-            <div class="space-y-4 lg:col-span-7 min-w-0">
+            <div class="min-w-0 space-y-4 lg:col-span-7">
               <!-- Comparison Header Card -->
               <div class="rounded-xl border border-gray-200/80 bg-gray-50/50 p-4 sm:p-5">
                 <span
-                  class="text-[10px] font-bold tracking-widest text-gray-400 uppercase sm:text-xs block"
+                  class="block text-[10px] font-bold tracking-widest text-gray-400 uppercase sm:text-xs"
                 >
                   Diagnostic Discrepancy
                 </span>
@@ -434,7 +436,7 @@
                       {{ props.appeal.diagnosis_label || 'Unlabeled' }}
                       <span
                         v-if="props.appeal.diagnosis?.confidence"
-                        class="ml-1 opacity-80 font-mono"
+                        class="ml-1 font-mono opacity-80"
                       >
                         ({{ Math.round(Number(props.appeal.diagnosis.confidence) * 100) }}%)
                       </span>
@@ -443,7 +445,7 @@
 
                   <Icon
                     name="lucide:arrow-right"
-                    class="mt-3 text-lg text-gray-400 shrink-0"
+                    class="mt-3 shrink-0 text-lg text-gray-400"
                   />
 
                   <div class="flex flex-col">
@@ -479,7 +481,9 @@
                       :key="p.label"
                       class="flex items-center gap-2 text-[11px]"
                     >
-                      <span class="w-20 truncate font-medium text-gray-600 shrink-0">{{ p.label }}</span>
+                      <span class="w-20 shrink-0 truncate font-medium text-gray-600">{{
+                        p.label
+                      }}</span>
                       <div class="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
                         <div
                           class="h-full rounded-full transition-all duration-500"
@@ -493,7 +497,7 @@
                           :style="{ width: `${p.value}%` }"
                         />
                       </div>
-                      <span class="w-10 text-right font-mono font-bold text-gray-700 shrink-0"
+                      <span class="w-10 shrink-0 text-right font-mono font-bold text-gray-700"
                         >{{ p.value }}%</span
                       >
                     </div>
@@ -505,17 +509,17 @@
               <div class="rounded-xl border border-gray-200/80 bg-white p-4 shadow-2xs sm:p-5">
                 <div class="flex items-center gap-3 border-b border-gray-100 pb-3">
                   <div
-                    class="bg-primary/10 text-primary flex h-9 w-9 items-center justify-center rounded-xl text-xs font-bold shrink-0"
+                    class="bg-primary/10 text-primary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-bold"
                   >
                     {{ doctorInitials }}
                   </div>
                   <div class="min-w-0 flex-1">
-                    <h4 class="truncate text-sm font-bold text-gray-900">
-                      Dr. {{ doctorName }}
-                    </h4>
+                    <h4 class="truncate text-sm font-bold text-gray-900">Dr. {{ doctorName }}</h4>
                     <p class="truncate text-xs text-gray-500">
                       {{
-                        props.appeal.user?.email || props.appeal.user?.affiliation || 'Specialist'
+                        props.appeal.user?.email ||
+                        props.appeal.user?.affiliation ||
+                        'Dermatologist'
                       }}
                     </p>
                   </div>
@@ -525,24 +529,27 @@
                   <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
                     Clinical Reason & Justification
                   </span>
-                  <p class="mt-1.5 text-xs leading-relaxed text-gray-700 italic sm:text-sm break-words">
+                  <p
+                    class="mt-1.5 text-xs leading-relaxed break-words text-gray-700 italic sm:text-sm"
+                  >
                     "{{
-                      props.appeal.description ||
-                      'No specific clinical description was provided.'
+                      props.appeal.description || 'No specific clinical description was provided.'
                     }}"
                   </p>
                 </div>
               </div>
 
               <!-- Three-Gate Compliance & Dual-Consent Card (Zero horizontal scroll, responsive) -->
-              <div class="rounded-xl border border-gray-200/80 bg-white p-4 shadow-2xs sm:p-5 min-w-0">
-                <span class="text-[10px] font-bold tracking-wider text-gray-400 uppercase block">
+              <div
+                class="min-w-0 rounded-xl border border-gray-200/80 bg-white p-4 shadow-2xs sm:p-5"
+              >
+                <span class="block text-[10px] font-bold tracking-wider text-gray-400 uppercase">
                   AI Retraining Ingestion Gates (Dual-Consent & Admin Verification)
                 </span>
-                <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 min-w-0">
+                <div class="mt-3 grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-3">
                   <!-- Gate 1: Patient Consent -->
                   <div
-                    class="flex items-center gap-2.5 rounded-lg border p-2.5 transition-colors min-w-0"
+                    class="flex min-w-0 items-center gap-2.5 rounded-lg border p-2.5 transition-colors"
                     :class="
                       hasPatientConsent
                         ? 'border-emerald-200/80 bg-emerald-50/50'
@@ -555,10 +562,10 @@
                       size="18"
                       class="shrink-0"
                     />
-                    <div class="flex flex-col min-w-0">
+                    <div class="flex min-w-0 flex-col">
                       <span class="text-[10px] font-semibold text-gray-500">Gate 1: Patient</span>
                       <span
-                        class="text-xs font-bold truncate"
+                        class="truncate text-xs font-bold"
                         :class="hasPatientConsent ? 'text-emerald-800' : 'text-amber-800'"
                       >
                         {{ hasPatientConsent ? 'Research Consented' : 'No Consent' }}
@@ -568,16 +575,16 @@
 
                   <!-- Gate 2: Doctor Authorization -->
                   <div
-                    class="flex items-center gap-2.5 rounded-lg border border-emerald-200/80 bg-emerald-50/50 p-2.5 min-w-0"
+                    class="flex min-w-0 items-center gap-2.5 rounded-lg border border-emerald-200/80 bg-emerald-50/50 p-2.5"
                   >
                     <Icon
                       name="lucide:check-circle-2"
-                      class="text-emerald-600 shrink-0"
+                      class="shrink-0 text-emerald-600"
                       size="18"
                     />
-                    <div class="flex flex-col min-w-0">
+                    <div class="flex min-w-0 flex-col">
                       <span class="text-[10px] font-semibold text-gray-500">Gate 2: Doctor</span>
-                      <span class="text-xs font-bold text-emerald-800 truncate">
+                      <span class="truncate text-xs font-bold text-emerald-800">
                         Authorized (Appeal)
                       </span>
                     </div>
@@ -585,7 +592,7 @@
 
                   <!-- Gate 3: Admin Approval -->
                   <div
-                    class="flex items-center gap-2.5 rounded-lg border p-2.5 transition-colors min-w-0"
+                    class="flex min-w-0 items-center gap-2.5 rounded-lg border p-2.5 transition-colors"
                     :class="
                       props.appeal.status === 'resolved'
                         ? 'border-emerald-200/80 bg-emerald-50/50'
@@ -612,10 +619,10 @@
                       size="18"
                       class="shrink-0"
                     />
-                    <div class="flex flex-col min-w-0">
+                    <div class="flex min-w-0 flex-col">
                       <span class="text-[10px] font-semibold text-gray-500">Gate 3: Admin</span>
                       <span
-                        class="text-xs font-bold truncate"
+                        class="truncate text-xs font-bold"
                         :class="
                           props.appeal.status === 'resolved'
                             ? 'text-emerald-800'
@@ -645,11 +652,11 @@
                 <div class="flex items-center gap-2">
                   <Icon
                     name="lucide:rotate-ccw"
-                    class="text-purple-600 shrink-0"
+                    class="shrink-0 text-purple-600"
                     size="14"
                   />
                   <span class="font-bold">Resubmission History:</span>
-                  <span class="text-purple-700 truncate">
+                  <span class="truncate text-purple-700">
                     Revision of rejected predecessor appeal #{{
                       (props.appeal as any).parent_appeal_uuid.slice(0, 8)
                     }}.
@@ -715,7 +722,10 @@
                     <span class="font-bold text-gray-900">Approved for AI Retraining</span>
                     <p class="mt-0.5 text-[11px] leading-relaxed text-gray-600">
                       Scan image is assigned to the
-                      <strong class="font-semibold text-emerald-800">{{ props.appeal.suggested_label }}</strong> model dataset.
+                      <strong class="font-semibold text-emerald-800">{{
+                        props.appeal.suggested_label
+                      }}</strong>
+                      model dataset.
                     </p>
                     <p
                       v-if="props.appeal.resolution_notes"
@@ -732,7 +742,7 @@
 
         <!-- Modal Footer (Fixed at bottom, ALWAYS visible without scrolling) -->
         <footer
-          class="shrink-0 border-t border-gray-100 bg-gray-50/90 px-5 py-3.5 sm:px-6 flex items-center justify-between gap-3"
+          class="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/90 px-5 py-3.5 sm:px-6"
         >
           <!-- Left: Mobile Cycling / Keyboard Shortcut Hint -->
           <div class="flex items-center gap-2">
@@ -744,7 +754,7 @@
                 type="button"
                 @click="goToPrev"
                 :disabled="!hasPrev"
-                class="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                class="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
                 title="Previous appeal"
               >
                 <Icon
@@ -759,7 +769,7 @@
                 type="button"
                 @click="goToNext"
                 :disabled="!hasNext"
-                class="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+                class="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-600 disabled:cursor-not-allowed disabled:opacity-30"
                 title="Next appeal"
               >
                 <Icon
@@ -768,8 +778,12 @@
                 />
               </button>
             </div>
-            <span class="hidden sm:inline-block text-[11px] text-gray-400 select-none">
-              Press <kbd class="px-1 py-0.5 rounded border border-gray-200 bg-white font-mono text-[10px]">Esc</kbd> to close
+            <span class="hidden text-[11px] text-gray-400 select-none sm:inline-block">
+              Press
+              <kbd class="rounded border border-gray-200 bg-white px-1 py-0.5 font-mono text-[10px]"
+                >Esc</kbd
+              >
+              to close
             </span>
           </div>
 
@@ -778,7 +792,7 @@
             <button
               type="button"
               @click="handleClose"
-              class="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 sm:text-sm cursor-pointer"
+              class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-xs font-semibold text-gray-700 shadow-2xs transition-colors hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 sm:text-sm"
             >
               Close
             </button>
@@ -788,7 +802,7 @@
                 type="button"
                 @click="handleReject"
                 :disabled="isRejecting"
-                class="inline-flex h-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50/40 px-4 text-xs font-bold text-rose-600 shadow-2xs transition-colors hover:border-rose-300 hover:bg-rose-100/60 active:bg-rose-100 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm cursor-pointer"
+                class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-rose-200 bg-rose-50/40 px-4 text-xs font-bold text-rose-600 shadow-2xs transition-colors hover:border-rose-300 hover:bg-rose-100/60 active:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
               >
                 <Icon
                   v-if="!isRejecting"
@@ -809,7 +823,7 @@
                 type="button"
                 @click="handleResolve"
                 :disabled="isResolving"
-                class="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-5 text-xs font-bold text-white shadow-xs transition-all hover:bg-primary/90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm cursor-pointer"
+                class="bg-primary hover:bg-primary/90 inline-flex h-9 cursor-pointer items-center justify-center rounded-xl px-5 text-xs font-bold text-white shadow-xs transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
               >
                 <Icon
                   v-if="!isResolving"
@@ -832,7 +846,7 @@
               type="button"
               @click="handleRestore"
               :disabled="isRestoring"
-              class="inline-flex h-9 items-center justify-center rounded-xl border border-amber-200 bg-amber-50/40 px-4 text-xs font-bold text-amber-700 shadow-2xs transition-colors hover:border-amber-300 hover:bg-amber-100/60 active:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed sm:text-sm cursor-pointer"
+              class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-amber-200 bg-amber-50/40 px-4 text-xs font-bold text-amber-700 shadow-2xs transition-colors hover:border-amber-300 hover:bg-amber-100/60 active:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
             >
               <Icon
                 v-if="!isRestoring"

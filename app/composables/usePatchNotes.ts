@@ -8,7 +8,8 @@ const isPatchNotesLoaded = ref(false)
 const isLoadingPatchNotes = ref(false)
 
 export const usePatchNotes = () => {
-  const userUuid = useCookie('user_uuid')
+  const { uuid: authUuid } = useAuth()
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const lastSeenPatchNoteToken = useCookie<string | null>(
     `last_seen_patch_note_${userUuid.value || 'guest'}`,

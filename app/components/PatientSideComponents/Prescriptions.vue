@@ -242,16 +242,16 @@
   >
     <!-- Header Row -->
     <div class="mb-2 flex shrink-0 items-center justify-between gap-2">
-      <div class="flex min-w-0 items-center gap-2.5 sm:gap-3">
-        <div class="bg-secondary h-6 w-1 shrink-0 rounded-full sm:h-7"></div>
-        <div class="flex min-w-0 items-baseline gap-2">
-          <h1 class="text-foreground truncate text-base font-bold sm:text-xl">Prescriptions</h1>
+      <div class="flex min-w-0 items-center gap-2 sm:gap-2.5">
+        <div class="bg-secondary h-5 w-1 shrink-0 rounded-full sm:h-6"></div>
+        <div class="flex min-w-0 items-baseline gap-1.5 sm:gap-2">
+          <h1 class="text-foreground shrink-0 text-sm font-bold sm:text-base">Prescriptions</h1>
           <span
             v-if="prescriptionsList.length > 0 && activePrescription"
-            class="text-muted-foreground shrink-0 text-xs font-medium"
+            class="text-muted-foreground shrink-0 text-[11px] font-medium"
           >
             {{ activePrescription.items.length }}
-            {{ activePrescription.items.length === 1 ? 'medication' : 'medications' }}
+            {{ activePrescription.items.length === 1 ? 'med' : 'meds' }}
           </span>
         </div>
       </div>
@@ -332,12 +332,14 @@
         </span>
       </div>
 
-      <!-- Medications List (Non-scrollable container; fills whole card, only instruction text scrolls if long) -->
-      <div class="divide-border/70 flex min-h-0 flex-1 flex-col divide-y">
+      <!-- Medications List (Scrolls smoothly if items exceed available card height) -->
+      <div
+        class="divide-border/70 custom-scrollbar flex min-h-0 flex-1 flex-col divide-y overflow-x-hidden overflow-y-auto pr-0.5"
+      >
         <div
           v-for="(item, idx) in activePrescription.items"
           :key="item.key || idx"
-          class="flex min-h-0 flex-1 flex-col py-2 first:pt-1 last:pb-0"
+          class="flex shrink-0 flex-col py-2.5 first:pt-0.5 last:pb-1"
         >
           <!-- Row 1: Medication Name + Quantity & Mark as taken button -->
           <div class="flex shrink-0 items-start justify-between gap-2.5">
@@ -426,9 +428,9 @@
             </div>
           </div>
 
-          <!-- Row 3: Distinguishable Doctor's Instruction (Expands to fill remaining card space; scrolls only inside text area) -->
+          <!-- Row 3: Distinguishable Doctor's Instruction -->
           <div
-            class="border-primary bg-muted/50 mt-2.5 flex min-h-0 flex-1 flex-col rounded-r-xl border-l-2 px-3 py-2 transition-colors"
+            class="border-primary bg-muted/50 mt-2 flex shrink-0 flex-col rounded-r-xl border-l-2 px-3 py-2 transition-colors"
             :class="isInstructionScrollable(item.key) ? 'hover:bg-muted/80 cursor-pointer' : ''"
             :title="isInstructionScrollable(item.key) ? 'Click to expand instruction' : undefined"
             @click.stop="handleInstructionClick(item)"
@@ -449,7 +451,7 @@
             </div>
             <div
               :ref="el => registerInstructionEl(item.key, el as HTMLElement | null)"
-              class="custom-scrollbar mt-1 max-h-24 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 md:max-h-none"
+              class="custom-scrollbar mt-1 max-h-24 overflow-x-hidden overflow-y-auto pr-1"
             >
               <p class="text-foreground text-xs leading-relaxed font-medium break-words">
                 {{ item.instructions || 'Follow the prescribed dosage schedule above.' }}

@@ -329,9 +329,17 @@ const sanitizeAppointmentUuid = (val: unknown): string | null => {
   return UUID_REGEX.test(trimmed) ? trimmed : null
 }
 
+const getActiveUserUuid = (): string => {
+  try {
+    return useAuth().uuid.value || useCookie('user_uuid').value || ''
+  } catch {
+    return useCookie('user_uuid').value || ''
+  }
+}
+
 const getStorageKey = (uuid?: string | null): string | null => {
   if (!import.meta.client) return null
-  const effectiveUuid = uuid || useCookie('user_uuid').value
+  const effectiveUuid = uuid || getActiveUserUuid()
   return effectiveUuid ? `dermassist_active_diagnosis_${effectiveUuid}` : null
 }
 
@@ -357,7 +365,7 @@ const restoreActiveDiagnosisState = () => {
     // Purge legacy non-scoped key so it never leaks across accounts
     localStorage.removeItem('dermassist_active_diagnosis')
 
-    const currentUuid = useCookie('user_uuid').value
+    const currentUuid = getActiveUserUuid()
     if (!currentUuid) {
       resetScannerInMemory()
       return
@@ -405,7 +413,7 @@ if (import.meta.client) {
 const saveActiveDiagnosisState = () => {
   if (!import.meta.client) return
   try {
-    const currentUuid = useCookie('user_uuid').value
+    const currentUuid = getActiveUserUuid()
     if (!currentUuid) {
       localStorage.removeItem('dermassist_active_diagnosis')
       return
@@ -602,14 +610,14 @@ export const useDiagnosis = () => {
   }
 
   const resetScanner = () => {
-    const currentUuid = useCookie('user_uuid').value
+    const currentUuid = getActiveUserUuid()
     resetScannerInMemory()
     clearAllStoredDiagnosis(currentUuid)
   }
 
   // Ensure active user diagnosis state is synchronized
   if (import.meta.client) {
-    const currentUuid = useCookie('user_uuid').value
+    const currentUuid = getActiveUserUuid()
     if (currentUuid !== boundUserUuid.value) {
       restoreActiveDiagnosisState()
     }
