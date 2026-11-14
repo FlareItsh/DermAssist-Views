@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { ref, computed } from 'vue'
+  import { toast } from 'vue-sonner'
   import { usePwaInstall } from '~/composables/usePwaInstall'
   import { useHaptics } from '~/composables/useHaptics'
 
@@ -15,9 +17,13 @@
     tap()
     isInstalling.value = true
     try {
-      const accepted = await promptInstall()
-      if (accepted) {
+      const res = await promptInstall()
+      if (res.success) {
         success()
+      } else if (res.method === 'instruction' && res.instruction) {
+        toast.info(res.instruction, {
+          duration: 7000
+        })
       }
     } finally {
       isInstalling.value = false

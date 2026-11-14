@@ -1,16 +1,10 @@
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import {
+  globalDeferredPrompt,
+  globalCanInstall,
+  type BeforeInstallPromptEvent
+} from '~/plugins/pwa-install.client'
 
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[]
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed'
-    platform: string
-  }>
-  prompt(): Promise<void>
-}
-
-const deferredPrompt = ref<BeforeInstallPromptEvent | null>(null)
-const canInstall = ref(false)
 const isInstalled = ref(false)
 const isDismissed = ref(false)
 
@@ -23,17 +17,51 @@ export const usePwaInstall = () => {
     return isStandalone || isIosStandalone
   }
 
-  const promptInstall = async (): Promise<boolean> => {
-    if (!deferredPrompt.value) return false
+  const isBrave = ref(false)
+  const isIos = ref(false)
 
-    try {
-      await deferredPrompt.value.prompt()
-      const choice = await deferredPrompt.value.userChoice
-      deferredPrompt.value = null
-      canInstall.value = false
-      return choice.outcome === 'accepted'
-    } catch {
-      return false
+  const canInstall = computed(() => {
+    return !isInstalled.value && !isDismissed.value
+  })
+
+  const hasNativePrompt = computed(() => {
+    return globalCanInstall.value && !!globalDeferredPrompt.value
+  })
+
+  const promptInstall = async (): Promise<{
+    success: boolean
+    method: 'native' | 'instruction'
+    instruction?: string
+  }> => {
+    if (globalDeferredPrompt.value) {
+      try {
+        await globalDeferredPrompt.value.prompt()
+        const choice = await globalDeferredPrompt.value.userChoice
+        globalDeferredPrompt.value = null
+        globalCanInstall.value = false
+        if (choice.outcome === 'accepted') {
+          isInstalled.value = true
+          return { success: true, method: 'native' }
+        }
+        return { success: false, method: 'native' }
+      } catch {
+        // Fall back to instructions if native prompt fails
+      }
+    }
+
+    if (isIos.value) {
+      return {
+        success: false,
+        method: 'instruction',
+        instruction: 'Tap the Share icon at the bottom of Safari, then select "Add to Home Screen".'
+      }
+    }
+
+    return {
+      success: false,
+      method: 'instruction',
+      instruction:
+        'In Brave: Look for the Install icon in the right side of the address bar, or click Menu (☰) -> "Install DermAssist...".'
     }
   }
 
@@ -48,28 +76,29 @@ export const usePwaInstall = () => {
     isInstalled.value = checkInstalled()
 
     if (typeof window !== 'undefined') {
+      const ua = navigator.userAgent.toLowerCase()
+      isIos.value = /iphone|ipad|ipod/.test(ua)
+      isBrave.value = (navigator as unknown as { brave?: unknown }).brave !== undefined
+
       if (sessionStorage.getItem('dermassist_pwa_dismissed') === 'true') {
         isDismissed.value = true
       }
 
-      window.addEventListener('beforeinstallprompt', (e: Event) => {
-        e.preventDefault()
-        deferredPrompt.value = e as BeforeInstallPromptEvent
-        canInstall.value = true
-      })
-
       window.addEventListener('appinstalled', () => {
         isInstalled.value = true
-        canInstall.value = false
-        deferredPrompt.value = null
+        globalCanInstall.value = false
+        globalDeferredPrompt.value = null
       })
     }
   })
 
   return {
     canInstall,
+    hasNativePrompt,
     isInstalled,
     isDismissed,
+    isBrave,
+    isIos,
     promptInstall,
     dismissPrompt
   }
