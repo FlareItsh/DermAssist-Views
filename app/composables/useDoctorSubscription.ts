@@ -81,6 +81,11 @@ export const useDoctorSubscription = () => {
     return Boolean(currentSubscription.value?.is_pending_cancellation)
   })
 
+  const canExportPdf = computed(() => {
+    if (!isSubscribed.value) return false
+    return Boolean(planFeatures.value?.export_pdf_reports)
+  })
+
   const hasFeature = (featureKey: string) => {
     if (!isSubscribed.value) return false
     return Boolean(planFeatures.value?.[featureKey])
@@ -132,6 +137,7 @@ export const useDoctorSubscription = () => {
     isSubscribed,
     planFeatures,
     canExecuteScan,
+    canExportPdf,
     canHaveSecretary,
     maxSecretaries,
     maxClinics,

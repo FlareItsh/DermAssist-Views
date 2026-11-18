@@ -209,7 +209,7 @@
     >
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-4"
         @click.self="close"
         @keydown.esc="close"
       >
@@ -226,7 +226,7 @@
 
           <!-- Sticky Header: Stays pinned so close button & context are always accessible -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-7 sm:py-4.5 backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-7 sm:py-4.5"
           >
             <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
               <div
@@ -585,7 +585,7 @@
 
           <!-- Sticky Footer: Always visible, never covered by bottom nav bars, thumb-friendly tap targets -->
           <div
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-7 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <AppButton
               type="button"

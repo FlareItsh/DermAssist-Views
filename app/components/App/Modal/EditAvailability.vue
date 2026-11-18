@@ -162,7 +162,7 @@
     <div
       v-if="modelValue && slotData"
       @click.self="closeModal"
-      class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 duration-200 backdrop-blur-xs"
+      class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 duration-200"
     >
       <div
         class="border-border bg-card text-foreground relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
@@ -176,7 +176,7 @@
         </div>
 
         <!-- Sticky Header -->
-        <div class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4.5 backdrop-blur-md">
+        <div class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4.5">
           <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div
               class="flex h-10 w-10 sm:h-11 sm:w-11 shrink-0 items-center justify-center rounded-2xl shadow-2xs"
@@ -390,7 +390,7 @@
         </form>
 
         <!-- Sticky Footer: Always accessible within thumb reach on mobile -->
-        <div class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
             :disabled="isSubmitting"

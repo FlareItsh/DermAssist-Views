@@ -3156,7 +3156,7 @@
       <Transition name="modal">
         <div
           v-if="selectedRecordForModal"
-          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs transition-all"
+          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 transition-all"
           @click.self="selectedRecordForModal = null"
         >
           <div

@@ -188,7 +188,7 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
       @click.self="emit('update:modelValue', false)"
     >
       <div
@@ -204,7 +204,7 @@
 
         <!-- Sticky Header -->
         <div
-          class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4 backdrop-blur-md"
+          class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-4 pt-1.5 pb-3 sm:px-6 sm:py-4"
         >
           <div class="flex items-center gap-2.5 min-w-0 pr-2">
             <div
@@ -408,7 +408,7 @@
 
         <!-- Sticky Footer: Always thumb-reachable on mobile -->
         <div
-          class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <button
             type="button"

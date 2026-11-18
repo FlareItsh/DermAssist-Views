@@ -284,7 +284,7 @@
               v-if="imageSrc"
               type="button"
               @click="isImageZoomed = true"
-              class="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white shadow-xs backdrop-blur-xs transition-colors hover:bg-black"
+              class="absolute right-2 bottom-2 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white shadow-xs transition-colors hover:bg-black"
               title="Click to view full lesion image"
             >
               <Icon
@@ -727,7 +727,7 @@
       <Transition name="fade">
         <div
           v-if="isImageZoomed"
-          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
+          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 p-4"
           @click.self="isImageZoomed = false"
         >
           <div

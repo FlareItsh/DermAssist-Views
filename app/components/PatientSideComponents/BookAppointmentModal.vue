@@ -1004,7 +1004,7 @@
       name="modal"
     >
       <div
-        class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/60 p-4"
         @click.self="closeModal"
       >
           <div

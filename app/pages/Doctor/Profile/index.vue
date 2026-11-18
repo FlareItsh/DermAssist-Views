@@ -4457,7 +4457,7 @@
       <div
         v-if="showAssignDoctorModal"
         @click.self="showAssignDoctorModal = false"
-        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
@@ -4472,7 +4472,7 @@
 
           <!-- Sticky Header -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5 backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5"
           >
             <div class="flex items-center gap-2.5">
               <div
@@ -4676,7 +4676,7 @@
 
           <!-- Sticky Footer -->
           <div
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <AppButton
               type="button"
@@ -4804,7 +4804,7 @@
       <div
         v-if="showRecurringBlockedModal && pendingRecurringDutyData"
         @click.self="closeRecurringBlockedModal"
-        class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs duration-200"
+        class="animate-in fade-in fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 duration-200"
       >
         <div
           class="border-border bg-card text-foreground relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
@@ -4819,7 +4819,7 @@
 
           <!-- Sticky Header -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5 backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-7 sm:py-4.5"
           >
             <div class="flex items-center gap-3">
               <div
@@ -5063,7 +5063,7 @@
 
           <!-- Sticky Footer Actions -->
           <div
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2.5 border-t px-5 py-3 sm:px-7 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <button
               type="button"

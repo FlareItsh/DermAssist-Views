@@ -1117,7 +1117,7 @@
       name="modal"
     >
       <div
-        class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 sm:p-6 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 sm:p-6"
         @click.self="emit('close')"
       >
         <div

@@ -274,7 +274,7 @@
         <!-- Backdrop -->
         <div
           class="fixed inset-0 transition-opacity"
-          :class="mandatory ? 'bg-black/60 backdrop-blur-sm' : 'bg-black/40'"
+          :class="mandatory ? 'bg-black/60' : 'bg-black/40'"
           @click="handleBackdropClick"
         ></div>
 
@@ -721,7 +721,7 @@
                 >
                   <button
                     type="button"
-                    class="border-border/70 bg-card/95 text-foreground/85 hover:text-primary pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-semibold shadow-md backdrop-blur-md transition-colors"
+                    class="border-border/70 bg-card/95 text-foreground/85 hover:text-primary pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-semibold shadow-md transition-colors"
                     @click="scrollDownStep"
                   >
                     <span>Scroll down to continue</span>

@@ -46,7 +46,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-4 md:p-6 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-4 md:p-6"
         @click.self="close"
         @keydown.esc="close"
       >
@@ -64,7 +64,7 @@
           <!-- Sticky Header if title, description, or header slot provided -->
           <div
             v-if="title || description || $slots.header"
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 flex-col border-b backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 flex-col border-b"
           >
             <!-- Mobile Sheet Drag Handle Pill -->
             <div class="sm:hidden flex w-full items-center justify-center pt-3 pb-1 shrink-0">
@@ -141,7 +141,7 @@
           <!-- Sticky Footer: Always thumb-reachable on mobile, respects safe areas -->
           <div
             v-if="$slots.footer"
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-7 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-4 py-3 sm:px-7 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <slot name="footer" />
           </div>
