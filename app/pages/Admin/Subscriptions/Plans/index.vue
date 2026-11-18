@@ -557,33 +557,17 @@
     </section>
 
     <!-- Create / Edit Plan Dialog Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-3 sm:p-4"
+    <AppModal
+      v-model="showModal"
+      size="2xl"
+      :title="isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan'"
+      description="Define plan tiers, billing frequencies, pricing, and assigned capabilities."
+    >
+      <form
+        id="plan-form"
+        @submit.prevent="savePlan"
+        class="space-y-4"
       >
-        <div
-          class="max-h-[92vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-4 shadow-xl sm:max-w-3xl sm:p-6"
-        >
-          <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-            <h3 class="text-base font-black text-gray-950 sm:text-lg">
-              {{ isEditing ? 'Edit Subscription Plan' : 'Create Subscription Plan' }}
-            </h3>
-            <button
-              @click="showModal = false"
-              class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            >
-              <Icon
-                name="lucide:x"
-                class="text-lg"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="savePlan"
-            class="space-y-4"
-          >
             <div>
               <label class="mb-1 block text-xs font-bold tracking-wider text-gray-500 uppercase"
                 >Plan Name</label
@@ -857,29 +841,30 @@
                 </label>
               </div>
             </div>
+          </form>
 
+          <template #footer>
             <div
-              class="flex flex-col-reverse items-stretch justify-end gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:items-center"
+              class="flex flex-col-reverse items-stretch justify-end w-full gap-2 sm:flex-row sm:items-center"
             >
               <button
                 type="button"
                 @click="showModal = false"
-                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2"
+                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-gray-700 transition hover:bg-gray-50 sm:w-auto sm:py-2 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
+                form="plan-form"
                 :disabled="isSubmitting"
-                class="bg-primary hover:bg-primary-dark w-full rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white shadow-sm transition disabled:opacity-50 sm:w-auto sm:py-2"
+                class="bg-primary hover:bg-primary-dark w-full rounded-xl px-4 py-2.5 text-center text-xs font-bold text-white shadow-sm transition disabled:opacity-50 sm:w-auto sm:py-2 cursor-pointer"
               >
                 {{ isSubmitting ? 'Saving...' : 'Save Plan' }}
               </button>
             </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+          </template>
+        </AppModal>
 
     <!-- Confirm Delete Modal -->
     <AdminSideComponentsConfirmModal

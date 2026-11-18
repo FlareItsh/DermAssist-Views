@@ -464,49 +464,38 @@
     </section>
 
     <!-- Create / Edit Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showModal"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4"
-      >
-        <div
-          class="border-border/60 bg-card custom-scrollbar max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-3xl border p-4 shadow-2xl md:p-6"
-        >
-          <div class="border-border/40 flex items-center justify-between border-b pb-3">
-            <div class="flex items-center gap-3">
-              <div
-                class="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl"
-              >
-                <Icon
-                  :name="isEditing ? 'lucide:pencil' : 'solar:notes-bold-duotone'"
-                  class="text-xl"
-                />
-              </div>
-              <div>
-                <h3 class="text-foreground text-lg font-semibold">
-                  {{ isEditing ? 'Edit Patch Note' : 'Create & Broadcast Patch Note' }}
-                </h3>
-                <p class="text-muted-foreground text-xs">
-                  Broadcast new feature releases and updates to all users.
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              @click="showModal = false"
-              class="text-muted-foreground hover:bg-muted/40 hover:text-foreground cursor-pointer rounded-full p-2 transition"
-            >
-              <Icon
-                name="lucide:x"
-                class="text-lg"
-              />
-            </button>
-          </div>
-
-          <form
-            @submit.prevent="handleSave"
-            class="space-y-4"
+    <AppModal
+      v-model="showModal"
+      size="xl"
+      :title="isEditing ? 'Edit Patch Note' : 'Create & Broadcast Patch Note'"
+      description="Broadcast new feature releases and updates to all users."
+    >
+      <template #header>
+        <div class="flex items-center gap-3">
+          <div
+            class="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl"
           >
+            <Icon
+              :name="isEditing ? 'lucide:pencil' : 'solar:notes-bold-duotone'"
+              class="text-xl"
+            />
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="text-foreground text-base sm:text-xl font-bold truncate">
+              {{ isEditing ? 'Edit Patch Note' : 'Create & Broadcast Patch Note' }}
+            </h3>
+            <p class="text-muted-foreground text-xs sm:text-sm line-clamp-1">
+              Broadcast new feature releases and updates to all users.
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <form
+        id="patch-note-form"
+        @submit.prevent="handleSave"
+        class="space-y-4"
+      >
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label
@@ -613,9 +602,10 @@
                 Publish immediately and alert all users in their notification bell
               </label>
             </div>
+          </form>
 
-            <!-- Actions -->
-            <div class="border-border/40 flex items-center justify-end gap-3 border-t pt-4">
+          <template #footer>
+            <div class="flex items-center justify-end gap-3 w-full">
               <AppButton
                 variant="ghost"
                 type="button"
@@ -628,6 +618,7 @@
               <AppButton
                 variant="solid"
                 type="submit"
+                form="patch-note-form"
                 class="font-medium"
                 :loading="isSaving"
               >
@@ -640,10 +631,8 @@
                 }}
               </AppButton>
             </div>
-          </form>
-        </div>
-      </div>
-    </Teleport>
+          </template>
+        </AppModal>
 
     <!-- Confirmation Modal for Deletion -->
     <AppModalConfirmation
