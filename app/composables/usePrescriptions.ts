@@ -39,6 +39,15 @@ export interface PendingTodayMedication {
   item: ParsedMedicationItem
 }
 
+export interface PendingTodayPrescriptionGroup {
+  prescriptionKey: string
+  prescriptionNumber: string
+  doctorName: string
+  conditionLabel: string
+  dateFormatted: string
+  entries: PendingTodayMedication[]
+}
+
 export const getTodayDateString = (): string => {
   const d = new Date()
   const y = d.getFullYear()
@@ -534,30 +543,46 @@ export const usePrescriptions = () => {
     )
   }
 
-  // Active medications from the most recent prescription that haven't expired and haven't been answered today
-  const pendingTodayMedications = computed<PendingTodayMedication[]>(() => {
-    const latestRx = prescriptionsList.value[0]
-    if (!latestRx) return []
-
-    const list: PendingTodayMedication[] = []
-    for (const item of latestRx.items) {
-      if (item.isExpired) continue
-      const st = getMedicationStatus(latestRx.key, item.key)
-      if (st === 'pending') {
-        list.push({
-          prescriptionKey: latestRx.key,
-          prescriptionNumber: latestRx.prescriptionNumber,
-          doctorName: latestRx.doctorName,
-          conditionLabel: latestRx.conditionLabel,
-          item
+  // Active prescriptions that still have non-expired, unanswered medications due today
+  const pendingTodayGroups = computed<PendingTodayPrescriptionGroup[]>(() => {
+    const groups: PendingTodayPrescriptionGroup[] = []
+    for (const rx of prescriptionsList.value) {
+      const entries: PendingTodayMedication[] = []
+      for (const item of rx.items) {
+        if (item.isExpired) continue
+        const st = getMedicationStatus(rx.key, item.key)
+        if (st === 'pending') {
+          entries.push({
+            prescriptionKey: rx.key,
+            prescriptionNumber: rx.prescriptionNumber,
+            doctorName: rx.doctorName,
+            conditionLabel: rx.conditionLabel,
+            item
+          })
+        }
+      }
+      if (entries.length > 0) {
+        groups.push({
+          prescriptionKey: rx.key,
+          prescriptionNumber: rx.prescriptionNumber,
+          doctorName: rx.doctorName,
+          conditionLabel: rx.conditionLabel,
+          dateFormatted: rx.dateFormatted,
+          entries
         })
       }
     }
-    return list
+    return groups
+  })
+
+  // Flat list of all active medications due today across all active prescriptions
+  const pendingTodayMedications = computed<PendingTodayMedication[]>(() => {
+    return pendingTodayGroups.value.flatMap(group => group.entries)
   })
 
   return {
     prescriptionsList,
+    pendingTodayGroups,
     pendingTodayMedications,
     isLoading,
     hasLoadedOnce,

@@ -3,7 +3,11 @@
   import { useRoute } from 'vue-router'
   import { userService } from '~/api/user/UserService'
   import { authService } from '~/api/auth/AuthService'
-  import { usePrescriptions, type PendingTodayMedication } from '~/composables/usePrescriptions'
+  import {
+    usePrescriptions,
+    type PendingTodayMedication,
+    type PendingTodayPrescriptionGroup
+  } from '~/composables/usePrescriptions'
   import { useAuth } from '~/composables/useAuth'
 
   const route = useRoute()
@@ -14,6 +18,7 @@
   const { allAppointments } = useAppointments()
   const { uuid: authUserUuid } = useAuth()
   const {
+    pendingTodayGroups,
     pendingTodayMedications,
     fetchPrescriptionsAndLogs,
     isMedicationUpdating,
@@ -22,7 +27,130 @@
   } = usePrescriptions()
 
   const isMedReminderOpen = ref(false)
+  const currentMedRxIndex = ref(0)
+  const currentMedItemIndex = ref(0)
+  const medCardTouchStartX = ref(0)
   const medReminderRef = ref<HTMLElement | null>(null)
+
+  watch(
+    () => pendingTodayGroups.value.length,
+    newLen => {
+      if (newLen === 0) {
+        currentMedRxIndex.value = 0
+        currentMedItemIndex.value = 0
+        isMedReminderOpen.value = false
+      } else if (currentMedRxIndex.value >= newLen) {
+        currentMedRxIndex.value = Math.max(0, newLen - 1)
+      }
+    }
+  )
+
+  const activeMedRxGroup = computed<PendingTodayPrescriptionGroup | null>(() => {
+    return pendingTodayGroups.value[currentMedRxIndex.value] || null
+  })
+
+  watch(
+    () => activeMedRxGroup.value?.prescriptionKey,
+    (newKey, oldKey) => {
+      if (newKey !== oldKey) {
+        currentMedItemIndex.value = 0
+      }
+    }
+  )
+
+  watch(
+    () => activeMedRxGroup.value?.entries.length ?? 0,
+    newLen => {
+      if (newLen === 0) {
+        currentMedItemIndex.value = 0
+      } else if (currentMedItemIndex.value >= newLen) {
+        currentMedItemIndex.value = Math.max(0, newLen - 1)
+      }
+    }
+  )
+
+  const activeMedEntry = computed<PendingTodayMedication | null>(() => {
+    return activeMedRxGroup.value?.entries[currentMedItemIndex.value] || null
+  })
+
+  const MAX_VISIBLE_MED_DOTS = 5
+
+  const visibleMedDots = computed(() => {
+    const entries = activeMedRxGroup.value?.entries ?? []
+    const total = entries.length
+    if (total <= 1) return []
+
+    const activeIdx = currentMedItemIndex.value
+    const start =
+      total <= MAX_VISIBLE_MED_DOTS
+        ? 0
+        : Math.min(Math.max(0, activeIdx - 2), total - MAX_VISIBLE_MED_DOTS)
+    const end = Math.min(total, start + MAX_VISIBLE_MED_DOTS)
+
+    return entries.slice(start, end).map((medEntry, offset) => {
+      const realIndex = start + offset
+      const isLeftEdgeOverflow = offset === 0 && start > 0
+      const isRightEdgeOverflow = offset === end - start - 1 && end < total
+      return {
+        index: realIndex,
+        key: medEntry.item.key,
+        isActive: realIndex === activeIdx,
+        isEdgeOverflow: (isLeftEdgeOverflow || isRightEdgeOverflow) && realIndex !== activeIdx
+      }
+    })
+  })
+
+  const handlePrevMedRx = () => {
+    isMedReminderOpen.value = true
+    if (currentMedRxIndex.value > 0) {
+      currentMedRxIndex.value -= 1
+      currentMedItemIndex.value = 0
+    }
+  }
+
+  const handleNextMedRx = () => {
+    isMedReminderOpen.value = true
+    if (currentMedRxIndex.value < pendingTodayGroups.value.length - 1) {
+      currentMedRxIndex.value += 1
+      currentMedItemIndex.value = 0
+    }
+  }
+
+  const handlePrevMedItem = () => {
+    isMedReminderOpen.value = true
+    if (currentMedItemIndex.value > 0) {
+      currentMedItemIndex.value -= 1
+    }
+  }
+
+  const handleNextMedItem = () => {
+    isMedReminderOpen.value = true
+    const total = activeMedRxGroup.value?.entries.length ?? 0
+    if (currentMedItemIndex.value < total - 1) {
+      currentMedItemIndex.value += 1
+    }
+  }
+
+  const handleSelectMedItem = (idx: number) => {
+    isMedReminderOpen.value = true
+    currentMedItemIndex.value = idx
+  }
+
+  const handleMedCardTouchStart = (e: TouchEvent) => {
+    medCardTouchStartX.value = e.touches[0]?.clientX ?? 0
+  }
+
+  const handleMedCardTouchEnd = (e: TouchEvent) => {
+    const endX = e.changedTouches[0]?.clientX ?? 0
+    const deltaX = medCardTouchStartX.value - endX
+    if (Math.abs(deltaX) > 36) {
+      if (deltaX > 0) {
+        handleNextMedItem()
+      } else {
+        handlePrevMedItem()
+      }
+    }
+  }
 
   const formatDurationLabel = (duration?: string | null): string => {
     if (!duration) return ''
@@ -48,7 +176,8 @@
   const handleClickOutsideMedReminder = (event: MouseEvent | TouchEvent) => {
     if (!isMedReminderOpen.value) return
     const target = event.target as Node | null
-    if (medReminderRef.value && target && !medReminderRef.value.contains(target)) {
+    if (!target || !target.isConnected) return
+    if (medReminderRef.value && !medReminderRef.value.contains(target)) {
       isMedReminderOpen.value = false
     }
   }
@@ -312,6 +441,8 @@
                 class="bg-card border-border fixed top-[74px] right-3 left-3 z-[60] rounded-2xl border p-4 shadow-xl"
                 role="region"
                 aria-label="Daily Medication Reminder"
+                @mousedown.stop
+                @touchstart.stop
               >
                 <div
                   class="border-border/60 flex items-center justify-between gap-3 border-b pb-2.5"
@@ -340,67 +471,196 @@
                   </button>
                 </div>
 
-                <div
-                  class="custom-scrollbar divide-border/60 mt-2.5 flex max-h-60 flex-col divide-y overflow-y-auto"
-                >
+                <div v-if="activeMedRxGroup">
+                  <!-- Compact Prescription Sub-Header & Pager -->
                   <div
-                    v-for="entry in pendingTodayMedications"
-                    :key="`${entry.prescriptionKey}-${entry.item.key}`"
-                    class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                    class="border-border/60 flex items-center justify-between gap-2 border-b py-2"
                   >
-                    <div class="min-w-0 flex-1">
-                      <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <p class="text-foreground text-sm font-bold break-words">
-                          {{ entry.item.medication }}
-                        </p>
-                        <span
-                          v-if="entry.item.quantity"
-                          class="text-muted-foreground text-xs font-medium"
-                        >
-                          {{ entry.item.quantity }}
-                        </span>
-                      </div>
-
-                      <p
-                        v-if="entry.item.frequency || entry.item.duration"
-                        class="text-muted-foreground mt-0.5 text-xs leading-snug break-words"
-                      >
-                        <span v-if="entry.item.frequency">{{ entry.item.frequency }}</span>
-                        <span v-if="entry.item.frequency && entry.item.duration"> &middot; </span>
-                        <span v-if="entry.item.duration">{{
-                          formatDurationLabel(entry.item.duration)
-                        }}</span>
+                    <div class="min-w-0">
+                      <p class="text-foreground truncate text-xs font-semibold">
+                        Prescribed by {{ activeMedRxGroup.doctorName }}
                       </p>
-
-                      <div
-                        v-if="entry.item.instructions"
-                        class="border-primary bg-muted/60 mt-1.5 rounded-r-md border-l-2 px-2.5 py-1"
-                      >
-                        <div
-                          class="custom-scrollbar max-h-16 overflow-x-hidden overflow-y-auto pr-1"
-                        >
-                          <p class="text-foreground text-xs leading-snug font-medium break-words">
-                            <span class="text-primary font-semibold">Doctor's instruction:</span>
-                            {{ entry.item.instructions }}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p class="text-muted-foreground mt-1 text-[11px]">
-                        Prescribed by {{ entry.doctorName }}
+                      <p class="text-muted-foreground truncate text-[10px]">
+                        Issued {{ activeMedRxGroup.dateFormatted }} &middot;
+                        {{ activeMedRxGroup.prescriptionNumber }}
                       </p>
                     </div>
 
-                    <div class="flex shrink-0 items-center">
-                      <AppButton
-                        variant="solid"
-                        size="sm"
-                        :loading="isMedicationUpdating(entry.prescriptionKey, entry.item.key)"
-                        @click="handleMarkMedTaken(entry)"
-                        class="!h-8 !rounded-lg !px-3 !text-xs"
+                    <div class="flex shrink-0 items-center gap-1.5">
+                      <span
+                        v-if="activeMedRxGroup.conditionLabel"
+                        class="bg-muted text-muted-foreground max-w-[100px] shrink-0 truncate rounded-md px-2 py-0.5 text-[10px] font-medium"
                       >
-                        <span>Mark as taken</span>
-                      </AppButton>
+                        {{ activeMedRxGroup.conditionLabel }}
+                      </span>
+
+                      <div
+                        v-if="pendingTodayGroups.length > 1"
+                        class="flex shrink-0 items-center gap-1"
+                      >
+                        <AppButton
+                          variant="ghost"
+                          size="unstyled"
+                          rounded="full"
+                          :disabled="currentMedRxIndex === 0"
+                          @click.stop="handlePrevMedRx"
+                          class="flex h-6 w-6 items-center justify-center"
+                          aria-label="Newer prescription"
+                        >
+                          <Icon
+                            name="lucide:chevron-left"
+                            class="text-sm"
+                          />
+                        </AppButton>
+                        <span class="text-muted-foreground text-[11px] font-semibold">
+                          {{ currentMedRxIndex + 1 }}/{{ pendingTodayGroups.length }}
+                        </span>
+                        <AppButton
+                          variant="ghost"
+                          size="unstyled"
+                          rounded="full"
+                          :disabled="currentMedRxIndex >= pendingTodayGroups.length - 1"
+                          @click.stop="handleNextMedRx"
+                          class="flex h-6 w-6 items-center justify-center"
+                          aria-label="Older prescription"
+                        >
+                          <Icon
+                            name="lucide:chevron-right"
+                            class="text-sm"
+                          />
+                        </AppButton>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    class="mt-2.5"
+                    @touchstart.passive="handleMedCardTouchStart"
+                    @touchend.passive="handleMedCardTouchEnd"
+                  >
+                    <Transition
+                      name="med-slide"
+                      mode="out-in"
+                    >
+                      <div
+                        v-if="activeMedEntry"
+                        :key="`${activeMedEntry.prescriptionKey}-${activeMedEntry.item.key}`"
+                        class="flex flex-col"
+                      >
+                        <div class="flex items-start justify-between gap-3">
+                          <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                              <p class="text-foreground text-sm leading-snug font-bold break-words">
+                                {{ activeMedEntry.item.medication }}
+                              </p>
+                              <span
+                                v-if="activeMedEntry.item.quantity"
+                                class="text-muted-foreground text-xs font-medium"
+                              >
+                                {{ activeMedEntry.item.quantity }}
+                              </span>
+                            </div>
+
+                            <p
+                              v-if="activeMedEntry.item.frequency || activeMedEntry.item.duration"
+                              class="text-muted-foreground mt-0.5 text-xs leading-snug break-words"
+                            >
+                              <span v-if="activeMedEntry.item.frequency">{{
+                                activeMedEntry.item.frequency
+                              }}</span>
+                              <span
+                                v-if="activeMedEntry.item.frequency && activeMedEntry.item.duration"
+                              >
+                                &middot;
+                              </span>
+                              <span v-if="activeMedEntry.item.duration">{{
+                                formatDurationLabel(activeMedEntry.item.duration)
+                              }}</span>
+                            </p>
+                          </div>
+
+                          <div class="flex shrink-0 items-center">
+                            <AppButton
+                              variant="solid"
+                              size="sm"
+                              :loading="
+                                isMedicationUpdating(
+                                  activeMedEntry.prescriptionKey,
+                                  activeMedEntry.item.key
+                                )
+                              "
+                              @click="handleMarkMedTaken(activeMedEntry)"
+                              class="!h-8 !rounded-lg !px-3 !text-xs"
+                            >
+                              <span>Mark as taken</span>
+                            </AppButton>
+                          </div>
+                        </div>
+
+                        <div
+                          v-if="activeMedEntry.item.instructions"
+                          class="border-primary bg-muted/60 mt-2 w-full rounded-r-md border-l-2 px-2.5 py-1.5"
+                        >
+                          <div
+                            class="custom-scrollbar max-h-16 overflow-x-hidden overflow-y-auto pr-1"
+                          >
+                            <p class="text-foreground text-xs leading-snug font-medium break-words">
+                              <span class="text-primary font-semibold">Doctor's instruction:</span>
+                              {{ activeMedEntry.item.instructions }}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </Transition>
+
+                    <!-- Medicine Dot Pagination (Hidden when only 1 medicine remains in this prescription) -->
+                    <div
+                      v-if="activeMedRxGroup.entries.length > 1"
+                      class="mt-2.5 flex items-center justify-center gap-2 pt-0.5"
+                    >
+                      <button
+                        type="button"
+                        :disabled="currentMedItemIndex === 0"
+                        @click.stop="handlePrevMedItem"
+                        class="text-muted-foreground hover:text-foreground flex h-5 w-5 cursor-pointer items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="Previous medicine"
+                      >
+                        <Icon
+                          name="lucide:chevron-left"
+                          class="text-xs"
+                        />
+                      </button>
+
+                      <div class="flex items-center gap-1.5">
+                        <button
+                          v-for="dot in visibleMedDots"
+                          :key="dot.key"
+                          type="button"
+                          @click.stop="handleSelectMedItem(dot.index)"
+                          :aria-label="`Go to medicine ${dot.index + 1}`"
+                          class="cursor-pointer rounded-full transition-all duration-200"
+                          :class="
+                            dot.isActive
+                              ? 'bg-primary h-2 w-2 scale-110'
+                              : dot.isEdgeOverflow
+                                ? 'bg-muted-foreground/25 hover:bg-muted-foreground/45 h-1.5 w-1.5'
+                                : 'bg-muted-foreground/30 hover:bg-muted-foreground/50 h-2 w-2'
+                          "
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        :disabled="currentMedItemIndex >= activeMedRxGroup.entries.length - 1"
+                        @click.stop="handleNextMedItem"
+                        class="text-muted-foreground hover:text-foreground flex h-5 w-5 cursor-pointer items-center justify-center rounded-full transition-colors disabled:pointer-events-none disabled:opacity-30"
+                        aria-label="Next medicine"
+                      >
+                        <Icon
+                          name="lucide:chevron-right"
+                          class="text-xs"
+                        />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -566,5 +826,22 @@
   .dropdown-leave-to {
     opacity: 0;
     transform: translateY(-4px) scale(0.97);
+  }
+
+  .med-slide-enter-active,
+  .med-slide-leave-active {
+    transition:
+      opacity 0.16s ease,
+      transform 0.16s ease;
+  }
+
+  .med-slide-enter-from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+
+  .med-slide-leave-to {
+    opacity: 0;
+    transform: translateX(-8px);
   }
 </style>
