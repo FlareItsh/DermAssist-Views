@@ -33,6 +33,8 @@
   const isLoadingQuota = ref(true)
   const quota = ref<ScanQuota | null>(null)
   const isScanning = ref(false)
+  const scanSecondsElapsed = ref(0)
+  let scanTimer: ReturnType<typeof setInterval> | null = null
   const errorMessage = ref('')
 
   // Result State
@@ -307,13 +309,17 @@
           ctx.scale(-1, 1)
         }
         ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob(blob => {
-          if (blob) {
-            const file = new File([blob], 'skin-capture.jpg', { type: 'image/jpeg' })
-            stopCamera()
-            processImageFile(file)
-          }
-        }, 'image/jpeg', 0.92)
+        canvas.toBlob(
+          blob => {
+            if (blob) {
+              const file = new File([blob], 'skin-capture.jpg', { type: 'image/jpeg' })
+              stopCamera()
+              processImageFile(file)
+            }
+          },
+          'image/jpeg',
+          0.92
+        )
       }
     } catch (err: any) {
       console.warn('High quality capture fallback to direct frame:', err)
@@ -328,13 +334,17 @@
             ctx.scale(-1, 1)
           }
           ctx.drawImage(videoRef.value, 0, 0, canvas.width, canvas.height)
-          canvas.toBlob(blob => {
-            if (blob) {
-              const file = new File([blob], 'skin-capture.jpg', { type: 'image/jpeg' })
-              stopCamera()
-              processImageFile(file)
-            }
-          }, 'image/jpeg', 0.92)
+          canvas.toBlob(
+            blob => {
+              if (blob) {
+                const file = new File([blob], 'skin-capture.jpg', { type: 'image/jpeg' })
+                stopCamera()
+                processImageFile(file)
+              }
+            },
+            'image/jpeg',
+            0.92
+          )
           return
         }
       } catch (fallbackErr) {
@@ -354,7 +364,11 @@
   const processImageFile = async (file: File) => {
     errorMessage.value = ''
     try {
-      const compressed = await compressImage(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.85 })
+      const compressed = await compressImage(file, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.85
+      })
       const validation = await validateImageQuality(compressed)
 
       if (!validation.isValid && validation.message) {
@@ -384,11 +398,23 @@
     }
 
     if (quota.value && !quota.value.can_scan) {
+      if (hasSavedResult.value) {
+        await restorePreviousScan()
+        if (scanResult.value) {
+          toast.info('Viewing your latest scan result.')
+          return
+        }
+      }
       toast.error('Daily guest scan limit reached. Please create a free account to continue.')
       return
     }
 
     isScanning.value = true
+    scanSecondsElapsed.value = 0
+    if (scanTimer) clearInterval(scanTimer)
+    scanTimer = setInterval(() => {
+      scanSecondsElapsed.value += 1
+    }, 1000)
     errorMessage.value = ''
 
     try {
@@ -422,7 +448,7 @@
         try {
           localStorage.setItem('da_guest_scan_result', JSON.stringify(response.data))
         } catch (_) {}
-        toast.success('Skin analysis preview generated successfully!')
+        toast.success(response.message || 'Skin analysis preview generated successfully!')
       }
     } catch (err: any) {
       const data = err.data || {}
@@ -430,14 +456,48 @@
         if (data.scan_quota) {
           quota.value = data.scan_quota
         }
+
+        // Auto-recovery: If scan already finished on backend, fetch and display result immediately!
+        const tokenToRecover =
+          data.scan_quota?.latest_guest_token ||
+          quota.value?.latest_guest_token ||
+          guestCookie.value
+        if (tokenToRecover) {
+          try {
+            const config = useRuntimeConfig()
+            const apiBase = config.public?.apiBase || '/api'
+            const res: any = await $fetch(`${apiBase}/guest/diagnosis/${tokenToRecover}`)
+            if (res?.data) {
+              scanResult.value = res.data
+              guestCookie.value = res.data.guest_token
+              if (res.data.scan_quota) {
+                quota.value = res.data.scan_quota
+              }
+              try {
+                localStorage.setItem('da_guest_scan_result', JSON.stringify(res.data))
+              } catch (_) {}
+              toast.success('Retrieved your completed skin diagnosis result!')
+              return
+            }
+          } catch (_) {}
+        }
+
         errorMessage.value = 'Daily guest scan limit reached. Sign up for free to continue.'
         toast.error('Daily scan limit reached.')
       } else {
-        errorMessage.value = data.message || data.error || 'Failed to analyze skin photo. Please ensure clear lighting.'
+        errorMessage.value =
+          data.message ||
+          data.error ||
+          'Failed to analyze skin photo. Please ensure clear lighting.'
         toast.error(errorMessage.value)
       }
     } finally {
+      if (scanTimer) {
+        clearInterval(scanTimer)
+        scanTimer = null
+      }
       isScanning.value = false
+      scanSecondsElapsed.value = 0
     }
   }
 
@@ -447,19 +507,23 @@
   })
 
   onUnmounted(() => {
+    if (scanTimer) {
+      clearInterval(scanTimer)
+      scanTimer = null
+    }
     stopCamera()
   })
 </script>
 
 <template>
-  <div class="relative min-h-screen bg-background pt-24 pb-16 text-foreground sm:pt-28 sm:pb-24">
+  <div class="bg-background text-foreground relative min-h-screen pt-24 pb-16 sm:pt-28 sm:pb-24">
     <!-- Ambient soft blue brand glows -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div
-        class="absolute -top-32 left-1/2 h-[450px] w-[500px] -translate-x-1/2 rounded-full bg-primary/8 blur-[120px]"
+        class="bg-primary/8 absolute -top-32 left-1/2 h-[450px] w-[500px] -translate-x-1/2 rounded-full blur-[120px]"
       />
       <div
-        class="absolute top-1/2 -right-24 h-[350px] w-[350px] rounded-full bg-secondary/6 blur-[100px]"
+        class="bg-secondary/6 absolute top-1/2 -right-24 h-[350px] w-[350px] rounded-full blur-[100px]"
       />
       <div
         class="absolute bottom-10 -left-20 h-[300px] w-[300px] rounded-full bg-blue-400/6 blur-[90px]"
@@ -470,22 +534,23 @@
       <!-- Header -->
       <div class="text-center">
         <div
-          class="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold text-primary shadow-xs"
+          class="border-primary/20 bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-xs"
         >
           <Icon
             name="lucide:sparkles"
-            class="h-3.5 w-3.5 text-primary"
+            class="text-primary h-3.5 w-3.5"
           />
           <span>Free AI Skin Scan Preview</span>
         </div>
 
         <h1
-          class="mt-4 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl md:text-5xl"
+          class="text-foreground mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl"
         >
           Check Your Skin in Seconds
         </h1>
-        <p class="mx-auto mt-3 max-w-xl text-sm text-muted-foreground sm:text-base leading-relaxed">
-          Our advanced AI analyzes your skin photo against dermatological models. Try a free scan with zero login required.
+        <p class="text-muted-foreground mx-auto mt-3 max-w-xl text-sm leading-relaxed sm:text-base">
+          Our advanced AI analyzes your skin photo against dermatological models. Try a free scan
+          with zero login required.
         </p>
 
         <!-- Quota Status Banner -->
@@ -504,41 +569,44 @@
               class="h-4 w-4 shrink-0"
             />
             <span v-if="quota.can_scan">
-              Guest Preview: <strong>{{ quota.remaining }} of {{ quota.limit }}</strong> free scan remaining today
+              Guest Preview: <strong>{{ quota.remaining }} of {{ quota.limit }}</strong> free scan
+              remaining today
             </span>
             <span v-else>
               Guest limit reached (0 remaining).
-              <template v-if="countdownDisplay">
-                Resets in {{ countdownDisplay }} or
-              </template>
+              <template v-if="countdownDisplay"> Resets in {{ countdownDisplay }} or </template>
               <NuxtLink
                 to="/auth/register"
-                class="font-bold text-primary underline hover:text-primary-dark"
+                class="text-primary hover:text-primary-dark font-bold underline"
                 >create an account</NuxtLink
-              > for unlimited scans.
+              >
+              for unlimited scans.
             </span>
           </div>
         </div>
       </div>
 
       <!-- Main Scanning Card -->
-      <div class="mt-8 rounded-3xl border border-border/80 bg-card p-5 shadow-xl shadow-slate-200/50 backdrop-blur-xl sm:p-8">
+      <div
+        class="border-border/80 bg-card mt-8 rounded-3xl border p-5 shadow-xl shadow-slate-200/50 backdrop-blur-xl sm:p-8"
+      >
         <!-- Error Banner -->
         <div
           v-if="errorMessage"
-          class="mb-6 flex items-start gap-3 rounded-2xl border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
+          class="border-destructive/20 bg-destructive/10 text-destructive mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm"
         >
           <Icon
             name="lucide:alert-circle"
-            class="mt-0.5 h-5 w-5 shrink-0 text-destructive"
+            class="text-destructive mt-0.5 h-5 w-5 shrink-0"
           />
           <div class="flex-1">
             <p class="font-semibold">{{ errorMessage }}</p>
             <p
               v-if="quota && !quota.can_scan"
-              class="mt-1 text-xs text-destructive/80"
+              class="text-destructive/80 mt-1 text-xs"
             >
-              Unregistered devices are limited to {{ quota.limit }} scan per 24 hours. Sign up for a free patient account to keep scanning.
+              Unregistered devices are limited to {{ quota.limit }} scan per 24 hours. Sign up for a
+              free patient account to keep scanning.
             </p>
           </div>
         </div>
@@ -549,24 +617,31 @@
           class="space-y-6"
         >
           <!-- Teaser Header Card -->
-          <div class="overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white p-6 shadow-xs">
+          <div
+            class="overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-teal-50/40 to-white p-6 shadow-xs"
+          >
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div class="flex items-center gap-2">
-                  <span class="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase">Analysis Complete</span>
+                  <span class="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-500" />
+                  <span class="text-xs font-bold tracking-wider text-emerald-700 uppercase"
+                    >Analysis Complete</span
+                  >
                 </div>
-                <h2 class="mt-1 text-2xl font-black text-gray-900">
-                  Skin Condition Detected
-                </h2>
+                <h2 class="mt-1 text-2xl font-black text-gray-900">Skin Condition Detected</h2>
                 <p class="mt-1 text-sm text-gray-600">
                   AI detected high visual similarity to:
-                  <span class="rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-bold text-primary">{{ scanResult.label }}</span>
+                  <span
+                    class="border-primary/20 bg-primary/10 text-primary rounded-lg border px-2.5 py-0.5 font-bold"
+                    >{{ scanResult.label }}</span
+                  >
                 </p>
               </div>
 
               <!-- Confidence pill -->
-              <div class="flex items-center gap-3 rounded-2xl border border-emerald-200/80 bg-white px-5 py-3 shadow-xs sm:flex-col sm:items-end">
+              <div
+                class="flex items-center gap-3 rounded-2xl border border-emerald-200/80 bg-white px-5 py-3 shadow-xs sm:flex-col sm:items-end"
+              >
                 <span class="text-xs font-semibold text-gray-500">Confidence Score</span>
                 <span class="text-2xl font-black text-emerald-600">
                   {{ Math.round((scanResult.confidence || 0.9) * 100) }}%
@@ -576,36 +651,46 @@
           </div>
 
           <!-- Locked Clinical Details with Blurred Glass Overlay -->
-          <div class="relative overflow-hidden rounded-2xl border border-border bg-slate-50/70 p-6">
+          <div class="border-border relative overflow-hidden rounded-2xl border bg-slate-50/70 p-6">
             <!-- Mock Content under the blur -->
-            <div class="filter blur-md select-none opacity-40 transition-all">
-              <h3 class="text-lg font-bold text-gray-900">Clinical Assessment & Differential Diagnosis</h3>
+            <div class="opacity-40 blur-md filter transition-all select-none">
+              <h3 class="text-lg font-bold text-gray-900">
+                Clinical Assessment & Differential Diagnosis
+              </h3>
               <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-                  <span class="text-xs text-gray-500 font-medium">Primary Match</span>
-                  <p class="text-lg font-bold text-gray-900">{{ scanResult.label }} ({{ Math.round((scanResult.confidence || 0.9) * 100) }}%)</p>
+                  <span class="text-xs font-medium text-gray-500">Primary Match</span>
+                  <p class="text-lg font-bold text-gray-900">
+                    {{ scanResult.label }} ({{ Math.round((scanResult.confidence || 0.9) * 100) }}%)
+                  </p>
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-                  <span class="text-xs text-gray-500 font-medium">Secondary Differential</span>
+                  <span class="text-xs font-medium text-gray-500">Secondary Differential</span>
                   <p class="text-lg font-bold text-gray-900">Contact Dermatitis (5%)</p>
                 </div>
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-xs">
-                  <span class="text-xs text-gray-500 font-medium">Normal Skin Probability</span>
+                  <span class="text-xs font-medium text-gray-500">Normal Skin Probability</span>
                   <p class="text-lg font-bold text-gray-900">Healthy Tissue (3%)</p>
                 </div>
               </div>
 
               <div class="mt-6 space-y-3">
                 <h4 class="text-sm font-bold text-gray-900">Prescription & Care Recommendations</h4>
-                <p class="text-xs text-gray-600 leading-relaxed">
-                  Topical treatments, daily gentle cleansers, and avoidance of comedogenic formulations are strongly recommended. A certified doctor review is needed to authorize clinical prescriptions.
+                <p class="text-xs leading-relaxed text-gray-600">
+                  Topical treatments, daily gentle cleansers, and avoidance of comedogenic
+                  formulations are strongly recommended. A certified doctor review is needed to
+                  authorize clinical prescriptions.
                 </p>
               </div>
             </div>
 
             <!-- Lock CTA Overlay -->
-            <div class="absolute inset-0 flex flex-col items-center justify-center bg-white/85 p-6 text-center backdrop-blur-md">
-              <div class="flex h-14 w-14 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-lg shadow-primary/10">
+            <div
+              class="absolute inset-0 flex flex-col items-center justify-center bg-white/85 p-6 text-center backdrop-blur-md"
+            >
+              <div
+                class="border-primary/20 bg-primary/10 text-primary shadow-primary/10 flex h-14 w-14 items-center justify-center rounded-2xl border shadow-lg"
+              >
                 <Icon
                   name="lucide:lock"
                   class="h-7 w-7"
@@ -615,15 +700,17 @@
               <h3 class="mt-4 text-2xl font-black text-gray-900">
                 Unlock Complete Medical Diagnosis
               </h3>
-              <p class="mx-auto mt-2 max-w-md text-xs text-gray-600 sm:text-sm leading-relaxed">
-                Create a free DermAssist account to see the full breakdown, differential probabilities, treatment guidelines, and connect directly with licensed dermatologists.
+              <p class="mx-auto mt-2 max-w-md text-xs leading-relaxed text-gray-600 sm:text-sm">
+                Create a free DermAssist account to see the full breakdown, differential
+                probabilities, treatment guidelines, and connect directly with licensed
+                dermatologists.
               </p>
 
               <!-- Call to Action Buttons -->
               <div class="mt-6 flex flex-col gap-3 sm:flex-row">
                 <NuxtLink
                   :to="`/auth/register?claim_scan=${scanResult.guest_token}`"
-                  class="inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-full bg-secondary hover:bg-primary px-7 py-2.5 text-sm font-semibold text-white shadow-md shadow-primary/20 transition-all hover:shadow-lg active:scale-95"
+                  class="bg-secondary hover:bg-primary shadow-primary/20 inline-flex min-h-[46px] cursor-pointer items-center justify-center gap-2 rounded-full px-7 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:shadow-lg active:scale-95"
                 >
                   <Icon
                     name="lucide:user-plus"
@@ -647,7 +734,7 @@
               <button
                 type="button"
                 @click="resetScanner"
-                class="mt-4 cursor-pointer text-xs font-semibold text-gray-500 hover:text-primary transition"
+                class="hover:text-primary mt-4 cursor-pointer text-xs font-semibold text-gray-500 transition"
               >
                 Scan another photo
               </button>
@@ -662,8 +749,12 @@
         >
           <!-- Video Stream or Photo Preview Box -->
           <div
-            class="relative flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl sm:rounded-3xl border border-border bg-slate-950 shadow-2xl transition-all"
-            :class="isCameraOn || previewImage ? 'aspect-[3/4] sm:aspect-[4/3] min-h-[480px] sm:min-h-[520px]' : 'min-h-[360px] sm:min-h-[400px] border-dashed p-6 text-center'"
+            class="border-border relative flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border bg-slate-950 shadow-2xl transition-all sm:rounded-3xl"
+            :class="
+              isCameraOn || previewImage
+                ? 'aspect-[3/4] min-h-[480px] sm:aspect-[4/3] sm:min-h-[520px]'
+                : 'min-h-[360px] border-dashed p-6 text-center sm:min-h-[400px]'
+            "
           >
             <!-- Live Camera -->
             <div
@@ -680,10 +771,14 @@
               />
 
               <!-- Top Floating Controls Bar -->
-              <div class="pointer-events-none absolute top-3 inset-x-3 sm:top-4 sm:inset-x-4 z-20 flex items-center justify-between">
+              <div
+                class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between sm:inset-x-4 sm:top-4"
+              >
                 <!-- Status Pill -->
-                <div class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-md">
-                  <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div
+                  class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-md"
+                >
+                  <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
                   <span>Live Camera</span>
                 </div>
 
@@ -694,7 +789,7 @@
                     v-if="isTorchSupported"
                     type="button"
                     @click="toggleTorch"
-                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90 shadow-md"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border shadow-md backdrop-blur-md transition-all active:scale-90"
                     :class="
                       isTorchOn
                         ? 'border-amber-400/90 bg-amber-500 text-white shadow-amber-500/30'
@@ -703,7 +798,11 @@
                     :title="isTorchOn ? 'Turn off flash' : 'Turn on flash'"
                   >
                     <Icon
-                      :name="isTorchOn ? 'material-symbols:flashlight-on-rounded' : 'material-symbols:flashlight-off-rounded'"
+                      :name="
+                        isTorchOn
+                          ? 'material-symbols:flashlight-on-rounded'
+                          : 'material-symbols:flashlight-off-rounded'
+                      "
                       class="h-5 w-5"
                     />
                   </button>
@@ -712,13 +811,15 @@
                   <button
                     type="button"
                     @click="toggleMirror"
-                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-all active:scale-90 shadow-md"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border shadow-md backdrop-blur-md transition-all active:scale-90"
                     :class="
                       isMirrored
                         ? 'border-primary/80 bg-primary/80 text-white'
                         : 'border-white/20 bg-black/60 text-white hover:bg-black/80'
                     "
-                    :title="isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'"
+                    :title="
+                      isMirrored ? 'Switch to unmirrored natural view' : 'Switch to mirror view'
+                    "
                   >
                     <Icon
                       :name="isMirrored ? 'lucide:flip-horizontal-2' : 'lucide:flip-horizontal'"
@@ -731,7 +832,7 @@
                     v-if="canFlipCamera"
                     type="button"
                     @click="cycleCamera"
-                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/60 text-white backdrop-blur-md transition-all hover:bg-black/80 active:scale-90 shadow-md"
+                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/60 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/80 active:scale-90"
                     title="Switch camera"
                   >
                     <Icon
@@ -743,15 +844,23 @@
               </div>
 
               <!-- Center Focus Reticle with Dimmed Mask -->
-              <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-4">
-                <div class="h-56 w-56 sm:h-64 sm:w-64 rounded-3xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] transition-all" />
-                <span class="mt-3 inline-block rounded-full bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/90 shadow backdrop-blur-xs">
+              <div
+                class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-4"
+              >
+                <div
+                  class="h-56 w-56 rounded-3xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] transition-all sm:h-64 sm:w-64"
+                />
+                <span
+                  class="mt-3 inline-block rounded-full bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/90 shadow backdrop-blur-xs"
+                >
                   Center skin lesion inside the box
                 </span>
               </div>
 
               <!-- Bottom Floating Shutter Controls -->
-              <div class="pointer-events-none absolute bottom-4 inset-x-4 sm:bottom-6 sm:inset-x-6 z-20 flex items-center justify-between">
+              <div
+                class="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center justify-between sm:inset-x-6 sm:bottom-6"
+              >
                 <button
                   type="button"
                   @click="stopCamera"
@@ -764,10 +873,12 @@
                 <button
                   type="button"
                   @click="capturePhoto"
-                  class="pointer-events-auto flex h-18 w-18 cursor-pointer items-center justify-center rounded-full border-4 border-white/90 bg-white/25 shadow-2xl backdrop-blur-xs transition active:scale-90 hover:scale-105"
+                  class="pointer-events-auto flex h-18 w-18 cursor-pointer items-center justify-center rounded-full border-4 border-white/90 bg-white/25 shadow-2xl backdrop-blur-xs transition hover:scale-105 active:scale-90"
                   title="Capture photo"
                 >
-                  <div class="flex h-13 w-13 items-center justify-center rounded-full bg-emerald-500 shadow-lg text-white">
+                  <div
+                    class="flex h-13 w-13 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg"
+                  >
                     <Icon
                       name="lucide:camera"
                       class="h-6 w-6"
@@ -776,7 +887,7 @@
                 </button>
 
                 <!-- Quick Flip on Right (Thumb friendly) -->
-                <div class="w-16 flex justify-end">
+                <div class="flex w-16 justify-end">
                   <button
                     v-if="canFlipCamera"
                     type="button"
@@ -819,26 +930,27 @@
             <!-- Empty State Prompt -->
             <div
               v-if="!isCameraOn && !previewImage"
-              class="flex flex-col items-center justify-center text-center py-8 px-4"
+              class="flex flex-col items-center justify-center px-4 py-8 text-center"
             >
-              <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner">
+              <div
+                class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner"
+              >
                 <Icon
                   name="lucide:camera"
                   class="h-8 w-8 text-white"
                 />
               </div>
-              <h3 class="mt-4 text-base font-bold text-white">
-                Take a Photo or Upload Image
-              </h3>
+              <h3 class="mt-4 text-base font-bold text-white">Take a Photo or Upload Image</h3>
               <p class="mt-1 max-w-sm text-xs text-slate-300">
-                Ensure good lighting and hold camera 4-6 inches from the skin lesion for best accuracy.
+                Ensure good lighting and hold camera 4-6 inches from the skin lesion for best
+                accuracy.
               </p>
 
               <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
                   @click="startCamera"
-                  class="inline-flex cursor-pointer items-center gap-2 rounded-full bg-secondary hover:bg-primary px-6 py-2.5 text-xs font-semibold text-white shadow-md shadow-primary/20 transition active:scale-95"
+                  class="bg-secondary hover:bg-primary shadow-primary/20 inline-flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold text-white shadow-md transition active:scale-95"
                 >
                   <Icon
                     name="lucide:camera"
@@ -850,7 +962,7 @@
                 <button
                   type="button"
                   @click="fileInput?.click()"
-                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition active:scale-95"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-white/20 active:scale-95"
                 >
                   <Icon
                     name="lucide:upload"
@@ -863,7 +975,7 @@
                   v-if="hasSavedResult"
                   type="button"
                   @click="viewSavedResult"
-                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/30 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition active:scale-95"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-500/30 active:scale-95"
                 >
                   <Icon
                     name="lucide:eye"
@@ -896,7 +1008,7 @@
               :class="
                 quota && !quota.can_scan
                   ? 'cursor-not-allowed border border-gray-200 bg-gray-100 text-gray-400 shadow-none'
-                  : 'bg-secondary hover:bg-primary text-white shadow-lg shadow-primary/25 hover:scale-[1.01] active:scale-[0.98]'
+                  : 'bg-secondary hover:bg-primary shadow-primary/25 text-white shadow-lg hover:scale-[1.01] active:scale-[0.98]'
               "
             >
               <Icon
@@ -915,8 +1027,22 @@
                 class="h-5 w-5"
               />
               <span v-if="quota && !quota.can_scan">Daily Free Scan Limit Reached</span>
-              <span v-else>{{ isScanning ? 'Analyzing Skin with AI...' : 'Analyze Skin Now' }}</span>
+              <span v-else-if="isScanning && scanSecondsElapsed >= 6"
+                >AI Model Warming Up ({{ scanSecondsElapsed }}s)...</span
+              >
+              <span v-else>{{
+                isScanning ? 'Analyzing Skin with AI...' : 'Analyze Skin Now'
+              }}</span>
             </button>
+
+            <!-- Cold start informational banner -->
+            <p
+              v-if="isScanning && scanSecondsElapsed >= 6"
+              class="max-w-sm animate-pulse px-2 text-center text-xs text-amber-600 dark:text-amber-400"
+            >
+              Serverless AI engine is booting from cold start. Please keep this screen open (may
+              take 20–30s)...
+            </p>
 
             <!-- Prompt when photo captured but quota reached -->
             <div
@@ -931,12 +1057,13 @@
                 <span>Photo captured! Free scan limit reached.</span>
               </div>
               <p class="text-xs leading-relaxed text-amber-700">
-                You've used today's 1 free preview. Create a free account to run AI analysis on this photo.
+                You've used today's 1 free preview. Create a free account to run AI analysis on this
+                photo.
               </p>
-              <div class="mt-1 flex flex-col gap-2 w-full">
+              <div class="mt-1 flex w-full flex-col gap-2">
                 <NuxtLink
                   to="/auth/register"
-                  class="inline-flex items-center justify-center gap-1.5 rounded-full bg-secondary px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-primary hover:shadow active:scale-95"
+                  class="bg-secondary hover:bg-primary inline-flex items-center justify-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold text-white shadow-xs transition hover:shadow active:scale-95"
                 >
                   <Icon
                     name="lucide:user-plus"
@@ -949,7 +1076,7 @@
                   v-if="hasSavedResult"
                   type="button"
                   @click="viewSavedResult"
-                  class="inline-flex items-center justify-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-xs font-semibold text-primary transition hover:bg-primary/20 active:scale-95"
+                  class="border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center justify-center gap-1.5 rounded-full border px-5 py-2 text-xs font-semibold transition active:scale-95"
                 >
                   <Icon
                     name="lucide:eye"
@@ -964,7 +1091,7 @@
               type="button"
               :disabled="isScanning"
               @click="resetScanner"
-              class="cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground transition"
+              class="text-muted-foreground hover:text-foreground cursor-pointer text-xs font-medium transition"
             >
               Retake or pick different image
             </button>
@@ -974,42 +1101,60 @@
 
       <!-- Trust Footer features -->
       <div class="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <div class="flex items-start gap-3.5 rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all hover:shadow-sm">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600">
+        <div
+          class="border-border/80 bg-card flex items-start gap-3.5 rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm"
+        >
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-600"
+          >
             <Icon
               name="lucide:shield-check"
               class="h-5 w-5"
             />
           </div>
           <div>
-            <h4 class="text-sm font-bold text-foreground">Private & Confidential</h4>
-            <p class="mt-1 text-xs text-muted-foreground leading-relaxed">Photos analyzed in encrypted sandboxes with zero tracking or advertising.</p>
+            <h4 class="text-foreground text-sm font-bold">Private & Confidential</h4>
+            <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+              Photos analyzed in encrypted sandboxes with zero tracking or advertising.
+            </p>
           </div>
         </div>
 
-        <div class="flex items-start gap-3.5 rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all hover:shadow-sm">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
+        <div
+          class="border-border/80 bg-card flex items-start gap-3.5 rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm"
+        >
+          <div
+            class="border-primary/20 bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+          >
             <Icon
               name="lucide:brain"
               class="h-5 w-5"
             />
           </div>
           <div>
-            <h4 class="text-sm font-bold text-foreground">Clinical AI Models</h4>
-            <p class="mt-1 text-xs text-muted-foreground leading-relaxed">Trained on thousands of certified dermatological cases for top accuracy.</p>
+            <h4 class="text-foreground text-sm font-bold">Clinical AI Models</h4>
+            <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+              Trained on thousands of certified dermatological cases for top accuracy.
+            </p>
           </div>
         </div>
 
-        <div class="flex items-start gap-3.5 rounded-2xl border border-border/80 bg-card p-5 shadow-xs transition-all hover:shadow-sm">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 text-purple-600">
+        <div
+          class="border-border/80 bg-card flex items-start gap-3.5 rounded-2xl border p-5 shadow-xs transition-all hover:shadow-sm"
+        >
+          <div
+            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-purple-100 bg-purple-50 text-purple-600"
+          >
             <Icon
               name="lucide:user-check"
               class="h-5 w-5"
             />
           </div>
           <div>
-            <h4 class="text-sm font-bold text-foreground">Direct Doctor Access</h4>
-            <p class="mt-1 text-xs text-muted-foreground leading-relaxed">Easily connect with licensed specialists for confirmed treatments.</p>
+            <h4 class="text-foreground text-sm font-bold">Direct Doctor Access</h4>
+            <p class="text-muted-foreground mt-1 text-xs leading-relaxed">
+              Easily connect with licensed specialists for confirmed treatments.
+            </p>
           </div>
         </div>
       </div>
