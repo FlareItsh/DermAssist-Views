@@ -12,7 +12,9 @@
   import { appointmentService } from '~/api/appointment/AppointmentService'
   import { doctorAvailabilityService } from '~/api/doctorAvailability/DoctorAvailabilityService'
   import { recordService } from '~/api/record/RecordService'
+  import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
   import { toast } from 'vue-sonner'
+  import PdfExportUpgradeModal from '~/components/App/Modal/PdfExportUpgradeModal.vue'
   import { useDoctorSelection } from '~/composables/useDoctorSelection'
   const {
     calculateAge,
@@ -175,8 +177,29 @@
 
   const targetDiagnosisUuid = computed(() => props.diagnosisUuid || currentDiagnosis.value?.uuid)
   const isDownloadingPdf = ref(false)
+  const showExportUpgradeModal = ref(false)
+  const { canExportPdf, fetchSubscription } = useDoctorSubscription()
+
+  const isDoctorUser = computed(() => {
+    return props.role === 'doctor' || authRole.value === 'doctor' || useCookie('user_role').value === 'doctor'
+  })
+
+  const isExportLocked = computed(() => {
+    return isDoctorUser.value && !canExportPdf.value
+  })
+
+  onMounted(() => {
+    if (isDoctorUser.value) {
+      fetchSubscription()
+    }
+  })
 
   const handleExportPdf = async () => {
+    if (isExportLocked.value) {
+      showExportUpgradeModal.value = true
+      return
+    }
+
     const diagUuid = targetDiagnosisUuid.value
     if (!diagUuid) {
       toast.error('Clinical report ID not found.')
@@ -198,17 +221,9 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        (props.role === 'doctor' || authRole.value === 'doctor' || useCookie('user_role').value === 'doctor')
+        isDoctorUser.value
       ) {
-        toast.error(
-          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
-          {
-            action: {
-              label: 'View Plans',
-              onClick: () => navigateTo('/doctor/subscription')
-            }
-          }
-        )
+        showExportUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')
       }
@@ -1449,10 +1464,27 @@
             class="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50 sm:w-auto"
           >
             <Icon
-              :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
+              v-if="isDownloadingPdf"
+              name="svg-spinners:ring-resize"
+              class="text-primary text-base"
+            />
+            <Icon
+              v-else-if="isExportLocked"
+              name="lucide:lock"
+              class="text-primary text-sm"
+            />
+            <Icon
+              v-else
+              name="solar:document-medicine-bold"
               class="text-primary text-base"
             />
             <span>{{ isDownloadingPdf ? 'Exporting...' : 'Export Report (PDF)' }}</span>
+            <span
+              v-if="isExportLocked"
+              class="ml-0.5 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-primary"
+            >
+              PRO
+            </span>
           </AppButton>
         </div>
       </div>
@@ -3356,5 +3388,8 @@
       @appeal-submitted="handleAppealSubmitted"
       @appeal-updated="handleAppealUpdated"
     />
+
+    <!-- PDF Export Feature Upgrade Modal -->
+    <PdfExportUpgradeModal v-model="showExportUpgradeModal" />
   </div>
 </template>

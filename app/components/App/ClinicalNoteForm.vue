@@ -14,7 +14,9 @@
     type MedicineVariant
   } from '~/api/medicine/MedicineService'
   import { parseAppointmentDateTime } from '~/composables/useAppointments'
+  import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
   import { toast } from 'vue-sonner'
+  import PdfExportUpgradeModal from '~/components/App/Modal/PdfExportUpgradeModal.vue'
 
   const props = defineProps<{
     appointmentUuid?: string
@@ -414,6 +416,17 @@
     return Boolean(note.value.prescription && note.value.prescription.trim())
   })
 
+  const { canExportPdf, fetchSubscription } = useDoctorSubscription()
+  const showExportUpgradeModal = ref(false)
+
+  const isDoctorUser = computed(() => {
+    return (useAuth().role.value || useCookie('user_role').value) === 'doctor'
+  })
+
+  const isExportLocked = computed(() => {
+    return isDoctorUser.value && !canExportPdf.value
+  })
+
   const effectiveDiagUuid = computed(() => {
     return (
       props.diagnosisUuid ||
@@ -424,6 +437,11 @@
   })
 
   const handleExportClinicalReportPdf = async () => {
+    if (isExportLocked.value) {
+      showExportUpgradeModal.value = true
+      return
+    }
+
     const diagUuid = effectiveDiagUuid.value
     if (!diagUuid) {
       toast.error('Clinical report ID not found.')
@@ -446,17 +464,9 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        (useAuth().role.value || useCookie('user_role').value) === 'doctor'
+        isDoctorUser.value
       ) {
-        toast.error(
-          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
-          {
-            action: {
-              label: 'View Plans',
-              onClick: () => navigateTo('/doctor/subscription')
-            }
-          }
-        )
+        showExportUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')
       }
@@ -2366,6 +2376,11 @@
                 class="animate-spin text-sm"
               />
               <Icon
+                v-else-if="isExportLocked"
+                name="lucide:lock"
+                class="text-white/80 text-sm"
+              />
+              <Icon
                 v-else
                 name="solar:document-medicine-bold"
                 class="text-sm"
@@ -2377,6 +2392,12 @@
                     ? 'Export Clinical Report Again (PDF)'
                     : 'Export Clinical Report (PDF)'
               }}</span>
+              <span
+                v-if="isExportLocked"
+                class="ml-1 inline-flex items-center rounded-md border border-white/30 bg-white/20 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-white"
+              >
+                PRO
+              </span>
             </button>
 
             <template v-if="hasPrescription">
@@ -2427,5 +2448,8 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- PDF Export Feature Upgrade Modal -->
+    <PdfExportUpgradeModal v-model="showExportUpgradeModal" />
   </div>
 </template>

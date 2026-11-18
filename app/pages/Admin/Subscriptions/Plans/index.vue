@@ -360,7 +360,7 @@
             <span
               class="bg-primary/10 text-primary border-primary/20 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold capitalize"
             >
-              {{ plan.tier_type?.replace(/_/g, ' ') }}
+              {{ formatTierType(plan.tier_type) }}
             </span>
 
             <div class="grid grid-cols-2 gap-2">
@@ -480,7 +480,7 @@
                 <span
                   class="bg-primary/10 text-primary border-primary/20 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold capitalize"
                 >
-                  {{ plan.tier_type?.replace(/_/g, ' ') }}
+                  {{ formatTierType(plan.tier_type) }}
                 </span>
               </td>
               <td class="px-5 py-4 font-mono font-bold text-gray-950">
@@ -595,6 +595,100 @@
                 placeholder="e.g. Solo Practitioner"
                 class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-900 transition outline-none focus:bg-white focus:ring-4"
               />
+            </div>
+
+            <!-- Tier Model Classification & Override -->
+            <div
+              class="space-y-2.5 rounded-xl border border-gray-200/80 bg-gray-50/80 p-3 sm:p-3.5"
+            >
+              <div class="flex items-center justify-between">
+                <label class="block text-xs font-bold tracking-wider text-gray-700 uppercase">
+                  Tier Model (Classification)
+                </label>
+                <span
+                  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold"
+                  :class="
+                    tierSelectionMode === 'auto'
+                      ? 'border-primary/20 bg-primary/10 text-primary border'
+                      : 'border border-amber-200 bg-amber-50 text-amber-800'
+                  "
+                >
+                  <Icon
+                    :name="tierSelectionMode === 'auto' ? 'lucide:sparkles' : 'lucide:pencil'"
+                    class="h-3 w-3"
+                  />
+                  <span>
+                    {{
+                      tierSelectionMode === 'auto'
+                        ? `Auto-detected: ${formatTierType(autoDerivedTier)}`
+                        : `Manual Override: ${formatTierType(manualTierType)}`
+                    }}
+                  </span>
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div>
+                  <label
+                    class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                  >
+                    Tier Assignment Mode
+                  </label>
+                  <select
+                    v-model="tierSelectionMode"
+                    class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800 transition outline-none focus:ring-4"
+                  >
+                    <option value="auto">⚡ Auto-detect from limits (Recommended)</option>
+                    <option value="manual">Manual override tier model</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    class="mb-1 block text-[11px] font-bold tracking-wider text-gray-500 uppercase"
+                  >
+                    {{
+                      tierSelectionMode === 'auto'
+                        ? 'Derived Tier Category'
+                        : 'Select Override Tier'
+                    }}
+                  </label>
+                  <select
+                    v-if="tierSelectionMode === 'manual'"
+                    v-model="manualTierType"
+                    class="focus:border-primary/30 focus:ring-primary/10 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-800 transition outline-none focus:ring-4"
+                  >
+                    <option value="individual">Individual (Solo Doctor, Single Clinic)</option>
+                    <option value="doctor_multi_clinic">
+                      Doctor Multi Clinic (Solo Doctor, Multiple Branches)
+                    </option>
+                    <option value="clinic_multi_doctor">
+                      Clinic Multi Doctor (Multiple Doctors / Group Practice)
+                    </option>
+                  </select>
+                  <div
+                    v-else
+                    class="flex h-9 items-center justify-between rounded-xl border border-dashed border-gray-300 bg-white px-3 text-xs font-bold text-gray-700"
+                  >
+                    <span class="text-primary font-bold">{{
+                      formatTierType(autoDerivedTier)
+                    }}</span>
+                    <span class="text-[10px] font-medium text-gray-400">
+                      {{
+                        autoDerivedTier === 'clinic_multi_doctor'
+                          ? '>1 Doctor Seat'
+                          : autoDerivedTier === 'doctor_multi_clinic'
+                            ? '>1 Clinic Branch'
+                            : '1 Doctor & 1 Clinic'
+                      }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p class="text-[11px] text-gray-400">
+                Auto-detect dynamically assigns the tier based on the Max Doctors and Max Clinics
+                limits configured below.
+              </p>
             </div>
 
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -870,9 +964,42 @@
   const showDeleteModal = ref(false)
   const planToDelete = ref<Plan | null>(null)
 
+  const tierSelectionMode = ref<'auto' | 'manual'>('auto')
+  const manualTierType = ref<'individual' | 'doctor_multi_clinic' | 'clinic_multi_doctor'>(
+    'individual'
+  )
+
+  const autoDerivedTier = computed<'individual' | 'doctor_multi_clinic' | 'clinic_multi_doctor'>(
+    () => {
+      const docs = form.value.max_doctors
+      const clinics = form.value.max_clinics
+
+      if (docs === null || docs === undefined || Number(docs) > 1) {
+        return 'clinic_multi_doctor'
+      }
+      if (clinics === null || clinics === undefined || Number(clinics) > 1) {
+        return 'doctor_multi_clinic'
+      }
+      return 'individual'
+    }
+  )
+
+  const formatTierType = (tierType?: string) => {
+    switch (tierType) {
+      case 'clinic_multi_doctor':
+        return 'Clinic Multi Doctor'
+      case 'doctor_multi_clinic':
+        return 'Doctor Multi Clinic'
+      case 'individual':
+        return 'Individual'
+      default:
+        return tierType?.replace(/_/g, ' ') || 'Individual'
+    }
+  }
+
   const form = ref<Plan>({
     name: '',
-    tier_type: 'individual',
+    tier_type: 'auto',
     price_monthly: 0,
     price_annual: 0,
     max_doctors: null,
@@ -915,6 +1042,8 @@
     isEditing.value = false
     selectedId.value = null
     customFeaturesText.value = ''
+    tierSelectionMode.value = 'auto'
+    manualTierType.value = 'individual'
 
     const defaultFlags: Record<string, boolean> = {
       custom_list: [] as any
@@ -927,7 +1056,7 @@
 
     form.value = {
       name: '',
-      tier_type: 'individual',
+      tier_type: 'auto',
       price_monthly: 999,
       price_annual: 9990,
       max_doctors: 1,
@@ -946,6 +1075,24 @@
     isEditing.value = true
     selectedId.value = plan.id ?? null
     form.value = JSON.parse(JSON.stringify(plan))
+
+    // Derive expected tier based on doctor & clinic limits
+    const docs = plan.max_doctors
+    const clinics = plan.max_clinics
+    let derived: 'individual' | 'doctor_multi_clinic' | 'clinic_multi_doctor' = 'individual'
+    if (docs === null || docs === undefined || Number(docs) > 1) {
+      derived = 'clinic_multi_doctor'
+    } else if (clinics === null || clinics === undefined || Number(clinics) > 1) {
+      derived = 'doctor_multi_clinic'
+    }
+
+    if (plan.tier_type === derived || plan.tier_type === 'auto') {
+      tierSelectionMode.value = 'auto'
+      manualTierType.value = derived
+    } else {
+      tierSelectionMode.value = 'manual'
+      manualTierType.value = (plan.tier_type as any) || 'individual'
+    }
 
     if (!form.value.features || Array.isArray(form.value.features)) {
       form.value.features = {}
@@ -988,6 +1135,8 @@
           form.value.max_secretaries === undefined ||
           Number(form.value.max_secretaries) > 0
       }
+
+      form.value.tier_type = tierSelectionMode.value === 'auto' ? 'auto' : manualTierType.value
 
       if (isEditing.value && selectedId.value) {
         await subscriptionAdminService.updatePlan(selectedId.value, form.value)

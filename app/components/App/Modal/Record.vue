@@ -1,10 +1,12 @@
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue'
+  import { computed, onMounted, ref, watch } from 'vue'
   import { $api } from '~/composables/useApi'
   import { DISEASE_DATABASE, COLOR_MAP } from '~/composables/useDiagnosis'
   import { useStorage } from '~/composables/useStorage'
+  import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
   import { recordService } from '~/api/record/RecordService'
   import { toast } from 'vue-sonner'
+  import PdfExportUpgradeModal from '~/components/App/Modal/PdfExportUpgradeModal.vue'
 
   const props = defineProps<{
     record: any
@@ -18,8 +20,26 @@
   const { role: authRole } = useAuth()
   const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const { getStorageUrl } = useStorage()
+  const { canExportPdf, fetchSubscription } = useDoctorSubscription()
   const isImageExpanded = ref(false)
   const isDownloadingPdf = ref(false)
+  const showUpgradeModal = ref(false)
+
+  const isDoctor = computed(() => {
+    if (props.role === 'doctor') return true
+    if (props.role === 'patient') return false
+    return userRole.value === 'doctor'
+  })
+
+  const isExportLocked = computed(() => {
+    return isDoctor.value && !canExportPdf.value
+  })
+
+  onMounted(() => {
+    if (isDoctor.value) {
+      fetchSubscription()
+    }
+  })
 
   const isPatientView = computed(() => {
     if (props.role === 'patient') return true
@@ -136,6 +156,11 @@
   }
 
   const handleExportPdf = async () => {
+    if (isExportLocked.value) {
+      showUpgradeModal.value = true
+      return
+    }
+
     if (!props.record?.uuid) return
     isDownloadingPdf.value = true
     try {
@@ -150,16 +175,8 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if ((err?.status === 403 || err?.statusCode === 403) && userRole.value === 'doctor') {
-        toast.error(
-          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
-          {
-            action: {
-              label: 'View Plans',
-              onClick: () => navigateTo('/doctor/subscription')
-            }
-          }
-        )
+      if ((err?.status === 403 || err?.statusCode === 403) && isDoctor.value) {
+        showUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to download PDF report')
       }
@@ -728,13 +745,31 @@
           rounded="unstyled"
           :disabled="isDownloadingPdf"
           @click="handleExportPdf"
-          class="inline-flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-gray-800 active:scale-95 disabled:opacity-50"
+          class="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition-all hover:bg-gray-800 active:scale-95 disabled:opacity-50"
         >
           <Icon
-            :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:file-download-bold'"
+            v-if="isDownloadingPdf"
+            name="svg-spinners:ring-resize"
+            size="14"
+          />
+          <Icon
+            v-else-if="isExportLocked"
+            name="lucide:lock"
+            size="13"
+            class="text-indigo-300"
+          />
+          <Icon
+            v-else
+            name="solar:file-download-bold"
             size="14"
           />
           <span>{{ isDownloadingPdf ? 'Generating PDF...' : 'Export PDF Report' }}</span>
+          <span
+            v-if="isExportLocked"
+            class="ml-0.5 inline-flex items-center rounded-md border border-indigo-400/30 bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-indigo-200"
+          >
+            PRO
+          </span>
         </AppButton>
       </div>
 
@@ -788,6 +823,9 @@
     v-model="showPrescriptionPad"
     :record-uuid="props.record?.uuid"
   />
+
+  <!-- PDF Export Feature Upgrade Modal -->
+  <PdfExportUpgradeModal v-model="showUpgradeModal" />
 </template>
 
 <style scoped>

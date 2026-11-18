@@ -1036,6 +1036,16 @@
     >
       <div class="space-y-4 sm:space-y-5">
         <AppAlert
+          v-if="
+            selectedPlan &&
+            currentSubscription?.plan?.uuid === selectedPlan.uuid &&
+            currentSubscription?.has_plan_update
+          "
+          type="info"
+          title="Plan Upgrade Available"
+          description="You are upgrading to the latest version of this plan. Upon payment, your subscription will be immediately updated with the latest quotas and features."
+        />
+        <AppAlert
           v-if="checkoutSuccessMsg"
           type="success"
           title="Order Submitted"
@@ -1160,7 +1170,13 @@
             :loading="isSubmittingCheckout"
             @click="processCheckout"
           >
-            Proceed to Secure Payment
+            {{
+              selectedPlan &&
+              currentSubscription?.plan?.uuid === selectedPlan.uuid &&
+              currentSubscription?.has_plan_update
+                ? 'Proceed to Upgrade Payment'
+                : 'Proceed to Secure Payment'
+            }}
           </AppButton>
         </div>
       </template>

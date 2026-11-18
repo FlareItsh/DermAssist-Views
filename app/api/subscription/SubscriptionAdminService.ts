@@ -4,7 +4,7 @@ export interface Plan {
   id?: number
   name: string
   slug?: string
-  tier_type: 'individual' | 'doctor_multi_clinic' | 'clinic_multi_doctor'
+  tier_type: 'auto' | 'individual' | 'doctor_multi_clinic' | 'clinic_multi_doctor'
   price_monthly: number
   price_annual: number
   max_doctors?: number | null

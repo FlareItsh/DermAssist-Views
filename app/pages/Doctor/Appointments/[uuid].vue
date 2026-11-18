@@ -5,7 +5,9 @@
   import { useStorage } from '~/composables/useStorage'
   import { recordService } from '~/api/record/RecordService'
   import { appointmentService } from '~/api/appointment/AppointmentService'
+  import { useDoctorSubscription } from '~/composables/useDoctorSubscription'
   import { toast } from 'vue-sonner'
+  import PdfExportUpgradeModal from '~/components/App/Modal/PdfExportUpgradeModal.vue'
 
   definePageMeta({
     layout: 'dashboard-sidebar-layout'
@@ -53,8 +55,21 @@
   }
 
   const isDownloadingPdf = ref(false)
+  const showExportUpgradeModal = ref(false)
+  const { canExportPdf, fetchSubscription: fetchDoctorSubscription } = useDoctorSubscription()
+
+  const isExportLocked = computed(() => !canExportPdf.value)
+
+  onMounted(() => {
+    fetchDoctorSubscription()
+  })
 
   const handleExportPdf = async () => {
+    if (isExportLocked.value) {
+      showExportUpgradeModal.value = true
+      return
+    }
+
     const diagIdentifier =
       appointment.value?.in_clinic_diagnosis_id ||
       appointment.value?.diagnosis_uuid ||
@@ -78,15 +93,7 @@
       toast.success('Clinical consultation report downloaded successfully')
     } catch (err: any) {
       if (err?.status === 403 || err?.statusCode === 403) {
-        toast.error(
-          'Plan restriction: PDF exports are not included in your current subscription. Please upgrade to unlock.',
-          {
-            action: {
-              label: 'View Plans',
-              onClick: () => navigateTo('/doctor/subscription')
-            }
-          }
-        )
+        showExportUpgradeModal.value = true
       } else {
         toast.error(err?.message || 'Failed to export clinical report')
       }
@@ -321,10 +328,27 @@
           class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-xs font-bold text-gray-800 shadow-2xs transition-all hover:bg-gray-50 active:scale-95 disabled:opacity-50"
         >
           <Icon
-            :name="isDownloadingPdf ? 'svg-spinners:ring-resize' : 'solar:document-medicine-bold'"
+            v-if="isDownloadingPdf"
+            name="svg-spinners:ring-resize"
+            class="text-primary text-base"
+          />
+          <Icon
+            v-else-if="isExportLocked"
+            name="lucide:lock"
+            class="text-primary text-sm"
+          />
+          <Icon
+            v-else
+            name="solar:document-medicine-bold"
             class="text-primary text-base"
           />
           <span>{{ isDownloadingPdf ? 'Exporting...' : 'Export Clinical Report (PDF)' }}</span>
+          <span
+            v-if="isExportLocked"
+            class="ml-0.5 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-primary"
+          >
+            PRO
+          </span>
         </AppButton>
       </div>
     </div>
@@ -783,5 +807,8 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- PDF Export Feature Upgrade Modal -->
+    <PdfExportUpgradeModal v-model="showExportUpgradeModal" />
   </div>
 </template>

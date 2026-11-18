@@ -230,7 +230,7 @@
   <Teleport to="body">
     <div
       v-if="modelValue"
-      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+      class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
     >
       <div
         class="flex max-h-[92dvh] sm:max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border border-gray-100 bg-white shadow-2xl transition-all"
@@ -245,7 +245,7 @@
 
         <!-- Top Bar -->
         <div
-          class="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50/95 px-4 pt-1.5 pb-3 sm:px-6 sm:py-3.5 backdrop-blur-md"
+          class="sticky top-0 z-20 flex shrink-0 items-center justify-between border-b border-gray-100 bg-gray-50 px-4 pt-1.5 pb-3 sm:px-6 sm:py-3.5"
         >
           <div class="flex min-w-0 items-center gap-2 sm:gap-2.5">
             <div
@@ -307,7 +307,7 @@
             <button
               type="button"
               @click="isZoomed = !isZoomed"
-              class="flex items-center gap-1.5 rounded-full border border-gray-200/90 bg-white/95 px-3 py-1 text-xs font-semibold text-gray-700 shadow-xs backdrop-blur-xs transition hover:bg-white active:scale-95"
+              class="flex items-center gap-1.5 rounded-full border border-gray-200/90 bg-white/95 px-3 py-1 text-xs font-semibold text-gray-700 shadow-xs transition hover:bg-white active:scale-95"
             >
               <Icon
                 :name="isZoomed ? 'lucide:minimize-2' : 'lucide:maximize-2'"
@@ -659,7 +659,7 @@
 
         <!-- Action Buttons Bar -->
         <div
-          class="sticky bottom-0 z-20 flex shrink-0 items-center justify-between border-t border-gray-100 bg-white/95 px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          class="sticky bottom-0 z-20 flex shrink-0 items-center justify-between border-t border-gray-100 bg-white px-4 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         >
           <span class="hidden text-xs text-gray-500 sm:inline">
             Print directly to office printer or download signed A5 PDF.

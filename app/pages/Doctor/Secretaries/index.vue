@@ -786,7 +786,7 @@
       <div
         v-if="showAddModal"
         @click.self="showAddModal = false"
-        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-md flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
@@ -801,7 +801,7 @@
 
           <!-- Sticky Header -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4 backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4"
           >
             <div class="flex items-center gap-2.5">
               <div
@@ -985,7 +985,7 @@
 
           <!-- Sticky Footer -->
           <div
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-end gap-2.5 border-t px-5 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <AppButton
               type="button"
@@ -1017,7 +1017,7 @@
       <div
         v-if="showEditModal && editingSecretary"
         @click.self="showEditModal = false"
-        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 relative flex max-h-[92dvh] sm:max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border shadow-2xl transition-all"
@@ -1032,7 +1032,7 @@
 
           <!-- Sticky Header -->
           <div
-            class="border-border/60 bg-card/95 sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4 backdrop-blur-md"
+            class="border-border/60 bg-card sticky top-0 z-20 flex shrink-0 items-center justify-between border-b px-5 pt-1.5 pb-3.5 sm:px-6 sm:py-4"
           >
             <div class="flex items-center gap-3">
               <div
@@ -1312,7 +1312,7 @@
 
           <!-- Sticky Footer -->
           <div
-            class="border-border/60 bg-card/95 sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2.5 border-t px-5 py-3 sm:px-6 sm:py-4 backdrop-blur-md pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            class="border-border/60 bg-card sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-2.5 border-t px-5 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
           >
             <button
               type="button"
@@ -1358,7 +1358,7 @@
       <div
         v-if="showDeleteModal"
         @click.self="showDeleteModal = false"
-        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-4"
       >
         <div
           class="bg-card border-border animate-in fade-in zoom-in-95 relative flex w-full max-w-sm flex-col overflow-hidden rounded-t-[2rem] sm:rounded-3xl border p-6 text-center shadow-2xl transition-all pb-[max(1.5rem,env(safe-area-inset-bottom))]"

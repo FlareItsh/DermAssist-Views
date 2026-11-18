@@ -76,7 +76,7 @@
     <Transition name="modal">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-6 backdrop-blur-xs"
+        class="fixed inset-0 z-[120] flex items-end justify-center p-0 sm:items-center sm:p-6"
         @click.self="close"
         @keydown.esc="close"
       >
