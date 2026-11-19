@@ -419,12 +419,19 @@
   const { canExportPdf, fetchSubscription } = useDoctorSubscription()
   const showExportUpgradeModal = ref(false)
 
-  const isDoctorUser = computed(() => {
-    return (useAuth().role.value || useCookie('user_role').value) === 'doctor'
+  const isEligibleStaff = computed(() => {
+    const role = useAuth().role.value || useCookie('user_role').value
+    return role === 'doctor' || role === 'secretary'
   })
 
   const isExportLocked = computed(() => {
-    return isDoctorUser.value && !canExportPdf.value
+    return isEligibleStaff.value && !canExportPdf.value
+  })
+
+  onMounted(() => {
+    if (isEligibleStaff.value) {
+      fetchSubscription()
+    }
   })
 
   const effectiveDiagUuid = computed(() => {
@@ -464,7 +471,7 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        isDoctorUser.value
+        isEligibleStaff.value
       ) {
         showExportUpgradeModal.value = true
       } else {

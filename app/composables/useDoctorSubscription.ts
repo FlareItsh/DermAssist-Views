@@ -11,6 +11,14 @@ export const useDoctorSubscription = () => {
   )
   const isLoadingSubscription = useState<boolean>('doctor-subscription-loading', () => false)
   const lastFetchedAt = useState<number | null>('doctor-subscription-fetched-at', () => null)
+  const attendingDoctorName = useState<string | null>('doctor-subscription-attending-name', () => null)
+  const isInheritedSecretary = useState<boolean>('doctor-subscription-is-inherited-sec', () => false)
+
+  const isSecretary = computed(() => {
+    const { role: authRole } = useAuth()
+    const role = authRole.value || useCookie('user_role').value
+    return role === 'secretary'
+  })
 
   const isSubscribed = computed(() => {
     if (!currentSubscription.value) return false
@@ -113,16 +121,20 @@ export const useDoctorSubscription = () => {
 
     const { role: authRole } = useAuth()
     const role = authRole.value || useCookie('user_role').value
-    if (role !== 'doctor') return null
+    if (role !== 'doctor' && role !== 'secretary') return null
 
     isLoadingSubscription.value = true
     try {
       const res = await doctorSubscriptionService.getMySubscription()
       currentSubscription.value = res.data?.subscription || null
+      attendingDoctorName.value = res.data?.attending_doctor_name || null
+      isInheritedSecretary.value = Boolean(res.data?.is_inherited_secretary)
       lastFetchedAt.value = now
     } catch (e) {
       console.error('Failed to fetch doctor subscription status:', e)
       currentSubscription.value = null
+      attendingDoctorName.value = null
+      isInheritedSecretary.value = false
     } finally {
       isLoadingSubscription.value = false
     }
@@ -135,6 +147,9 @@ export const useDoctorSubscription = () => {
     currentSubscription,
     isLoadingSubscription,
     isSubscribed,
+    isSecretary,
+    attendingDoctorName,
+    isInheritedSecretary,
     planFeatures,
     canExecuteScan,
     canExportPdf,

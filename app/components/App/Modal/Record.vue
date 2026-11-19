@@ -25,18 +25,18 @@
   const isDownloadingPdf = ref(false)
   const showUpgradeModal = ref(false)
 
-  const isDoctor = computed(() => {
-    if (props.role === 'doctor') return true
+  const isDoctorOrSecretary = computed(() => {
     if (props.role === 'patient') return false
-    return userRole.value === 'doctor'
+    if (props.role === 'doctor') return true
+    return userRole.value === 'doctor' || userRole.value === 'secretary'
   })
 
   const isExportLocked = computed(() => {
-    return isDoctor.value && !canExportPdf.value
+    return isDoctorOrSecretary.value && !canExportPdf.value
   })
 
   onMounted(() => {
-    if (isDoctor.value) {
+    if (isDoctorOrSecretary.value) {
       fetchSubscription()
     }
   })
@@ -175,7 +175,7 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if ((err?.status === 403 || err?.statusCode === 403) && isDoctor.value) {
+      if ((err?.status === 403 || err?.statusCode === 403) && isDoctorOrSecretary.value) {
         showUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to download PDF report')
