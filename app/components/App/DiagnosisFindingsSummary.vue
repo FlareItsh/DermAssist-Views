@@ -42,7 +42,8 @@
 
   const { fullName: authFullName } = useAuth()
   const userName = computed(
-    () => authFullName.value || useCookie('user_name').value || useCookie('auth_user_name').value || ''
+    () =>
+      authFullName.value || useCookie('user_name').value || useCookie('auth_user_name').value || ''
   )
   const authUserName = userName
   const recentNames = useCookie<string[]>('recent_names', { default: () => [] })
@@ -725,17 +726,32 @@
         barangay: registerForm.barangay?.trim() || undefined
       }
 
-      walkInPatientInfo.value = null
-      pendingPatientRegistration.value = payload
-      patientUuid.value = 'pending_new_patient'
-      assignedName.value = `${payload.firstName} ${payload.lastName}`
+      const res = await userService.createDoctorPatient(payload)
+      const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
+
+      patientUuid.value = createdUser.uuid
+      assignedName.value = `${createdUser.first_name} ${createdUser.last_name}`
       userName.value = assignedName.value
       assignedAppointment.value = null
+      pendingPatientRegistration.value = null
+      walkInPatientInfo.value = null
 
       saveActiveDiagnosisState()
 
+      if (currentDiagnosis.value?.uuid) {
+        try {
+          await diagnosisService.update(currentDiagnosis.value.uuid, {
+            patient_uuid: createdUser.uuid
+          })
+        } catch (linkErr) {
+          console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
+        }
+      }
+
+      await loadDoctorPatients()
+
       toast.success(
-        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+        `Patient account for ${createdUser.first_name} ${createdUser.last_name} created and assigned successfully!`
       )
 
       activeModalTab.value = 'appointments'
@@ -744,7 +760,7 @@
     } catch (e: any) {
       console.error('Registration failed:', e)
       const msg =
-        e?.data?.message || e?.response?._data?.message || 'Failed to stage patient registration.'
+        e?.data?.message || e?.response?._data?.message || 'Failed to register patient account.'
       registrationError.value = msg
       toast.error(msg)
     } finally {
