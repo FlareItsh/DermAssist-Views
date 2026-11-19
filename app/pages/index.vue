@@ -120,7 +120,7 @@
               >
                 <div class="flex items-baseline justify-between">
                   <span class="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl"
-                    >75.5%</span
+                    >93.33%</span
                   >
                   <span
                     class="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
@@ -431,11 +431,12 @@
             <div>
               <h3 class="text-foreground text-2xl font-bold tracking-tight">Get in Touch</h3>
               <p class="text-muted-foreground mt-1 text-sm">
-                Fill out the form below and our medical administration team will respond within 24
-                hours.
+                Fill out the form below and our team will respond within 24 hours.
               </p>
 
               <form
+                action="https://formspree.io/f/xyewpljw"
+                method="POST"
                 @submit.prevent="handleSubmitContact"
                 class="mt-6 flex flex-col gap-4"
               >
@@ -448,6 +449,7 @@
                   </label>
                   <input
                     id="contact-name"
+                    name="name"
                     v-model="contactForm.name"
                     type="text"
                     required
@@ -465,6 +467,7 @@
                   </label>
                   <input
                     id="contact-email"
+                    name="email"
                     v-model="contactForm.email"
                     type="email"
                     required
@@ -482,6 +485,7 @@
                   </label>
                   <textarea
                     id="contact-message"
+                    name="message"
                     v-model="contactForm.message"
                     rows="4"
                     required
@@ -654,17 +658,42 @@
 
     isSubmitting.value = true
 
-    // Simulate clean submission with UX feedback
-    setTimeout(() => {
-      isSubmitting.value = false
-      toast.success('Thank you! Your message has been sent to our medical care team.')
-      contactForm.value = {
-        name: '',
-        email: '',
-        message: '',
-        agreed: false
+    try {
+      const response = await fetch('https://formspree.io/f/xyewpljw', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: contactForm.value.name,
+          email: contactForm.value.email,
+          message: contactForm.value.message
+        })
+      })
+
+      if (response.ok) {
+        toast.success(
+          "Thank you! Your message has been sent to our team. We'll get back to you shortly."
+        )
+        contactForm.value = {
+          name: '',
+          email: '',
+          message: '',
+          agreed: false
+        }
+      } else {
+        const data = await response.json().catch(() => null)
+        const errorMsg =
+          data?.errors?.map((err: { message: string }) => err.message).join(', ') ||
+          'Failed to send message. Please try again later.'
+        toast.error(errorMsg)
       }
-    }, 700)
+    } catch {
+      toast.error('Network error. Please check your connection and try again.')
+    } finally {
+      isSubmitting.value = false
+    }
   }
 
   // The dynamic feature services array

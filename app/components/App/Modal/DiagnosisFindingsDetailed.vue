@@ -181,7 +181,11 @@
   const { canExportPdf, fetchSubscription } = useDoctorSubscription()
 
   const isDoctorUser = computed(() => {
-    return props.role === 'doctor' || authRole.value === 'doctor' || useCookie('user_role').value === 'doctor'
+    return (
+      props.role === 'doctor' ||
+      authRole.value === 'doctor' ||
+      useCookie('user_role').value === 'doctor'
+    )
   })
 
   const isExportLocked = computed(() => {
@@ -219,10 +223,7 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if (
-        (err?.status === 403 || err?.statusCode === 403) &&
-        isDoctorUser.value
-      ) {
+      if ((err?.status === 403 || err?.statusCode === 403) && isDoctorUser.value) {
         showExportUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')
@@ -710,18 +711,33 @@
         province: newAccountForm.province?.trim() || undefined
       }
 
-      pendingPatientRegistration.value = payload
-      patientUuid.value = 'pending_new_patient'
-      saveActiveDiagnosisState()
-      userName.value = `${payload.firstName} ${payload.lastName}`
-      editablePatientName.value = `${payload.firstName} ${payload.lastName}`
-      if (payload.age) {
-        editablePatientAge.value = String(payload.age)
+      const res = await userService.createDoctorPatient(payload)
+      const createdUser = res?.user?.data ?? res?.user ?? res?.data ?? res
+
+      patientUuid.value = createdUser.uuid
+      userName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      editablePatientName.value = `${createdUser.first_name} ${createdUser.last_name}`
+      if (createdUser.age) {
+        editablePatientAge.value = String(createdUser.age)
       }
+      pendingPatientRegistration.value = null
+      saveActiveDiagnosisState()
+
+      if (currentDiagnosis.value?.uuid) {
+        try {
+          await diagnosisService.update(currentDiagnosis.value.uuid, {
+            patient_uuid: createdUser.uuid
+          })
+        } catch (linkErr) {
+          console.error('Failed to link diagnosis with newly created patient uuid:', linkErr)
+        }
+      }
+
+      await loadDoctorPatients()
 
       createAccountSuccess.value = true
       toast.success(
-        `Patient ${payload.firstName} ${payload.lastName} assigned! Account will be created when diagnosis is saved.`
+        `Patient account for ${createdUser.first_name} ${createdUser.last_name} created and assigned successfully!`
       )
 
       // Close account modal after success
@@ -731,7 +747,8 @@
       }, 900)
     } catch (err: any) {
       createAccountError.value =
-        err.data?.message || err.message || 'Failed to stage patient account.'
+        err.data?.message || err.message || 'Failed to register patient account.'
+      toast.error(createAccountError.value)
     } finally {
       isSubmittingAccount.value = false
     }
@@ -1481,7 +1498,7 @@
             <span>{{ isDownloadingPdf ? 'Exporting...' : 'Export Report (PDF)' }}</span>
             <span
               v-if="isExportLocked"
-              class="ml-0.5 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black tracking-wider text-primary"
+              class="text-primary ml-0.5 inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-1.5 py-0.5 text-[9px] font-black tracking-wider"
             >
               PRO
             </span>
