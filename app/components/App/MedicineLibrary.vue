@@ -12,7 +12,7 @@
   const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
-  const { data: userProfile } = userService.useShow(userUuid.value as string, {
+  const { data: userProfile } = userService.useShow(() => userUuid.value, {
     key: `medicineUser-${userUuid.value}`,
     immediate: Boolean(userRole.value === 'secretary' && userUuid.value)
   })
@@ -23,7 +23,28 @@
     return profile?.assigned_doctor ?? null
   })
 
-  const { data: response, pending, refresh } = medicineService.useList()
+  const {
+    data: response,
+    pending,
+    error: fetchError,
+    refresh
+  } = medicineService.useList(
+    {},
+    {
+      key: `medicines-${userUuid.value || 'anon'}`
+    }
+  )
+
+  const loadErrorMessage = computed(() => {
+    const err = fetchError.value as any
+    if (!err) return ''
+    return (
+      err?.data?.message ||
+      err?.response?._data?.message ||
+      err?.message ||
+      'Unable to load medicines right now.'
+    )
+  })
 
   const medicines = computed<Medicine[]>(() => {
     const res = response.value as any
@@ -390,6 +411,36 @@
         class="text-primary text-4xl opacity-60"
       />
       <span class="mt-3 text-xs font-semibold text-gray-500">Loading medicines...</span>
+    </div>
+
+    <!-- Error State -->
+    <div
+      v-else-if="fetchError"
+      class="flex flex-col items-center justify-center rounded-3xl border border-red-200 bg-red-50/40 px-4 py-16 text-center shadow-2xs"
+    >
+      <div
+        class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 text-red-600"
+      >
+        <Icon
+          name="lucide:alert-circle"
+          class="text-3xl"
+        />
+      </div>
+      <h3 class="mt-4 text-base font-bold text-gray-900">Failed to load medicines</h3>
+      <p class="mt-1 max-w-sm text-xs text-gray-600">
+        {{ loadErrorMessage }}
+      </p>
+      <button
+        type="button"
+        @click="refresh()"
+        class="bg-primary hover:bg-primary/90 mt-5 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold text-white shadow-xs transition-all"
+      >
+        <Icon
+          name="lucide:refresh-cw"
+          class="text-sm"
+        />
+        <span>Retry</span>
+      </button>
     </div>
 
     <!-- Empty State -->

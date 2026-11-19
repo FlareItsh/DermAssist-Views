@@ -44,8 +44,10 @@
     walkInPatientInfo,
     saveActiveDiagnosisState
   } = useDiagnosis()
-  const { fullName: authFullName } = useAuth()
+  const { fullName: authFullName, role: authRole, uuid: authUuid } = useAuth()
   const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const storageKey = computed(() => {
     if (props.diagnosisUuid) return `draft_clinical_note_diag_${props.diagnosisUuid}`
@@ -95,7 +97,12 @@
   const { clinics, fetchClinics } = useDoctorClinics()
 
   // Adaptive Medicine Library & Prescription Workflow
-  const { data: medicinesResponse, pending: isLoadingMedicines } = medicineService.useList()
+  const { data: medicinesResponse, pending: isLoadingMedicines } = medicineService.useList(
+    {},
+    {
+      key: `clinicalNoteMedicines-${userUuid.value || 'anon'}`
+    }
+  )
   const availableMedicines = computed<Medicine[]>(() => {
     const res = medicinesResponse.value as any
     if (Array.isArray(res?.data)) return res.data
@@ -552,7 +559,7 @@
   }
 
   const handleOpenMedicineLibrary = () => {
-    navigateTo('/doctor/medicines')
+    navigateTo(userRole.value === 'secretary' ? '/secretary/medicines' : '/doctor/medicines')
   }
 
   const effectiveFollowUpLocation = computed(() => {
