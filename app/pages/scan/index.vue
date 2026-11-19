@@ -2,7 +2,8 @@
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { toast } from 'vue-sonner'
   import { getDeviceFingerprint } from '~/utils/deviceFingerprint'
-  import { scanQuotaService, type ScanQuota } from '~/api/scanQuota/ScanQuotaService'
+  import { scanQuotaService } from '~/api/scanQuota/ScanQuotaService'
+  import type { ScanQuota } from '~/api/scanQuota/ScanQuotaService'
   import {
     acquireOptimizedMediaStream,
     captureHighQualityPhoto,
@@ -132,11 +133,37 @@
 
   // Camera & Image State
   const videoRef = ref<HTMLVideoElement | null>(null)
+  const canvasRef = ref<HTMLCanvasElement | null>(null)
   const fileInput = ref<HTMLInputElement | null>(null)
   const isCameraOn = ref(false)
   const stream = ref<MediaStream | null>(null)
   const previewImage = ref<string | null>(null)
   const selectedFile = ref<File | null>(null)
+  const qualityError = ref<string | null>(null)
+  const uploadQualityWarning = ref<string | null>(null)
+  let qualityCheckInterval: ReturnType<typeof setInterval> | null = null
+
+  // Drag & Drop State
+  const isDraggingOver = ref(false)
+  const handleDragEnter = (e: DragEvent) => {
+    e.preventDefault()
+    isDraggingOver.value = true
+  }
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault()
+    isDraggingOver.value = true
+  }
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault()
+    isDraggingOver.value = false
+  }
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault()
+    isDraggingOver.value = false
+    if (e.dataTransfer?.files && e.dataTransfer.files[0]) {
+      processImageFile(e.dataTransfer.files[0])
+    }
+  }
 
   // Camera Features State: Flip, Torch, Mirror, Multi-Device
   const videoDevices = ref<MediaDeviceInfo[]>([])
@@ -238,6 +265,48 @@
     await startCamera()
   }
 
+  const isMicroscopeActive = computed(() => {
+    if (!isCameraOn.value || !stream.value) return false
+    const track = stream.value.getVideoTracks()[0]
+    const label = (track?.label || '').toLowerCase()
+    return /microscope|dermatoscope|endoscope|usb camera/i.test(label)
+  })
+
+  const startQualityCheck = () => {
+    if (qualityCheckInterval) clearInterval(qualityCheckInterval)
+    const v = videoRef.value
+    const c = canvasRef.value
+    if (!v || !c) return
+
+    qualityCheckInterval = setInterval(() => {
+      if (!v || v.readyState < 2 || !isCameraOn.value) return
+      const ctx = c.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return
+      c.width = 160
+      c.height = 120
+      ctx.drawImage(v, 0, 0, c.width, c.height)
+      qualityError.value = validateImageQuality(ctx, c.width, c.height)
+    }, 400)
+  }
+
+  const analyzeUploadedImageQuality = (dataUrl: string): void => {
+    const img = new Image()
+    img.onload = () => {
+      const offscreen = document.createElement('canvas')
+      offscreen.width = 160
+      offscreen.height = 120
+      const ctx = offscreen.getContext('2d', { willReadFrequently: true })
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0, offscreen.width, offscreen.height)
+      const warning = validateImageQuality(ctx, offscreen.width, offscreen.height)
+      uploadQualityWarning.value = warning
+      if (warning) {
+        toast.warning(`Quality Warning: ${warning}`)
+      }
+    }
+    img.src = dataUrl
+  }
+
   // Camera handlers
   const startCamera = async () => {
     errorMessage.value = ''
@@ -258,6 +327,7 @@
       }
       await updateDeviceList()
       checkTorchCapability()
+      startQualityCheck()
     } catch (err: any) {
       isCameraOn.value = false
       toast.error('Unable to access camera. You can upload a photo instead.')
@@ -265,6 +335,12 @@
   }
 
   const stopCamera = () => {
+    if (qualityCheckInterval) {
+      clearInterval(qualityCheckInterval)
+      qualityCheckInterval = null
+    }
+    qualityError.value = null
+
     if (isTorchOn.value && stream.value) {
       const track = stream.value.getVideoTracks()[0]
       try {
@@ -285,6 +361,10 @@
   }
 
   const capturePhoto = async () => {
+    if (qualityError.value) {
+      toast.warning(`Cannot capture photo: ${qualityError.value}`)
+      return
+    }
     if (!videoRef.value) return
     try {
       if (stream.value) {
@@ -363,23 +443,23 @@
 
   const processImageFile = async (file: File) => {
     errorMessage.value = ''
+    uploadQualityWarning.value = null
     try {
       const compressed = await compressImage(file, {
         maxWidth: 1024,
         maxHeight: 1024,
         quality: 0.85
       })
-      const validation = await validateImageQuality(compressed)
-
-      if (!validation.isValid && validation.message) {
-        toast.warning(validation.message)
-      }
 
       selectedFile.value = compressed
-      previewImage.value = URL.createObjectURL(compressed)
+      const dataUrl = URL.createObjectURL(compressed)
+      previewImage.value = dataUrl
+      analyzeUploadedImageQuality(dataUrl)
     } catch (err) {
       selectedFile.value = file
-      previewImage.value = URL.createObjectURL(file)
+      const dataUrl = URL.createObjectURL(file)
+      previewImage.value = dataUrl
+      analyzeUploadedImageQuality(dataUrl)
     }
   }
 
@@ -389,6 +469,7 @@
     selectedFile.value = null
     scanResult.value = null
     errorMessage.value = ''
+    uploadQualityWarning.value = null
   }
 
   const submitGuestScan = async () => {
@@ -501,12 +582,30 @@
     }
   }
 
+  const checkCameraPermissionAndInit = async () => {
+    if (import.meta.client && navigator.permissions?.query) {
+      try {
+        const status = await navigator.permissions.query({ name: 'camera' as PermissionName })
+        if (status.state === 'granted') {
+          await startCamera()
+        }
+      } catch (_) {}
+    }
+  }
+
   onMounted(async () => {
     await loadQuota()
     await restorePreviousScan()
+    if (!scanResult.value && !previewImage.value) {
+      await checkCameraPermissionAndInit()
+    }
   })
 
   onUnmounted(() => {
+    if (qualityCheckInterval) {
+      clearInterval(qualityCheckInterval)
+      qualityCheckInterval = null
+    }
     if (scanTimer) {
       clearInterval(scanTimer)
       scanTimer = null
@@ -516,7 +615,7 @@
 </script>
 
 <template>
-  <div class="bg-background text-foreground relative min-h-screen pt-24 pb-16 sm:pt-28 sm:pb-24">
+  <div class="bg-background text-foreground relative min-h-screen pt-28 pb-12 sm:pt-32 sm:pb-20">
     <!-- Ambient soft blue brand glows -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
       <div
@@ -530,11 +629,11 @@
       />
     </div>
 
-    <div class="relative z-10 mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+    <div class="relative z-10 mx-auto max-w-5xl px-3 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="text-center">
         <div
-          class="border-primary/20 bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold shadow-xs"
+          class="border-primary/20 bg-primary/10 text-primary inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-semibold shadow-xs"
         >
           <Icon
             name="lucide:sparkles"
@@ -544,20 +643,20 @@
         </div>
 
         <h1
-          class="text-foreground mt-4 text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl"
+          class="text-foreground mt-3 text-2xl font-black tracking-tight sm:mt-4 sm:text-4xl md:text-5xl"
         >
           Check Your Skin in Seconds
         </h1>
-        <p class="text-muted-foreground mx-auto mt-3 max-w-xl text-sm leading-relaxed sm:text-base">
+        <p class="text-muted-foreground mx-auto mt-2 max-w-xl text-xs leading-relaxed sm:text-sm">
           Our advanced AI analyzes your skin photo against dermatological models. Try a free scan
           with zero login required.
         </p>
 
         <!-- Quota Status Banner -->
-        <div class="mt-5 flex justify-center">
+        <div class="mt-3 flex justify-center sm:mt-4">
           <div
             v-if="!isLoadingQuota && quota"
-            class="inline-flex items-center gap-2.5 rounded-full border px-4 py-1.5 text-xs font-medium shadow-xs transition-all"
+            class="inline-flex items-center gap-2 rounded-full border px-3.5 py-1 text-xs font-medium shadow-xs transition-all"
             :class="
               quota.can_scan
                 ? 'border-emerald-500/30 bg-emerald-50 text-emerald-800'
@@ -566,7 +665,7 @@
           >
             <Icon
               :name="quota.can_scan ? 'lucide:check-circle-2' : 'lucide:clock'"
-              class="h-4 w-4 shrink-0"
+              class="h-3.5 w-3.5 shrink-0"
             />
             <span v-if="quota.can_scan">
               Guest Preview: <strong>{{ quota.remaining }} of {{ quota.limit }}</strong> free scan
@@ -586,14 +685,12 @@
         </div>
       </div>
 
-      <!-- Main Scanning Card -->
-      <div
-        class="border-border/80 bg-card mt-8 rounded-3xl border p-5 shadow-xl shadow-slate-200/50 backdrop-blur-xl sm:p-8"
-      >
+      <!-- Main Scanning Area -->
+      <div class="mt-6 w-full sm:mt-8">
         <!-- Error Banner -->
         <div
           v-if="errorMessage"
-          class="border-destructive/20 bg-destructive/10 text-destructive mb-6 flex items-start gap-3 rounded-2xl border p-4 text-sm"
+          class="border-destructive/20 bg-destructive/10 text-destructive mb-4 flex items-start gap-3 rounded-2xl border p-4 text-sm"
         >
           <Icon
             name="lucide:alert-circle"
@@ -614,7 +711,7 @@
         <!-- 1. Result View (Teaser State) -->
         <div
           v-if="scanResult"
-          class="space-y-6"
+          class="border-border/80 bg-card space-y-6 rounded-3xl border p-5 shadow-xl sm:p-8"
         >
           <!-- Teaser Header Card -->
           <div
@@ -745,17 +842,54 @@
         <!-- 2. Capture / Preview State -->
         <div
           v-else
-          class="space-y-6"
+          class="space-y-4"
         >
-          <!-- Video Stream or Photo Preview Box -->
+          <!-- Hidden Native Elements -->
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="onFileSelected"
+          />
+          <canvas
+            ref="canvasRef"
+            class="hidden"
+          />
+
+          <!-- Viewfinder Frame -->
           <div
-            class="border-border relative flex w-full flex-col items-center justify-center overflow-hidden rounded-2xl border bg-slate-950 shadow-2xl transition-all sm:rounded-3xl"
-            :class="
-              isCameraOn || previewImage
-                ? 'aspect-[3/4] min-h-[480px] sm:aspect-[4/3] sm:min-h-[520px]'
-                : 'min-h-[360px] border-dashed p-6 text-center sm:min-h-[400px]'
-            "
+            class="relative flex h-[68vh] max-h-[720px] min-h-[460px] w-full flex-col items-center justify-center overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 shadow-2xl transition-all sm:h-[580px] sm:min-h-[580px]"
+            :class="{ 'ring-primary ring-4 ring-inset': isDraggingOver }"
+            @dragenter="handleDragEnter"
+            @dragover="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
           >
+            <!-- Drag & Drop Hover Overlay -->
+            <div
+              v-if="isDraggingOver && !isScanning"
+              class="animate-in fade-in zoom-in-95 border-primary pointer-events-none absolute inset-0 z-40 flex flex-col items-center justify-center rounded-3xl border-4 border-dashed bg-black/85 p-6 text-center transition-all duration-150"
+            >
+              <div
+                class="bg-primary/20 text-primary ring-primary/10 mb-4 flex h-20 w-20 animate-bounce items-center justify-center rounded-full ring-8"
+              >
+                <Icon
+                  name="material-symbols:add-photo-alternate-rounded"
+                  class="text-4xl"
+                />
+              </div>
+              <h3 class="mb-1 text-xl font-black tracking-tight text-white">Drop Image Here</h3>
+              <p class="mb-3 text-sm leading-relaxed text-gray-300">
+                Release your skin photo to analyze instantly
+              </p>
+              <span
+                class="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold tracking-wider text-white/90 uppercase"
+              >
+                JPG, PNG, WEBP
+              </span>
+            </div>
+
             <!-- Live Camera -->
             <div
               v-show="isCameraOn"
@@ -772,19 +906,34 @@
 
               <!-- Top Floating Controls Bar -->
               <div
-                class="pointer-events-none absolute inset-x-3 top-3 z-20 flex items-center justify-between sm:inset-x-4 sm:top-4"
+                class="pointer-events-none absolute inset-x-3 top-3 z-30 flex items-center justify-between sm:inset-x-5 sm:top-5"
               >
-                <!-- Status Pill -->
-                <div
-                  class="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-md"
-                >
-                  <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                  <span>Live Camera</span>
+                <!-- Left: Status Pill & Close/Standby Button -->
+                <div class="pointer-events-auto flex items-center gap-2">
+                  <div
+                    class="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-black/60 px-3 py-1 text-[11px] font-bold text-white shadow backdrop-blur-md"
+                  >
+                    <span class="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                    <span>Live Camera</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    @click="stopCamera"
+                    class="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/60 text-white/90 shadow backdrop-blur-md transition hover:bg-black/80 hover:text-white active:scale-95"
+                    title="Close camera"
+                    aria-label="Close camera"
+                  >
+                    <Icon
+                      name="lucide:x"
+                      class="h-4 w-4"
+                    />
+                  </button>
                 </div>
 
-                <!-- Camera Tools: Torch, Mirror, Flip -->
+                <!-- Right: Torch & Mirror Tools -->
                 <div class="pointer-events-auto flex items-center gap-2">
-                  <!-- Torch Toggle (shown if supported) -->
+                  <!-- Torch Toggle -->
                   <button
                     v-if="isTorchSupported"
                     type="button"
@@ -826,58 +975,91 @@
                       class="h-5 w-5"
                     />
                   </button>
-
-                  <!-- Flip Camera Button (top quick button) -->
-                  <button
-                    v-if="canFlipCamera"
-                    type="button"
-                    @click="cycleCamera"
-                    class="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-black/60 text-white shadow-md backdrop-blur-md transition-all hover:bg-black/80 active:scale-90"
-                    title="Switch camera"
-                  >
-                    <Icon
-                      name="material-symbols:flip-camera-android-rounded"
-                      class="h-5 w-5"
-                    />
-                  </button>
                 </div>
               </div>
 
-              <!-- Center Focus Reticle with Dimmed Mask -->
+              <!-- Live Quality Alert Overlay -->
+              <div
+                v-if="qualityError && isCameraOn && !previewImage && !isScanning"
+                class="animate-in fade-in zoom-in-95 pointer-events-none absolute top-16 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-red-500/40 bg-red-950/85 px-4 py-1.5 text-xs font-semibold text-red-200 shadow-xl backdrop-blur-md duration-200"
+              >
+                <Icon
+                  name="material-symbols:warning-outline-rounded"
+                  class="h-4 w-4 shrink-0 text-red-400"
+                />
+                <span>Camera Alert: {{ qualityError }}</span>
+              </div>
+
+              <!-- USB Microscope Active Badge -->
+              <div
+                v-else-if="isCameraOn && isMicroscopeActive && !previewImage"
+                class="animate-in fade-in zoom-in-95 pointer-events-none absolute top-16 left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-950/85 px-4 py-1.5 text-xs font-bold text-emerald-200 shadow-xl backdrop-blur-md"
+              >
+                <Icon
+                  name="lucide:microscope"
+                  class="h-4 w-4 shrink-0 text-emerald-400"
+                />
+                <span class="tracking-wider uppercase">USB Microscope Active</span>
+              </div>
+
+              <!-- Center Focus Reticle with Dynamic Lighting State -->
               <div
                 class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-4"
               >
                 <div
-                  class="h-56 w-56 rounded-3xl border-2 border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)] transition-all sm:h-64 sm:w-64"
+                  class="h-56 w-56 rounded-3xl border-2 transition-all duration-300 sm:h-64 sm:w-64"
+                  :class="
+                    qualityError
+                      ? 'border-red-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.35)]'
+                      : 'border-emerald-400/90 shadow-[0_0_0_9999px_rgba(0,0,0,0.22)]'
+                  "
                 />
                 <span
-                  class="mt-3 inline-block rounded-full bg-black/45 px-3 py-1 text-[11px] font-semibold text-white/90 shadow backdrop-blur-xs"
+                  class="mt-3 inline-block rounded-full px-3.5 py-1 text-[11px] font-semibold text-white/95 shadow backdrop-blur-xs transition-colors"
+                  :class="
+                    qualityError
+                      ? 'border border-red-500/40 bg-red-950/85 text-red-200'
+                      : 'bg-black/55 text-white/90'
+                  "
                 >
-                  Center skin lesion inside the box
+                  {{ qualityError ? qualityError : 'Center skin lesion inside the box' }}
                 </span>
               </div>
 
               <!-- Bottom Floating Shutter Controls -->
               <div
-                class="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex items-center justify-between sm:inset-x-6 sm:bottom-6"
+                class="pointer-events-none absolute inset-x-4 bottom-4 z-30 flex items-center justify-between sm:inset-x-8 sm:bottom-6"
               >
-                <button
-                  type="button"
-                  @click="stopCamera"
-                  class="pointer-events-auto cursor-pointer rounded-full border border-white/25 bg-black/60 px-4 py-2 text-xs font-semibold text-white shadow backdrop-blur-md transition hover:bg-black/80 active:scale-95"
-                >
-                  Cancel
-                </button>
+                <!-- Left: Upload/Gallery button -->
+                <div class="flex w-16 justify-start">
+                  <button
+                    type="button"
+                    @click="fileInput?.click()"
+                    class="pointer-events-auto flex h-13 w-13 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80 active:scale-95"
+                    title="Upload photo from gallery or files"
+                    aria-label="Upload photo"
+                  >
+                    <Icon
+                      name="famicons:folder-outline"
+                      class="h-6 w-6"
+                    />
+                  </button>
+                </div>
 
-                <!-- Dual Ring Shutter Button -->
+                <!-- Center: Dual Ring Shutter Button with Quality Guard -->
                 <button
                   type="button"
                   @click="capturePhoto"
-                  class="pointer-events-auto flex h-18 w-18 cursor-pointer items-center justify-center rounded-full border-4 border-white/90 bg-white/25 shadow-2xl backdrop-blur-xs transition hover:scale-105 active:scale-90"
-                  title="Capture photo"
+                  :disabled="!!qualityError"
+                  class="pointer-events-auto flex h-18 w-18 cursor-pointer items-center justify-center rounded-full border-4 shadow-2xl backdrop-blur-xs transition-all hover:scale-105 active:scale-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  :class="
+                    qualityError ? 'border-red-400/80 bg-red-500/20' : 'border-white/90 bg-white/25'
+                  "
+                  :title="qualityError ? `Cannot capture: ${qualityError}` : 'Capture photo'"
                 >
                   <div
-                    class="flex h-13 w-13 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg"
+                    class="flex h-13 w-13 items-center justify-center rounded-full text-white shadow-lg transition-colors"
+                    :class="qualityError ? 'bg-red-500/80' : 'bg-emerald-500'"
                   >
                     <Icon
                       name="lucide:camera"
@@ -886,20 +1068,25 @@
                   </div>
                 </button>
 
-                <!-- Quick Flip on Right (Thumb friendly) -->
+                <!-- Right: Single Flip Camera (thumb friendly) -->
                 <div class="flex w-16 justify-end">
                   <button
                     v-if="canFlipCamera"
                     type="button"
                     @click="cycleCamera"
-                    class="pointer-events-auto flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow backdrop-blur-md transition hover:bg-black/80 active:scale-90"
+                    class="pointer-events-auto flex h-13 w-13 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/60 text-white shadow-xl backdrop-blur-md transition hover:scale-105 hover:bg-black/80 active:scale-95"
                     title="Flip camera"
+                    aria-label="Flip camera"
                   >
                     <Icon
                       name="material-symbols:flip-camera-android-rounded"
-                      class="h-5 w-5"
+                      class="h-6 w-6"
                     />
                   </button>
+                  <div
+                    v-else
+                    class="h-13 w-13"
+                  />
                 </div>
               </div>
             </div>
@@ -909,6 +1096,22 @@
               v-if="!isCameraOn && previewImage"
               class="relative flex h-full w-full items-center justify-center overflow-hidden"
             >
+              <!-- Quality Notice Overlay for Uploaded Images -->
+              <div
+                v-if="uploadQualityWarning && !isScanning"
+                class="animate-in fade-in zoom-in-95 pointer-events-none absolute top-4 left-1/2 z-30 w-[92%] -translate-x-1/2 rounded-2xl border border-amber-500/40 bg-amber-950/85 p-3 text-white shadow-2xl backdrop-blur-md sm:w-auto sm:px-6"
+              >
+                <div class="flex items-center gap-2.5">
+                  <Icon
+                    name="material-symbols:warning-outline-rounded"
+                    class="h-5 w-5 shrink-0 text-amber-400"
+                  />
+                  <p class="text-xs font-medium text-amber-200">
+                    Quality Notice: {{ uploadQualityWarning }}
+                  </p>
+                </div>
+              </div>
+
               <img
                 :src="previewImage"
                 alt="Selected skin"
@@ -927,30 +1130,29 @@
               </button>
             </div>
 
-            <!-- Empty State Prompt -->
+            <!-- Standby Empty State -->
             <div
               v-if="!isCameraOn && !previewImage"
               class="flex flex-col items-center justify-center px-4 py-8 text-center"
             >
               <div
-                class="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white shadow-inner"
+                class="flex h-18 w-18 items-center justify-center rounded-3xl bg-white/10 text-white shadow-inner ring-1 ring-white/15"
               >
                 <Icon
                   name="lucide:camera"
-                  class="h-8 w-8 text-white"
+                  class="h-9 w-9 text-white"
                 />
               </div>
-              <h3 class="mt-4 text-base font-bold text-white">Take a Photo or Upload Image</h3>
-              <p class="mt-1 max-w-sm text-xs text-slate-300">
-                Ensure good lighting and hold camera 4-6 inches from the skin lesion for best
-                accuracy.
+              <h3 class="mt-4 text-lg font-bold text-white sm:text-xl">AI Skin Scanner Ready</h3>
+              <p class="mt-1.5 max-w-sm text-xs leading-relaxed text-slate-300 sm:text-sm">
+                Position camera 4–6 inches from skin in good lighting, or choose an existing photo.
               </p>
 
               <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
                   @click="startCamera"
-                  class="bg-secondary hover:bg-primary shadow-primary/20 inline-flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-xs font-semibold text-white shadow-md transition active:scale-95"
+                  class="bg-secondary hover:bg-primary shadow-primary/20 inline-flex cursor-pointer items-center gap-2 rounded-full px-7 py-3 text-xs font-semibold text-white shadow-lg transition hover:scale-105 active:scale-95 sm:text-sm"
                 >
                   <Icon
                     name="lucide:camera"
@@ -962,20 +1164,20 @@
                 <button
                   type="button"
                   @click="fileInput?.click()"
-                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-white/20 active:scale-95"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white/10 px-7 py-3 text-xs font-semibold text-white shadow-xs transition hover:scale-105 hover:bg-white/20 active:scale-95 sm:text-sm"
                 >
                   <Icon
-                    name="lucide:upload"
+                    name="famicons:folder-outline"
                     class="h-4 w-4"
                   />
-                  <span>Upload File</span>
+                  <span>Upload Photo</span>
                 </button>
 
                 <button
                   v-if="hasSavedResult"
                   type="button"
                   @click="viewSavedResult"
-                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-500/30 active:scale-95"
+                  class="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-6 py-3 text-xs font-semibold text-white shadow-xs transition hover:bg-emerald-500/30 active:scale-95 sm:text-sm"
                 >
                   <Icon
                     name="lucide:eye"
@@ -983,14 +1185,6 @@
                   />
                   <span>View Previous Result</span>
                 </button>
-
-                <input
-                  ref="fileInput"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  class="hidden"
-                  @change="onFileSelected"
-                />
               </div>
             </div>
           </div>
