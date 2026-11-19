@@ -3152,25 +3152,12 @@
     </AppModal>
 
     <!-- Record Detailed Viewer Modal -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div
-          v-if="selectedRecordForModal"
-          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 transition-all"
-          @click.self="selectedRecordForModal = null"
-        >
-          <div
-            class="modal-container bg-card relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
-          >
-            <AppModalRecord
-              :record="selectedRecordForModal"
-              role="doctor"
-              @close="selectedRecordForModal = null"
-            />
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <AppModalRecordFolderModal
+      :is-open="!!selectedRecordForModal"
+      :record="selectedRecordForModal"
+      role="doctor"
+      @close="selectedRecordForModal = null"
+    />
   </div>
 </template>
 
