@@ -80,7 +80,7 @@
     >
       <div
         v-if="isModalOpen && activeRecord"
-        class="folder-modal-root fixed inset-0 z-[120] flex items-center justify-center overflow-y-auto bg-black/65 p-3 backdrop-blur-[2px] sm:p-5 md:p-6"
+        class="folder-modal-root fixed inset-0 z-[120] flex items-center justify-center overflow-x-hidden overflow-y-auto bg-black/65 p-3 backdrop-blur-[2px] sm:p-5 md:p-6"
         @click.self="handleClose"
         role="dialog"
         aria-modal="true"
@@ -121,7 +121,7 @@
               </div>
 
               <!-- Signature Folder Tab Curved Corner -->
-              <div class="-ml-px h-11 w-11 sm:h-13 sm:w-14">
+              <div class="-ml-px h-11 w-11 shrink-0 overflow-hidden sm:h-13 sm:w-14">
                 <svg
                   viewBox="0 0 110 100"
                   preserveAspectRatio="none"
@@ -181,6 +181,10 @@
 </template>
 
 <style scoped>
+  .folder-modal-root {
+    overflow-x: hidden !important;
+  }
+
   /* 3D Perspective Stage */
   .folder-stage {
     perspective: 1400px;
@@ -203,6 +207,7 @@
   .folder-front-flap {
     transform: rotateX(-85deg) translateY(32px);
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transform-origin: bottom center;
     backface-visibility: hidden;
@@ -232,12 +237,22 @@
       opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .folder-modal-enter-active .folder-front-flap,
+  .folder-modal-enter-active .folder-front-flap {
+    transition:
+      transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.38s ease,
+      visibility 0.48s step-end;
+    transform-origin: bottom center;
+    visibility: visible !important;
+  }
+
   .folder-modal-leave-active .folder-front-flap {
     transition:
       transform 0.48s cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 0.38s ease;
+      opacity 0.38s ease,
+      visibility 0s;
     transform-origin: bottom center;
+    visibility: visible !important;
   }
 
   /* --- Enter Starting State (Closed Folder Before Opening) --- */
@@ -258,6 +273,7 @@
   .folder-modal-enter-from .folder-front-flap {
     transform: rotateX(0deg) !important;
     opacity: 1 !important;
+    visibility: visible !important;
   }
 
   /* --- Enter Target State (Resting Open) --- */
@@ -274,6 +290,7 @@
   .folder-modal-enter-to .folder-front-flap {
     transform: rotateX(-85deg) translateY(32px);
     opacity: 0;
+    visibility: hidden;
   }
 
   /* --- Leave Target State (Closing Folder Back Down) --- */
@@ -294,6 +311,7 @@
   .folder-modal-leave-to .folder-front-flap {
     transform: rotateX(0deg) !important;
     opacity: 1 !important;
+    visibility: visible !important;
   }
 
   /* --- Accessibility: Reduced Motion Override --- */
