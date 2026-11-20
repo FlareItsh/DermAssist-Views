@@ -19,7 +19,12 @@ export const useAuth = () => {
   })
 
   const doctorUuid = computed<string | null>(() => {
-    return authUser.value?.doctor_uuid || authUser.value?.doctor?.uuid || null
+    return (
+      authUser.value?.doctor_uuid ||
+      authUser.value?.assigned_doctor?.uuid ||
+      authUser.value?.doctor?.uuid ||
+      null
+    )
   })
 
   const accountStatus = computed<string>(() => authUser.value?.account_status || 'active')

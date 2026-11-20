@@ -416,15 +416,40 @@
     if (!selectedDate.value) return null
     const duties = getDutyForDate(selectedDate.value)
     if (!duties.length) return null
-    const firstDuty = duties[0]
+
+    const sStart = (selectedTime.value || '').slice(0, 5)
+    const matchedDuty =
+      (sStart
+        ? duties.find((d: any) => {
+            const dStart = (d.start_time || '').slice(0, 5)
+            const dEnd = (d.end_time || '').slice(0, 5)
+            return sStart >= dStart && sStart < dEnd
+          })
+        : null) || duties[0]
+
+    const matchedName = matchedDuty.clinic?.name || matchedDuty.location_name || 'Clinic Duty'
+    const relevantDuties = sStart
+      ? duties.filter((d: any) => {
+          if (matchedDuty.clinic_id && d.clinic_id) return d.clinic_id === matchedDuty.clinic_id
+          return (d.clinic?.name || d.location_name || 'Clinic Duty') === matchedName
+        })
+      : duties
+
     return {
-      name: firstDuty.clinic?.name || firstDuty.location_name || 'Clinic Duty',
-      address: firstDuty.clinic?.address || null,
-      phone: firstDuty.clinic?.phone || null,
-      dutyHours: duties
+      name: matchedName,
+      address: matchedDuty.clinic?.address || null,
+      phone: matchedDuty.clinic?.phone || null,
+      dutyHours: (relevantDuties.length ? relevantDuties : [matchedDuty])
         .map((d: any) => `${formatTime12H(d.start_time)} – ${formatTime12H(d.end_time)}`)
         .join(', ')
     }
+  })
+
+  const hasMultipleClinicsOnDate = computed(() => {
+    const names = new Set(
+      availableTimeSlots.value.map(s => s.clinicName?.trim()).filter(Boolean)
+    )
+    return names.size > 1
   })
 
   const availableTimeSlots = computed<TimeSlotOption[]>(() => {
@@ -598,7 +623,7 @@
       const scheduledAt = `${selectedDate.value} ${selectedTime.value}:00`
       const scheduledEndAt = `${selectedDate.value} ${endTime}:00`
       const resolvedLocation =
-        selectedDateClinic.value?.name || doctorLocation.value || 'Clinic Duty'
+        chosenSlot.clinicName || selectedDateClinic.value?.name || doctorLocation.value || 'Clinic Duty'
 
       const docId = props.doctor.id || props.doctor.uuid
       const effectivePurpose = props.diagnosisUuid
@@ -908,6 +933,18 @@
                 :class="selectedTime === slot.time24 ? 'text-white/80' : 'text-muted-foreground'"
               >
                 {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
+              </span>
+              <span
+                v-if="hasMultipleClinicsOnDate && slot.clinicName"
+                class="mt-0.5 max-w-full truncate rounded-md px-1 py-0.5 text-[8px] font-semibold"
+                :class="
+                  selectedTime === slot.time24
+                    ? 'bg-white/20 text-white'
+                    : 'bg-indigo-50 text-indigo-700'
+                "
+                :title="slot.clinicName"
+              >
+                {{ slot.clinicName }}
               </span>
             </button>
           </div>
@@ -1397,6 +1434,18 @@
                         "
                       >
                         {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
+                      </span>
+                      <span
+                        v-if="hasMultipleClinicsOnDate && slot.clinicName"
+                        class="mt-0.5 max-w-full truncate rounded-md px-1.5 py-0.5 text-[9px] font-semibold"
+                        :class="
+                          selectedTime === slot.time24
+                            ? 'bg-white/20 text-white'
+                            : 'bg-indigo-50 text-indigo-700'
+                        "
+                        :title="slot.clinicName"
+                      >
+                        {{ slot.clinicName }}
                       </span>
                     </button>
                   </div>

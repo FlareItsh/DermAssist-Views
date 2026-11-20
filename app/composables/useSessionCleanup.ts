@@ -43,6 +43,9 @@ export const useSessionCleanup = () => {
     useState<string | null>('admin-appeals-error').value = null
 
     useState<any[]>('doctor_all_avail_slots').value = []
+    useState<any[]>('doctor-clinics-list').value = []
+    useState<boolean>('doctor-clinics-loading').value = false
+    useState<boolean>('doctor-clinics-loaded').value = false
     useState<string | null>('selected-doctor-uuid').value = null
 
     clearNuxtData()

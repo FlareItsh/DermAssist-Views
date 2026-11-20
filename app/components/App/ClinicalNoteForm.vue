@@ -44,8 +44,10 @@
     walkInPatientInfo,
     saveActiveDiagnosisState
   } = useDiagnosis()
-  const { fullName: authFullName } = useAuth()
+  const { fullName: authFullName, role: authRole, uuid: authUuid } = useAuth()
   const userName = computed(() => authFullName.value || useCookie('user_name').value || '')
+  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
 
   const storageKey = computed(() => {
     if (props.diagnosisUuid) return `draft_clinical_note_diag_${props.diagnosisUuid}`
@@ -95,7 +97,12 @@
   const { clinics, fetchClinics } = useDoctorClinics()
 
   // Adaptive Medicine Library & Prescription Workflow
-  const { data: medicinesResponse, pending: isLoadingMedicines } = medicineService.useList()
+  const { data: medicinesResponse, pending: isLoadingMedicines } = medicineService.useList(
+    {},
+    {
+      key: `clinicalNoteMedicines-${userUuid.value || 'anon'}`
+    }
+  )
   const availableMedicines = computed<Medicine[]>(() => {
     const res = medicinesResponse.value as any
     if (Array.isArray(res?.data)) return res.data
@@ -419,12 +426,19 @@
   const { canExportPdf, fetchSubscription } = useDoctorSubscription()
   const showExportUpgradeModal = ref(false)
 
-  const isDoctorUser = computed(() => {
-    return (useAuth().role.value || useCookie('user_role').value) === 'doctor'
+  const isEligibleStaff = computed(() => {
+    const role = useAuth().role.value || useCookie('user_role').value
+    return role === 'doctor' || role === 'secretary'
   })
 
   const isExportLocked = computed(() => {
-    return isDoctorUser.value && !canExportPdf.value
+    return isEligibleStaff.value && !canExportPdf.value
+  })
+
+  onMounted(() => {
+    if (isEligibleStaff.value) {
+      fetchSubscription()
+    }
   })
 
   const effectiveDiagUuid = computed(() => {
@@ -464,7 +478,7 @@
     } catch (err: any) {
       if (
         (err?.status === 403 || err?.statusCode === 403) &&
-        isDoctorUser.value
+        isEligibleStaff.value
       ) {
         showExportUpgradeModal.value = true
       } else {
@@ -545,7 +559,7 @@
   }
 
   const handleOpenMedicineLibrary = () => {
-    navigateTo('/doctor/medicines')
+    navigateTo(userRole.value === 'secretary' ? '/secretary/medicines' : '/doctor/medicines')
   }
 
   const effectiveFollowUpLocation = computed(() => {
@@ -781,6 +795,7 @@
     getBlockedTimesForDate,
     getDutySlotsForDate,
     getDutyClinicForDateAndTime,
+    resolveDutyClinicSelection,
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
@@ -790,20 +805,18 @@
     useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
-  // Smart autofill clinic location from duty preset when date & time change
+  // Smart autofill clinic location from duty preset when date, time, or schedule data change
   watch(
-    [followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly],
+    [followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly, dutySlots, clinics],
     ([date, start, end]) => {
       if (!date || !start) return
       const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-      if (matchedDuty) {
-        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-        if (loc) {
-          followUpLocation.value = loc
-          customFollowUpLocation.value = ''
-          wasLocationAutofilled.value = true
-          return
-        }
+      const resolved = resolveDutyClinicSelection(matchedDuty, clinics.value)
+      if (resolved) {
+        followUpLocation.value = resolved.location
+        customFollowUpLocation.value = resolved.customLocation
+        wasLocationAutofilled.value = true
+        return
       }
 
       // If no duty schedule found and followUpLocation was previously autofilled or empty
@@ -2025,7 +2038,7 @@
                       :selected-date="followUpDateOnly"
                       :blocked-slots="blockedSlots"
                       :duty-slots="dutySlots"
-                      :show-manage-blocks-link="true"
+                      :show-manage-blocks-link="userRole === 'doctor'"
                       :show-appointment-details-panel="false"
                       @date-selected="handleFollowUpDateSelected"
                     />
@@ -2118,6 +2131,7 @@
                     <select
                       v-if="clinics.length > 0"
                       v-model="followUpLocation"
+                      @change="wasLocationAutofilled = false"
                       class="focus:border-primary focus:ring-primary/20 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:text-sm"
                     >
                       <option
@@ -2140,6 +2154,7 @@
                       v-if="clinics.length === 0 || followUpLocation === '__custom__'"
                       type="text"
                       v-model="customFollowUpLocation"
+                      @input="wasLocationAutofilled = false"
                       placeholder="e.g. SkinCare Clinic, Room 402"
                       class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
                     />

@@ -26,6 +26,10 @@ export class DoctorSecretaryService extends BaseService {
     return await this.request(`${this.resource}/${uuid}`, 'DELETE')
   }
 
+  async activateSeat(uuid: string): Promise<any> {
+    return await this.request(`${this.resource}/${uuid}/activate-seat`, 'PATCH')
+  }
+
   useList(params: any = {}, options: any = {}) {
     return this.useRequest<any>(this.resource, { ...options, query: params })
   }

@@ -157,6 +157,7 @@
   const { role: authRole } = useAuth()
   const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
   const isDoctor = computed(() => userRole.value === 'doctor')
+  const isStaff = computed(() => ['doctor', 'secretary'].includes(userRole.value))
 
   const getTodayStr = () => {
     const d = new Date()
@@ -205,6 +206,7 @@
     getBlockedTimesForDate,
     getDutySlotsForDate,
     getDutyClinicForDateAndTime,
+    resolveDutyClinicSelection,
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
@@ -391,20 +393,18 @@
     scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   })
 
-  // Smart autofill clinic location from duty preset when date & time change
+  // Smart autofill clinic location from duty preset when date, time, or schedule data change
   watch(
-    [selectedDate, scheduleTime, scheduleEndTime],
+    [selectedDate, scheduleTime, scheduleEndTime, dutySlots, clinics],
     ([date, start, end]) => {
       if (!date || !start) return
       const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-      if (matchedDuty) {
-        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-        if (loc) {
-          scheduleLocation.value = loc
-          customLocationInput.value = ''
-          wasAutofilled.value = true
-          return
-        }
+      const resolved = resolveDutyClinicSelection(matchedDuty, clinics.value)
+      if (resolved) {
+        scheduleLocation.value = resolved.location
+        customLocationInput.value = resolved.customLocation
+        wasAutofilled.value = true
+        return
       }
 
       // If no duty schedule found and scheduleLocation was previously autofilled or empty
@@ -555,7 +555,10 @@
           scheduled_at: dateTime,
           scheduled_end_at: endDateTime,
           location: effectiveLocation.value,
-          reason: 'Doctor proposed schedule'
+          reason:
+            userRole.value === 'secretary'
+              ? 'Secretary proposed schedule'
+              : 'Doctor proposed schedule'
         })
       } else {
         const targetPatientUuid =
@@ -884,8 +887,8 @@
           :selected-date="selectedDate"
           :blocked-slots="blockedSlots"
           :duty-slots="dutySlots"
-          :show-manage-blocks-link="true"
-          :show-appointment-details-panel="!isDoctor"
+          :show-manage-blocks-link="isDoctor"
+          :show-appointment-details-panel="!isStaff"
           @date-selected="handleDateSelected"
         />
       </div>
@@ -1040,6 +1043,7 @@
           <select
             v-if="clinics.length > 0"
             v-model="scheduleLocation"
+            @change="wasAutofilled = false"
             class="text-foreground w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500"
           >
             <option
@@ -1062,6 +1066,7 @@
             v-if="clinics.length === 0 || scheduleLocation === '__custom__'"
             type="text"
             v-model="customLocationInput"
+            @input="wasAutofilled = false"
             placeholder="e.g. SkinCare Clinic, Rm 302"
             class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-indigo-500"
           />
@@ -1131,8 +1136,8 @@
               :selected-date="selectedDate"
               :blocked-slots="blockedSlots"
               :duty-slots="dutySlots"
-              :show-manage-blocks-link="true"
-              :show-appointment-details-panel="!isDoctor"
+              :show-manage-blocks-link="isDoctor"
+              :show-appointment-details-panel="!isStaff"
               @date-selected="handleDateSelected"
             />
           </div>
@@ -1635,6 +1640,7 @@
                 <select
                   v-if="clinics.length > 0"
                   v-model="scheduleLocation"
+                  @change="wasAutofilled = false"
                   class="text-foreground w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500"
                 >
                   <option
@@ -1657,6 +1663,7 @@
                   v-if="clinics.length === 0 || scheduleLocation === '__custom__'"
                   type="text"
                   v-model="customLocationInput"
+                  @input="wasAutofilled = false"
                   placeholder="e.g. SkinCare Clinic, Rm 302"
                   class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-indigo-500"
                 />

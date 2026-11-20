@@ -10,7 +10,7 @@
 
   const { uuid: authUserUuid, user: currentAuthUser, fetchUser } = useAuth()
   const userUuid = computed(() => authUserUuid.value)
-  const { data: response, refresh } = userService.useShow(userUuid.value, {
+  const { data: response, refresh } = userService.useShow(() => userUuid.value, {
     key: `userProfile-${userUuid.value}`
   })
   // Laravel JsonResource wraps single resources under `data` — unwrap at source
@@ -61,16 +61,25 @@
   }
 
   const handleApplyCroppedAvatar = async (croppedBase64: string) => {
+    if (!userUuid.value) {
+      toast.error('Unable to resolve account identity. Please refresh and try again.')
+      return
+    }
     isUploadingAvatar.value = true
     try {
-      await userService.update(userUuid, {
+      await userService.update(userUuid.value, {
         avatar: croppedBase64
       })
       avatarError.value = false
       toast.success('Profile picture updated successfully.')
       showCropModal.value = false
       rawAvatarSrc.value = ''
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
+      await Promise.all([
+        refresh(),
+        refreshProfile(),
+        refreshNuxtData(`userProfile-${userUuid.value}`),
+        fetchUser(true)
+      ])
     } catch (err: any) {
       console.error('Failed to upload avatar:', err)
       toast.error(
@@ -297,13 +306,24 @@
       return
     }
 
+    if (!userUuid.value) {
+      toast.error('Unable to resolve account identity. Please refresh and try again.')
+      return
+    }
+
     isLoading.value = true
     try {
-      await userService.update(userUuid.value, form)
+      const { email: _lockedEmail, ...profilePayload } = form
+      await userService.update(userUuid.value, profilePayload)
       initialFormState.value = JSON.stringify(form)
       isSuccess.value = true
       toast.success('Profile updated successfully.')
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid.value}`), fetchUser(true)])
+      await Promise.all([
+        refresh(),
+        refreshProfile(),
+        refreshNuxtData(`userProfile-${userUuid.value}`),
+        fetchUser(true)
+      ])
 
       setTimeout(() => {
         isSuccess.value = false

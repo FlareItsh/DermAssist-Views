@@ -68,10 +68,20 @@
     return plan?.max_secretaries ?? subscriptionMaxSecretaries.value ?? null
   })
 
+  const activeSecretariesCount = computed(() => {
+    return secretaries.value.filter(
+      (s: any) => s.account_status !== 'suspended_over_quota' && s.account_status !== 'disabled'
+    ).length
+  })
+
+  const suspendedSecretariesCount = computed(() => {
+    return secretaries.value.filter((s: any) => s.account_status === 'suspended_over_quota').length
+  })
+
   const isLimitReached = computed(() => {
     if (!canHaveSecretary.value) return true
     if (maxSecretaries.value === null) return false
-    return secretaries.value.length >= maxSecretaries.value
+    return activeSecretariesCount.value >= maxSecretaries.value
   })
 
   // Search functionality
@@ -391,6 +401,23 @@
       isDeleting.value = false
     }
   }
+
+  // Activate / Swap Secretary Seat
+  const isActivatingSeat = ref(false)
+  const handleActivateSeat = async (secretary: any) => {
+    if (!secretary?.uuid) return
+
+    try {
+      isActivatingSeat.value = true
+      await doctorSecretaryService.activateSeat(secretary.uuid)
+      toast.success(`${secretary.first_name || 'Secretary'}'s seat is now active.`)
+      await refresh()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to activate secretary seat.')
+    } finally {
+      isActivatingSeat.value = false
+    }
+  }
 </script>
 
 <template>
@@ -417,8 +444,7 @@
               :class="isLimitReached ? 'bg-amber-500' : 'bg-emerald-500'"
             ></span>
             <span>
-              {{ secretaries.length }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Seats
-              Used
+              {{ activeSecretariesCount }} / {{ maxSecretaries !== null ? maxSecretaries : '∞' }} Active Seats Used
             </span>
           </span>
         </div>
@@ -477,6 +503,35 @@
           class="h-3.5 w-3.5"
         />
         <span>Upgrade Subscription</span>
+      </NuxtLink>
+    </div>
+
+    <!-- Suspended Over Quota Banner -->
+    <div
+      v-if="canHaveSecretary && suspendedSecretariesCount > 0 && !pending"
+      class="flex flex-col justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-amber-900 shadow-xs sm:flex-row sm:items-center"
+    >
+      <div class="flex items-center gap-3">
+        <Icon
+          name="lucide:alert-triangle"
+          class="h-5 w-5 shrink-0 text-amber-600"
+        />
+        <div>
+          <p class="text-xs font-bold">{{ suspendedSecretariesCount }} Secretary Account(s) Suspended Due to Plan Limit</p>
+          <p class="text-xs text-amber-800">
+            Your current plan allows {{ maxSecretaries }} active seat(s). Click "Activate Seat" on any suspended secretary below to swap active access, or upgrade your plan.
+          </p>
+        </div>
+      </div>
+      <NuxtLink
+        to="/doctor/subscription"
+        class="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-amber-700"
+      >
+        <Icon
+          name="lucide:arrow-up-right"
+          class="h-3.5 w-3.5"
+        />
+        <span>Expand Seats</span>
       </NuxtLink>
     </div>
 
@@ -664,7 +719,14 @@
       <div
         v-for="secretary in filteredSecretaries"
         :key="secretary.uuid || secretary.id"
-        class="bg-card border-border/80 hover:border-border flex flex-col justify-between rounded-2xl border p-5 shadow-sm transition"
+        class="bg-card flex flex-col justify-between rounded-2xl border p-5 shadow-sm transition"
+        :class="
+          secretary.account_status === 'suspended_over_quota'
+            ? 'border-amber-300 bg-amber-50/20 dark:border-amber-500/30'
+            : secretary.account_status === 'disabled'
+              ? 'border-red-200 bg-red-50/10 dark:border-red-500/20 opacity-80'
+              : 'border-border/80 hover:border-border'
+        "
       >
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3">
@@ -696,11 +758,30 @@
             </div>
           </div>
 
-          <span
-            class="shrink-0 rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-600 dark:text-blue-400"
-          >
-            Secretary
-          </span>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span
+              v-if="secretary.account_status === 'suspended_over_quota'"
+              class="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-400"
+              title="Suspended due to plan seat limit"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+              Seat Suspended
+            </span>
+            <span
+              v-else-if="secretary.account_status === 'disabled'"
+              class="inline-flex items-center gap-1 rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-700 dark:text-red-400"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+              Disabled
+            </span>
+            <span
+              v-else
+              class="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-700 dark:text-emerald-400"
+            >
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              Active Seat
+            </span>
+          </div>
         </div>
 
         <!-- Secretary Attributes Badges -->
@@ -753,6 +834,21 @@
           </span>
 
           <div class="flex items-center gap-2">
+            <button
+              v-if="secretary.account_status === 'suspended_over_quota'"
+              :disabled="isActivatingSeat"
+              @click="handleActivateSeat(secretary)"
+              class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 px-2.5 py-1.5 text-xs font-bold text-white shadow-xs transition disabled:opacity-50"
+              title="Activate this secretary's seat"
+            >
+              <Icon
+                name="lucide:arrow-left-right"
+                class="h-3.5 w-3.5"
+                :class="{ 'animate-spin': isActivatingSeat }"
+              />
+              <span>Activate Seat</span>
+            </button>
+
             <button
               @click="openEditModal(secretary)"
               class="border-border/80 bg-background hover:bg-muted text-foreground flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition"

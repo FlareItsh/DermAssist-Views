@@ -224,26 +224,12 @@
       </AppButton>
     </div>
 
-    <Teleport to="body">
-      <Transition name="modal">
-        <div
-          v-if="isOpen"
-          class="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 p-4 transition-all"
-          @click.self="isOpen = false"
-        >
-          <div
-            class="modal-container relative flex max-h-[90vh] w-[95vw] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl md:w-full md:max-w-4xl md:rounded-4xl lg:max-w-5xl"
-          >
-            <AppModalRecord
-              v-if="selectedRecord"
-              :record="selectedRecord"
-              role="patient"
-              @close="isOpen = false"
-            />
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
+    <AppModalRecordFolderModal
+      :is-open="isOpen"
+      :record="selectedRecord"
+      role="patient"
+      @close="isOpen = false"
+    />
   </div>
 </template>
 

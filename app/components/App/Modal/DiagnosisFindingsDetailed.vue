@@ -180,20 +180,21 @@
   const showExportUpgradeModal = ref(false)
   const { canExportPdf, fetchSubscription } = useDoctorSubscription()
 
-  const isDoctorUser = computed(() => {
+  const isStaffUser = computed(() => {
+    const currentRole = authRole.value || useCookie('user_role').value
     return (
       props.role === 'doctor' ||
-      authRole.value === 'doctor' ||
-      useCookie('user_role').value === 'doctor'
+      currentRole === 'doctor' ||
+      currentRole === 'secretary'
     )
   })
 
   const isExportLocked = computed(() => {
-    return isDoctorUser.value && !canExportPdf.value
+    return isStaffUser.value && !canExportPdf.value
   })
 
   onMounted(() => {
-    if (isDoctorUser.value) {
+    if (isStaffUser.value) {
       fetchSubscription()
     }
   })
@@ -223,7 +224,7 @@
       window.URL.revokeObjectURL(url)
       toast.success('Clinical assessment PDF downloaded successfully')
     } catch (err: any) {
-      if ((err?.status === 403 || err?.statusCode === 403) && isDoctorUser.value) {
+      if ((err?.status === 403 || err?.statusCode === 403) && isStaffUser.value) {
         showExportUpgradeModal.value = true
       } else {
         toast.error(err?.data?.message || err?.message || 'Failed to export clinical report')

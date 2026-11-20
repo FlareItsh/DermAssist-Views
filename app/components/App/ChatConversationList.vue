@@ -15,6 +15,7 @@
     latest_message?: {
       message: string
       sender_id: string
+      sender_role?: string | null
       created_at: string
     } | null
     unread_count?: number
@@ -37,9 +38,15 @@
 
   const searchValue = ref('')
   const { getEcho } = useEcho()
-  const { uuid: authUuid, role: authRole } = useAuth()
+  const { uuid: authUuid, role: authRole, doctorUuid: authDoctorUuid } = useAuth()
   const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
-  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userRole = computed(() => (authRole.value || useCookie('user_role').value || '').toLowerCase())
+  const effectiveUserUuid = computed(() => {
+    if (userRole.value === 'secretary') {
+      return authDoctorUuid.value || useCookie('doctor_uuid').value || userUuid.value
+    }
+    return userUuid.value
+  })
   const { getStorageUrl } = useStorage()
   const avatarErrors = ref(new Set<string>())
 
@@ -141,7 +148,18 @@
   })
 
   const isLatestMessageMine = (conv: Conversation): boolean => {
-    return !!conv.latest_message?.sender_id && conv.latest_message.sender_id === userUuid.value
+    const latest = conv.latest_message
+    if (!latest?.sender_id) return false
+    if (latest.sender_id === effectiveUserUuid.value || latest.sender_id === userUuid.value) {
+      return true
+    }
+    if (
+      (userRole.value === 'doctor' || userRole.value === 'secretary') &&
+      latest.sender_role === 'secretary'
+    ) {
+      return true
+    }
+    return false
   }
 
   const getMessagePreview = (conv: Conversation): ParsedChatPreview => {

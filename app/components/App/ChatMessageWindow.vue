@@ -4,11 +4,13 @@
   import { messageService } from '~/api/message/MessageService'
   import { userService } from '~/api/user/UserService'
   import { recordService } from '~/api/record/RecordService'
+  import { extractSecretaryAttribution } from '~/composables/useChatPreview'
   import { toast } from 'vue-sonner'
 
   interface MessageSender {
     id: string
     name: string
+    role?: string | null
     avatar: string | null
   }
 
@@ -67,7 +69,12 @@
   const route = useRoute()
   const router = useRouter()
 
-  const { uuid: authUuid, doctorUuid: authDoctorUuid, role: authRole } = useAuth()
+  const {
+    uuid: authUuid,
+    doctorUuid: authDoctorUuid,
+    role: authRole,
+    fullName: authFullName
+  } = useAuth()
   const userUuidCookie = computed(() => authUuid.value || useCookie('user_uuid').value || '')
   const doctorUuidCookie = computed(() => authDoctorUuid.value || useCookie('doctor_uuid').value || '')
   const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
@@ -166,6 +173,53 @@
       route.path.toLowerCase().startsWith('/secretary')
     )
   })
+
+  const isSecretaryUser = computed(() => {
+    return (
+      userRole.value?.toLowerCase() === 'secretary' ||
+      route.path.toLowerCase().startsWith('/secretary')
+    )
+  })
+
+  const currentSecretaryName = computed(() => {
+    const first = currentUserData.value?.first_name || ''
+    const last = currentUserData.value?.last_name || ''
+    return `${first} ${last}`.trim() || authFullName.value || ''
+  })
+
+  const isOwnMessage = (msg?: Message | null): boolean => {
+    if (!msg?.sender?.id) return false
+    if (msg.sender.id === effectiveUserUuid.value) return true
+    if (isDoctorUser.value) {
+      if (msg.sender.id === userUuidCookie.value) return true
+      if (msg.sender.role === 'secretary') return true
+    }
+    return false
+  }
+
+  const getSecretaryAttributionName = (msg?: Message | null): string | null => {
+    if (!msg) return null
+    const { secretaryName } = extractSecretaryAttribution(msg.message)
+    if (secretaryName) return secretaryName
+    if (msg.sender?.role === 'secretary' && msg.sender?.name) {
+      return msg.sender.name
+    }
+    return null
+  }
+
+  const isSystemTaggedMessage = (msg?: Message | null): boolean => {
+    if (!msg?.message) return false
+    return /\[(APPOINTMENT_[A-Z_]+|SCAN_RESULT|DIAGNOSIS_ONLY):[^\]]+\]/.test(msg.message)
+  }
+
+  const canModifyMessage = (msg?: Message | null): boolean => {
+    if (!msg || !isOwnMessage(msg)) return false
+    if (!isSecretaryUser.value) return true
+    if (isSystemTaggedMessage(msg)) return false
+    if (msg.sender?.id === userUuidCookie.value) return true
+    const attrName = extractSecretaryAttribution(msg.message).secretaryName
+    return Boolean(attrName && currentSecretaryName.value && attrName === currentSecretaryName.value)
+  }
 
   const chatPartnerDoctor = computed(() => {
     const doc = convData.value?.doctor
@@ -525,7 +579,9 @@
   // Highlights matching keywords. If this message is the focused match, applies intense Messenger active styling
   const formatHighlightedText = (text: string | null | undefined, messageId?: string): string => {
     if (!text) return ''
-    const escaped = escapeHtml(text)
+    const cleanText = extractSecretaryAttribution(text).body
+    if (!cleanText) return ''
+    const escaped = escapeHtml(cleanText)
     const formatted = restoreSafeFormatting(escaped)
     const q = committedSearchQuery.value.trim()
     if (!isSearchingInConversation.value || !q) {
@@ -545,8 +601,9 @@
   }
 
   const cleanClinicalFindings = (message: string): string => {
+    const body = extractSecretaryAttribution(message).body
     return (
-      message
+      body
         .replace(/\[(APPOINTMENT_REQUEST|DIAGNOSIS_ONLY):[^\]]+\]/g, '')
         .replace(/\[SCAN_RESULT:[^\]]+\]/gi, '')
         .replace(/Requested schedule:\s*[^\.\n]+\.?/gi, '')
@@ -1127,7 +1184,7 @@
     const msg = [...allMessages.value]
       .reverse()
       .find(m => m.message.includes(`[APPOINTMENT_RESCHEDULE_PROPOSED:${uuid}:`))
-    return msg ? msg.sender?.id === effectiveUserUuid.value : false
+    return msg ? isOwnMessage(msg) : false
   }
 
   const isRescheduleHandled = (message: string): boolean => {
@@ -1362,7 +1419,7 @@
 
   const markUnreadMessages = async () => {
     const unread = allMessages.value.filter(
-      m => m && !m.is_read && m.sender?.id !== effectiveUserUuid.value
+      m => m && !m.is_read && !isOwnMessage(m)
     )
     for (const msg of unread) {
       try {
@@ -1554,7 +1611,7 @@
 
   // --- Context Menu & Actions ---
   const openContextMenu = (event: MouseEvent, msg: Message) => {
-    if (msg.sender?.id !== effectiveUserUuid.value) return
+    if (!canModifyMessage(msg)) return
     event.preventDefault()
     contextMenu.value = { visible: true, x: event.clientX, y: event.clientY, message: msg }
   }
@@ -1565,7 +1622,9 @@
 
   const startEditing = (msg: Message) => {
     editingMessageId.value = msg.id
-    editingMessageText.value = msg.message
+    editingMessageText.value = isSecretaryUser.value
+      ? extractSecretaryAttribution(msg.message).body
+      : msg.message
     closeContextMenu()
   }
 
@@ -1588,14 +1647,15 @@
         allMessages.value[idx] = {
           ...allMessages.value[idx],
           ...(response || {}),
-          message: trimmed,
+          message: response?.message || trimmed,
           updated_at: response?.updated_at || new Date().toISOString()
         }
       }
       cancelEditing()
       saveToCache()
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to save message edit:', e)
+      toast.error(e?.message || 'Failed to update message.')
     }
   }
 
@@ -1939,7 +1999,7 @@
                 <div class="min-w-0 flex-1">
                   <p class="text-sm font-bold text-slate-900">
                     {{
-                      userRole?.toLowerCase() === 'doctor'
+                      isDoctorUser
                         ? pendingAppointmentForConversation.raw?.appointment_source ===
                           'doctor_scheduled'
                           ? 'Appointment Proposal Awaiting Patient'
@@ -1948,7 +2008,7 @@
                     }}
                   </p>
                   <p class="text-xs font-medium text-slate-600">
-                    <template v-if="userRole?.toLowerCase() === 'doctor'">
+                    <template v-if="isDoctorUser">
                       {{
                         pendingAppointmentForConversation.raw?.appointment_source ===
                         'doctor_scheduled'
@@ -2083,7 +2143,7 @@
             </div>
 
             <div
-              v-if="userRole?.toLowerCase() === 'doctor'"
+              v-if="isDoctorUser"
               class="w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center"
               :class="isApptBarCollapsed ? 'hidden sm:flex' : 'grid'"
             >
@@ -2156,7 +2216,7 @@
                     />
                   </div>
                   New schedule proposed by
-                  {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }}
+                  {{ isDoctorUser ? 'patient' : 'doctor' }}
                 </div>
                 <div class="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap md:w-auto">
                   <button
@@ -2244,7 +2304,7 @@
                       class="text-base"
                     />
                   </div>
-                  Waiting for {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
+                  Waiting for {{ isDoctorUser ? 'patient' : 'doctor' }} to
                   confirm your proposed schedule...
                 </div>
               </template>
@@ -2252,7 +2312,7 @@
 
             <!-- Case 2: Status is reschedule_requested -->
             <template v-else-if="activeAppointment.status === 'reschedule_requested'">
-              <template v-if="userRole?.toLowerCase() === 'doctor'">
+              <template v-if="isDoctorUser">
                 <div class="flex items-start gap-2.5">
                   <div
                     class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700"
@@ -2391,7 +2451,7 @@
               :id="'msg-' + msg.id"
               class="group flex items-end gap-2 rounded-2xl transition-all duration-300 sm:gap-3"
               :class="[
-                msg.sender?.id === effectiveUserUuid ? 'flex-row-reverse' : 'flex-row',
+                isOwnMessage(msg) ? 'flex-row-reverse' : 'flex-row',
                 currentSearchMatchMessageId === msg.id
                   ? '-m-1 bg-amber-500/10 p-1 shadow-sm ring-2 ring-amber-400'
                   : ''
@@ -2457,7 +2517,7 @@
                   class="relative transition-all"
                   :class="[
                     isCardMessage(msg) ? 'p-3.5 sm:p-5' : 'px-4 py-2.5 sm:px-5 sm:py-3',
-                    msg.sender?.id === effectiveUserUuid
+                    isOwnMessage(msg)
                       ? 'bg-primary shadow-primary/10 rounded-t-2xl rounded-bl-2xl text-white shadow-lg'
                       : 'bg-foreground/5 text-foreground rounded-t-2xl rounded-br-2xl'
                   ]"
@@ -2479,7 +2539,7 @@
                           "
                           class="shrink-0 text-2xl sm:text-3xl"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
+                            isOwnMessage(msg) ? 'text-white' : 'text-primary'
                           "
                         />
                         <p class="text-base leading-tight font-bold sm:text-lg">
@@ -2493,7 +2553,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/90' : 'opacity-80'
+                          isOwnMessage(msg) ? 'text-white/90' : 'opacity-80'
                         "
                         v-html="formatHighlightedText(cleanClinicalFindings(msg.message), msg.id)"
                       ></p>
@@ -2504,7 +2564,7 @@
                       v-if="getAppointmentScheduleFromMsg(msg)"
                       class="mt-2.5 rounded-2xl border p-3 shadow-xs sm:mt-3 sm:p-3.5"
                       :class="[
-                        msg.sender?.id === effectiveUserUuid
+                        isOwnMessage(msg)
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
                           : 'bg-card/70 border-border/60 text-foreground'
                       ]"
@@ -2527,7 +2587,7 @@
                           <p
                             class="mt-0.5 text-xs leading-snug font-bold sm:text-sm"
                             :class="
-                              msg.sender?.id === effectiveUserUuid
+                              isOwnMessage(msg)
                                 ? 'text-gray-900'
                                 : 'text-foreground'
                             "
@@ -2538,7 +2598,7 @@
                             v-if="msg.appointment_data?.purpose"
                             class="mt-1 text-[11px] leading-tight font-medium sm:text-xs"
                             :class="
-                              msg.sender?.id === effectiveUserUuid
+                              isOwnMessage(msg)
                                 ? 'text-gray-600'
                                 : 'text-muted-foreground'
                             "
@@ -2554,7 +2614,7 @@
                       v-if="msg.appointment_data && msg.appointment_data.diagnosis"
                       class="mt-2.5 rounded-2xl border p-3 shadow-sm sm:mt-3 sm:p-4"
                       :class="[
-                        msg.sender?.id === effectiveUserUuid
+                        isOwnMessage(msg)
                           ? 'border-white/20 bg-white text-gray-900 shadow-md'
                           : 'bg-card/50 border-border/50 text-foreground'
                       ]"
@@ -2584,7 +2644,7 @@
                           <h4
                             class="truncate text-base leading-tight font-black sm:text-lg"
                             :class="
-                              msg.sender?.id === effectiveUserUuid
+                              isOwnMessage(msg)
                                 ? 'text-gray-900'
                                 : 'text-foreground'
                             "
@@ -2596,7 +2656,7 @@
                             <p
                               class="truncate text-xs font-bold"
                               :class="
-                                msg.sender?.id === effectiveUserUuid
+                                isOwnMessage(msg)
                                   ? 'text-gray-700'
                                   : 'text-foreground/70'
                               "
@@ -2606,7 +2666,7 @@
                             <p
                               class="text-[11px] leading-snug font-medium"
                               :class="
-                                msg.sender?.id === effectiveUserUuid
+                                isOwnMessage(msg)
                                   ? 'text-gray-500'
                                   : 'text-foreground/50'
                               "
@@ -2679,7 +2739,7 @@
                     >
                       <button
                         v-if="
-                          getAppointmentScheduleFromMsg(msg) && msg.sender?.id !== effectiveUserUuid
+                          getAppointmentScheduleFromMsg(msg) && !isOwnMessage(msg)
                         "
                         type="button"
                         :disabled="
@@ -2723,7 +2783,7 @@
                         @click.prevent="declineAppointment(msg.message)"
                         class="w-full cursor-pointer rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-center text-xs font-semibold text-rose-600 shadow-2xs transition-all hover:bg-rose-50 active:scale-95 disabled:opacity-50 sm:w-auto"
                       >
-                        {{ msg.sender?.id === effectiveUserUuid ? 'Cancel' : 'Decline' }}
+                        {{ isOwnMessage(msg) ? 'Cancel' : 'Decline' }}
                       </button>
                     </div>
 
@@ -2737,7 +2797,7 @@
                       class="mt-3.5 flex flex-wrap gap-2"
                     >
                       <!-- If Doctor sent the request to Patient, let Patient Accept, Reschedule, or Decline -->
-                      <template v-if="msg.sender?.id !== effectiveUserUuid">
+                      <template v-if="!isOwnMessage(msg)">
                         <button
                           type="button"
                           :disabled="
@@ -2833,7 +2893,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
@@ -2846,7 +2906,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Confirmed</span
                         >
@@ -2854,7 +2914,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           msg.message
@@ -2884,7 +2944,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-rose-200/60 bg-rose-50 text-rose-700'
                           "
@@ -2897,7 +2957,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Request Declined</span
                         >
@@ -2905,7 +2965,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -2920,7 +2980,7 @@
                         v-if="getDeclinedDiagnosisData(msg)"
                         class="mt-2.5 rounded-2xl border p-3 shadow-sm sm:mt-3 sm:p-4"
                         :class="[
-                          msg.sender?.id === effectiveUserUuid
+                          isOwnMessage(msg)
                             ? 'border-white/20 bg-white text-gray-900 shadow-md'
                             : 'border-border/50 bg-card/50 text-foreground'
                         ]"
@@ -2947,7 +3007,7 @@
                             <h4
                               class="truncate text-base leading-tight font-black sm:text-lg"
                               :class="
-                                msg.sender?.id === effectiveUserUuid
+                                isOwnMessage(msg)
                                   ? 'text-gray-900'
                                   : 'text-foreground'
                               "
@@ -2959,7 +3019,7 @@
                               <p
                                 class="truncate text-xs font-bold"
                                 :class="
-                                  msg.sender?.id === effectiveUserUuid
+                                  isOwnMessage(msg)
                                     ? 'text-gray-700'
                                     : 'text-foreground/70'
                                 "
@@ -2970,7 +3030,7 @@
                                 v-if="getDeclinedDiagnosisData(msg)?.date"
                                 class="text-[11px] leading-snug font-medium"
                                 :class="
-                                  msg.sender?.id === effectiveUserUuid
+                                  isOwnMessage(msg)
                                     ? 'text-gray-500'
                                     : 'text-foreground/50'
                                 "
@@ -3014,7 +3074,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-rose-200/60 bg-rose-50 text-rose-700'
                           "
@@ -3027,7 +3087,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Cancelled</span
                         >
@@ -3035,7 +3095,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3052,7 +3112,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
@@ -3065,7 +3125,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Appointment Completed</span
                         >
@@ -3073,7 +3133,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3090,7 +3150,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-sky-200/60 bg-sky-50 text-sky-700'
                           "
@@ -3103,7 +3163,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Proposed</span
                         >
@@ -3111,7 +3171,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3126,7 +3186,7 @@
                       <!-- Action Buttons for Recipient when proposal is active -->
                       <div
                         v-if="
-                          !isRescheduleHandled(msg.message) && msg.sender?.id !== effectiveUserUuid
+                          !isRescheduleHandled(msg.message) && !isOwnMessage(msg)
                         "
                         class="mt-3.5 flex flex-wrap gap-2 border-t border-slate-200/60 pt-2.5"
                       >
@@ -3183,7 +3243,7 @@
 
                       <div
                         v-else-if="
-                          !isRescheduleHandled(msg.message) && msg.sender?.id === effectiveUserUuid
+                          !isRescheduleHandled(msg.message) && isOwnMessage(msg)
                         "
                         class="mt-2.5 flex items-center gap-1.5 text-[11px] font-semibold text-white/80"
                       >
@@ -3193,7 +3253,7 @@
                         />
                         <span
                           >Waiting for
-                          {{ userRole?.toLowerCase() === 'doctor' ? 'patient' : 'doctor' }} to
+                          {{ isDoctorUser ? 'patient' : 'doctor' }} to
                           confirm proposal...</span
                         >
                       </div>
@@ -3205,7 +3265,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-sky-200/60 bg-sky-50 text-sky-700'
                           "
@@ -3218,7 +3278,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Requested</span
                         >
@@ -3226,7 +3286,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3245,7 +3305,7 @@
                         <div
                           class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl sm:h-9 sm:w-9"
                           :class="
-                            msg.sender?.id === effectiveUserUuid
+                            isOwnMessage(msg)
                               ? 'bg-white/15 text-white ring-1 ring-white/20'
                               : 'border border-emerald-200/60 bg-emerald-50 text-emerald-700'
                           "
@@ -3258,7 +3318,7 @@
                         <span
                           class="text-sm leading-tight font-bold sm:text-base"
                           :class="
-                            msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-slate-900'
+                            isOwnMessage(msg) ? 'text-white' : 'text-slate-900'
                           "
                           >Reschedule Accepted</span
                         >
@@ -3266,7 +3326,7 @@
                       <p
                         class="text-xs leading-relaxed sm:text-sm"
                         :class="
-                          msg.sender?.id === effectiveUserUuid ? 'text-white/95' : 'text-slate-800'
+                          isOwnMessage(msg) ? 'text-white/95' : 'text-slate-800'
                         "
                         v-html="
                           formatHighlightedText(
@@ -3294,7 +3354,7 @@
                       v-for="attachment in msg.attachments"
                       :key="attachment.id"
                       class="group/attachment relative overflow-hidden rounded-xl border border-white/10"
-                      :class="msg.sender?.id === effectiveUserUuid ? 'bg-white/10' : 'bg-black/5'"
+                      :class="isOwnMessage(msg) ? 'bg-white/10' : 'bg-black/5'"
                     >
                       <!-- Image Preview -->
                       <div
@@ -3327,7 +3387,7 @@
                             "
                             class="text-xl"
                             :class="
-                              msg.sender?.id === effectiveUserUuid ? 'text-white' : 'text-primary'
+                              isOwnMessage(msg) ? 'text-white' : 'text-primary'
                             "
                           />
                         </div>
@@ -3335,7 +3395,7 @@
                           <p
                             class="truncate text-xs font-bold"
                             :class="
-                              msg.sender?.id === effectiveUserUuid
+                              isOwnMessage(msg)
                                 ? 'text-white'
                                 : 'text-foreground'
                             "
@@ -3344,7 +3404,7 @@
                           <p
                             class="text-[10px] opacity-60"
                             :class="
-                              msg.sender?.id === effectiveUserUuid
+                              isOwnMessage(msg)
                                 ? 'text-white'
                                 : 'text-foreground'
                             "
@@ -3360,12 +3420,34 @@
                     </div>
                   </div>
 
+                  <!-- Clean Secretary Attribution Footer -->
+                  <div
+                    v-if="getSecretaryAttributionName(msg)"
+                    class="mt-2.5 flex items-center gap-1.5 border-t pt-2 text-[11px] font-medium"
+                    :class="
+                      isOwnMessage(msg)
+                        ? 'border-white/20 text-white/90'
+                        : 'border-border/70 text-foreground/70'
+                    "
+                  >
+                    <Icon
+                      name="lucide:user-check"
+                      class="h-3.5 w-3.5 shrink-0"
+                    />
+                    <span class="truncate">
+                      {{ isCardMessage(msg) ? 'Handled by Secretary' : 'Sent by Secretary' }}
+                      · {{ getSecretaryAttributionName(msg) }}
+                    </span>
+                  </div>
+
                   <!-- Own message action dots (visible on hover) -->
                   <button
-                    v-if="msg.sender?.id === effectiveUserUuid"
+                    v-if="canModifyMessage(msg)"
+                    type="button"
+                    aria-label="Message actions"
                     @click.stop="openContextMenu($event, msg)"
-                    class="absolute top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100"
-                    :class="msg.sender?.id === effectiveUserUuid ? '-left-9' : '-right-9'"
+                    class="absolute top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    :class="isOwnMessage(msg) ? '-left-9' : '-right-9'"
                   >
                     <Icon
                       name="solar:menu-dots-vertical-bold"
@@ -3376,7 +3458,7 @@
 
                 <span
                   class="text-foreground/70 text-[11px] font-medium"
-                  :class="msg.sender?.id === effectiveUserUuid ? 'text-right' : 'text-left'"
+                  :class="isOwnMessage(msg) ? 'text-right' : 'text-left'"
                 >
                   {{ formatTime(msg.created_at) }}
                   <span
@@ -3386,7 +3468,7 @@
                     · edited</span
                   >
                   <span
-                    v-if="msg.sender?.id === effectiveUserUuid && msg.is_read"
+                    v-if="isOwnMessage(msg) && msg.is_read"
                     class="ml-1"
                     >✓✓</span
                   >

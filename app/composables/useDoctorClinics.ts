@@ -4,11 +4,11 @@ import {
   type CreateClinicPayload
 } from '~/api/doctorClinic/DoctorClinicService'
 
-const clinics = ref<DoctorClinic[]>([])
-const isLoading = ref(false)
-const isLoaded = ref(false)
-
 export const useDoctorClinics = () => {
+  const clinics = useState<DoctorClinic[]>('doctor-clinics-list', () => [])
+  const isLoading = useState<boolean>('doctor-clinics-loading', () => false)
+  const isLoaded = useState<boolean>('doctor-clinics-loaded', () => false)
+
   const fetchClinics = async (force = false) => {
     if (isLoaded.value && !force) return clinics.value
 

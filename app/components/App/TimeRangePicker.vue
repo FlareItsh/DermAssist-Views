@@ -26,7 +26,12 @@
       label?: string
       blockedSlots?: Array<{ start_time: string; end_time: string }>
       existingAppointments?: Array<{ start_time: string; end_time: string; label?: string }>
-      dutySlots?: Array<{ start_time: string; end_time: string; location_name?: string }>
+      dutySlots?: Array<{
+        start_time: string
+        end_time: string
+        location_name?: string | null
+        clinic?: { name?: string } | null
+      }>
       currentStartTime?: string
     }>(),
     {
@@ -219,6 +224,13 @@
     return slots.sort((a, b) => timeToMinutes(a.time24) - timeToMinutes(b.time24))
   })
 
+  const hasMultipleClinics = computed(() => {
+    const names = new Set(
+      availableTimeSlots.value.map(s => s.clinicName?.trim()).filter(Boolean)
+    )
+    return names.size > 1
+  })
+
   const isSlotSelected = (slot: TimeSlotOption) => {
     return normalizedStartTime.value === slot.time24
   }
@@ -336,6 +348,18 @@
           :class="isSlotSelected(slot) ? 'text-white/80' : 'text-muted-foreground'"
         >
           {{ slot.isPassed ? 'Passed' : `until ${slot.endLabel}` }}
+        </span>
+        <span
+          v-if="hasMultipleClinics && slot.clinicName"
+          class="mt-0.5 max-w-full truncate rounded-md px-1.5 py-0.5 text-[9px] font-semibold"
+          :class="
+            isSlotSelected(slot)
+              ? 'bg-white/20 text-white'
+              : 'bg-indigo-50 text-indigo-700'
+          "
+          :title="slot.clinicName"
+        >
+          {{ slot.clinicName }}
         </span>
         <span
           v-if="slot.isCurrentApptTime"

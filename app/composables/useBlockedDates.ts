@@ -25,9 +25,24 @@ export type BlockedSlot = AvailabilitySlot
  * State is shared globally via `useState` so multiple components stay in sync.
  */
 export const useBlockedDates = () => {
-  const { uuid: authUuid, role: authRole } = useAuth()
+  const {
+    uuid: authUuid,
+    role: authRole,
+    doctorUuid: authDoctorUuid,
+    user: authUser,
+    fetchUser
+  } = useAuth()
   const userUuid = computed(() => authUuid.value || useCookie('user_uuid').value || '')
-  const userRole = computed(() => authRole.value || useCookie('user_role').value || '')
+  const userRole = computed(() =>
+    (authRole.value || useCookie('user_role').value || '').toString().toLowerCase()
+  )
+  const resolvedDoctorUuid = computed(
+    () =>
+      authDoctorUuid.value ||
+      authUser.value?.assigned_doctor?.uuid ||
+      useCookie('doctor_uuid').value ||
+      ''
+  )
 
   const allSlots = useState<AvailabilitySlot[]>('doctor_all_avail_slots', () => [])
   const isFetchingBlocked = ref(false)
@@ -45,19 +60,28 @@ export const useBlockedDates = () => {
   })
 
   const fetchBlockedSlots = async () => {
-    if (!userUuid.value) return
-    const role = (userRole.value || '').toString().toLowerCase()
+    const role = userRole.value
     if (!['doctor', 'secretary'].includes(role)) return
+
+    let targetUuid = role === 'secretary' ? resolvedDoctorUuid.value : userUuid.value
+
+    if (role === 'secretary' && !targetUuid) {
+      try {
+        const fetched = await fetchUser()
+        targetUuid =
+          fetched?.doctor_uuid ||
+          fetched?.assigned_doctor?.uuid ||
+          fetched?.doctor?.uuid ||
+          ''
+      } catch {
+        // Unauthenticated state handled by auth middleware
+      }
+    }
+
+    if (!targetUuid) return
 
     isFetchingBlocked.value = true
     try {
-      let targetUuid = userUuid.value
-      if (role === 'secretary') {
-        const authUser = useCookie<any>('auth_user')
-        if (authUser.value?.doctor?.uuid) {
-          targetUuid = authUser.value.doctor.uuid
-        }
-      }
       const res = await doctorAvailabilityService.listForDoctor(targetUuid)
       const list = (res as any)?.data ?? (Array.isArray(res) ? res : [])
       allSlots.value = list
@@ -114,25 +138,78 @@ export const useBlockedDates = () => {
   ): AvailabilitySlot | null => {
     if (!dateStr || !startTime) return null
     const sStart = startTime.slice(0, 5)
-    const sEnd = (endTime || startTime).slice(0, 5)
+    const sEnd = (endTime || '').slice(0, 5)
+    const hasValidRange = Boolean(sEnd && sEnd > sStart)
 
     const dayDutySlots = getDutySlotsForDate(dateStr)
+    if (!dayDutySlots.length) return null
 
-    // First try exact overlap
-    const matchingSlot = dayDutySlots.find(slot => {
+    // 1. Exact containment of full [start, end] range
+    if (hasValidRange) {
+      const contained = dayDutySlots.find(slot => {
+        const dStart = slot.start_time.slice(0, 5)
+        const dEnd = slot.end_time.slice(0, 5)
+        return sStart >= dStart && sEnd <= dEnd
+      })
+      if (contained) return contained
+    }
+
+    // 2. Start time falls within duty slot (handles missing or stale endTime)
+    const byStart = dayDutySlots.find(slot => {
       const dStart = slot.start_time.slice(0, 5)
       const dEnd = slot.end_time.slice(0, 5)
-      return sStart < dEnd && sEnd > dStart
+      return sStart >= dStart && sStart < dEnd
     })
+    if (byStart) return byStart
 
-    if (matchingSlot) return matchingSlot
+    // 3. Overlap fallback when a valid range is provided
+    if (hasValidRange) {
+      const overlapping = dayDutySlots.find(slot => {
+        const dStart = slot.start_time.slice(0, 5)
+        const dEnd = slot.end_time.slice(0, 5)
+        return sStart < dEnd && sEnd > dStart
+      })
+      if (overlapping) return overlapping
+    }
 
-    // If only 1 duty slot exists on this day, fallback to that clinic
+    // 4. If only 1 duty slot exists on this day, fallback to that clinic
     if (dayDutySlots.length === 1) {
       return dayDutySlots[0]
     }
 
     return null
+  }
+
+  /**
+   * Map a matched duty slot onto a clinic <select> + optional custom input value
+   * so custom or renamed duty locations never leave the dropdown blank.
+   */
+  const resolveDutyClinicSelection = (
+    matchedDuty: AvailabilitySlot | null,
+    clinicsList: Array<{ id?: number; name: string }> = []
+  ): { location: string; customLocation: string } | null => {
+    if (!matchedDuty) return null
+
+    if (matchedDuty.clinic_id && clinicsList.length > 0) {
+      const byId = clinicsList.find(c => c.id === matchedDuty.clinic_id)
+      if (byId) {
+        return { location: byId.name, customLocation: '' }
+      }
+    }
+
+    const loc = (matchedDuty.clinic?.name || matchedDuty.location_name || '').trim()
+    if (!loc) return null
+
+    if (clinicsList.length === 0) {
+      return { location: loc, customLocation: loc }
+    }
+
+    const byName = clinicsList.find(c => c.name === loc)
+    if (byName) {
+      return { location: byName.name, customLocation: '' }
+    }
+
+    return { location: '__custom__', customLocation: loc }
   }
 
   /**
@@ -323,6 +400,7 @@ export const useBlockedDates = () => {
     getBlockedTimesForDate,
     getDutySlotsForDate,
     getDutyClinicForDateAndTime,
+    resolveDutyClinicSelection,
     hasBlockedTime,
     isWholeDayBlocked,
     isTimeBlockedOnDate,
