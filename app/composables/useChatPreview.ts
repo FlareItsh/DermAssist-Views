@@ -7,6 +7,34 @@ export interface ParsedChatPreview {
   rawUserText: string
 }
 
+export interface SecretaryAttribution {
+  body: string
+  secretaryName: string | null
+}
+
+const SECRETARY_SIGNATURE_REGEX = /\r?\n\s*-\s*Sent by Secretary \(([^)]+)\)\s*$/i
+
+/**
+ * Separates trailing "- Sent by Secretary (Name)" attribution from a chat message body
+ * so UI surfaces can render clean copy and structured attribution footers.
+ */
+export const extractSecretaryAttribution = (
+  rawMessage?: string | null
+): SecretaryAttribution => {
+  if (!rawMessage || typeof rawMessage !== 'string') {
+    return { body: '', secretaryName: null }
+  }
+
+  const match = rawMessage.match(SECRETARY_SIGNATURE_REGEX)
+  if (!match) {
+    return { body: rawMessage, secretaryName: null }
+  }
+
+  const secretaryName = (match[1] || '').trim() || null
+  const body = rawMessage.slice(0, match.index).trimEnd()
+  return { body, secretaryName }
+}
+
 /**
  * Parses raw chat message strings to produce clean, badge-friendly previews,
  * gracefully handling DermAssist system tags (scans, appointments, reschedules).
@@ -26,7 +54,7 @@ export const parseChatPreview = (
     }
   }
 
-  const str = rawMessage.trim()
+  const str = extractSecretaryAttribution(rawMessage).body.trim()
 
   // 1. Clinical Scan Findings
   if (str.includes('[SCAN_RESULT:')) {
@@ -217,6 +245,7 @@ export const isActionableNotificationMessage = (rawMessage?: string | null): boo
 
 export const useChatPreview = () => {
   return {
+    extractSecretaryAttribution,
     parseChatPreview,
     isActionableNotificationMessage
   }

@@ -795,6 +795,7 @@
     getBlockedTimesForDate,
     getDutySlotsForDate,
     getDutyClinicForDateAndTime,
+    resolveDutyClinicSelection,
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
@@ -804,20 +805,18 @@
     useAppointments()
   const scheduledFollowUpUuid = ref<string | undefined>()
 
-  // Smart autofill clinic location from duty preset when date & time change
+  // Smart autofill clinic location from duty preset when date, time, or schedule data change
   watch(
-    [followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly],
+    [followUpDateOnly, followUpTimeOnly, followUpEndTimeOnly, dutySlots, clinics],
     ([date, start, end]) => {
       if (!date || !start) return
       const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-      if (matchedDuty) {
-        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-        if (loc) {
-          followUpLocation.value = loc
-          customFollowUpLocation.value = ''
-          wasLocationAutofilled.value = true
-          return
-        }
+      const resolved = resolveDutyClinicSelection(matchedDuty, clinics.value)
+      if (resolved) {
+        followUpLocation.value = resolved.location
+        customFollowUpLocation.value = resolved.customLocation
+        wasLocationAutofilled.value = true
+        return
       }
 
       // If no duty schedule found and followUpLocation was previously autofilled or empty
@@ -2039,7 +2038,7 @@
                       :selected-date="followUpDateOnly"
                       :blocked-slots="blockedSlots"
                       :duty-slots="dutySlots"
-                      :show-manage-blocks-link="true"
+                      :show-manage-blocks-link="userRole === 'doctor'"
                       :show-appointment-details-panel="false"
                       @date-selected="handleFollowUpDateSelected"
                     />
@@ -2132,6 +2131,7 @@
                     <select
                       v-if="clinics.length > 0"
                       v-model="followUpLocation"
+                      @change="wasLocationAutofilled = false"
                       class="focus:border-primary focus:ring-primary/20 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs font-semibold text-gray-900 shadow-xs transition-all focus:ring-2 focus:outline-none sm:text-sm"
                     >
                       <option
@@ -2154,6 +2154,7 @@
                       v-if="clinics.length === 0 || followUpLocation === '__custom__'"
                       type="text"
                       v-model="customFollowUpLocation"
+                      @input="wasLocationAutofilled = false"
                       placeholder="e.g. SkinCare Clinic, Room 402"
                       class="focus:border-primary focus:ring-primary/20 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-900 shadow-xs transition-all placeholder:text-gray-400 focus:ring-2 focus:outline-none sm:text-sm"
                     />

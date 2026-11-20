@@ -101,6 +101,7 @@
     getBlockedTimesForDate,
     getDutySlotsForDate,
     getDutyClinicForDateAndTime,
+    resolveDutyClinicSelection,
     hasDutyOnDate,
     isTimeRangeWithinDutyHours,
     getDutyRangesLabel,
@@ -112,20 +113,25 @@
     await Promise.all([fetchClinics(), fetchAppointments(), fetchBlockedSlots()])
   })
 
-  // Smart autofill clinic location from duty preset when date & time change
+  watch(scheduleTime, newStart => {
+    if (!newStart) return
+    const [h, m] = newStart.split(':').map(Number)
+    const endHour = (h + 1) % 24
+    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  })
+
+  // Smart autofill clinic location from duty preset when date, time, or schedule data change
   watch(
-    [selectedDate, scheduleTime, scheduleEndTime],
+    [selectedDate, scheduleTime, scheduleEndTime, dutySlots, clinics],
     ([date, start, end]) => {
       if (!date || !start) return
       const matchedDuty = getDutyClinicForDateAndTime(date, start, end)
-      if (matchedDuty) {
-        const loc = matchedDuty.clinic?.name || matchedDuty.location_name
-        if (loc) {
-          scheduleLocation.value = loc
-          customLocationInput.value = ''
-          wasAutofilled.value = true
-          return
-        }
+      const resolved = resolveDutyClinicSelection(matchedDuty, clinics.value)
+      if (resolved) {
+        scheduleLocation.value = resolved.location
+        customLocationInput.value = resolved.customLocation
+        wasAutofilled.value = true
+        return
       }
 
       // If no duty schedule found and scheduleLocation was previously autofilled or empty
@@ -148,13 +154,6 @@
   const dutySlotsForDate = computed(() => {
     if (!selectedDate.value) return []
     return getDutySlotsForDate(selectedDate.value)
-  })
-
-  watch(scheduleTime, newStart => {
-    if (!newStart) return
-    const [h, m] = newStart.split(':').map(Number)
-    const endHour = (h + 1) % 24
-    scheduleEndTime.value = `${String(endHour).padStart(2, '0')}:${String(m).padStart(2, '0')}`
   })
 
   const existingApptSlotsForDate = computed(() => {
@@ -630,6 +629,7 @@
                   <select
                     v-if="clinics.length > 0"
                     v-model="scheduleLocation"
+                    @change="wasAutofilled = false"
                     class="text-foreground w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500"
                   >
                     <option
@@ -652,6 +652,7 @@
                     v-if="clinics.length === 0 || scheduleLocation === '__custom__'"
                     type="text"
                     v-model="customLocationInput"
+                    @input="wasAutofilled = false"
                     placeholder="e.g. SkinCare Clinic, Rm 302"
                     class="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm font-medium outline-none focus:border-indigo-500"
                   />
