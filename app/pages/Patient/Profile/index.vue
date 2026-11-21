@@ -61,16 +61,25 @@
   }
 
   const handleApplyCroppedAvatar = async (croppedBase64: string) => {
+    if (!userUuid.value) {
+      toast.error('Unable to resolve account identity. Please refresh and try again.')
+      return
+    }
     isUploadingAvatar.value = true
     try {
-      await userService.update(userUuid, {
+      await userService.update(userUuid.value, {
         avatar: croppedBase64
       })
       avatarError.value = false
       toast.success('Profile picture updated successfully.')
       showCropModal.value = false
       rawAvatarSrc.value = ''
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
+      await Promise.all([
+        refresh(),
+        refreshProfile(),
+        refreshNuxtData(`userProfile-${userUuid.value}`),
+        fetchUser(true)
+      ])
     } catch (err: any) {
       console.error('Failed to upload avatar:', err)
       toast.error(
@@ -208,7 +217,11 @@
         useCookie('verification_deadline', { path: '/' }).value = res.verification_deadline
       }
       startCooldown()
-      await Promise.all([refresh(), refreshProfile(), refreshNuxtData(`userProfile-${userUuid}`)])
+      await Promise.all([
+        refresh(),
+        refreshProfile(),
+        refreshNuxtData(`userProfile-${userUuid.value}`)
+      ])
       updateCountdown()
     } catch (err: any) {
       const msg = err?.data?.message || err?.message || 'Failed to resend verification email.'
